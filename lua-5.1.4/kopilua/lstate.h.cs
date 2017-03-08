@@ -1,3 +1,16 @@
+using System.Diagnostics;
+
+namespace KopiLua
+{
+	using lu_byte = System.Byte;
+	using lu_int32 = System.Int32;
+	using lu_mem = System.UInt32;
+	using TValue = Lua.lua_TValue;
+	using StkId = Lua.lua_TValue;
+	using ptrdiff_t = System.Int32;
+	
+	public partial class Lua
+	{
 		/* table of globals */
 		public static TValue gt(lua_State L)	{return L.l_gt;}
 
@@ -323,3 +336,5 @@
 		/* macro to convert any Lua object into a GCObject */
 		public static GCObject obj2gco(object v)	{return (GCObject)v;}
 
+	}
+}

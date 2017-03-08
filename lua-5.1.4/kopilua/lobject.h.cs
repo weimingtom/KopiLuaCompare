@@ -1,3 +1,16 @@
+using System;
+using System.Diagnostics;
+
+namespace KopiLua
+{
+	using TValue = Lua.lua_TValue;
+	using StkId = Lua.lua_TValue;
+	using lu_byte = System.Byte;
+	using lua_Number = System.Double;
+	using Instruction = System.UInt32;
+	
+	public partial class Lua
+	{
 		/* tags for values visible from Lua */
 		public const int LAST_TAG	= LUA_TTHREAD;
 
@@ -672,4 +685,5 @@
 		public static TValue luaO_nilobject = luaO_nilobject_;
 
 		public static int ceillog2(int x)	{return luaO_log2((uint)(x-1)) + 1;}
-
+	}
+}

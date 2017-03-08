@@ -15,7 +15,7 @@ namespace KopiLua
 {
 	using Instruction = System.UInt32;
 
-	public class Program
+	public class Program_luac
 	{
 		//#include <errno.h>
 		//#include <stdio.h>
@@ -196,7 +196,7 @@ namespace KopiLua
 		 return 0;
 		}
 
-		static int Main(string[] args)
+		static int Main_luac(string[] args)
 		{
 		 // prepend the exe name to the arg list as it's done in C
 		 // so that we don't have to change any of the args indexing

@@ -1,3 +1,7 @@
+namespace KopiLua
+{
+	public partial class Lua
+	{
 		public const int EOZ = -1;			/* end of stream */
 
 		public class ZIO : Zio { };
@@ -54,3 +58,5 @@
 			public object data;			/* additional data */
 			public lua_State L;			/* Lua state (for reader) */
 		};
+	}
+}

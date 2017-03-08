@@ -1,3 +1,9 @@
+using System.Diagnostics;
+
+namespace KopiLua
+{
+	using Instruction = System.UInt32;
+	
 	public class InstructionPtr
 	{
 		public Instruction[] codes;
@@ -49,3 +55,4 @@
 			return p1.pc > p2.pc;
 		}
 	};
+}

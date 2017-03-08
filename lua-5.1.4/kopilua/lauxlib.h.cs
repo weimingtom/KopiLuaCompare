@@ -1,3 +1,10 @@
+namespace KopiLua
+{
+	using lua_Number = System.Double;
+	using lua_Integer = System.Int32;
+	
+	public partial class Lua
+	{
 		#if LUA_COMPAT_GETN
 		public static int luaL_getn(lua_State L, int t);
 		public static void luaL_setn(lua_State L, int t, int n);
@@ -114,4 +121,6 @@
 
 		//#define lauxlib_c
 		//#define LUA_LIB
+	}
+}
 

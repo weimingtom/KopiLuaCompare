@@ -1,4 +1,7 @@
-
+namespace KopiLua
+{
+	using TValue = Lua.lua_TValue;
+	
 	public partial class Lua
 	{
 		/*
@@ -34,4 +37,5 @@
 		}
 
 		public static TValue fasttm(lua_State l, Table et, TMS e)	{return gfasttm(G(l), et, e);}
-
+	}
+}

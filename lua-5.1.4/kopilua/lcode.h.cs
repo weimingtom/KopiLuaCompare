@@ -1,5 +1,7 @@
-
-
+namespace KopiLua
+{
+	public partial class Lua
+	{
 		/*
 		** Marks the end of a patch list. It is an invalid value both as an absolute
 		** address, and as a list link (would link an element to itself).
@@ -28,3 +30,5 @@
 		public static int luaK_codeAsBx(FuncState fs, OpCode o, int A, int sBx)	{return luaK_codeABx(fs,o,A,sBx+MAXARG_sBx);}
 
 		public static void luaK_setmultret(FuncState fs, expdesc e)	{luaK_setreturns(fs, e, LUA_MULTRET);}
+	}
+}

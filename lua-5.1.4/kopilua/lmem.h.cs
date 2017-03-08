@@ -1,3 +1,9 @@
+using System.Diagnostics;
+
+namespace KopiLua
+{
+	public partial class Lua
+	{
 		public const string MEMERRMSG	= "not enough memory";
 
 		public static T[] luaM_reallocv<T>(lua_State L, T[] block, int new_size)
@@ -33,4 +39,5 @@
 			v = luaM_reallocv<T>(L, v, n);
 			return v;
 		}
-
+	}
+}

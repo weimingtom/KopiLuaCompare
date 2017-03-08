@@ -1,3 +1,9 @@
+namespace KopiLua
+{
+	using lua_Number = System.Double;
+	
+	public partial class Lua
+	{
 		public const int FIRST_RESERVED	= 257;
 
 		/* maximum length of a reserved word */
@@ -58,3 +64,5 @@
 			public TString source;  /* current source name */
 			public char decpoint;  /* locale decimal point */
 		};
+	}
+}

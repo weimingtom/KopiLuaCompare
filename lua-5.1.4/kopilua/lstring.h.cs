@@ -1,3 +1,9 @@
+namespace KopiLua
+{
+	using lu_byte = System.Byte;
+	
+	public partial class Lua
+	{
 		public static int sizestring(TString s) {return ((int)s.len + 1) * GetUnmanagedSize(typeof(char)); }
 
 		public static int sizeudata(Udata u) { return (int)u.len; }
@@ -11,3 +17,5 @@
 			l_setbit(ref marked, FIXEDBIT);
 			s.tsv.marked = marked;
 		}
+	}
+}

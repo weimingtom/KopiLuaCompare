@@ -1,3 +1,10 @@
+namespace KopiLua
+{
+	using TValue = Lua.lua_TValue;
+	using lu_byte = System.Byte;
+	
+	public partial class Lua
+	{
 		/*
 		** Possible states of the Garbage Collector
 		*/
@@ -85,3 +92,5 @@
 
 		public static void luaC_objbarriert(lua_State L, Table t, object o)
 			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(t))) luaC_barrierback(L,t); }
+	}
+}

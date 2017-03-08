@@ -1,3 +1,10 @@
+namespace KopiLua
+{
+	using lu_byte = System.Byte;
+	using lua_Number = System.Double;
+
+	public partial class Lua
+	{
 		/*
 		** Expression descriptor
 		*/
@@ -91,3 +98,5 @@
 		  public upvaldesc[] upvalues = new upvaldesc[LUAI_MAXUPVALUES];  /* upvalues */
 		  public ushort[] actvar = new ushort[LUAI_MAXVARS];  /* declared-variable stack */
 		};
+	}
+}

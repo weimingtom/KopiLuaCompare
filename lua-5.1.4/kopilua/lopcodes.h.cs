@@ -1,3 +1,9 @@
+namespace KopiLua
+{
+	using Instruction = System.UInt32;
+	
+	public partial class Lua
+	{
 		/*===========================================================================
 		  We assume that instructions are unsigned numbers.
 		  All instructions have an opcode in the first 6 bits.
@@ -296,4 +302,5 @@
 
 		/* number of list items to accumulate before a SETLIST instruction */
 		public const int LFIELDS_PER_FLUSH	= 50;
-
+	}
+}

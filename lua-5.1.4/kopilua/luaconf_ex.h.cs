@@ -1,3 +1,14 @@
+using System;
+using System.IO;
+using System.Diagnostics;
+using AT.MIN;
+
+namespace KopiLua
+{
+	using lua_Number = System.Double;
+	
+	public partial class Lua
+	{
 		// misc stuff needed for the compile
 
 		public static bool isalpha(char c) { return Char.IsLetter(c); }
@@ -828,3 +839,5 @@
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}
+	}
+}
