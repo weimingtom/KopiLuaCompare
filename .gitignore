@@ -196,4 +196,7 @@ FakesAssemblies/
 *.opt
 
 lua-5.1.4/kopilua/bin/
+lua-5.1.4/kopilua/obj/
+lua-5.3.4/kopilua/bin/
+lua-5.3.4/kopilua/obj/
 *.class
