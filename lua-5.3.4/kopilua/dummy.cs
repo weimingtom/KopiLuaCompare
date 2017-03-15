@@ -2,6 +2,8 @@
 
 namespace KopiLua
 {
+	using StkId = Lua.lua_TValue;
+	
 	public partial class Lua
 	{
 		public Lua()
@@ -34,8 +36,26 @@ namespace KopiLua
 			
 		}
 		
+		public static void condmovestack(lua_State L, int pre, int pos)
+		{
+			
+		}
+		
+		public static void luaD_growstack(lua_State L, int n)
+		{
+			
+		}
+		
 		public static int LUA_MULTRET = 0;
 		public static int MAXARG_sBx = 0;
+		
+		public class lua_TValue
+		{
+			public static implicit operator int(lua_TValue value)
+			{
+				return 0;
+			}
+		}
 	}
 	
 	public class lua_State 
@@ -48,6 +68,10 @@ namespace KopiLua
 		}
 		
 		public ci_cls ci;
+		public int basehookcount = 0;
+		public int hookcount = 0;
+		public int stack_last = 0;
+		public StkId[] stack;
 	}
 	
 	public class Test
@@ -61,6 +85,8 @@ namespace KopiLua
 	public class InstructionPtr
 	{
 		public InstructionPtr(int arg1, int arg2){}
+		public int pc;
+		public int codes;
 	}
 	
 	public class FuncState
@@ -78,5 +104,11 @@ namespace KopiLua
 	public class OpCode
 	{
 		
+	}
+	
+	public class Proto
+	{
+		public int code;
+		public int[] lineinfo;
 	}
 }
