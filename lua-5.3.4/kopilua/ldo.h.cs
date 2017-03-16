@@ -12,30 +12,30 @@ namespace KopiLua
 	{
 
 
-	/*
-	** Macro to check stack size and grow stack if needed.  Parameters
-	** 'pre'/'pos' allow the macro to preserve a pointer into the
-	** stack across reallocations, doing the work only when needed.
-	** 'condmovestack' is used in heavy tests to force a stack reallocation
-	** at every check.
-	*/
-	//FIXME:FIXME:
-	public static void luaD_checkstackaux(lua_State L, int n, int pre, int pos) {
-		if (L.stack_last - L.top <= (n))
-		{ /*pre;*/ luaD_growstack(L, n); /*pos;*/ } else { condmovestack(L, pre, pos);} }
-
-	//FIXME:FIXME:
-	/* In general, 'pre'/'pos' are empty (nothing to save) */
-	public static void luaD_checkstack(lua_State L, int n)	{luaD_checkstackaux(L, n, 0, 0);}
-
-
-
-	public static int savestack(lua_State L, StkId p) {return p;} //FIXME:
-	public static StkId restorestack(lua_State L, int n)	{return L.stack[n];} //FIXME:
+		/*
+		** Macro to check stack size and grow stack if needed.  Parameters
+		** 'pre'/'pos' allow the macro to preserve a pointer into the
+		** stack across reallocations, doing the work only when needed.
+		** 'condmovestack' is used in heavy tests to force a stack reallocation
+		** at every check.
+		*/
+		//FIXME:FIXME:
+		public static void luaD_checkstackaux(lua_State L, int n, int pre, int pos) {
+			if (L.stack_last - L.top <= (n))
+			{ /*pre;*/ luaD_growstack(L, n); /*pos;*/ } else { condmovestack(L, pre, pos);} }
 	
-
-	/* type of protected functions, to be ran by 'runprotected' */
-	public delegate void Pfunc(lua_State L, object ud);
+		//FIXME:FIXME:
+		/* In general, 'pre'/'pos' are empty (nothing to save) */
+		public static void luaD_checkstack(lua_State L, int n)	{luaD_checkstackaux(L, n, 0, 0);}
+	
+	
+	
+		public static int savestack(lua_State L, StkId p) {return p;} //FIXME:
+		public static StkId restorestack(lua_State L, int n)	{return L.stack[n];} //FIXME:
+		
+	
+		/* type of protected functions, to be ran by 'runprotected' */
+		public delegate void Pfunc(lua_State L, object ud);
 
 //LUAI_FUNC int luaD_protectedparser (lua_State *L, ZIO *z, const char *name,
 //                                                  const char *mode);

@@ -46,6 +46,12 @@ namespace KopiLua
 			
 		}
 		
+		public static int GetUnmanagedSize(Type type)
+		{
+			return 0;
+		}
+			
+		
 		public static int LUA_MULTRET = 0;
 		public static int MAXARG_sBx = 0;
 		
@@ -61,6 +67,7 @@ namespace KopiLua
 	public class lua_State 
 	{
 		public int top;
+		public lua_State twups;
 
 		public class ci_cls {
 			public int top;
@@ -110,5 +117,25 @@ namespace KopiLua
 	{
 		public int code;
 		public int[] lineinfo;
+	}
+	
+	public class TValue
+	{
+		
+	}
+	
+	public class lu_mem
+	{
+		
+	}
+	
+	public class CClosure
+	{
+		
+	}
+	
+	public class LClosure
+	{
+		
 	}
 }
