@@ -60,6 +60,7 @@
     <Compile Include="ldebug.h.cs" />
     <Compile Include="ldo.h.cs" />
     <Compile Include="lfunc.h.cs" />
+    <Compile Include="lgc.h.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

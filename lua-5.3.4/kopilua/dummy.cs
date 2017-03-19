@@ -50,7 +50,51 @@ namespace KopiLua
 		{
 			return 0;
 		}
+		
+		public static global_State G(lua_State L)
+		{
+			return null;
+		}
+		
+		public static void luaC_step(lua_State L)
+		{
 			
+		}
+		
+		public static void condchangemem(lua_State L)
+		{
+			
+		}
+		
+		public static bool iscollectable(TValue t)
+		{
+			return false;
+		}
+		
+		public static GCObject gcvalue(TValue t)
+		{
+			return null;
+		}
+		
+		public static GCObject obj2gco(GCObject obj)
+		{
+			return null;
+		}
+		
+		public static void luaC_barrier_(lua_State L, GCObject p, GCObject v)
+		{
+			
+		}
+		
+		public static void luaC_barrierback_(lua_State L, GCObject p)
+		{
+			
+		}
+		
+		public static void luaC_upvalbarrier_(lua_State L, UpVal uv)
+		{
+			
+		}
 		
 		public static int LUA_MULTRET = 0;
 		public static int MAXARG_sBx = 0;
@@ -121,7 +165,7 @@ namespace KopiLua
 	
 	public class TValue
 	{
-		
+		public int marked;
 	}
 	
 	public class lu_mem
@@ -137,5 +181,22 @@ namespace KopiLua
 	public class LClosure
 	{
 		
+	}
+	
+	public class TString
+	{
+		
+	}
+	
+	public class global_State
+	{
+		public int gcstate;
+		public int currentwhite;
+		public int GCdebt;
+	}
+	
+	public class GCObject
+	{
+		public int marked;
 	}
 }
