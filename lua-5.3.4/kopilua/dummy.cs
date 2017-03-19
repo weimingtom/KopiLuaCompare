@@ -96,6 +96,31 @@ namespace KopiLua
 			
 		}
 		
+		public static object luaM_realloc_(lua_State L, Type t)
+		{
+			return null;
+		}
+
+		public static object luaM_realloc_<T>(lua_State L)
+		{
+			return null;
+		}
+
+		public static object luaM_realloc_<T>(lua_State L, T obj)
+		{
+			return null;
+		}
+		
+		public static object luaM_realloc_<T>(lua_State L, T[] old_block, int new_size)
+		{
+			return null;
+		}
+		
+		public static T[] luaM_growaux_<T>(lua_State L, ref T[] block, ref int size,
+		                                   int limit, CharPtr errormsg) {
+			return null;
+		}
+		
 		public static int LUA_MULTRET = 0;
 		public static int MAXARG_sBx = 0;
 		
@@ -216,6 +241,11 @@ namespace KopiLua
 	}
 	
 	public class Dyndata
+	{
+		
+	}
+	
+	public class CharPtr
 	{
 		
 	}
