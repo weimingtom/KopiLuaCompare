@@ -199,4 +199,24 @@ namespace KopiLua
 	{
 		public int marked;
 	}
+	
+	public class ZIO
+	{
+		
+	}
+	
+	public class Mbuffer
+	{
+		
+	}
+	
+	public class Table
+	{
+		
+	}
+	
+	public class Dyndata
+	{
+		
+	}
 }
