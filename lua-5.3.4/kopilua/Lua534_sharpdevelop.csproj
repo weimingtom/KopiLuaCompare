@@ -63,6 +63,7 @@
     <Compile Include="lgc.h.cs" />
     <Compile Include="llex.h.cs" />
     <Compile Include="lmem.h.cs" />
+    <Compile Include="ltable.h.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

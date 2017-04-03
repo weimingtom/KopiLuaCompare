@@ -117,8 +117,14 @@ namespace KopiLua
 		}
 		
 		public static T[] luaM_growaux_<T>(lua_State L, ref T[] block, ref int size,
-		                                   int limit, CharPtr errormsg) {
+		                                   int limit, CharPtr errormsg) 
+		{
 			return null;
+		}
+		
+		public static int sizenode(Table t)
+		{
+			return 0;
 		}
 		
 		public static int LUA_MULTRET = 0;
@@ -138,7 +144,8 @@ namespace KopiLua
 		public int top;
 		public lua_State twups;
 
-		public class ci_cls {
+		public class ci_cls 
+		{
 			public int top;
 			public int func;
 		}
@@ -237,7 +244,9 @@ namespace KopiLua
 	
 	public class Table
 	{
-		
+		public Node[] node;
+		public int flags;
+		public object lastfree;
 	}
 	
 	public class Dyndata
@@ -248,5 +257,22 @@ namespace KopiLua
 	public class CharPtr
 	{
 		
+	}
+	
+	public class TKey_nk
+	{
+		public Node next;
+	}
+	
+	public class TKey
+	{
+		public TKey_nk nk;
+		public TValue tvk;
+	}
+	
+	public class Node
+	{
+		public TKey i_key;
+		public TValue i_val;	
 	}
 }
