@@ -156,6 +156,13 @@ namespace KopiLua
 		public const string LUA_VERSION_MINOR = "3";
 		public const int LUA_VERSION_NUM = 503;
 		public const string LUA_VERSION_RELEASE = "4";
+		
+		public static string[] luaT_typenames_ = new string[] {};
+		
+		public static TValue luaT_gettm (Table events, TMS event_, TString ename) 
+		{
+			return null;
+		}
 	}
 	
 	public class lua_State 
@@ -245,6 +252,8 @@ namespace KopiLua
 		public int gcstate;
 		public int currentwhite;
 		public int GCdebt;
+		
+		public TString[] tmname = new TString[0];
 	}
 	
 	public class GCObject

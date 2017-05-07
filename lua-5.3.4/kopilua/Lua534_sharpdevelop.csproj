@@ -64,6 +64,8 @@
     <Compile Include="llex.h.cs" />
     <Compile Include="lmem.h.cs" />
     <Compile Include="ltable.h.cs" />
+    <Compile Include="ltm.h.cs" />
+    <Compile Include="lua.hpp.cs" />
     <Compile Include="lualib.h.cs" />
     <Compile Include="lundump.h.cs" />
     <Compile Include="lzio.h.cs" />
