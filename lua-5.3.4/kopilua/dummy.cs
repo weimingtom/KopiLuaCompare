@@ -4,7 +4,8 @@ using System.Diagnostics;
 namespace KopiLua
 {
 	using StkId = Lua.lua_TValue;
-	
+	using lua_Number = System.Double;
+		
 	public partial class Lua
 	{
 		public Lua()
@@ -145,6 +146,16 @@ namespace KopiLua
 		{
 			return 0;
 		}
+		
+		public static lua_Number cast_num(double i)
+		{
+			return (lua_Number)Convert.ToSingle(i);
+		}
+				
+		public const string LUA_VERSION_MAJOR = "5";
+		public const string LUA_VERSION_MINOR = "3";
+		public const int LUA_VERSION_NUM = 503;
+		public const string LUA_VERSION_RELEASE = "4";
 	}
 	
 	public class lua_State 
