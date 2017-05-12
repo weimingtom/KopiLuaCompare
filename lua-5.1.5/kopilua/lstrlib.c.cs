@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.132.1.4 2008/07/11 17:27:21 roberto Exp $
+** $Id: lstrlib.c,v 1.132.1.5 2010/05/14 15:34:19 roberto Exp $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -792,6 +792,7 @@ namespace KopiLua
 
 
 		private static int str_format (lua_State L) {
+          int top = lua_gettop(L);
 		  int arg = 1;
 		  uint sfl;
 		  CharPtr strfrmt = luaL_checklstring(L, arg, out sfl);
@@ -815,6 +816,8 @@ namespace KopiLua
 				  CharPtr form = new char[MAX_FORMAT];  /* to store the format (`%...') */
 				  CharPtr buff = new char[MAX_ITEM];  /* to store the formatted item */
 				  arg++;
+			      if (arg > top)
+			        luaL_argerror(L, arg, "no value");
 				  strfrmt = scanformat(L, strfrmt, form);
 				  char ch = strfrmt[0];
 				  strfrmt = strfrmt.next();

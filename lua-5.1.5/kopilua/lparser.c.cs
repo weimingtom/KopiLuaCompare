@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.42.1.3 2007/12/28 15:32:23 roberto Exp $
+** $Id: lparser.c,v 2.42.1.4 2011/10/21 19:31:42 roberto Exp $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -366,9 +366,9 @@ namespace KopiLua
 		  lua_assert(luaG_checkcode(f));
 		  lua_assert(fs.bl == null);
 		  ls.fs = fs.prev;
-		  L.top -= 2;  /* remove table and prototype from the stack */
 		  /* last token read was anchored in defunct function; must reanchor it */
 		  if (fs!=null) anchor_token(ls);
+		  L.top -= 2;  /* remove table and prototype from the stack */
 		}
 
 

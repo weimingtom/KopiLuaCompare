@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.20.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: llex.c,v 2.20.1.2 2009/11/23 14:58:22 roberto Exp $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -106,8 +106,10 @@ namespace KopiLua
 		  lua_State L = ls.L;
 		  TString ts = luaS_newlstr(L, str, l);
 		  TValue o = luaH_setstr(L, ls.fs.h, ts);  /* entry for `str' */
-		  if (ttisnil(o))
-			setbvalue(o, 1);  /* make sure `str' will not be collected */
+          if (ttisnil(o)) {
+             setbvalue(o, 1);  /* make sure `str' will not be collected */
+             luaC_checkGC(L);
+          }
 		  return ts;
 		}
 

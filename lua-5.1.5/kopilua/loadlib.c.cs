@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.52.1.3 2008/08/06 13:29:28 roberto Exp $
+** $Id: loadlib.c,v 1.52.1.4 2009/09/09 13:17:16 roberto Exp $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -639,7 +639,7 @@ namespace KopiLua
 		  lua_pushvalue(L, -1);
 		  lua_replace(L, LUA_ENVIRONINDEX);
 		  /* create `loaders' table */
-		  lua_createtable(L, 0, loaders.Length - 1);
+		  lua_createtable(L, loaders.Length - 1, 0);
 		  /* fill it with pre-defined loaders */
 		  for (i=0; loaders[i] != null; i++) {
 			lua_pushcfunction(L, loaders[i]);

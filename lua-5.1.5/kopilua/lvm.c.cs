@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.63.1.3 2007/12/28 15:32:23 roberto Exp $
+** $Id: lvm.c,v 2.63.1.5 2011/08/17 20:43:11 roberto Exp $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -126,7 +126,7 @@ namespace KopiLua
 
 		public static void luaV_settable (lua_State L, TValue t, TValue key, StkId val) {
 		  int loop;
-
+          TValue temp = new TValue();
 		  for (loop = 0; loop < MAXTAGLOOP; loop++) {
 			TValue tm;
 			if (ttistable(t)) {  /* `t' is a table? */
@@ -135,6 +135,7 @@ namespace KopiLua
 			  if (!ttisnil(oldval) ||  /* result is no nil? */
 				  (tm = fasttm(L, h.metatable, TMS.TM_NEWINDEX)) == null) { /* or no TM? */
 				setobj2t(L, oldval, val);
+                h.flags = 0;
 				luaC_barriert(L, h, val);
 				return;
 			  }
@@ -146,7 +147,8 @@ namespace KopiLua
 			  callTM(L, tm, t, key, val);
 			  return;
 			}
-			t = tm;  /* else repeat with `tm' */ 
+            setobj(L, temp, tm);  /* avoid pointing inside table (may rehash) */
+            t = temp;
 		  }
 		  luaG_runerror(L, "loop in settable");
 		}
