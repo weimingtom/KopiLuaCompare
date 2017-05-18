@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.20.1.2 2009/11/23 14:58:22 roberto Exp $
+** $Id: llex.c,v 2.22 2006/08/30 13:19:58 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -116,12 +116,13 @@ void luaX_syntaxerror (LexState *ls, const char *msg) {
 
 TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
   lua_State *L = ls->L;
+  TValue *o;  /* entry for `str' */
   TString *ts = luaS_newlstr(L, str, l);
-  TValue *o = luaH_setstr(L, ls->fs->h, ts);  /* entry for `str' */
-  if (ttisnil(o)) {
+  setsvalue2s(L, L->top++, ts);  /* anchor string */
+  o = luaH_setstr(L, ls->fs->h, ts);
+  if (ttisnil(o))
     setbvalue(o, 1);  /* make sure `str' will not be collected */
-    luaC_checkGC(L);
-  }
+  L->top--;
   return ts;
 }
 
@@ -161,7 +162,7 @@ void luaX_setinput (lua_State *L, LexState *ls, ZIO *z, TString *source) {
 
 
 static int check_next (LexState *ls, const char *set) {
-  if (!strchr(set, ls->current))
+  if (ls->current == '\0' || !strchr(set, ls->current))
     return 0;
   save_and_next(ls);
   return 1;
@@ -221,8 +222,6 @@ static int skip_sep (LexState *ls) {
 
 
 static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
-  int cont = 0;
-  (void)(cont);  /* avoid warnings when `cont' is not used */
   save_and_next(ls);  /* skip 2nd `[' */
   if (currIsNewline(ls))  /* string starts with a newline? */
     inclinenumber(ls);  /* skip it */
@@ -232,26 +231,9 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
         luaX_lexerror(ls, (seminfo) ? "unfinished long string" :
                                    "unfinished long comment", TK_EOS);
         break;  /* to avoid warnings */
-#if defined(LUA_COMPAT_LSTR)
-      case '[': {
-        if (skip_sep(ls) == sep) {
-          save_and_next(ls);  /* skip 2nd `[' */
-          cont++;
-#if LUA_COMPAT_LSTR == 1
-          if (sep == 0)
-            luaX_lexerror(ls, "nesting of [[...]] is deprecated", '[');
-#endif
-        }
-        break;
-      }
-#endif
       case ']': {
         if (skip_sep(ls) == sep) {
           save_and_next(ls);  /* skip 2nd `]' */
-#if defined(LUA_COMPAT_LSTR) && LUA_COMPAT_LSTR == 2
-          cont--;
-          if (sep == 0 && cont >= 0) break;
-#endif
           goto endloop;
         }
         break;

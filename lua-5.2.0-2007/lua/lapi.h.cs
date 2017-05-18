@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.h,v 2.2.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: lapi.h,v 2.2 2005/04/25 19:24:10 roberto Exp roberto $
 ** Auxiliary functions from Lua API
 ** See Copyright Notice in lua.h
 */
@@ -8,9 +8,9 @@
 #define lapi_h
 
 
-#include "lobject.h"
+#include "llimits.h"
+#include "lstate.h"
 
-
-LUAI_FUNC void luaA_pushobject (lua_State *L, const TValue *o);
+#define api_incr_top(L)   {L->top++; api_check(L, L->top <= L->ci->top);}
 
 #endif

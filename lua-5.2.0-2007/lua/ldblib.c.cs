@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.104.1.4 2009/08/04 18:50:18 roberto Exp $
+** $Id: ldblib.c,v 1.104 2005/12/29 15:32:11 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -45,7 +45,6 @@ static int db_setmetatable (lua_State *L) {
 
 
 static int db_getfenv (lua_State *L) {
-  luaL_checkany(L, 1);
   lua_getfenv(L, 1);
   return 1;
 }
@@ -139,7 +138,7 @@ static int db_getinfo (lua_State *L) {
     treatstackoption(L, L1, "func");
   return 1;  /* return table */
 }
-    
+
 
 static int db_getlocal (lua_State *L) {
   int arg;
@@ -256,25 +255,24 @@ static void gethooktable (lua_State *L) {
 
 
 static int db_sethook (lua_State *L) {
-  int arg, mask, count;
-  lua_Hook func;
+  int arg;
   lua_State *L1 = getthread(L, &arg);
   if (lua_isnoneornil(L, arg+1)) {
     lua_settop(L, arg+1);
-    func = NULL; mask = 0; count = 0;  /* turn off hooks */
+    lua_sethook(L1, NULL, 0, 0);  /* turn off hooks */
   }
   else {
     const char *smask = luaL_checkstring(L, arg+2);
+    int count = luaL_optint(L, arg+3, 0);
     luaL_checktype(L, arg+1, LUA_TFUNCTION);
-    count = luaL_optint(L, arg+3, 0);
-    func = hookf; mask = makemask(smask, count);
+    lua_sethook(L1, hookf, makemask(smask, count), count);
   }
-  gethooktable(L);
-  lua_pushlightuserdata(L, L1);
+  gethooktable(L1);
+  lua_pushlightuserdata(L1, L1);
   lua_pushvalue(L, arg+1);
-  lua_rawset(L, -3);  /* set new hook */
-  lua_pop(L, 1);  /* remove hook table */
-  lua_sethook(L1, func, mask, count);  /* set hooks */
+  lua_xmove(L, L1, 1);
+  lua_rawset(L1, -3);  /* set new hook */
+  lua_pop(L1, 1);  /* remove hook table */
   return 0;
 }
 
@@ -288,10 +286,11 @@ static int db_gethook (lua_State *L) {
   if (hook != NULL && hook != hookf)  /* external hook? */
     lua_pushliteral(L, "external hook");
   else {
-    gethooktable(L);
-    lua_pushlightuserdata(L, L1);
-    lua_rawget(L, -2);   /* get hook */
-    lua_remove(L, -2);  /* remove hook table */
+    gethooktable(L1);
+    lua_pushlightuserdata(L1, L1);
+    lua_rawget(L1, -2);   /* get hook */
+    lua_remove(L1, -2);  /* remove hook table */
+    lua_xmove(L1, L, 1);
   }
   lua_pushstring(L, unmakemask(mask, buff));
   lua_pushinteger(L, lua_gethookcount(L1));

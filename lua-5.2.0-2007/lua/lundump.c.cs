@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.7.1.4 2008/04/04 19:51:41 roberto Exp $
+** $Id: lundump.c,v 2.7 2006/02/17 15:51:03 roberto Exp roberto $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -29,7 +29,6 @@ typedef struct {
 
 #ifdef LUAC_TRUST_BINARIES
 #define IF(c,s)
-#define error(S,s)
 #else
 #define IF(c,s)		if (c) error(S,s)
 
@@ -111,10 +110,10 @@ static void LoadConstants(LoadState* S, Proto* f)
   switch (t)
   {
    case LUA_TNIL:
-   	setnilvalue(o);
+	setnilvalue(o);
 	break;
    case LUA_TBOOLEAN:
-   	setbvalue(o,LoadChar(S)!=0);
+	setbvalue(o,LoadChar(S));
 	break;
    case LUA_TNUMBER:
 	setnvalue(o,LoadNumber(S));
@@ -123,7 +122,7 @@ static void LoadConstants(LoadState* S, Proto* f)
 	setsvalue2n(S->L,o,LoadString(S));
 	break;
    default:
-	error(S,"bad constant");
+	IF (1, "bad constant");
 	break;
   }
  }
@@ -160,9 +159,7 @@ static void LoadDebug(LoadState* S, Proto* f)
 
 static Proto* LoadFunction(LoadState* S, TString* p)
 {
- Proto* f;
- if (++S->L->nCcalls > LUAI_MAXCCALLS) error(S,"code too deep");
- f=luaF_newproto(S->L);
+ Proto* f=luaF_newproto(S->L);
  setptvalue2s(S->L,S->L->top,f); incr_top(S->L);
  f->source=LoadString(S); if (f->source==NULL) f->source=p;
  f->linedefined=LoadInt(S);
@@ -176,7 +173,6 @@ static Proto* LoadFunction(LoadState* S, TString* p)
  LoadDebug(S,f);
  IF (!luaG_checkcode(f), "bad code");
  S->L->top--;
- S->L->nCcalls--;
  return f;
 }
 

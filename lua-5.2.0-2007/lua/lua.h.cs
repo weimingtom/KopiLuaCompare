@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.218.1.7 2012/01/13 20:36:20 roberto Exp $
+** $Id: lua.h,v 1.222 2006/10/17 19:59:04 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -16,17 +16,17 @@
 #include "luaconf.h"
 
 
-#define LUA_VERSION	"Lua 5.1"
-#define LUA_RELEASE	"Lua 5.1.5"
-#define LUA_VERSION_NUM	501
-#define LUA_COPYRIGHT	"Copyright (C) 1994-2012 Lua.org, PUC-Rio"
-#define LUA_AUTHORS 	"R. Ierusalimschy, L. H. de Figueiredo & W. Celes"
+#define LUA_VERSION	"Lua 5.2"
+#define LUA_RELEASE	"Lua 5.2.0"
+#define LUA_VERSION_NUM	502
+#define LUA_COPYRIGHT	"Copyright (C) 1994-2006 Lua.org, PUC-Rio"
+#define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
 
 
-/* mark for precompiled code (`<esc>Lua') */
-#define	LUA_SIGNATURE	"\033Lua"
+/* mark for precompiled code ('<esc>Lua') */
+#define LUA_SIGNATURE	"\033Lua"
 
-/* option for multiple returns in `lua_pcall' and `lua_call' */
+/* option for multiple returns in 'lua_pcall' and 'lua_call' */
 #define LUA_MULTRET	(-1)
 
 
@@ -39,7 +39,8 @@
 #define lua_upvalueindex(i)	(LUA_GLOBALSINDEX-(i))
 
 
-/* thread status; 0 is OK */
+/* thread status */
+#define LUA_OK		0
 #define LUA_YIELD	1
 #define LUA_ERRRUN	2
 #define LUA_ERRSYNTAX	3
@@ -196,7 +197,7 @@ LUA_API int   (lua_setfenv) (lua_State *L, int idx);
 
 
 /*
-** `load' and `call' functions (load and run Lua code)
+** 'load' and 'call' functions (load and run Lua code)
 */
 LUA_API void  (lua_call) (lua_State *L, int nargs, int nresults);
 LUA_API int   (lua_pcall) (lua_State *L, int nargs, int nresults, int errfunc);
@@ -245,7 +246,7 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 
 
 
-/* 
+/*
 ** ===============================================================
 ** some useful macros
 ** ===============================================================
@@ -258,8 +259,6 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 #define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 
 #define lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
-
-#define lua_strlen(L,i)		lua_objlen(L, (i))
 
 #define lua_isfunction(L,n)	(lua_type(L, (n)) == LUA_TFUNCTION)
 #define lua_istable(L,n)	(lua_type(L, (n)) == LUA_TTABLE)
@@ -284,7 +283,9 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 ** compatibility macros and functions
 */
 
-#define lua_open()	luaL_newstate()
+#define lua_strlen(L,i)		lua_objlen(L, (i))
+
+#define lua_open()		luaL_newstate()
 
 #define lua_getregistry(L)	lua_pushvalue(L, LUA_REGISTRYINDEX)
 
@@ -293,9 +294,6 @@ LUA_API void lua_setallocf (lua_State *L, lua_Alloc f, void *ud);
 #define lua_Chunkreader		lua_Reader
 #define lua_Chunkwriter		lua_Writer
 
-
-/* hack */
-LUA_API void lua_setlevel	(lua_State *from, lua_State *to);
 
 
 /*
@@ -346,8 +344,8 @@ LUA_API int lua_gethookcount (lua_State *L);
 struct lua_Debug {
   int event;
   const char *name;	/* (n) */
-  const char *namewhat;	/* (n) `global', `local', `field', `method' */
-  const char *what;	/* (S) `Lua', `C', `main', `tail' */
+  const char *namewhat;	/* (n) 'global', 'local', 'field', 'method' */
+  const char *what;	/* (S) 'Lua', 'C', 'main', 'tail' */
   const char *source;	/* (S) */
   int currentline;	/* (l) */
   int nups;		/* (u) number of upvalues */
@@ -362,7 +360,7 @@ struct lua_Debug {
 
 
 /******************************************************************************
-* Copyright (C) 1994-2012 Lua.org, PUC-Rio.  All rights reserved.
+* Copyright (C) 1994-2006 Lua.org, PUC-Rio.  All rights reserved.
 *
 * Permission is hereby granted, free of charge, to any person obtaining
 * a copy of this software and associated documentation files (the

@@ -99,7 +99,6 @@
     <Compile Include="ltm.h.cs" />
     <Compile Include="lua.c.cs" />
     <Compile Include="lua.h.cs" />
-    <Compile Include="luac.c.cs" />
     <Compile Include="luaconf.h.cs" />
     <Compile Include="luaconf_ex.h.cs" />
     <Compile Include="lualib.h.cs" />
@@ -109,7 +108,6 @@
     <Compile Include="lvm.h.cs" />
     <Compile Include="lzio.c.cs" />
     <Compile Include="lzio.h.cs" />
-    <Compile Include="print.c.cs" />
     <Compile Include="printf\Tools.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

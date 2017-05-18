@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.159.1.3 2008/01/21 13:20:51 roberto Exp $
+** $Id: lauxlib.c,v 1.163 2006/09/25 15:35:00 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -25,7 +25,11 @@
 #include "lauxlib.h"
 
 
-#define FREELIST_REF	0	/* free list of references */
+/* number of prereserved references (for internal use) */
+#define RESERVED_REFS   1	/* only FREELIST_REF is reserved */
+
+#define FREELIST_REF	1	/* free list of references */
+
 
 
 /* convert a stack index to positive */
@@ -226,8 +230,8 @@ LUALIB_API int luaL_callmeta (lua_State *L, int obj, const char *event) {
 }
 
 
-LUALIB_API void (luaL_register) (lua_State *L, const char *libname,
-                                const luaL_Reg *l) {
+LUALIB_API void luaL_register (lua_State *L, const char *libname,
+                               const luaL_Reg *l) {
   luaI_openlib(L, libname, l, 0);
 }
 
@@ -244,7 +248,7 @@ LUALIB_API void luaI_openlib (lua_State *L, const char *libname,
   if (libname) {
     int size = libsize(l);
     /* check whether lib already exists */
-    luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);
+    luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
     lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
     if (!lua_istable(L, -1)) {  /* not found? */
       lua_pop(L, 1);  /* remove previous result */
@@ -411,9 +415,9 @@ static void adjuststack (luaL_Buffer *B) {
   if (B->lvl > 1) {
     lua_State *L = B->L;
     int toget = 1;  /* number of levels to concat */
-    size_t toplen = lua_strlen(L, -1);
+    size_t toplen = lua_objlen(L, -1);
     do {
-      size_t l = lua_strlen(L, -(toget+1));
+      size_t l = lua_objlen(L, -(toget+1));
       if (B->lvl - toget + 1 >= LIMIT || toplen > l) {
         toplen += l;
         toget++;
@@ -494,6 +498,8 @@ LUALIB_API int luaL_ref (lua_State *L, int t) {
   }
   else {  /* no free elements */
     ref = (int)lua_objlen(L, t);
+    if (ref < RESERVED_REFS)
+      ref = RESERVED_REFS;  /* skip reserved references */
     ref++;  /* create new reference */
   }
   lua_rawseti(L, t, ref);
@@ -570,8 +576,9 @@ LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
     while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
     if (c == '\n') c = getc(lf.f);
   }
-  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
-    lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
+  if (c == LUA_SIGNATURE[0] && lf.f != stdin) {  /* binary file? */
+    fclose(lf.f);
+    lf.f = fopen(filename, "rb");  /* reopen in binary mode */
     if (lf.f == NULL) return errfile(L, "reopen", fnameindex);
     /* skip eventual `#!...' */
    while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
@@ -580,7 +587,7 @@ LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
   ungetc(c, lf.f);
   status = lua_load(L, getF, &lf, lua_tostring(L, -1));
   readstatus = ferror(lf.f);
-  if (filename) fclose(lf.f);  /* close file (even in case of errors) */
+  if (lf.f != stdin) fclose(lf.f);  /* close file (even in case of errors) */
   if (readstatus) {
     lua_settop(L, fnameindex);  /* ignore results from `lua_load' */
     return errfile(L, "read", fnameindex);
@@ -615,7 +622,7 @@ LUALIB_API int luaL_loadbuffer (lua_State *L, const char *buff, size_t size,
 }
 
 
-LUALIB_API int (luaL_loadstring) (lua_State *L, const char *s) {
+LUALIB_API int luaL_loadstring (lua_State *L, const char *s) {
   return luaL_loadbuffer(L, s, strlen(s), s);
 }
 
@@ -640,6 +647,7 @@ static int panic (lua_State *L) {
   (void)L;  /* to avoid warnings */
   fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
                    lua_tostring(L, -1));
+  exit(EXIT_FAILURE);  /* do not return to Lua */
   return 0;
 }
 

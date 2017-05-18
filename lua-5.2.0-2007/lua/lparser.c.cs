@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.42.1.4 2011/10/21 19:31:42 roberto Exp $
+** $Id: lparser.c,v 2.49 2006/10/24 13:31:48 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -69,11 +69,13 @@ static void error_expected (LexState *ls, int token) {
 
 
 static void errorlimit (FuncState *fs, int limit, const char *what) {
-  const char *msg = (fs->f->linedefined == 0) ?
-    luaO_pushfstring(fs->L, "main function has more than %d %s", limit, what) :
-    luaO_pushfstring(fs->L, "function at line %d has more than %d %s",
-                            fs->f->linedefined, limit, what);
-  luaX_lexerror(fs->ls, msg, 0);
+  const char *msg;
+  const char *where = (fs->f->linedefined == 0) ?
+             "main function" :
+             luaO_pushfstring(fs->L, "function at line %d", fs->f->linedefined);
+  msg = luaO_pushfstring(fs->L, "too many %s in %s (limit is %d)",
+                                what, where, limit);
+  luaX_lexerror(fs->ls, msg, fs->ls->t.token);
 }
 
 
@@ -145,7 +147,7 @@ static int registerlocalvar (LexState *ls, TString *varname) {
   Proto *f = fs->f;
   int oldsize = f->sizelocvars;
   luaM_growvector(ls->L, f->locvars, fs->nlocvars, f->sizelocvars,
-                  LocVar, SHRT_MAX, "too many local variables");
+                  LocVar, SHRT_MAX, "local variables");
   while (oldsize < f->sizelocvars) f->locvars[oldsize++].varname = NULL;
   f->locvars[fs->nlocvars].varname = varname;
   luaC_objbarrier(ls->L, f, varname);
@@ -193,7 +195,7 @@ static int indexupvalue (FuncState *fs, TString *name, expdesc *v) {
   /* new one */
   luaY_checklimit(fs, f->nups + 1, LUAI_MAXUPVALUES, "upvalues");
   luaM_growvector(fs->L, f->upvalues, f->nups, f->sizeupvalues,
-                  TString *, MAX_INT, "");
+                  TString *, MAX_INT, "upvalues");
   while (oldsize < f->sizeupvalues) f->upvalues[oldsize++] = NULL;
   f->upvalues[f->nups] = name;
   luaC_objbarrier(fs->L, f, name);
@@ -274,12 +276,13 @@ static void adjust_assign (LexState *ls, int nvars, int nexps, expdesc *e) {
 
 
 static void enterlevel (LexState *ls) {
-  if (++ls->L->nCcalls > LUAI_MAXCCALLS)
-	luaX_lexerror(ls, "chunk has too many syntax levels", 0);
+  global_State *g = G(ls->L);
+  ++g->nCcalls;
+  luaY_checklimit(ls->fs, g->nCcalls, LUAI_MAXCCALLS, "syntax levels");
 }
 
 
-#define leavelevel(ls)	((ls)->L->nCcalls--)
+#define leavelevel(ls)	(G((ls)->L)->nCcalls--)
 
 
 static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isbreakable) {
@@ -308,12 +311,12 @@ static void leaveblock (FuncState *fs) {
 
 
 static void pushclosure (LexState *ls, FuncState *func, expdesc *v) {
-  FuncState *fs = ls->fs;
+  FuncState *fs = ls->fs->prev;
   Proto *f = fs->f;
   int oldsize = f->sizep;
   int i;
   luaM_growvector(ls->L, f->p, fs->np, f->sizep, Proto *,
-                  MAXARG_Bx, "constant table overflow");
+                  MAXARG_Bx, "constants");
   while (oldsize < f->sizep) f->p[oldsize++] = NULL;
   f->p[fs->np++] = func->f;
   luaC_objbarrier(ls->L, f, func->f);
@@ -327,8 +330,7 @@ static void pushclosure (LexState *ls, FuncState *func, expdesc *v) {
 
 static void open_func (LexState *ls, FuncState *fs) {
   lua_State *L = ls->L;
-  Proto *f = luaF_newproto(L);
-  fs->f = f;
+  Proto *f;
   fs->prev = ls->fs;  /* linked list of funcstates */
   fs->ls = ls;
   fs->L = L;
@@ -342,12 +344,15 @@ static void open_func (LexState *ls, FuncState *fs) {
   fs->nlocvars = 0;
   fs->nactvar = 0;
   fs->bl = NULL;
-  f->source = ls->source;
-  f->maxstacksize = 2;  /* registers 0/1 are always valid */
-  fs->h = luaH_new(L, 0, 0);
-  /* anchor table of constants and prototype (to avoid being collected) */
+  fs->h = luaH_new(L);
+  /* anchor table of constants (to avoid being collected) */
   sethvalue2s(L, L->top, fs->h);
   incr_top(L);
+  f = luaF_newproto(L);
+  fs->f = f;
+  f->source = ls->source;
+  f->maxstacksize = 2;  /* registers 0/1 are always valid */
+  /* anchor prototype (to avoid being collected) */
   setptvalue2s(L, L->top, f);
   incr_top(L);
 }
@@ -374,23 +379,27 @@ static void close_func (LexState *ls) {
   lua_assert(luaG_checkcode(f));
   lua_assert(fs->bl == NULL);
   ls->fs = fs->prev;
+  L->top -= 2;  /* remove table and prototype from the stack */
   /* last token read was anchored in defunct function; must reanchor it */
   if (fs) anchor_token(ls);
-  L->top -= 2;  /* remove table and prototype from the stack */
 }
 
 
 Proto *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff, const char *name) {
   struct LexState lexstate;
   struct FuncState funcstate;
+  TString *tname = luaS_new(L, name);
+  setsvalue2s(L, L->top, tname);  /* protect name */
+  incr_top(L);
   lexstate.buff = buff;
-  luaX_setinput(L, &lexstate, z, luaS_new(L, name));
+  luaX_setinput(L, &lexstate, z, tname);
   open_func(&lexstate, &funcstate);
   funcstate.f->is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
   luaX_next(&lexstate);  /* read first token */
   chunk(&lexstate);
   check(&lexstate, TK_EOS);
   close_func(&lexstate);
+  L->top--;
   lua_assert(funcstate.prev == NULL);
   lua_assert(funcstate.f->nups == 0);
   lua_assert(lexstate.fs == NULL);
@@ -588,8 +597,8 @@ static void body (LexState *ls, expdesc *e, int needself, int line) {
   chunk(ls);
   new_fs.f->lastlinedefined = ls->linenumber;
   check_match(ls, TK_END, TK_FUNCTION, line);
-  close_func(ls);
   pushclosure(ls, &new_fs, e);
+  close_func(ls);
 }
 
 
@@ -811,7 +820,7 @@ static const struct {
   lu_byte left;  /* left priority for each binary operator */
   lu_byte right; /* right priority */
 } priority[] = {  /* ORDER OPR */
-   {6, 6}, {6, 6}, {7, 7}, {7, 7}, {7, 7},  /* `+' `-' `/' `%' */
+   {6, 6}, {6, 6}, {7, 7}, {7, 7}, {7, 7},  /* `+' `-' `*' `/' `%' */
    {10, 9}, {5, 4},                 /* power and concat (right associative) */
    {3, 3}, {3, 3},                  /* equality and inequality */
    {3, 3}, {3, 3}, {3, 3}, {3, 3},  /* order */
@@ -938,8 +947,6 @@ static void assignment (LexState *ls, struct LHS_assign *lh, int nvars) {
     primaryexp(ls, &nv.v);
     if (nv.v.k == VLOCAL)
       check_conflict(ls, lh, &nv.v);
-    luaY_checklimit(ls->fs, nvars, LUAI_MAXCCALLS - ls->L->nCcalls,
-                    "variables in assignment");
     assignment(ls, &nv, nvars+1);
   }
   else {  /* assignment -> `=' explist1 */

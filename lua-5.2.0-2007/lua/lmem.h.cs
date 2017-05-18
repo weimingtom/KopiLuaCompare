@@ -1,5 +1,5 @@
 /*
-** $Id: lmem.h,v 1.31.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: lmem.h,v 1.31 2005/04/25 19:24:10 roberto Exp roberto $
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -43,7 +43,7 @@ LUAI_FUNC void *luaM_realloc_ (lua_State *L, void *block, size_t oldsize,
 LUAI_FUNC void *luaM_toobig (lua_State *L);
 LUAI_FUNC void *luaM_growaux_ (lua_State *L, void *block, int *size,
                                size_t size_elem, int limit,
-                               const char *errormsg);
+                               const char *what);
 
 #endif
 

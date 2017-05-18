@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.29.1.6 2008/05/08 16:56:26 roberto Exp $
+** $Id: ldebug.c,v 2.33 2006/09/19 13:57:50 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -58,6 +58,7 @@ LUA_API int lua_sethook (lua_State *L, lua_Hook func, int mask, int count) {
     mask = 0;
     func = NULL;
   }
+  L->oldpc = L->savedpc;
   L->hook = func;
   L->basehookcount = count;
   resethookcount(L);
@@ -128,8 +129,10 @@ LUA_API const char *lua_getlocal (lua_State *L, const lua_Debug *ar, int n) {
   CallInfo *ci = L->base_ci + ar->i_ci;
   const char *name = findlocal(L, ci, n);
   lua_lock(L);
-  if (name)
-      luaA_pushobject(L, ci->base + (n - 1));
+  if (name) {
+    setobj2s(L, L->top, ci->base + (n - 1));
+    api_incr_top(L);
+  }
   lua_unlock(L);
   return name;
 }
@@ -165,7 +168,8 @@ static void funcinfo (lua_Debug *ar, Closure *cl) {
 
 
 static void info_tailcall (lua_Debug *ar) {
-  ar->name = ar->namewhat = "";
+  ar->name = NULL;
+  ar->namewhat = "";
   ar->what = "tail";
   ar->lastlinedefined = ar->linedefined = ar->currentline = -1;
   ar->source = "=(tail call)";
@@ -177,16 +181,17 @@ static void info_tailcall (lua_Debug *ar) {
 static void collectvalidlines (lua_State *L, Closure *f) {
   if (f == NULL || f->c.isC) {
     setnilvalue(L->top);
+    incr_top(L);
   }
   else {
-    Table *t = luaH_new(L, 0, 0);
-    int *lineinfo = f->l.p->lineinfo;
     int i;
+    int *lineinfo = f->l.p->lineinfo;
+    Table *t = luaH_new(L);
+    sethvalue(L, L->top, t);
+    incr_top(L);
     for (i=0; i<f->l.p->sizelineinfo; i++)
       setbvalue(luaH_setnum(L, t, lineinfo[i]), 1);
-    sethvalue(L, L->top, t); 
   }
-  incr_top(L);
 }
 
 
@@ -275,12 +280,12 @@ LUA_API int lua_getinfo (lua_State *L, const char *what, lua_Debug *ar) {
 
 static int precheck (const Proto *pt) {
   check(pt->maxstacksize <= MAXSTACK);
-  check(pt->numparams+(pt->is_vararg & VARARG_HASARG) <= pt->maxstacksize);
-  check(!(pt->is_vararg & VARARG_NEEDSARG) ||
+  lua_assert(pt->numparams+(pt->is_vararg & VARARG_HASARG) <= pt->maxstacksize);
+  lua_assert(!(pt->is_vararg & VARARG_NEEDSARG) ||
               (pt->is_vararg & VARARG_HASARG));
   check(pt->sizeupvalues <= pt->nups);
   check(pt->sizelineinfo == pt->sizecode || pt->sizelineinfo == 0);
-  check(pt->sizecode > 0 && GET_OPCODE(pt->code[pt->sizecode-1]) == OP_RETURN);
+  check(GET_OPCODE(pt->code[pt->sizecode-1]) == OP_RETURN);
   return 1;
 }
 
@@ -346,18 +351,9 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
           int dest = pc+1+b;
           check(0 <= dest && dest < pt->sizecode);
           if (dest > 0) {
-            int j;
-            /* check that it does not jump to a setlist count; this
-               is tricky, because the count from a previous setlist may
-               have the same value of an invalid setlist; so, we must
-               go all the way back to the first of them (if any) */
-            for (j = 0; j < dest; j++) {
-              Instruction d = pt->code[dest-1-j];
-              if (!(GET_OPCODE(d) == OP_SETLIST && GETARG_C(d) == 0)) break;
-            }
-            /* if 'j' is even, previous value is not a setlist (even if
-               it looks like one) */
-            check((j&1) == 0);
+            /* cannot jump to a setlist count */
+            Instruction d = pt->code[dest-1];
+            check(!(GET_OPCODE(d) == OP_SETLIST && GETARG_C(d) == 0));
           }
         }
         break;
@@ -372,11 +368,7 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
     }
     switch (op) {
       case OP_LOADBOOL: {
-        if (c == 1) {  /* does it jump? */
-          check(pc+2 < pt->sizecode);  /* check its jump */
-          check(GET_OPCODE(pt->code[pc+1]) != OP_SETLIST ||
-                GETARG_C(pt->code[pc+1]) != 0);
-        }
+        check(c == 0 || pc+2 < pt->sizecode);  /* check its jump */
         break;
       }
       case OP_LOADNIL: {
@@ -441,10 +433,7 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
       }
       case OP_SETLIST: {
         if (b > 0) checkreg(pt, a + b);
-        if (c == 0) {
-          pc++;
-          check(pc < pt->sizecode - 1);
-        }
+        if (c == 0) pc++;
         break;
       }
       case OP_CLOSURE: {
@@ -579,8 +568,8 @@ void luaG_typeerror (lua_State *L, const TValue *o, const char *op) {
 
 
 void luaG_concaterror (lua_State *L, StkId p1, StkId p2) {
-  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
-  lua_assert(!ttisstring(p1) && !ttisnumber(p1));
+  if (ttisstring(p1)) p1 = p2;
+  lua_assert(!ttisstring(p1));
   luaG_typeerror(L, p1, "concatenate");
 }
 
