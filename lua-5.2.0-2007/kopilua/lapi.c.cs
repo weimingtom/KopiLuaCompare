@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.55.1.5 2008/07/04 18:41:18 roberto Exp $
+** $Id: lapi.c,v 2.58 2006/10/17 20:00:07 roberto Exp roberto $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -22,9 +22,8 @@ namespace KopiLua
 	public partial class Lua
 	{
 		public const string lua_ident =
-		  "$Lua: " + LUA_RELEASE + " " + LUA_COPYRIGHT + " $\n" +
-		  "$Authors: " + LUA_AUTHORS + " $\n" +
-		  "$URL: www.lua.org $\n";
+  "$LuaVersion: " + LUA_RELEASE + " " + LUA_COPYRIGHT + " $" + 
+  "$LuaAuthors: " + LUA_AUTHORS + " $";
 
 		public static void api_checknelems(lua_State L, int n)
 		{
@@ -34,12 +33,6 @@ namespace KopiLua
 		public static void api_checkvalidindex(lua_State L, StkId i)
 		{
 			api_check(L, i != luaO_nilobject);
-		}
-
-		public static void api_incr_top(lua_State L)
-		{
-			api_check(L, L.top < L.ci.top);
-			StkId.inc(ref L.top);
 		}
 
 
@@ -84,21 +77,17 @@ namespace KopiLua
 		}
 
 
-		public static void luaA_pushobject (lua_State L, TValue o) {
-		  setobj2s(L, L.top, o);
-		  api_incr_top(L);
-		}
-
 
 		public static int lua_checkstack (lua_State L, int size) {
-		  int res = 1;
+		  int res;
 		  lua_lock(L);
-		  if (size > LUAI_MAXCSTACK || (L.top - L.base_ + size) > LUAI_MAXCSTACK)
+		  if ((L.top - L.base_ + size) > LUAI_MAXCSTACK)
 			res = 0;  /* stack overflow */
-		  else if (size > 0) {
+		  else {
 			luaD_checkstack(L, size);
 			if (L.ci.top < L.top + size)
 			  L.ci.top = L.top + size;
+            res = 1;
 		  }
 		  lua_unlock(L);
 		  return res;
@@ -120,10 +109,6 @@ namespace KopiLua
 		}
 
 
-		public static void lua_setlevel (lua_State from, lua_State to) {
-		  to.nCcalls = from.nCcalls;
-		}
-
 
 		public static lua_CFunction lua_atpanic (lua_State L, lua_CFunction panicf) {
 		  lua_CFunction old;
@@ -133,20 +118,6 @@ namespace KopiLua
 		  lua_unlock(L);
 		  return old;
 		}
-
-
-		public static lua_State lua_newthread (lua_State L) {
-		  lua_State L1;
-		  lua_lock(L);
-		  luaC_checkGC(L);
-		  L1 = luaE_newthread(L);
-		  setthvalue(L, L.top, L1);
-		  api_incr_top(L);
-		  lua_unlock(L);
-		  luai_userstatethread(L, L1);
-		  return L1;
-		}
-
 
 
 		/*
@@ -209,7 +180,7 @@ namespace KopiLua
 		  api_checkvalidindex(L, o);
 		  if (idx == LUA_ENVIRONINDEX) {
 			Closure func = curr_func(L);
-			api_check(L, ttistable(L.top - 1)); 
+			api_check(L, ttistable(L.top - 1));
 			func.c.env = hvalue(L.top - 1);
 			luaC_barrier(L, func, L.top - 1);
 		  }
@@ -545,13 +516,13 @@ namespace KopiLua
 
 		public static void lua_getfield (lua_State L, int idx, CharPtr k) {
 		  StkId t;
-		  TValue key = new TValue();
+
 		  lua_lock(L);
 		  t = index2adr(L, idx);
 		  api_checkvalidindex(L, t);
-		  setsvalue(L, key, luaS_new(L, k));
-		  luaV_gettable(L, t, key, L.top);
+		  setsvalue2s(L, L.top, luaS_new(L, k));
 		  api_incr_top(L);
+          luaV_gettable(L, t, L.top - 1, L.top - 1);
 		  lua_unlock(L);
 		}
 
@@ -578,10 +549,14 @@ namespace KopiLua
 
 
 		public static void lua_createtable (lua_State L, int narray, int nrec) {
+          Table t;
 		  lua_lock(L);
 		  luaC_checkGC(L);
-		  sethvalue(L, L.top, luaH_new(L, narray, nrec));
+          t = luaH_new(L);
+		  sethvalue(L, L.top, t);
 		  api_incr_top(L);
+		  if (narray > 0 || nrec > 0)
+		    luaH_resize(L, t, narray, nrec);
 		  lua_unlock(L);
 		}
 
@@ -658,14 +633,14 @@ namespace KopiLua
 
 		public static void lua_setfield (lua_State L, int idx, CharPtr k) {
 		  StkId t;
-		  TValue key = new TValue();			
+			
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  t = index2adr(L, idx);
 		  api_checkvalidindex(L, t);
-		  setsvalue(L, key, luaS_new(L, k));
-		  luaV_settable(L, t, key, L.top - 1);
-		  StkId.dec(ref L.top);  /* pop value */
+		  setsvalue2s(L, L->top++, luaS_new(L, k));??? //FIXME: incr
+		  luaV_settable(L, t, L.top - 1, L.top - 2);
+		  L->top -= 2;  /* pop value and key */
 		  lua_unlock(L);
 		}
 
@@ -755,7 +730,7 @@ namespace KopiLua
 			  res = 0;
 			  break;
 		  }
-		  if (res != 0) luaC_objbarrier(L, gcvalue(o), hvalue(L.top - 1));
+		  luaC_objbarrier(L, gcvalue(o), hvalue(L.top - 1));
 		  StkId.dec(ref L.top);
 		  lua_unlock(L);
 		  return res;
@@ -916,7 +891,7 @@ namespace KopiLua
 			  break;
 			}
 			case LUA_GCCOLLECT: {
-			  luaC_fullgc(L);
+			  luaC_fullgc(L, 0);
 			  break;
 			}
 			case LUA_GCCOUNT: {
@@ -934,13 +909,11 @@ namespace KopiLua
 				g.GCthreshold = (uint)(g.totalbytes - a);
 			  else
 				g.GCthreshold = 0;
-			  while (g.GCthreshold <= g.totalbytes) {
-				luaC_step(L);
-				if (g.gcstate == GCSpause) {  /* end of cycle? */
-				  res = 1;  /* signal it */
-				  break;
-				}
-			  }
+			  
+		      while (g.GCthreshold <= g->totalbytes)
+		        luaC_step(L);
+		      if (g.gcstate == GCSpause)  /* end of cycle? */
+		        res = 1;  /* signal it */
 			  break;
 			}
 			case LUA_GCSETPAUSE: {
