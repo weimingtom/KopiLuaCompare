@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.159.1.3 2008/01/21 13:20:51 roberto Exp $
+** $Id: lauxlib.c,v 1.163 2006/09/25 15:35:00 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -21,8 +21,9 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-
-		public const int FREELIST_REF	= 0;	/* free list of references */
+		/* number of prereserved references (for internal use) */
+		public const int RESERVED_REFS  = 1;	/* only FREELIST_REF is reserved */
+		public const int FREELIST_REF	= 1;	/* free list of references */
 
 
 		/* convert a stack index to positive */
@@ -241,7 +242,7 @@ namespace KopiLua
 		  if (libname!=null) {
 			int size = libsize(l);
 			/* check whether lib already exists */
-			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);
+			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
 			lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
 			if (!lua_istable(L, -1)) {  /* not found? */
 			  lua_pop(L, 1);  /* remove previous result */
@@ -409,9 +410,9 @@ namespace KopiLua
 		  if (B.lvl > 1) {
 			lua_State L = B.L;
 			int toget = 1;  /* number of levels to concat */
-			uint toplen = lua_strlen(L, -1);
+			uint toplen = lua_objlen(L, -1);
 			do {
-			  uint l = lua_strlen(L, -(toget+1));
+			  uint l = lua_objlen(L, -(toget+1));
 			  if (B.lvl - toget + 1 >= LIMIT || toplen > l) {
 				toplen += l;
 				toget++;
@@ -499,6 +500,8 @@ namespace KopiLua
 		  }
 		  else {  /* no free elements */
 			ref_ = (int)lua_objlen(L, t);
+		    if (ref_ < RESERVED_REFS)
+		      ref_ = RESERVED_REFS;  /* skip reserved references */
 			ref_++;  /* create new reference */
 		  }
 		  lua_rawseti(L, t, ref_);
@@ -576,8 +579,9 @@ namespace KopiLua
 			while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
 			if (c == '\n') c = getc(lf.f);
 		  }
-		  if (c == LUA_SIGNATURE[0] && (filename!=null)) {  /* binary file? */
-			lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
+		  if (c == LUA_SIGNATURE[0] && lf.f != stdin) {  /* binary file? */
+            fclose(lf.f);
+			lf.f = fopen(filename, "rb");  /* reopen in binary mode */
 			if (lf.f == null) return errfile(L, "reopen", fnameindex);
 			/* skip eventual `#!...' */
 		   while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
@@ -586,7 +590,7 @@ namespace KopiLua
 		  ungetc(c, lf.f);
 		  status = lua_load(L, getF, lf, lua_tostring(L, -1));
 		  readstatus = ferror(lf.f);
-		  if (filename != null) fclose(lf.f);  /* close file (even in case of errors) */
+		  if (lf.f != stdin) fclose(lf.f);  /* close file (even in case of errors) */
 		  if (readstatus != 0) {
 			lua_settop(L, fnameindex);  /* ignore results from `lua_load' */
 			return errfile(L, "read", fnameindex);
@@ -639,6 +643,7 @@ namespace KopiLua
 		  //(void)L;  /* to avoid warnings */
 		  fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
 						   lua_tostring(L, -1));
+          exit(EXIT_FAILURE);  /* do not return to Lua */
 		  return 0;
 		}
 

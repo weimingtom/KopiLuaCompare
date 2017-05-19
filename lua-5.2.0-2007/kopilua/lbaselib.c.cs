@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.191.1.6 2008/02/14 16:46:22 roberto Exp $
+** $Id: lbaselib.c,v 1.194 2006/10/20 19:30:53 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -106,11 +106,11 @@ namespace KopiLua
 		}
 
 
-		private static void getfunc (lua_State L, int opt) {
+		private static void getfunc (lua_State L) {
 		  if (lua_isfunction(L, 1)) lua_pushvalue(L, 1);
 		  else {
 			lua_Debug ar = new lua_Debug();
-			int level = (opt != 0) ? luaL_optint(L, 1, 1) : luaL_checkint(L, 1);
+			int level = luaL_optint(L, 1, 1);
 			luaL_argcheck(L, level >= 0, 1, "level must be non-negative");
 			if (lua_getstack(L, level, ar) == 0)
 			  luaL_argerror(L, 1, "invalid level");
@@ -123,7 +123,7 @@ namespace KopiLua
 
 
 		private static int luaB_getfenv (lua_State L) {
-		  getfunc(L, 1);
+		  getfunc(L);
 		  if (lua_iscfunction(L, -1))  /* is a C function? */
 			lua_pushvalue(L, LUA_GLOBALSINDEX);  /* return the thread's global env. */
 		  else
@@ -134,7 +134,7 @@ namespace KopiLua
 
 		private static int luaB_setfenv (lua_State L) {
 		  luaL_checktype(L, 2, LUA_TTABLE);
-		  getfunc(L, 0);
+		  getfunc(L);
 		  lua_pushvalue(L, 2);
 		  if ((lua_isnumber(L, 1)!=0) && (lua_tonumber(L, 1) == 0)) {
 			/* change environment of current thread */
@@ -256,7 +256,7 @@ namespace KopiLua
 
 
 		private static int load_aux (lua_State L, int status) {
-		  if (status == 0)  /* OK? */
+		  if (status == LUA_OK)  /* OK? */
 			return 1;
 		  else {
 			lua_pushnil(L);
@@ -321,10 +321,10 @@ namespace KopiLua
 
 		private static int luaB_dofile (lua_State L) {
 		  CharPtr fname = luaL_optstring(L, 1, null);
-		  int n = lua_gettop(L);
-		  if (luaL_loadfile(L, fname) != 0) lua_error(L);
+		  lua_settop(L, 1);
+		  if (luaL_loadfile(L, fname) != LUA_OK) lua_error(L);
 		  lua_call(L, 0, LUA_MULTRET);
-		  return lua_gettop(L) - n;
+		  return lua_gettop(L) - 1;
 		}
 
 
@@ -341,13 +341,11 @@ namespace KopiLua
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  i = luaL_optint(L, 2, 1);
 		  e = luaL_opt_integer(L, luaL_checkint, 3, luaL_getn(L, 1));
-		  if (i > e) return 0;  /* empty range */
 		  n = e - i + 1;  /* number of elements */
-		  if (n <= 0 || (lua_checkstack(L, n)==0))  /* n <= 0 means arith. overflow */
-			return luaL_error(L, "too many results to unpack");
-		  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
-		  while (i++ < e)  /* push arg[i + 1...e] */
-			lua_rawgeti(L, 1, i);
+		  if (n <= 0) return 0;  /* empty range */
+		  luaL_checkstack(L, n, "table too big to unpack");
+		  for (; i<=e; i++)  /* push arg[i...e] */
+		    lua_rawgeti(L, 1, i);
 		  return n;
 		}
 
@@ -372,7 +370,7 @@ namespace KopiLua
 		  int status;
 		  luaL_checkany(L, 1);
 		  status = lua_pcall(L, lua_gettop(L) - 1, LUA_MULTRET, 0);
-		  lua_pushboolean(L, (status == 0) ? 1 : 0);
+		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
 		  lua_insert(L, 1);
 		  return lua_gettop(L);  /* return status + all results */
 		}
@@ -380,11 +378,14 @@ namespace KopiLua
 
 		private static int luaB_xpcall (lua_State L) {
 		  int status;
-		  luaL_checkany(L, 2);
-		  lua_settop(L, 2);
-		  lua_insert(L, 1);  /* put error function under function to be called */
-		  status = lua_pcall(L, 0, LUA_MULTRET, 1);
-		  lua_pushboolean(L, (status == 0) ? 1 : 0);
+		  int n = lua_gettop(L);
+		  luaL_argcheck(L, n >= 2, 2, "value expected");
+		  lua_pushvalue(L, 1);  /* exchange function... */
+		  lua_pushvalue(L, 2);  /* ...and error handler */
+		  lua_replace(L, 1);
+		  lua_replace(L, 2);
+		  status = lua_pcall(L, n - 2, LUA_MULTRET, 1);
+		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
 		  lua_replace(L, 1);
 		  return lua_gettop(L);  /* return status + all results */
 		}
@@ -476,56 +477,20 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		public const int CO_RUN		= 0;	/* running */
-		public const int CO_SUS		= 1;	/* suspended */
-		public const int CO_NOR		= 2;	/* 'normal' (it resumed another coroutine) */
-		public const int CO_DEAD	= 3;
-
-		private static readonly string[] statnames =
-			{"running", "suspended", "normal", "dead"};
-
-		private static int costatus (lua_State L, lua_State co) {
-		  if (L == co) return CO_RUN;
-		  switch (lua_status(co)) {
-			case LUA_YIELD:
-			  return CO_SUS;
-			case 0: {
-			  lua_Debug ar = new lua_Debug();
-			  if (lua_getstack(co, 0, ar) > 0)  /* does it have frames? */
-				return CO_NOR;  /* it is running */
-			  else if (lua_gettop(co) == 0)
-				  return CO_DEAD;
-			  else
-				return CO_SUS;  /* initial state */
-			}
-			default:  /* some error occured */
-			  return CO_DEAD;
-		  }
-		}
-
-
-		private static int luaB_costatus (lua_State L) {
-		  lua_State co = lua_tothread(L, 1);
-		  luaL_argcheck(L, co!=null, 1, "coroutine expected");
-		  lua_pushstring(L, statnames[costatus(L, co)]);
-		  return 1;
-		}
-
 
 		private static int auxresume (lua_State L, lua_State co, int narg) {
-		  int status = costatus(L, co);
+		  int status;
 		  if (lua_checkstack(co, narg)==0)
 			luaL_error(L, "too many arguments to resume");
-		  if (status != CO_SUS) {
-			lua_pushfstring(L, "cannot resume %s coroutine", statnames[status]);
-			return -1;  /* error flag */
+	      if (lua_status(co) == LUA_OK && lua_gettop(co) == 0) {
+		    lua_pushliteral(L, "cannot resume dead coroutine");
+		    return -1;  /* error flag */
 		  }
 		  lua_xmove(L, co, narg);
-		  lua_setlevel(L, co);
 		  status = lua_resume(co, narg);
-		  if (status == 0 || status == LUA_YIELD) {
+		  if (status == LUA_OK || status == LUA_YIELD) {
 			int nres = lua_gettop(co);
-			if (lua_checkstack(L, nres + 1)==0)
+			if (lua_checkstack(L, nres)==0)
 			  luaL_error(L, "too many results to resume");
 			lua_xmove(co, L, nres);  /* move yielded values */
 			return nres;
@@ -589,6 +554,32 @@ namespace KopiLua
 
 		private static int luaB_yield (lua_State L) {
 		  return lua_yield(L, lua_gettop(L));
+        }
+		private static int luaB_costatus (lua_State L) {
+		  lua_State co = lua_tothread(L, 1);
+		  luaL_argcheck(L, co, 1, "coroutine expected");
+		  if (L == co) lua_pushliteral(L, "running");
+		  else {
+		    switch (lua_status(co)) {
+		      case LUA_YIELD:
+		        lua_pushliteral(L, "suspended");
+		        break;
+		      case LUA_OK: {
+		        lua_Debug ar;
+		        if (lua_getstack(co, 0, ar) > 0)  /* does it have frames? */
+		          lua_pushliteral(L, "normal");  /* it is running */
+		        else if (lua_gettop(co) == 0)
+		            lua_pushliteral(L, "dead");
+		        else
+		          lua_pushliteral(L, "suspended");  /* initial state */
+		        break;
+		      }
+		      default:  /* some error occured */
+		        lua_pushliteral(L, "dead");
+		        break;
+		    }
+		  }
+		  return 1;
 		}
 
 
