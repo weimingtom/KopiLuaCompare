@@ -5,3 +5,6 @@
 (x) lauxlib.c
 07:15 2017-05-20
 (x) lbaselib.c
+
+15:51 2017-05-20
+(x) lcode.c

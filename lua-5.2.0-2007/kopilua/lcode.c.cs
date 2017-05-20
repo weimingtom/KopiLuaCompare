@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.25.1.5 2011/01/31 14:53:16 roberto Exp $
+** $Id: lcode.c,v 2.30 2006/09/22 19:14:17 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -31,22 +31,19 @@ namespace KopiLua
 		public static void luaK_nil (FuncState fs, int from, int n) {
 		  InstructionPtr previous;
 		  if (fs.pc > fs.lasttarget) {  /* no jumps to current position? */
-			if (fs.pc == 0) {  /* function start? */
-			  if (from >= fs.nactvar)
-				return;  /* positions are already clean */
-			}
-			else {
-			  previous = new InstructionPtr(fs.f.code, fs.pc-1);
-			  if (GET_OPCODE(previous) == OpCode.OP_LOADNIL) {
-				int pfrom = GETARG_A(previous);
-				int pto = GETARG_B(previous);
-				if (pfrom <= from && from <= pto+1) {  /* can connect both? */
-				  if (from+n-1 > pto)
-					SETARG_B(previous, from+n-1);
-				  return;
-				}
+			if (fs.pc == 0)   /* function start? */
+			  return;  /* positions are already clean */
+
+		    previous = new InstructionPtr(fs.f.code, fs.pc-1);
+		    if (GET_OPCODE(previous) == OpCode.OP_LOADNIL) {
+			  int pfrom = GETARG_A(previous);
+			  int pto = GETARG_B(previous);
+			  if (pfrom <= from && from <= pto+1) {  /* can connect both? */
+			    if (from+n-1 > pto)
+				  SETARG_B(previous, from+n-1);
+			    return;
 			  }
-			}
+		    }
 		  }
 		  luaK_codeABC(fs, OpCode.OP_LOADNIL, from, from + n - 1, 0);  /* else no optimization */
 		}
@@ -222,24 +219,27 @@ namespace KopiLua
 		}
 
 
-		private static int addk (FuncState fs, TValue k, TValue v) {
+		private static int addk (FuncState fs, TValue key, TValue v) {
 		  lua_State L = fs.L;
-		  TValue idx = luaH_set(L, fs.h, k);
+		  TValue idx = luaH_set(L, fs.h, key);
 		  Proto f = fs.f;
-		  int oldsize = f.sizek;
+		  int k;
 		  if (ttisnumber(idx)) {
-			lua_assert(luaO_rawequalObj(fs.f.k[cast_int(nvalue(idx))], v));
-			return cast_int(nvalue(idx));
+		    lua_Number n = nvalue(idx);
+		    lua_number2int(k, n);
+			lua_assert(luaO_rawequalObj(f.k[k], v));
 		  }
 		  else {  /* constant not found; create a new entry */
+		    int oldsize = f.sizek;
+		    k = fs.nk;
 			setnvalue(idx, cast_num(fs.nk));
-			luaM_growvector(L, ref f.k, fs.nk, ref f.sizek,
-							MAXARG_Bx, "constant table overflow");
+			luaM_growvector(L, f.k, k, f.sizek, TValue, MAXARG_Bx, "constants");
 			while (oldsize < f.sizek) setnilvalue(f.k[oldsize++]);
-			setobj(L, f.k[fs.nk], v);
+			setobj(L, f.k[k], v);
+            fs.nk++;
 			luaC_barrier(L, f, v);
-			return fs.nk++;
 		  }
+          return k;
 		}
 
 
@@ -540,6 +540,10 @@ namespace KopiLua
 			  pc = NO_JUMP;  /* always true; do nothing */
 			  break;
 			}
+		    case expkind.VFALSE: {
+		      pc = luaK_jump(fs);  /* always jump */
+		      break;
+		    }
 			case expkind.VJMP: {
 			  invertjump(fs, e);
 			  pc = e.u.s.info;
@@ -564,6 +568,10 @@ namespace KopiLua
 			  pc = NO_JUMP;  /* always false; do nothing */
 			  break;
 			}
+			case expkind.VTRUE: {
+			      pc = luaK_jump(fs);  /* always jump */
+			      break;
+			    }
 			case expkind.VJMP: {
 			  pc = e.u.s.info;
 			  break;
@@ -626,21 +634,21 @@ namespace KopiLua
 		  v1 = e1.u.nval;
 		  v2 = e2.u.nval;
 		  switch (op) {
-			case OpCode.OP_ADD: r = luai_numadd(v1, v2); break;
-			case OpCode.OP_SUB: r = luai_numsub(v1, v2); break;
-			case OpCode.OP_MUL: r = luai_nummul(v1, v2); break;
+			case OpCode.OP_ADD: r = luai_numadd(null, v2); break;
+			case OpCode.OP_SUB: r = luai_numsub(null, v2); break;
+			case OpCode.OP_MUL: r = luai_nummul(null, v2); break;
 			case OpCode.OP_DIV:
 			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
-			  r = luai_numdiv(v1, v2); break;
+			  r = luai_numdiv(null, v1, v2); break;
 			case OpCode.OP_MOD:
 			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
-			  r = luai_nummod(v1, v2); break;
-			case OpCode.OP_POW: r = luai_numpow(v1, v2); break;
-			case OpCode.OP_UNM: r = luai_numunm(v1); break;
+			  r = luai_nummod(null, v1, v2); break;
+			case OpCode.OP_POW: r = luai_numpow(null, v1, v2); break;
+			case OpCode.OP_UNM: r = luai_numunm(null, v1); break;
 			case OpCode.OP_LEN: return 0;  /* no constant folding for 'len' */
 			default: lua_assert(0); r = 0; break;
 		  }
-		  if (luai_numisnan(r)) return 0;  /* do not attempt to produce NaN */
+		  if (luai_numisnan(null, r)) return 0;  /* do not attempt to produce NaN */
 		  e1.u.nval = r;
 		  return 1;
 		}
@@ -650,16 +658,10 @@ namespace KopiLua
 		  if (constfolding(op, e1, e2) != 0)
 			return;
 		  else {
-			int o2 = (op != OpCode.OP_UNM && op != OpCode.OP_LEN) ? luaK_exp2RK(fs, e2) : 0;
 			int o1 = luaK_exp2RK(fs, e1);
-			if (o1 > o2) {
-			  freeexp(fs, e1);
-			  freeexp(fs, e2);
-			}
-			else {
-			  freeexp(fs, e2);
-			  freeexp(fs, e1);
-			}
+			int o2 = (op != OpCode.OP_UNM && op != OpCode.OP_LEN) ? luaK_exp2RK(fs, e2) : 0;
+			freeexp(fs, e2);
+			freeexp(fs, e1);
 			e1.u.s.info = luaK_codeABC(fs, op, 0, o1, o2);
 			e1.k = expkind.VRELOCABLE;
 		  }
@@ -687,7 +689,7 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-			  if (isnumeral(e)==0)
+			  if (e.k == VK)
 				luaK_exp2anyreg(fs, e);  /* cannot operate on non-numeric constants */
 			  codearith(fs, OpCode.OP_UNM, e, e2);
 			  break;
@@ -717,13 +719,8 @@ namespace KopiLua
 			  luaK_exp2nextreg(fs, v);  /* operand must be on the `stack' */
 			  break;
 			}
-			case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
-			case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
-			  if ((isnumeral(v)==0)) luaK_exp2RK(fs, v);
-			  break;
-			}
 			default: {
-			  luaK_exp2RK(fs, v);
+			  if (!isnumeral(v)) luaK_exp2RK(fs, v);
 			  break;
 			}
 		  }
@@ -787,12 +784,12 @@ namespace KopiLua
 		  dischargejpc(fs);  /* `pc' will change */
 		  /* put new instruction in code array */
 		  luaM_growvector(fs.L, ref f.code, fs.pc, ref f.sizecode,
-						  MAX_INT, "code size overflow");
+						  MAX_INT, "opcodes");
 		  f.code[fs.pc] = (uint)i;
 		  /* save corresponding line information */
 		  luaM_growvector(fs.L, ref f.lineinfo, fs.pc, ref f.sizelineinfo,
-						  MAX_INT, "code size overflow");
-		  f.lineinfo[fs.pc] = line;		  
+						  MAX_INT, "opcodes");
+		  f.lineinfo[fs.pc] = fs.ls.lastline;		  
 		  return fs.pc++;
 		}
 
@@ -801,14 +798,14 @@ namespace KopiLua
 		  lua_assert(getOpMode(o) == OpMode.iABC);
 		  lua_assert(getBMode(o) != OpArgMask.OpArgN || b == 0);
 		  lua_assert(getCMode(o) != OpArgMask.OpArgN || c == 0);
-		  return luaK_code(fs, CREATE_ABC(o, a, b, c), fs.ls.lastline);
+		  return luaK_code(fs, CREATE_ABC(o, a, b, c));
 		}
 
 
 		public static int luaK_codeABx (FuncState fs, OpCode o, int a, int bc) {			
 		  lua_assert(getOpMode(o) == OpMode.iABx || getOpMode(o) == OpMode.iAsBx);
 		  lua_assert(getCMode(o) == OpArgMask.OpArgN);
-		  return luaK_code(fs, CREATE_ABx(o, a, bc), fs.ls.lastline);
+		  return luaK_code(fs, CREATE_ABx(o, a, bc));
 		}
 
 		public static void luaK_setlist (FuncState fs, int base_, int nelems, int tostore) {
@@ -819,7 +816,7 @@ namespace KopiLua
 			luaK_codeABC(fs, OpCode.OP_SETLIST, base_, b, c);
 		  else {
 			  luaK_codeABC(fs, OpCode.OP_SETLIST, base_, b, 0);
-			luaK_code(fs, c, fs.ls.lastline);
+			luaK_code(fs, c);
 		  }
 		  fs.freereg = base_ + 1;  /* free registers with list values */
 		}
