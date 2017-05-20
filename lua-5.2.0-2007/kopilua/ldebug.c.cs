@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.29.1.6 2008/05/08 16:56:26 roberto Exp $
+** $Id: ldebug.c,v 2.33 2006/09/19 13:57:50 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -45,6 +45,7 @@ namespace KopiLua
 			mask = 0;
 			func = null;
 		  }
+          L.oldpc = L.savedpc;
 		  L.hook = func;
 		  L.basehookcount = count;
 		  resethookcount(L);
@@ -115,8 +116,10 @@ namespace KopiLua
 		  CallInfo ci = L.base_ci[ar.i_ci];
 		  CharPtr name = findlocal(L, ci, n);
 		  lua_lock(L);
-		  if (name != null)
-			  luaA_pushobject(L, ci.base_[n - 1]);
+		  if (name != null) {
+			  setobj2s(L, L.top, ci.base + (n - 1));
+		      api_incr_top(L);
+          }
 		  lua_unlock(L);
 		  return name;
 		}
@@ -152,7 +155,8 @@ namespace KopiLua
 
 
 		private static void info_tailcall (lua_Debug ar) {
-		  ar.name = ar.namewhat = "";
+		  ar.name = null;
+		  ar.namewhat = "";
 		  ar.what = "tail";
 		  ar.lastlinedefined = ar.linedefined = ar.currentline = -1;
 		  ar.source = "=(tail call)";
@@ -164,16 +168,17 @@ namespace KopiLua
 		private static void collectvalidlines (lua_State L, Closure f) {
 		  if (f == null || (f.c.isC!=0)) {
 			setnilvalue(L.top);
+            incr_top(L);
 		  }
 		  else {
-			Table t = luaH_new(L, 0, 0);
-			int[] lineinfo = f.l.p.lineinfo;
 			int i;
+			int[] lineinfo = f.l.p.lineinfo;
+		    Table t = luaH_new(L);
+		    sethvalue(L, L.top, t);
+		    incr_top(L);
 			for (i=0; i<f.l.p.sizelineinfo; i++)
 			  setbvalue(luaH_setnum(L, t, lineinfo[i]), 1);
-			sethvalue(L, L.top, t); 
 		  }
-		  incr_top(L);
 		}
 
 
@@ -260,12 +265,12 @@ namespace KopiLua
 
 		private static int precheck (Proto pt) {
 		  if (!(pt.maxstacksize <= MAXSTACK)) return 0;
-		  if (!(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize)) return 0;
-		  if (!(((pt.is_vararg & VARARG_NEEDSARG)==0) ||
-					  ((pt.is_vararg & VARARG_HASARG)!=0))) return 0;
+		  lua_assert(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize);
+		  lua_assert(!((pt.is_vararg & VARARG_NEEDSARG)==0) ||
+					  ((pt.is_vararg & VARARG_HASARG)!=0)));
 		  if (!(pt.sizeupvalues <= pt.nups)) return 0;
 		  if (!(pt.sizelineinfo == pt.sizecode || pt.sizelineinfo == 0)) return 0;
-		  if (!(pt.sizecode > 0 && GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
+		  if (!(GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
 		  return 1;
 		}
 
@@ -332,18 +337,10 @@ namespace KopiLua
 				  dest = pc+1+b;
 				  if (!((0 <= dest && dest < pt.sizecode))) return 0;
 				  if (dest > 0) {
-					int j;
-					/* check that it does not jump to a setlist count; this
-					   is tricky, because the count from a previous setlist may
-					   have the same value of an invalid setlist; so, we must
-					   go all the way back to the first of them (if any) */
-					for (j = 0; j < dest; j++) {
-					  Instruction d = pt.code[dest-1-j];
-					  if (!(GET_OPCODE(d) == OpCode.OP_SETLIST && GETARG_C(d) == 0)) break;
-					}
-					/* if 'j' is even, previous value is not a setlist (even if
-					   it looks like one) */
-					  if ((j&1)!=0) return 0;
+					/* cannot jump to a setlist count */
+		            Instruction d = pt.code[dest-1];
+		            if(!(!(GET_OPCODE(d) == OP_SETLIST && GETARG_C(d) == 0))) return 0;
+
 				  }
 				}
 				break;
@@ -358,11 +355,7 @@ namespace KopiLua
 			}
 			switch (op) {
 			  case OpCode.OP_LOADBOOL: {
-				if (c == 1) {  /* does it jump? */
-				  if (!(pc+2 < pt.sizecode)) return 0;  /* check its jump */
-				  if (!(GET_OPCODE(pt.code[pc + 1]) != OpCode.OP_SETLIST ||
-						GETARG_C(pt.code[pc + 1]) != 0)) return 0;
-				}
+				if (!(c == 0 || pc+2 < pt->sizecode)) return 0;  /* check its jump */
 				break;
 			  }
 			  case OpCode.OP_LOADNIL: {
@@ -433,10 +426,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETLIST: {
 				if (b > 0) checkreg(pt, a + b);
-				if (c == 0) {
-				  pc++;
-				  if (!(pc < pt.sizecode - 1)) return 0;
-				}
+				if (c == 0) pc++;
 				break;
 			  }
 			  case OpCode.OP_CLOSURE: {
@@ -572,8 +562,8 @@ namespace KopiLua
 
 
 		public static void luaG_concaterror (lua_State L, StkId p1, StkId p2) {
-		  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
-		  lua_assert(!ttisstring(p1) && !ttisnumber(p1));
+		  if (ttisstring(p1)) p1 = p2;
+		  lua_assert(!ttisstring(p1));
 		  luaG_typeerror(L, p1, "concatenate");
 		}
 
