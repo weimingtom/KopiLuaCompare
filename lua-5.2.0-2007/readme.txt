@@ -80,4 +80,13 @@
 (x) luaconf.h
 (x) lualib.h
 
+02:42 2017-05-21
+(x) lundump.c
+(x) lundump.h
+(x) lzio.c
+(x) lzio.h
 
+03:09 2017-05-21
+(x) lvm.c
+	(?not modified)Protect
+(x) lvm.h

@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.7.1.4 2008/04/04 19:51:41 roberto Exp $
+** $Id: lundump.c,v 2.7 2006/02/17 15:51:03 roberto Exp roberto $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -33,7 +33,6 @@ namespace KopiLua
 
 		//#ifdef LUAC_TRUST_BINARIES
 		//#define IF(c,s)
-		//#define error(S,s)
 		//#else
 		//#define IF(c,s)		if (c) error(S,s)
 
@@ -142,7 +141,7 @@ namespace KopiLua
 			setsvalue2n(S.L, o, LoadString(S));
 			break;
 		   default:
-			error(S,"bad constant");
+			IF (1, "bad constant");
 			break;
 		  }
 		 }
@@ -179,9 +178,7 @@ namespace KopiLua
 
 		private static Proto LoadFunction(LoadState S, TString p)
 		{
-		 Proto f;
-		 if (++S.L.nCcalls > LUAI_MAXCCALLS) error(S,"code too deep");
-		 f=luaF_newproto(S.L);
+		 Proto f=luaF_newproto(S.L);
 		 setptvalue2s(S.L,S.L.top,f); incr_top(S.L);
 		 f.source=LoadString(S); if (f.source==null) f.source=p;
 		 f.linedefined=LoadInt(S);
@@ -195,7 +192,6 @@ namespace KopiLua
 		 LoadDebug(S,f);
 		 IF (luaG_checkcode(f)==0 ? 1 : 0, "bad code");
 		 StkId.dec(ref S.L.top);
-		 S.L.nCcalls--;
 		 return f;
 		}
 
