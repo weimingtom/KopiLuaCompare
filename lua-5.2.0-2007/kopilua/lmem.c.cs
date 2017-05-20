@@ -1,5 +1,5 @@
 /*
-** $Id: lmem.c,v 1.70.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: lmem.c,v 1.72 2006/09/14 12:59:06 roberto Exp roberto $
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -41,14 +41,14 @@ namespace KopiLua
 
 
 		public static T[] luaM_growaux_<T>(lua_State L, ref T[] block, ref int size,
-							 int limit, CharPtr errormsg)
+							 int limit, CharPtr what)
 		{
 			T[] newblock;
 			int newsize;
 			if (size >= limit / 2)
 			{  /* cannot double it? */
 				if (size >= limit)  /* cannot grow even a little? */
-					luaG_runerror(L, errormsg);
+					luaG_runerror(L, "too many %s (limit is %d)", what, limit);
 				newsize = limit;  /* still have at least one free place */
 			}
 			else

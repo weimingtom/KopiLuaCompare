@@ -15,3 +15,29 @@
 17:28 2017-05-20
 (x) ldo.c
 (x) ldo.h
+
+00:00 2017-05-21
+(x) lfunc.c
+(x) lfunc.h
+
+00:20 2017-05-21
+(x) lgc.c
+(x) lgc.h
+(x) linit.c
+00:29 2017-05-21
+(x) liolib.c
+
+00:35 2017-05-21
+(x) llex.c
+(x) llex.h
+(x) llimits.h
+00:38 2017-05-21
+(x) lmathlib.c
+00:42 2017-05-21
+(x) lmem.c
+	(?todo) luaM_realloc_
+(x) lmem.h
+00:50 2017-05-21
+(x) loadlib.c
+
+	

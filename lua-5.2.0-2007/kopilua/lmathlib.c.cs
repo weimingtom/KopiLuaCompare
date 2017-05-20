@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.67.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: lmathlib.c,v 1.67 2005/08/26 17:36:32 roberto Exp roberto $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -108,7 +108,10 @@ namespace KopiLua
 		}
 
 		private static int math_log (lua_State L) {
-		  lua_pushnumber(L, Math.Log(luaL_checknumber(L, 1)));
+		  lua_Number res = log(luaL_checknumber(L, 1));
+		  if (!lua_isnoneornil(L, 2))
+		    res /= log(luaL_checknumber(L, 2));
+		  lua_pushnumber(L, res);
 		  return 1;
 		}
 

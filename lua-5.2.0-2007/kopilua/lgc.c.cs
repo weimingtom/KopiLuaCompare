@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.38.1.2 2011/03/18 18:05:38 roberto Exp $
+** $Id: lgc.c,v 2.39 2006/07/11 15:53:29 roberto Exp roberto $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -62,7 +62,7 @@ namespace KopiLua
 
 		public static void markobject(global_State g, object t)
 		{
-			if (iswhite(obj2gco(t)))
+			if (t != null && iswhite(obj2gco(t)))
 				reallymarkobject(g, obj2gco(t));
 		}
 
@@ -88,7 +88,7 @@ namespace KopiLua
 			case LUA_TUSERDATA: {
 			  Table mt = gco2u(o).metatable;
 			  gray2black(o);  /* udata are never gray */
-			  if (mt != null) markobject(g, mt);
+			  markobject(g, mt);
 			  markobject(g, gco2u(o).env);
 			  return;
 			}
@@ -172,8 +172,7 @@ namespace KopiLua
 		  int weakkey = 0;
 		  int weakvalue = 0;
 		  /*const*/ TValue mode;
-		  if (h.metatable != null)
-			markobject(g, h.metatable);
+		  markobject(g, h.metatable);
 		  mode = gfasttm(g, h.metatable, TMS.TM_MODE);
 		  if ((mode != null) && ttisstring(mode)) {  /* is there a weak mode? */
 			  weakkey = (strchr(svalue(mode), 'k') != null) ? 1 : 0 ;
@@ -221,10 +220,8 @@ namespace KopiLua
 			if (f.upvalues[i] != null)
 			  stringmark(f.upvalues[i]);
 		  }
-		  for (i=0; i<f.sizep; i++) {  /* mark nested protos */
-			if (f.p[i] != null)
+		  for (i=0; i<f.sizep; i++)  /* mark nested protos */
 			  markobject(g, f.p[i]);
-		  }
 		  for (i=0; i<f.sizelocvars; i++) {  /* mark local-variable names */
 			if (f.locvars[i].varname != null)
 			  stringmark(f.locvars[i].varname);
@@ -268,6 +265,8 @@ namespace KopiLua
 		private static void traversestack (global_State g, lua_State l) {
 		  StkId o, lim;
 		  CallInfo ci;
+		  if (l.stack == null || l.base_ci == null)
+		    return;  /* stack not completely built yet */
 		  markvalue(g, gt(l));
 		  lim = l.top;
 		  for (ci = l.base_ci[0]; ci <= l.ci; CallInfo.inc(ref ci)) {
@@ -278,7 +277,8 @@ namespace KopiLua
 			markvalue(g, o);
 		  for (; o <= lim; StkId.inc(ref o))
 			setnilvalue(o);
-		  checkstacksizes(l, lim);
+          if (!g.emergencygc)  /* cannot change stack in emergency... */
+		    checkstacksizes(l, lim);
 		}
 
 
@@ -458,21 +458,26 @@ namespace KopiLua
 		  }
 		}
 
-
-		private static void GCTM (lua_State L) {
-		  global_State g = G(L);
+	    private static Udata udata2finalize (global_State g) {
 		  GCObject o = g.tmudata.gch.next;  /* get first element */
 		  Udata udata = rawgco2u(o);
-		  TValue tm;
 		  /* remove udata from `tmudata' */
 		  if (o == g.tmudata)  /* last element? */
-			g.tmudata = null;
+		    g.tmudata = null;
 		  else
-			g.tmudata.gch.next = udata.uv.next;
+		    g.tmudata.gch.next = udata.uv.next;
 		  udata.uv.next = g.mainthread.next;  /* return it to `root' list */
 		  g.mainthread.next = o;
 		  makewhite(g, o);
-		  tm = fasttm(L, udata.uv.metatable, TMS.TM_GC);
+		  return udata;
+		}
+
+
+
+		private static void GCTM (lua_State L) {
+		  global_State g = G(L);
+		  Udata udata = udata2finalize(g);
+		  /*const*/ TValue tm = fasttm(L, udata.uv.metatable, TMS.TM_GC);
 		  if (tm != null) {
 			lu_byte oldah = L.allowhook;
 			lu_mem oldt = (lu_mem)g.GCthreshold;
@@ -492,8 +497,17 @@ namespace KopiLua
 		** Call all GC tag methods
 		*/
 		public static void luaC_callGCTM (lua_State L) {
-		  while (G(L).tmudata != null)
-			GCTM(L);
+		  global_State g = G(L);
+		  GCObject last = g.tmudata;
+		  GCObject curr;
+		  if (last == null) return;  /* empty list? */
+		  do {
+		    curr = g.tmudata.gch.next;  /* element to be collected */
+		    GCTM(L);
+		  } while (curr != last);  /* go only until original last */
+		  /* do not finalize new udata created during previous finalizations  */
+		  while (g.tmudata)
+		    udata2finalize(g);  /* simply remove them from list */
 		}
 
 
@@ -510,7 +524,7 @@ namespace KopiLua
 		private static void markmt (global_State g) {
 		  int i;
 		  for (i=0; i<NUM_TAGS; i++)
-			if (g.mt[i] != null) markobject(g, g.mt[i]);
+		     markobject(g, g.mt[i]);
 		}
 
 
@@ -570,6 +584,8 @@ namespace KopiLua
 		}
 
 
+		private static void correctestimate(global_State g, s)  {lu_mem old = g.totalbytes; s;
+		          lua_assert(old >= g.totalbytes); g.estimate -= old - g.totalbytes;} ??? //???
 		private static l_mem singlestep (lua_State L) {
 		  global_State g = G(L);
 		  /*lua_checkmemory(L);*/
@@ -587,8 +603,7 @@ namespace KopiLua
 			  }
 			}
 			case GCSsweepstring: {
-			  lu_mem old = (lu_mem)g.totalbytes;
-			  sweepwholelist(L, new ArrayRef(g.strt.hash, g.sweepstrgc++));
+			  correctestimate(g, sweepwholelist(L, new ArrayRef(g.strt.hash, g.sweepstrgc++)));
 			  if (g.sweepstrgc >= g.strt.size)  /* nothing more to sweep? */
 				g.gcstate = GCSsweep;  /* end sweep-string phase */
 			  lua_assert(old >= g.totalbytes);
@@ -596,14 +611,9 @@ namespace KopiLua
 			  return GCSWEEPCOST;
 			}
 			case GCSsweep: {
-			  lu_mem old = (lu_mem)g.totalbytes;
-			  g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);
-			  if (g.sweepgc.get() == null) {  /* nothing more to sweep? */
-				checkSizes(L);
+			  correctestimate(g, g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX));
+			  if (g.sweepgc.get() == null)  /* nothing more to sweep? */
 				g.gcstate = GCSfinalize;  /* end sweep phase */
-			  }
-			  lua_assert(old >= g.totalbytes);
-			  g.estimate -= (uint)(old - g.totalbytes);
 			  return GCSWEEPMAX*GCSWEEPCOST;
 			}
 			case GCSfinalize: {
@@ -614,6 +624,7 @@ namespace KopiLua
 				return GCFINALIZECOST;
 			  }
 			  else {
+                correctestimate(g, checkSizes(L));
 				g.gcstate = GCSpause;  /* end collection */
 				g.gcdept = 0;
 				return 0;
@@ -626,6 +637,7 @@ namespace KopiLua
 		public static void luaC_step (lua_State L) {
 		  global_State g = G(L);
 		  l_mem lim = (l_mem)((GCSTEPSIZE / 100) * g.gcstepmul);
+          lua_assert(!g->emergencygc);
 		  if (lim == 0)
 			lim = (l_mem)((MAX_LUMEM-1)/2);  /* no limit */
 		  g.gcdept += g.totalbytes - g.GCthreshold;
@@ -643,13 +655,16 @@ namespace KopiLua
 			}
 		  }
 		  else {
+            lua_assert(g.totalbytes >= g.estimate);
 			setthreshold(g);
 		  }
 		}
 
 
-		public static void luaC_fullgc (lua_State L) {
+		public static void luaC_fullgc (lua_State L, int isemergency) {
+          int stopstate;
 		  global_State g = G(L);
+          g.emergencygc = isemergency;
 		  if (g.gcstate <= GCSpropagate) {
 			/* reset sweep marks to sweep all elements (returning them to white) */
 			g.sweepstrgc = 0;
@@ -667,10 +682,12 @@ namespace KopiLua
 			singlestep(L);
 		  }
 		  markroot(L);
-		  while (g.gcstate != GCSpause) {
+		  /* do not run finalizers during emergency GC */
+		  stopstate = isemergency ? GCSfinalize : GCSpause;
+		  while (g.gcstate != stopstate)
 			singlestep(L);
-		  }
 		  setthreshold(g);
+          g.emergencygc = 0;
 		}
 
 
@@ -713,7 +730,7 @@ namespace KopiLua
 		  GCObject o = obj2gco(uv);
 		  o.gch.next = g.rootgc;  /* link upvalue into `rootgc' list */
 		  g.rootgc = o;
-		  if (isgray(o)) { 
+		  if (isgray(o)) {
 			if (g.gcstate == GCSpropagate) {
 			  gray2black(o);  /* closed upvalues need barrier */
 			  luaC_barrier(L, uv, uv.v);

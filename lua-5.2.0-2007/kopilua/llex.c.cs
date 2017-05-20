@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.20.1.2 2009/11/23 14:58:22 roberto Exp $
+** $Id: llex.c,v 2.22 2006/08/30 13:19:58 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -104,12 +104,13 @@ namespace KopiLua
 		public static TString luaX_newstring(LexState ls, CharPtr str, uint l)
 		{
 		  lua_State L = ls.L;
+          TValue o;  /* entry for `str' */
 		  TString ts = luaS_newlstr(L, str, l);
-		  TValue o = luaH_setstr(L, ls.fs.h, ts);  /* entry for `str' */
-          if (ttisnil(o)) {
-             setbvalue(o, 1);  /* make sure `str' will not be collected */
-             luaC_checkGC(L);
-          }
+		  setsvalue2s(L, L.top++, ts);  /* anchor string */
+		  o = luaH_setstr(L, ls.fs.h, ts);
+		  if (ttisnil(o))
+		    setbvalue(o, 1);  /* make sure `str' will not be collected */
+		  L.top--;
 		  return ts;
 		}
 
@@ -148,7 +149,7 @@ namespace KopiLua
 
 
 		private static int check_next (LexState ls, CharPtr set) {
-		  if (strchr(set, (char)ls.current) == null)
+		  if ((char)ls.current == '\0' || strchr(set, (char)ls.current) == null)
 			return 0;
 		  save_and_next(ls);
 		  return 1;
@@ -210,8 +211,6 @@ namespace KopiLua
 
 
 		private static void read_long_string (LexState ls, SemInfo seminfo, int sep) {
-		  //int cont = 0;
-		  //(void)(cont);  /* avoid warnings when `cont' is not used */
 		  save_and_next(ls);  /* skip 2nd `[' */
 		  if (currIsNewline(ls))  /* string starts with a newline? */
 			inclinenumber(ls);  /* skip it */
@@ -221,27 +220,10 @@ namespace KopiLua
 				luaX_lexerror(ls, (seminfo != null) ? "unfinished long string" :
 										   "unfinished long comment", (int)RESERVED.TK_EOS);
 				break;  /* to avoid warnings */
-		#if LUA_COMPAT_LSTR
-			  case '[': {
-				if (skip_sep(ls) == sep) {
-				  save_and_next(ls);  /* skip 2nd `[' */
-				  cont++;
-		#if LUA_COMPAT_LSTR
-				  if (sep == 0)
-					luaX_lexerror(ls, "nesting of [[...]] is deprecated", '[');
-		#endif
-				}
-				break;
-			  }
-		#endif
 			  case ']':
 				if (skip_sep(ls) == sep)
 				{
 				  save_and_next(ls);  /* skip 2nd `]' */
-		//#if defined(LUA_COMPAT_LSTR) && LUA_COMPAT_LSTR == 2
-		//          cont--;
-		//          if (sep == 0 && cont >= 0) break;
-		//#endif
 				  goto endloop;
 				}
 			  break;
