@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.32.1.2 2007/12/28 15:32:23 roberto Exp $
+** $Id: ltable.c,v 2.34 2006/08/07 19:14:30 roberto Exp roberto $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -47,7 +47,7 @@ namespace KopiLua
 
 		//public static Node gnode(Table t, int i)	{return t.node[i];}
 		public static Node hashpow2(Table t, lua_Number n)      {return gnode(t, (int)lmod(n, sizenode(t)));}
-		  
+		
 		public static Node hashstr(Table t, TString str)  {return hashpow2(t, str.tsv.hash);}
 		public static Node hashboolean(Table t, int p)        {return hashpow2(t, p);}
 
@@ -287,7 +287,7 @@ namespace KopiLua
 		}
 
 
-		private static void resize (lua_State L, Table t, int nasize, int nhsize) {
+		private static void luaH_resize (lua_State L, Table t, int nasize, int nhsize) {
 		  int i;
 		  int oldasize = t.sizearray;
 		  int oldhsize = t.lsizenode;
@@ -295,7 +295,7 @@ namespace KopiLua
 		  if (nasize > oldasize)  /* array part must grow? */
 			setarrayvector(L, t, nasize);
 		  /* create new hash part with appropriate size */
-		  setnodevector(L, t, nhsize);  
+		  setnodevector(L, t, nhsize);
 		  if (nasize < oldasize) {  /* array part must shrink? */
 			t.sizearray = nasize;
 			/* re-insert elements from vanishing slice */
@@ -319,7 +319,7 @@ namespace KopiLua
 
 		public static void luaH_resizearray (lua_State L, Table t, int nasize) {
 		  int nsize = (t.node[0] == dummynode) ? 0 : sizenode(t);
-		  resize(L, t, nasize, nsize);
+		  luaH_resize(L, t, nasize, nsize);
 		}
 
 
@@ -338,7 +338,7 @@ namespace KopiLua
 		  /* compute new size for array part */
 		  na = computesizes(nums, ref nasize);
 		  /* resize the table to new computed sizes */
-		  resize(L, t, nasize, totaluse - na);
+		  luaH_resize(L, t, nasize, totaluse - na);
 		}
 
 
@@ -348,18 +348,14 @@ namespace KopiLua
 		*/
 
 
-		public static Table luaH_new (lua_State L, int narray, int nhash) {
+		public static Table luaH_new (lua_State L) {
 		  Table t = luaM_new<Table>(L);
 		  luaC_link(L, obj2gco(t), LUA_TTABLE);
 		  t.metatable = null;
 		  t.flags = cast_byte(~0);
-		  /* temporary values (kept only if some malloc fails) */
 		  t.array = null;
 		  t.sizearray = 0;
-		  t.lsizenode = 0;
-		  t.node = new Node[] { dummynode };
-		  setarrayvector(L, t, narray);
-		  setnodevector(L, t, nhash);
+		  setnodevector(L, t, 0);
 		  return t;
 		}
 
@@ -383,11 +379,11 @@ namespace KopiLua
 
 
 		/*
-		** inserts a new key into a hash table; first, check whether key's main 
-		** position is free. If not, check whether colliding node is in its main 
-		** position or not: if it is not, move colliding node to an empty place and 
-		** put new key in its main position; otherwise (colliding node is in its main 
-		** position), new key goes to an empty position. 
+		** inserts a new key into a hash table; first, check whether key's main
+		** position is free. If not, check whether colliding node is in its main
+		** position or not: if it is not, move colliding node to an empty place and
+		** put new key in its main position; otherwise (colliding node is in its main
+		** position), new key goes to an empty position.
 		*/
 		private static TValue newkey (lua_State L, Table t, TValue key) {
 		  Node mp = mainposition(t, key);
@@ -500,7 +496,7 @@ namespace KopiLua
 			return (TValue)p;
 		  else {
 			if (ttisnil(key)) luaG_runerror(L, "table index is nil");
-			else if (ttisnumber(key) && luai_numisnan(nvalue(key)))
+			else if (ttisnumber(key) && luai_numisnan(L, nvalue(key)))
 			  luaG_runerror(L, "table index is NaN");
 			return newkey(L, t, key);
 		  }

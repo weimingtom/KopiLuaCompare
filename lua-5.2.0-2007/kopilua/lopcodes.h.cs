@@ -227,10 +227,10 @@ namespace KopiLua
 		OP_JMP,/*	sBx	pc+=sBx					*/
 
 		OP_EQ,/*	A B C	if ((RK(B) == RK(C)) ~= A) then pc++		*/
-		OP_LT,/*	A B C	if ((RK(B) <  RK(C)) ~= A) then pc++  		*/
-		OP_LE,/*	A B C	if ((RK(B) <= RK(C)) ~= A) then pc++  		*/
+		OP_LT,/*	A B C	if ((RK(B) <  RK(C)) ~= A) then pc++		*/
+		OP_LE,/*	A B C	if ((RK(B) <= RK(C)) ~= A) then pc++		*/
 
-		OP_TEST,/*	A C	if not (R(A) <=> C) then pc++			*/ 
+		OP_TEST,/*	A C	if not (R(A) <=> C) then pc++			*/
 		OP_TESTSET,/*	A B C	if (R(B) <=> C) then R(A) := R(B) else pc++	*/ 
 
 		OP_CALL,/*	A B C	R(A), ... ,R(A+C-2) := R(A)(R(A+1), ... ,R(A+B-1)) */
@@ -241,11 +241,11 @@ namespace KopiLua
 					if R(A) <?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }*/
 		OP_FORPREP,/*	A sBx	R(A)-=R(A+2); pc+=sBx				*/
 
-		OP_TFORLOOP,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2)); 
-								if R(A+3) ~= nil then R(A+2)=R(A+3) else pc++	*/ 
+		OP_TFORLOOP,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));
+								if R(A+3) ~= nil then R(A+2)=R(A+3) else pc++	*/
 		OP_SETLIST,/*	A B C	R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B	*/
 
-		OP_CLOSE,/*	A 	close all variables in the stack up to (>=) R(A)*/
+		OP_CLOSE,/*	A	close all variables in the stack up to (>=) R(A)*/
 		OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))	*/
 
 		OP_VARARG/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
@@ -284,7 +284,7 @@ namespace KopiLua
 		** bits 4-5: B arg mode
 		** bit 6: instruction set register A
 		** bit 7: operator is a test
-		*/  
+		*/
 
 		public enum OpArgMask {
 		  OpArgN,  /* argument is not used */

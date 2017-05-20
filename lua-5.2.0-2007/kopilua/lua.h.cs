@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.218.1.7 2012/01/13 20:36:20 roberto Exp $
+** $Id: lua.h,v 1.222 2006/10/17 19:59:04 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -18,14 +18,14 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		public const string LUA_VERSION = "Lua 5.1";
-		public const string LUA_RELEASE = "Lua 5.1.5";
-		public const int LUA_VERSION_NUM	= 501;
-		public const string LUA_COPYRIGHT = "Copyright (C) 1994-2012 Lua.org, PUC-Rio";
+		public const string LUA_VERSION = "Lua 5.2";
+		public const string LUA_RELEASE = "Lua 5.2.0";
+		public const int LUA_VERSION_NUM	= 502;
+		public const string LUA_COPYRIGHT = "Copyright (C) 1994-2006 Lua.org, PUC-Rio";
 		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo & W. Celes";
 
 
-		/* mark for precompiled code (`<esc>Lua') */
+		/* mark for precompiled code ('<esc>Lua') */
 		public const string LUA_SIGNATURE = "\x01bLua";
 
 		/* option for multiple returns in `lua_pcall' and `lua_call' */
@@ -41,7 +41,8 @@ namespace KopiLua
 		public static int lua_upvalueindex(int i)	{return LUA_GLOBALSINDEX-i;}
 
 
-		/* thread status; 0 is OK */
+		/* thread status */
+        public const int LUA_OK = 0
 		public const int LUA_YIELD	= 1;
 		public const int LUA_ERRRUN = 2;
 		public const int LUA_ERRSYNTAX	= 3;
@@ -135,10 +136,7 @@ namespace KopiLua
             lua_pushcclosure(L, f, 0);
         }
 
-        public static uint lua_strlen(lua_State L, int i)
-        {
-            return lua_objlen(L, i);
-        }
+
 
         public static bool lua_isfunction(lua_State L, int n)
         {
@@ -197,10 +195,17 @@ namespace KopiLua
             lua_getfield(L, LUA_GLOBALSINDEX, s);
         }
 
+
+
         public static CharPtr lua_tostring(lua_State L, int i)
         {
             uint blah;
             return lua_tolstring(L, i, out blah);
+        }
+
+        public static uint lua_strlen(lua_State L, int i)
+        {
+            return lua_objlen(L, i);
         }
 
 		////#define lua_open()	luaL_newstate()
@@ -257,8 +262,8 @@ namespace KopiLua
 		public class lua_Debug {
 		  public int event_;
 		  public CharPtr name;	/* (n) */
-		  public CharPtr namewhat;	/* (n) `global', `local', `field', `method' */
-		  public CharPtr what;	/* (S) `Lua', `C', `main', `tail' */
+		  public CharPtr namewhat;	/* (n) 'global', 'local', 'field', 'method' */
+		  public CharPtr what;	/* (S) 'Lua', 'C', 'main', 'tail' */
 		  public CharPtr source;	/* (S) */
 		  public int currentline;	/* (l) */
 		  public int nups;		/* (u) number of upvalues */
@@ -273,7 +278,7 @@ namespace KopiLua
 
 
 		/******************************************************************************
-		* Copyright (C) 1994-2012 Lua.org, PUC-Rio.  All rights reserved.
+        * Copyright (C) 1994-2006 Lua.org, PUC-Rio.  All rights reserved.
 		*
 		* Permission is hereby granted, free of charge, to any person obtaining
 		* a copy of this software and associated documentation files (the

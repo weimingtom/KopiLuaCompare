@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.19.1.3 2008/01/18 16:38:18 roberto Exp $
+** $Id: loslib.c,v 1.19 2006/04/26 18:19:49 roberto Exp roberto $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -230,7 +230,7 @@ namespace KopiLua
 
 		private static int os_exit (lua_State L) {
 			Environment.Exit(EXIT_SUCCESS);
-			return 0;
+			return 0;  /* to avoid warnings */
 		}
 
 		private readonly static luaL_Reg[] syslib = {

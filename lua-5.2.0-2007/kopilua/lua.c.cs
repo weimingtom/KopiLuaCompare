@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.160.1.2 2007/12/28 15:32:23 roberto Exp $
+** $Id: lua.c,v 1.163 2006/09/18 14:03:18 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -74,7 +74,7 @@ namespace KopiLua
 
 		static int report(Lua.lua_State L, int status)
 		{
-			if ((status!=0) && !Lua.lua_isnil(L, -1))
+			if ((status != LUA_OK) && !Lua.lua_isnil(L, -1))
 			{
 				Lua.CharPtr msg = Lua.lua_tostring(L, -1);
 				if (msg == null) msg = "(error object is not a string)";
@@ -87,8 +87,6 @@ namespace KopiLua
 
 		static int traceback(Lua.lua_State L)
 		{
-			if (Lua.lua_isstring(L, 1)==0)  /* 'message' not a string? */
-				return 1;  /* keep it intact */
 			Lua.lua_getfield(L, Lua.LUA_GLOBALSINDEX, "debug");
 			if (!Lua.lua_istable(L, -1))
 			{
@@ -119,7 +117,7 @@ namespace KopiLua
 			//signal(SIGINT, SIG_DFL);
 			Lua.lua_remove(L, base_);  /* remove traceback function */
 			/* force a complete garbage collection in case of errors */
-			if (status != 0) Lua.lua_gc(L, Lua.LUA_GCCOLLECT, 0);
+			if (status != LUA_OK) Lua.lua_gc(L, Lua.LUA_GCCOLLECT, 0);
 			return status;
 		}
 
@@ -151,14 +149,16 @@ namespace KopiLua
 
 		static int dofile(Lua.lua_State L, Lua.CharPtr name)
 		{
-			int status = (Lua.luaL_loadfile(L, name)!=0) || (docall(L, 0, 1)!=0) ? 1 : 0;
+			int status = Lua.luaL_loadfile(L, name);
+            if (status == LUA_OK) status = docall(L, 0, 1);
 			return report(L, status);
 		}
 
 
 		static int dostring(Lua.lua_State L, Lua.CharPtr s, Lua.CharPtr name)
 		{
-			int status = (Lua.luaL_loadbuffer(L, s, (uint)Lua.strlen(s), name)!=0) || (docall(L, 0, 1)!=0) ? 1 : 0;
+			int status = Lua.luaL_loadbuffer(L, s, (uint)Lua.strlen(s), name);
+			if (status == LUA_OK) status = docall(L, 0, 1);
 			return report(L, status);
 		}
 
@@ -167,7 +167,7 @@ namespace KopiLua
 		{
 			Lua.lua_getglobal(L, "require");
 			Lua.lua_pushstring(L, name);
-			return report(L, docall(L, 1, 1));
+			return report(L, Lua.lua_pcall(L, 1, 0, 0));
 		}
 
 
@@ -181,6 +181,9 @@ namespace KopiLua
 			return p;
 		}
 
+		/* mark in error messages for incomplete statements */
+		static mark	= Lua.LUA_QL("<eof>");
+		static marklen = (sizeof(mark) - 1);
 
 		static int incomplete(Lua.lua_State L, int status)
 		{
@@ -188,8 +191,7 @@ namespace KopiLua
 			{
 				uint lmsg;
 				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
-				Lua.CharPtr tp = msg + lmsg - (Lua.strlen(Lua.LUA_QL("<eof>")));
-				if (Lua.strstr(msg, Lua.LUA_QL("<eof>")) == tp)
+				if (lmsg >= marklen && strcmp(msg + lmsg - marklen, mark) == 0) {
 				{
 					Lua.lua_pop(L, 1);
 					return 1;
@@ -227,7 +229,7 @@ namespace KopiLua
 				return -1;  /* no input */
 			for (; ; )
 			{  /* repeat until gets a complete line */
-				status = Lua.luaL_loadbuffer(L, Lua.lua_tostring(L, 1), Lua.lua_strlen(L, 1), "=stdin");
+				status = Lua.luaL_loadbuffer(L, Lua.lua_tostring(L, 1), Lua.lua_objlen(L, 1), "=stdin");
 				if (incomplete(L, status)==0) break;  /* cannot try to add lines? */
 				if (pushline(L, 0)==0)  /* no more input? */
 					return -1;
@@ -248,13 +250,13 @@ namespace KopiLua
 			progname = null;
 			while ((status = loadline(L)) != -1)
 			{
-				if (status == 0) status = docall(L, 0, 0);
+				if (status == LUA_OK) status = docall(L, 0, 0);
 				report(L, status);
-				if (status == 0 && Lua.lua_gettop(L) > 0)
+				if (status == LUA_OK && Lua.lua_gettop(L) > 0)
 				{  /* any result to print? */
 					Lua.lua_getglobal(L, "print");
 					Lua.lua_insert(L, 1);
-					if (Lua.lua_pcall(L, Lua.lua_gettop(L) - 1, 0, 0) != 0)
+					if (Lua.lua_pcall(L, Lua.lua_gettop(L) - 1, 0, 0) != LUA_OK)
 						l_message(progname, Lua.lua_pushfstring(L,
 											   "error calling " + Lua.LUA_QL("print").ToString() + " (%s)",
 											   Lua.lua_tostring(L, -1)));
@@ -278,7 +280,7 @@ namespace KopiLua
 				fname = null;  /* stdin */
 			status = Lua.luaL_loadfile(L, fname);
 			Lua.lua_insert(L, -(narg + 1));
-			if (status == 0)
+			if (status == LUA_OK)
 				status = docall(L, narg, 0);
 			else
 				Lua.lua_pop(L, narg);
@@ -355,8 +357,8 @@ namespace KopiLua
 							string chunk = argv[i].Substring(2);
 							if (chunk == "") chunk = argv[++i];
 							Lua.lua_assert(chunk != null);
-							if (dostring(L, chunk, "=(command line)") != 0)
-								return 1;
+							if (dostring(L, chunk, "=(command line)") != LUA_OK)
+								return 0;
 							break;
 						}
 					case 'l':
@@ -364,21 +366,21 @@ namespace KopiLua
 							string filename = argv[i].Substring(2);
 							if (filename == "") filename = argv[++i];
 							Lua.lua_assert(filename != null);
-							if (dolibrary(L, filename) != 0)
-								return 1;  /* stop if file fails */
+							if (dolibrary(L, filename) != LUA_OK)
+								return 0;  /* stop if file fails */
 							break;
 						}
 					default: break;
 				}
 			}
-			return 0;
+			return 1;
 		}
 
 
 		static int handle_luainit(Lua.lua_State L)
 		{
 			Lua.CharPtr init = Lua.getenv(Lua.LUA_INIT);
-			if (init == null) return 0;  /* status OK */
+			if (init == null) return LUA_OK;  /* status OK */
 			else if (init[0] == '@')
 				return dofile(L, init + 1);
 			else
@@ -390,7 +392,7 @@ namespace KopiLua
 		{
 			public int argc;
 			public string[] argv;
-			public int status;
+			public int ok;
 		};
 
 
@@ -405,21 +407,21 @@ namespace KopiLua
 			Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
 			Lua.luaL_openlibs(L);  /* open libraries */
 			Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
-			s.status = handle_luainit(L);
-			if (s.status != 0) return 0;
+			s.ok = (handle_luainit(L) == LUA_OK);
+			if (!s.ok) return 0;
 			script = collectargs(argv, ref has_i, ref has_v, ref has_e);
 			if (script < 0)
 			{  /* invalid args? */
 				print_usage();
-				s.status = 1;
+				s.ok = 0;
 				return 0;
 			}
 			if (has_v!=0) print_version();
-			s.status = runargs(L, argv, (script > 0) ? script : s.argc);
-			if (s.status != 0) return 0;
+			s.ok = runargs(L, argv, (script > 0) ? script : s.argc);
+			if (!s.ok) return 0;
 			if (script!=0)
-				s.status = handle_script(L, argv, script);
-			if (s.status != 0) return 0;
+				s.ok = (handle_script(L, argv, script) == Lua.LUA_OK);
+			if (!s.ok) return 0;
 			if (has_i!=0)
 				dotty(L);
 			else if ((script==0) && (has_e==0) && (has_v==0))
@@ -457,7 +459,7 @@ namespace KopiLua
 			status = Lua.lua_cpcall(L, pmain, s);
 			report(L, status);
 			Lua.lua_close(L);
-			return (status!=0) || (s.status!=0) ? Lua.EXIT_FAILURE : Lua.EXIT_SUCCESS;
+			return (s.ok && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
 		}
 
 	}

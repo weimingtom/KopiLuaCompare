@@ -383,7 +383,7 @@ namespace KopiLua
 		};
 
 		public static CharPtr getstr(TString ts) { return ts.str; }
-		public static CharPtr svalue(StkId o) { return getstr(rawtsvalue(o)); }
+		public static CharPtr svalue(StkId o) { return getstr(tsvalue(o)); }
 
 		public class Udata_uv : GCObject
 		{
@@ -656,7 +656,7 @@ namespace KopiLua
 
 
 		public class Table : GCObject {
-		  public lu_byte flags;  /* 1<<p means tagmethod(p) is not present */ 
+		  public lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
 		  public lu_byte lsizenode;  /* log2 of size of `node' array */
 		  public Table metatable;
 		  public TValue[] array;  /* array part */

@@ -140,8 +140,10 @@ namespace KopiLua
 		  public stringtable strt = new stringtable(); /* hash table for strings */
 		  public lua_Alloc frealloc;  /* function to reallocate memory */
 		  public object ud;         /* auxiliary data to `frealloc' */
+          public ushort nCcalls;  /* number of nested C calls */
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
+          public lu_byte emergencygc;  /* true when collect was trigged by alloc error */
 		  public int sweepstrgc;  /* position of sweep in `strt' */
 		  public GCObject rootgc;  /* list of all collectable objects */
 		  public GCObjectRef sweepgc;  /* position of sweep in `rootgc' */
@@ -176,14 +178,14 @@ namespace KopiLua
 		  public global_State l_G;
 		  public CallInfo ci;  /* call info for current function */
 		  public InstructionPtr savedpc = new InstructionPtr();  /* `savedpc' of current function */
+          public /*const*/ Instruction oldpc;  /* last pc traced */
 		  public StkId stack_last;  /* last free slot in the stack */
 		  public StkId[] stack;  /* stack base */
 		  public CallInfo end_ci;  /* points after end of ci array*/
 		  public CallInfo[] base_ci;  /* array of CallInfo's */
 		  public int stacksize;
 		  public int size_ci;  /* size of array `base_ci' */
-		  public ushort nCcalls;  /* number of nested C calls */
-		  public ushort baseCcalls;  /* nested C calls when resuming coroutine */
+		  public ushort baseCcalls;  /* number of nested C calls when resuming */
 		  public lu_byte hookmask;
 		  public lu_byte allowhook;
 		  public int basehookcount;

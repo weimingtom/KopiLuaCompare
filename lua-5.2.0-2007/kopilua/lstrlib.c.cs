@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.132.1.5 2010/05/14 15:34:19 roberto Exp $
+** $Id: lstrlib.c,v 1.134 2006/09/11 14:07:24 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -30,8 +30,7 @@ namespace KopiLua
 
 		private static ptrdiff_t posrelat (ptrdiff_t pos, uint len) {
 		  /* relative string position: negative means back from end */
-		  if (pos < 0) pos += (ptrdiff_t)len + 1;
-		  return (pos >= 0) ? pos : 0;
+		  return (pos>=0) ? pos : (ptrdiff_t)len+pos+1;
 		}
 
 
@@ -204,7 +203,7 @@ namespace KopiLua
 		private static int check_capture (MatchState ms, int l) {
 		  l -= '1';
 		  if (l < 0 || l >= ms.level || ms.capture[l].len == CAP_UNFINISHED)
-			return luaL_error(ms.L, "invalid capture index");
+			return luaL_error(ms.L, "invalid capture index %%%d", l + 1);
 		  return l;
 		}
 
@@ -658,13 +657,17 @@ namespace KopiLua
 			  lua_gettable(L, 3);
 			  break;
 			}
+		    default: {
+		      luaL_argerror(L, 3, "string/function/table expected");
+		      return;
+		    }
 		  }
 		  if (lua_toboolean(L, -1)==0) {  /* nil or false? */
 			lua_pop(L, 1);
 			lua_pushlstring(L, s, (uint)(e - s));  /* keep original text */
 		  }
 		  else if (lua_isstring(L, -1)==0)
-			luaL_error(L, "invalid replacement value (a %s)", luaL_typename(L, -1)); 
+			luaL_error(L, "invalid replacement value (a %s)", luaL_typename(L, -1));
 		  luaL_addvalue(b);  /* add result to accumulator */
 		}
 
@@ -673,7 +676,6 @@ namespace KopiLua
 		  uint srcl;
 		  CharPtr src = luaL_checklstring(L, 1, out srcl);
 		  CharPtr p = luaL_checkstring(L, 2);
-		  int  tr = lua_type(L, 3);
 		  int max_s = luaL_optint(L, 4, (int)(srcl+1));
 		  int anchor = 0;
 		  if (p[0] == '^')
@@ -684,9 +686,6 @@ namespace KopiLua
 		  int n = 0;
 		  MatchState ms = new MatchState();
 		  luaL_Buffer b = new luaL_Buffer();
-		  luaL_argcheck(L, tr == LUA_TNUMBER || tr == LUA_TSTRING ||
-						   tr == LUA_TFUNCTION || tr == LUA_TTABLE, 3,
-							  "string/function/table expected");
 		  luaL_buffinit(L, b);
 		  ms.L = L;
 		  ms.src_init = src;
@@ -792,7 +791,6 @@ namespace KopiLua
 
 
 		private static int str_format (lua_State L) {
-          int top = lua_gettop(L);
 		  int arg = 1;
 		  uint sfl;
 		  CharPtr strfrmt = luaL_checklstring(L, arg, out sfl);
@@ -816,8 +814,6 @@ namespace KopiLua
 				  CharPtr form = new char[MAX_FORMAT];  /* to store the format (`%...') */
 				  CharPtr buff = new char[MAX_ITEM];  /* to store the formatted item */
 				  arg++;
-			      if (arg > top)
-			        luaL_argerror(L, arg, "no value");
 				  strfrmt = scanformat(L, strfrmt, form);
 				  char ch = strfrmt[0];
 				  strfrmt = strfrmt.next();

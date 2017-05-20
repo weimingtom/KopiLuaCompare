@@ -1,5 +1,5 @@
 /*
-** $Id: lopcodes.c,v 1.37.1.1 2007/12/27 13:02:25 roberto Exp $
+** $Id: lopcodes.c,v 1.37 2005/11/08 19:45:36 roberto Exp roberto $
 ** See Copyright Notice in lua.h
 */
 
@@ -67,7 +67,7 @@ namespace KopiLua
 
 		private readonly static lu_byte[] luaP_opmodes = {
 		/*       T  A    B       C     mode		   opcode	*/
-		  opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iABC) 		/* OP_MOVE */
+		  opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iABC) 	/* OP_MOVE */
 		 ,opmode(0, 1, OpArgMask.OpArgK, OpArgMask.OpArgN, OpMode.iABx)		/* OP_LOADK */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iABC)		/* OP_LOADBOOL */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iABC)		/* OP_LOADNIL */

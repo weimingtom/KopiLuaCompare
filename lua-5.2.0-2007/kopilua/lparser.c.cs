@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.42.1.4 2011/10/21 19:31:42 roberto Exp $
+** $Id: lparser.c,v 2.49 2006/10/24 13:31:48 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -54,11 +54,13 @@ namespace KopiLua
 
 
 		private static void errorlimit (FuncState fs, int limit, CharPtr what) {
-		  CharPtr msg = (fs.f.linedefined == 0) ?
-			luaO_pushfstring(fs.L, "main function has more than %d %s", limit, what) :
-			luaO_pushfstring(fs.L, "function at line %d has more than %d %s",
-									fs.f.linedefined, limit, what);
-		  luaX_lexerror(fs.ls, msg, 0);
+		  CharPtr msg;
+		  CharPtr where = (fs.f.linedefined == 0) ?
+			"main function" :
+			luaO_pushfstring(fs.L, function at line %d", fs.f.linedefined);
+		  msg = luaO_pushfstring(fs.L, "too many %s in %s (limit is %d)",
+		                                what, where, limit);
+		  luaX_lexerror(fs.ls, msg, fs.ls.t.token);
 		}
 
 
@@ -129,7 +131,7 @@ namespace KopiLua
 		  Proto f = fs.f;
 		  int oldsize = f.sizelocvars;
 		  luaM_growvector(ls.L, ref f.locvars, fs.nlocvars, ref f.sizelocvars,
-						  (int)SHRT_MAX, "too many local variables");
+						  (int)SHRT_MAX, "local variables");
 		  while (oldsize < f.sizelocvars) f.locvars[oldsize++].varname = null;
 		  f.locvars[fs.nlocvars].varname = varname;
 		  luaC_objbarrier(ls.L, f, varname);
@@ -177,7 +179,8 @@ namespace KopiLua
 		  }
 		  /* new one */
 		  luaY_checklimit(fs, f.nups + 1, LUAI_MAXUPVALUES, "upvalues");
-		  luaM_growvector(fs.L, ref f.upvalues, f.nups, ref f.sizeupvalues, MAX_INT, "");
+		  luaM_growvector(fs.L, ref f.upvalues, f.nups, ref f.sizeupvalues, 
+		                        MAX_INT, "upvalues");
 		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++] = null;
 		  f.upvalues[f.nups] = name;
 		  luaC_objbarrier(fs.L, f, name);
@@ -259,12 +262,13 @@ namespace KopiLua
 
 
 		private static void enterlevel (LexState ls) {
-		  if (++ls.L.nCcalls > LUAI_MAXCCALLS)
-			luaX_lexerror(ls, "chunk has too many syntax levels", 0);
+		  global_State g = G(ls.L);
+		  ++g.nCcalls;
+		  luaY_checklimit(ls.fs, g.nCcalls, LUAI_MAXCCALLS, "syntax levels");
 		}
 
 
-		private static void leavelevel(LexState ls) { ls.L.nCcalls--; }
+		private static void leavelevel(LexState ls) { G(ls.L).nCcalls--; }
 
 
 		private static void enterblock (FuncState fs, BlockCnt bl, lu_byte isbreakable) {
@@ -293,12 +297,12 @@ namespace KopiLua
 
 
 		private static void pushclosure (LexState ls, FuncState func, expdesc v) {
-		  FuncState fs = ls.fs;
+		  FuncState fs = ls.fs.prev;
 		  Proto f = fs.f;
 		  int oldsize = f.sizep;
 		  int i;
 		  luaM_growvector(ls.L, ref f.p, fs.np, ref f.sizep, 
-						  MAXARG_Bx, "constant table overflow");
+						  MAXARG_Bx, "constants");
 		  while (oldsize < f.sizep) f.p[oldsize++] = null;
 		  f.p[fs.np++] = func.f;
 		  luaC_objbarrier(ls.L, f, func.f);
@@ -312,8 +316,7 @@ namespace KopiLua
 
 		private static void open_func (LexState ls, FuncState fs) {
 		  lua_State L = ls.L;
-		  Proto f = luaF_newproto(L);
-		  fs.f = f;
+		  Proto f;
 		  fs.prev = ls.fs;  /* linked list of funcstates */
 		  fs.ls = ls;
 		  fs.L = L;
@@ -327,12 +330,15 @@ namespace KopiLua
 		  fs.nlocvars = 0;
 		  fs.nactvar = 0;
 		  fs.bl = null;
-		  f.source = ls.source;
-		  f.maxstacksize = 2;  /* registers 0/1 are always valid */
-		  fs.h = luaH_new(L, 0, 0);
+		  fs.h = luaH_new(L);
 		  /* anchor table of constants and prototype (to avoid being collected) */
 		  sethvalue2s(L, L.top, fs.h);
 		  incr_top(L);
+		  f = luaF_newproto(L);
+		  fs.f = f;
+		  f.source = ls.source;
+		  f.maxstacksize = 2;  /* registers 0/1 are always valid */
+		  /* anchor prototype (to avoid being collected) */
 		  setptvalue2s(L, L.top, f);
 		  incr_top(L);
 		}
@@ -366,23 +372,27 @@ namespace KopiLua
 		  lua_assert(luaG_checkcode(f));
 		  lua_assert(fs.bl == null);
 		  ls.fs = fs.prev;
+          L.top -= 2;  /* remove table and prototype from the stack */
 		  /* last token read was anchored in defunct function; must reanchor it */
 		  if (fs!=null) anchor_token(ls);
-		  L.top -= 2;  /* remove table and prototype from the stack */
 		}
 
 
 		public static Proto luaY_parser (lua_State L, ZIO z, Mbuffer buff, CharPtr name) {
 		  LexState lexstate = new LexState();
 		  FuncState funcstate = new FuncState();
+		  TString tname = luaS_new(L, name);
+		  setsvalue2s(L, L.top, tname);  /* protect name */
+		  incr_top(L);
 		  lexstate.buff = buff;
-		  luaX_setinput(L, lexstate, z, luaS_new(L, name));
+		  luaX_setinput(L, lexstate, z, tname);
 		  open_func(lexstate, funcstate);
 		  funcstate.f.is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
 		  luaX_next(lexstate);  /* read first token */
 		  chunk(lexstate);
 		  check(lexstate, (int)RESERVED.TK_EOS);
 		  close_func(lexstate);
+          L.top--;
 		  lua_assert(funcstate.prev == null);
 		  lua_assert(funcstate.f.nups == 0);
 		  lua_assert(lexstate.fs == null);
@@ -580,8 +590,8 @@ namespace KopiLua
 		  chunk(ls);
 		  new_fs.f.lastlinedefined = ls.linenumber;
 		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_FUNCTION, line);
-		  close_func(ls);
 		  pushclosure(ls, new_fs, e);
+		  close_func(ls);
 		}
 
 
@@ -815,7 +825,7 @@ namespace KopiLua
 			new priority_(6, 6),
 			new priority_(7, 7),
 			new priority_(7, 7),
-			new priority_(7, 7),				/* `+' `-' `/' `%' */
+			new priority_(7, 7),				/* `+' `-' `*' `/' `%' */
 
 			new priority_(10, 9),
 			new priority_(5, 4),				/* power and concat (right associative) */
@@ -953,8 +963,6 @@ namespace KopiLua
 			primaryexp(ls, nv.v);
 			if (nv.v.k == expkind.VLOCAL)
 			  check_conflict(ls, lh, nv.v);
-			luaY_checklimit(ls.fs, nvars, LUAI_MAXCCALLS - ls.L.nCcalls,
-							"variables in assignment");
 			assignment(ls, nv, nvars+1);
 		  }
 		  else {  /* assignment . `=' explist1 */

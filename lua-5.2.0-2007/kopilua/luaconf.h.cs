@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.82.1.7 2008/02/11 16:25:08 roberto Exp $
+** $Id: luaconf.h,v 1.85 2006/08/30 13:19:58 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -285,7 +285,7 @@ namespace KopiLua
 		//#include <readline/history.h>
 		//#define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != null)
 		//#define lua_saveline(L,idx) \
-		//	if (lua_strlen(L,idx) > 0)  /* non-empty line? */ \
+		//	if (lua_objlen(L,idx) > 0)  /* non-empty line? */ \
 		//	  add_history(lua_tostring(L, idx));  /* add it to history */
 		//#define lua_freeline(L,b)	((void)L, free(b))
 #else
@@ -352,14 +352,6 @@ namespace KopiLua
 		*/
 		//#define LUA_COMPAT_MOD /* defined higher up */
 
-		/*
-		@@ LUA_COMPAT_LSTR controls compatibility with old long string nesting
-		@* facility.
-		** CHANGE it to 2 if you want the old behaviour, or undefine it to turn
-		** off the advisory error when nesting [[...]].
-		*/
-		//#define LUA_COMPAT_LSTR		1
-		//#define LUA_COMPAT_LSTR /* defined higher up */
 
 		/*
 		@@ LUA_COMPAT_GFIND controls compatibility with old 'string.gfind' name.
@@ -452,10 +444,9 @@ namespace KopiLua
 		@* can use.
 		** CHANGE it if you need lots of (Lua) stack space for your C
 		** functions. This limit is arbitrary; its only purpose is to stop C
-		** functions to consume unlimited stack space. (must be smaller than
-		** -LUA_REGISTRYINDEX)
+        ** functions to consume unlimited stack space.
 		*/
-		public const int LUAI_MAXCSTACK	= 8000;
+		public const int LUAI_MAXCSTACK	= 2048;
 
 
 
@@ -573,17 +564,17 @@ namespace KopiLua
 		#if LUA_CORE
 		//#include <math.h>
 		public delegate lua_Number op_delegate(lua_Number a, lua_Number b);
-		public static lua_Number luai_numadd(lua_Number a, lua_Number b) { return ((a) + (b)); }
-		public static lua_Number luai_numsub(lua_Number a, lua_Number b) { return ((a) - (b)); }
-		public static lua_Number luai_nummul(lua_Number a, lua_Number b) { return ((a) * (b)); }
-		public static lua_Number luai_numdiv(lua_Number a, lua_Number b) { return ((a) / (b)); }
-		public static lua_Number luai_nummod(lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); }
-		public static lua_Number luai_numpow(lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }
-		public static lua_Number luai_numunm(lua_Number a) { return (-(a)); }
+		public static lua_Number luai_numadd(Lua_state L, lua_Number a, lua_Number b) { return ((a) + (b)); }
+		public static lua_Number luai_numsub(Lua_state L, lua_Number a, lua_Number b) { return ((a) - (b)); }
+		public static lua_Number luai_nummul(Lua_state L, lua_Number a, lua_Number b) { return ((a) * (b)); }
+		public static lua_Number luai_numdiv(Lua_state L, lua_Number a, lua_Number b) { return ((a) / (b)); }
+		public static lua_Number luai_nummod(Lua_state L, lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); }
+		public static lua_Number luai_numpow(Lua_state L, lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }
+		public static lua_Number luai_numunm(Lua_state L, lua_Number a) { return (-(a)); }
 		public static bool luai_numeq(lua_Number a, lua_Number b) { return ((a) == (b)); }
-		public static bool luai_numlt(lua_Number a, lua_Number b) { return ((a) < (b)); }
-		public static bool luai_numle(lua_Number a, lua_Number b) { return ((a) <= (b)); }
-		public static bool luai_numisnan(lua_Number a) { return lua_Number.IsNaN(a); }
+		public static bool luai_numlt(Lua_state L, lua_Number a, lua_Number b) { return ((a) < (b)); }
+		public static bool luai_numle(Lua_state L, lua_Number a, lua_Number b) { return ((a) <= (b)); }
+		public static bool luai_numisnan(Lua_state L, lua_Number a) { return lua_Number.IsNaN(a); }
 		#endif
 
 
@@ -723,7 +714,7 @@ namespace KopiLua
 		*/
 		//#if LUA_USE_POPEN
 
-		//#define lua_popen(L,c,m)	((void)L, fflush(null), popen(c,m))
+		//#define lua_popen(L,c,m)	((void)L, popen(c,m))
 		//#define lua_pclose(L,file)	((void)L, (pclose(file) != -1))
 
 		//#elif LUA_WIN
