@@ -17,8 +17,9 @@ namespace KopiLua
 
 		public static void incr_top(lua_State L)
 		{
-			luaD_checkstack(L, 1);
 			StkId.inc(ref L.top);
+			luaD_checkstack(L, 0);
+
 		}
 
 		// in the original C code these values save and restore the stack by number of bytes. marshalling sizeof
