@@ -253,7 +253,7 @@ namespace KopiLua
 		  lua_State L1 = getthread(L, out arg);
 		  if (lua_isnoneornil(L, arg+1)) {
 			lua_settop(L, arg+1);
-			lua_sethook(L1, null`, 0, 0);  /* turn off hooks */
+			lua_sethook(L1, null, 0, 0);  /* turn off hooks */
 		  }
 		  else {
 			CharPtr smask = luaL_checkstring(L, arg+2);

@@ -42,7 +42,7 @@ namespace KopiLua
 
 
 		/* thread status */
-        public const int LUA_OK = 0
+        public const int LUA_OK = 0;
 		public const int LUA_YIELD	= 1;
 		public const int LUA_ERRRUN = 2;
 		public const int LUA_ERRSYNTAX	= 3;

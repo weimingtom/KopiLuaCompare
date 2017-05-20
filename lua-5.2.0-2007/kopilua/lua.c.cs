@@ -182,8 +182,8 @@ namespace KopiLua
 		}
 
 		/* mark in error messages for incomplete statements */
-		static mark	= Lua.LUA_QL("<eof>");
-		static marklen = (sizeof(mark) - 1);
+		private static Lua.CharPtr mark	= Lua.LUA_QL("<eof>");
+		private static int marklen = mark.chars.Length - 1; //FIXME:???
 
 		static int incomplete(Lua.lua_State L, int status)
 		{
@@ -191,7 +191,7 @@ namespace KopiLua
 			{
 				uint lmsg;
 				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
-				if (lmsg >= marklen && strcmp(msg + lmsg - marklen, mark) == 0) {
+				if (lmsg >= marklen && strcmp(msg + lmsg - marklen, mark) == 0) 
 				{
 					Lua.lua_pop(L, 1);
 					return 1;

@@ -117,7 +117,7 @@ namespace KopiLua
 		  CharPtr name = findlocal(L, ci, n);
 		  lua_lock(L);
 		  if (name != null) {
-			  setobj2s(L, L.top, ci.base + (n - 1));
+			  setobj2s(L, L.top, ci.base_ + (n - 1));
 		      api_incr_top(L);
           }
 		  lua_unlock(L);
@@ -267,7 +267,7 @@ namespace KopiLua
 		  if (!(pt.maxstacksize <= MAXSTACK)) return 0;
 		  lua_assert(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize);
 		  lua_assert(!((pt.is_vararg & VARARG_NEEDSARG)==0) ||
-					  ((pt.is_vararg & VARARG_HASARG)!=0)));
+					  ((pt.is_vararg & VARARG_HASARG)!=0));
 		  if (!(pt.sizeupvalues <= pt.nups)) return 0;
 		  if (!(pt.sizelineinfo == pt.sizecode || pt.sizelineinfo == 0)) return 0;
 		  if (!(GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
@@ -339,7 +339,7 @@ namespace KopiLua
 				  if (dest > 0) {
 					/* cannot jump to a setlist count */
 		            Instruction d = pt.code[dest-1];
-		            if(!(!(GET_OPCODE(d) == OP_SETLIST && GETARG_C(d) == 0))) return 0;
+		            if(!(!(GET_OPCODE(d) == OpCode.OP_SETLIST && GETARG_C(d) == 0))) return 0;
 
 				  }
 				}
@@ -355,7 +355,7 @@ namespace KopiLua
 			}
 			switch (op) {
 			  case OpCode.OP_LOADBOOL: {
-				if (!(c == 0 || pc+2 < pt->sizecode)) return 0;  /* check its jump */
+				if (!(c == 0 || pc+2 < pt.sizecode)) return 0;  /* check its jump */
 				break;
 			  }
 			  case OpCode.OP_LOADNIL: {

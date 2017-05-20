@@ -57,7 +57,7 @@ namespace KopiLua
 		  CharPtr msg;
 		  CharPtr where = (fs.f.linedefined == 0) ?
 			"main function" :
-			luaO_pushfstring(fs.L, function at line %d", fs.f.linedefined);
+			luaO_pushfstring(fs.L, "function at line %d", fs.f.linedefined);
 		  msg = luaO_pushfstring(fs.L, "too many %s in %s (limit is %d)",
 		                                what, where, limit);
 		  luaX_lexerror(fs.ls, msg, fs.ls.t.token);

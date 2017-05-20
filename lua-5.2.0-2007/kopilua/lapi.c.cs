@@ -638,9 +638,9 @@ namespace KopiLua
 		  api_checknelems(L, 1);
 		  t = index2adr(L, idx);
 		  api_checkvalidindex(L, t);
-		  setsvalue2s(L, L->top++, luaS_new(L, k));??? //FIXME: incr
+		  setsvalue2s(L, StkId.inc(ref L.top), luaS_new(L, k));
 		  luaV_settable(L, t, L.top - 1, L.top - 2);
-		  L->top -= 2;  /* pop value and key */
+		  L.top -= 2;  /* pop value and key */
 		  lua_unlock(L);
 		}
 
@@ -910,7 +910,7 @@ namespace KopiLua
 			  else
 				g.GCthreshold = 0;
 			  
-		      while (g.GCthreshold <= g->totalbytes)
+		      while (g.GCthreshold <= g.totalbytes)
 		        luaC_step(L);
 		      if (g.gcstate == GCSpause)  /* end of cycle? */
 		        res = 1;  /* signal it */

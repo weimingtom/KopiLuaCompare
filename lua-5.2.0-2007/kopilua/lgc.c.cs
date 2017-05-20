@@ -277,7 +277,7 @@ namespace KopiLua
 			markvalue(g, o);
 		  for (; o <= lim; StkId.inc(ref o))
 			setnilvalue(o);
-          if (!g.emergencygc)  /* cannot change stack in emergency... */
+          if (g.emergencygc == 0)  /* cannot change stack in emergency... */
 		    checkstacksizes(l, lim);
 		}
 
@@ -583,9 +583,14 @@ namespace KopiLua
 		  g.estimate = g.totalbytes - udsize;  /* first estimate */
 		}
 
-
-		private static void correctestimate(global_State g, s)  {lu_mem old = g.totalbytes; s;
-		          lua_assert(old >= g.totalbytes); g.estimate -= old - g.totalbytes;} ??? //???
+		public delegate void correctestimate_delegate();
+		private static void correctestimate(global_State g, correctestimate_delegate s)  
+		{
+			lu_mem old = g.totalbytes; s();
+		    lua_assert(old >= g.totalbytes); 
+		    g.estimate -= old - g.totalbytes;
+		}
+		
 		private static l_mem singlestep (lua_State L) {
 		  global_State g = G(L);
 		  /*lua_checkmemory(L);*/
@@ -637,7 +642,7 @@ namespace KopiLua
 		public static void luaC_step (lua_State L) {
 		  global_State g = G(L);
 		  l_mem lim = (l_mem)((GCSTEPSIZE / 100) * g.gcstepmul);
-          lua_assert(!g->emergencygc);
+          lua_assert(g.emergencygc == 0);
 		  if (lim == 0)
 			lim = (l_mem)((MAX_LUMEM-1)/2);  /* no limit */
 		  g.gcdept += g.totalbytes - g.GCthreshold;

@@ -98,7 +98,7 @@ namespace KopiLua
 
 
 		public static int luaD_rawrunprotected (lua_State L, Pfunc f, object ud) {
-          unsigned short oldnCcalls = G(L).nCcalls;
+          ushort oldnCcalls = G(L).nCcalls;
 		  lua_longjmp lj = new lua_longjmp();
 		  lj.status = LUA_OK;
 		  lj.previous = L.errorJmp;  /* chain new error handler */
@@ -223,12 +223,12 @@ namespace KopiLua
 			lua_assert(p.is_vararg & VARARG_HASARG);
 			luaC_checkGC(L);
 			htab = luaH_new(L);  /* create `arg' table */
-            sethvalue(L, L.top++, htab);
+			sethvalue(L, StkId.inc(ref L.top), htab);
 			for (i=0; i<nvar; i++)  /* put extra arguments into `arg' table */
 			  setobj2n(L, luaH_setnum(L, htab, i+1), L.top - nvar + i);
 			/* store counter in field `n' */
 			setnvalue(luaH_setstr(L, htab, luaS_newliteral(L, "n")), cast_num(nvar));
-            L.top--;
+			StkId.dec(ref L.top);
 		  }
 		#endif
 		  /* move fixed parameters to final position */
@@ -356,12 +356,12 @@ namespace KopiLua
 		  StkId res;
 		  int wanted, i;
 		  CallInfo ci;
-          if (L.hookmask & (LUA_MASKRET | LUA_MASKLINE)) {
+		  if ((L.hookmask & (LUA_MASKRET | LUA_MASKLINE)) != 0) {
 			  if ((L.hookmask & LUA_MASKRET) != 0)
 				firstResult = callrethooks(L, firstResult);
 			  ci = CallInfo.dec(ref L.ci);
           }
-          ci = L.ci--; ???//
+		  ci = CallInfo.dec(ref L.ci);
 		  res = ci.func;  /* res == final position of 1st result */
 		  wanted = ci.nresults;
 		  L.base_ = (ci - 1).base_;  /* restore base */
@@ -525,7 +525,7 @@ namespace KopiLua
 		  incr_top(L);
 		  cl = luaF_newLclosure(L, tf.nups, hvalue(gt(L)));
 		  cl.l.p = tf;
-		  setclvalue(L, L->top - 1, cl);
+		  setclvalue(L, L.top - 1, cl);
 		  for (i = 0; i < tf.nups; i++)  /* initialize eventual upvalues */
 			cl.l.upvals[i] = luaF_newupval(L);
 		}

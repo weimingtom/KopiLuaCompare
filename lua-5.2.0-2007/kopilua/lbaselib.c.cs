@@ -557,7 +557,7 @@ namespace KopiLua
         }
 		private static int luaB_costatus (lua_State L) {
 		  lua_State co = lua_tothread(L, 1);
-		  luaL_argcheck(L, co, 1, "coroutine expected");
+		  luaL_argcheck(L, co != null, 1, "coroutine expected");
 		  if (L == co) lua_pushliteral(L, "running");
 		  else {
 		    switch (lua_status(co)) {
@@ -565,7 +565,7 @@ namespace KopiLua
 		        lua_pushliteral(L, "suspended");
 		        break;
 		      case LUA_OK: {
-		        lua_Debug ar;
+		        lua_Debug ar = new lua_Debug();
 		        if (lua_getstack(co, 0, ar) > 0)  /* does it have frames? */
 		          lua_pushliteral(L, "normal");  /* it is running */
 		        else if (lua_gettop(co) == 0)

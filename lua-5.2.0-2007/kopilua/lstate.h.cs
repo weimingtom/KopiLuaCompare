@@ -178,7 +178,7 @@ namespace KopiLua
 		  public global_State l_G;
 		  public CallInfo ci;  /* call info for current function */
 		  public InstructionPtr savedpc = new InstructionPtr();  /* `savedpc' of current function */
-          public /*const*/ Instruction oldpc;  /* last pc traced */
+          public /*const*/ InstructionPtr oldpc;  /* last pc traced */
 		  public StkId stack_last;  /* last free slot in the stack */
 		  public StkId[] stack;  /* stack base */
 		  public CallInfo end_ci;  /* points after end of ci array*/

@@ -839,5 +839,10 @@ namespace KopiLua
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}
+		
+		public static void exit(int exitCode)
+		{
+			Environment.Exit(exitCode);
+		}
 	}
 }

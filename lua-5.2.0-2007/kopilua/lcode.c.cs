@@ -634,9 +634,9 @@ namespace KopiLua
 		  v1 = e1.u.nval;
 		  v2 = e2.u.nval;
 		  switch (op) {
-			case OpCode.OP_ADD: r = luai_numadd(null, v2); break;
-			case OpCode.OP_SUB: r = luai_numsub(null, v2); break;
-			case OpCode.OP_MUL: r = luai_nummul(null, v2); break;
+			case OpCode.OP_ADD: r = luai_numadd(null, v1, v2); break;
+			case OpCode.OP_SUB: r = luai_numsub(null, v1, v2); break;
+			case OpCode.OP_MUL: r = luai_nummul(null, v1, v2); break;
 			case OpCode.OP_DIV:
 			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
 			  r = luai_numdiv(null, v1, v2); break;
@@ -689,7 +689,7 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-			  if (e.k == VK)
+			  if (e.k == expkind.VK)
 				luaK_exp2anyreg(fs, e);  /* cannot operate on non-numeric constants */
 			  codearith(fs, OpCode.OP_UNM, e, e2);
 			  break;
@@ -720,7 +720,7 @@ namespace KopiLua
 			  break;
 			}
 			default: {
-			  if (!isnumeral(v)) luaK_exp2RK(fs, v);
+			  if (isnumeral(v) == 0) luaK_exp2RK(fs, v);
 			  break;
 			}
 		  }
@@ -779,7 +779,7 @@ namespace KopiLua
 		}
 
 
-		private static int luaK_code (FuncState fs, int i, int line) {			
+		private static int luaK_code (FuncState fs, int i) {			
 		  Proto f = fs.f;
 		  dischargejpc(fs);  /* `pc' will change */
 		  /* put new instruction in code array */
