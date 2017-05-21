@@ -1,8 +1,11 @@
 # KopiLuaCompare
-Comparation of kopilua and lua
+[WIP] Comparation of kopilua and lua  
 
-## Status  
-WIP  
+## Status    
+* lua-5.1.4 (done)  
+* lua-5.1.5 (done)  
+* lua-5.2.0-2007 (done)  
+* lua-5.3.4 (pending)    
 
 ## Ref  
 * https://github.com/lua/lua  
