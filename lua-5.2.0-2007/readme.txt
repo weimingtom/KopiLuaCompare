@@ -95,3 +95,34 @@
 ---------------------------
 
 InstructionPtr.inc(ref L.savedpc, i)
+
+--------------------------
+
+> 1+1
+
+when o == null, crash on o.uv:
+
+		public static UpVal ngcotouv(GCObject o) {return (UpVal)check_exp((o == null) || (o.gch.tt == LUA_TUPVAL), o.uv); }
+		
+
+
+because:
+
+
+void luaF_close (lua_State *L, StkId level) {
+  UpVal *uv;
+  global_State *g = G(L);
+  while (L->openupval != NULL && (uv = ngcotouv(L->openupval))->v >= level) {
+  
+->
+
+void luaF_close (lua_State *L, StkId level) {
+  UpVal *uv;
+  global_State *g = G(L);
+  while ((uv = ngcotouv(L->openupval)) != NULL && uv->v >= level) {
+  
+
+L->openupval != NULL is remove, it's unsafe.
+
+--------------------------
+
