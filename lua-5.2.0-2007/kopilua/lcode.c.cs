@@ -226,14 +226,14 @@ namespace KopiLua
 		  int k;
 		  if (ttisnumber(idx)) {
 		    lua_Number n = nvalue(idx);
-		    lua_number2int(k, n);
+		    lua_number2int(out k, n);
 			lua_assert(luaO_rawequalObj(f.k[k], v));
 		  }
 		  else {  /* constant not found; create a new entry */
 		    int oldsize = f.sizek;
 		    k = fs.nk;
 			setnvalue(idx, cast_num(fs.nk));
-			luaM_growvector(L, f.k, k, f.sizek, TValue, MAXARG_Bx, "constants");
+			luaM_growvector(L, ref f.k, k, ref f.sizek, MAXARG_Bx, "constants");
 			while (oldsize < f.sizek) setnilvalue(f.k[oldsize++]);
 			setobj(L, f.k[k], v);
             fs.nk++;

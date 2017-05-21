@@ -14,6 +14,7 @@ namespace KopiLua
 {
 	using lu_byte = System.Byte;
 	using lua_Number = System.Double;
+	using StkId = Lua.lua_TValue;
 
 	public partial class Lua
 	{
@@ -392,7 +393,7 @@ namespace KopiLua
 		  chunk(lexstate);
 		  check(lexstate, (int)RESERVED.TK_EOS);
 		  close_func(lexstate);
-          L.top--;
+		  StkId.dec(ref L.top);
 		  lua_assert(funcstate.prev == null);
 		  lua_assert(funcstate.f.nups == 0);
 		  lua_assert(lexstate.fs == null);

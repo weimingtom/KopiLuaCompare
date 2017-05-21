@@ -141,7 +141,7 @@ namespace KopiLua
 
 
 		private static int io_tostring (lua_State L) {
-		  Stream f = tofilep(L).file;
+		  Stream f = topfile(L).file;
 		  if (f == null)
 			lua_pushliteral(L, "file (closed)");
 		  else

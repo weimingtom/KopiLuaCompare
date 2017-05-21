@@ -442,7 +442,7 @@ namespace KopiLua
 		  if (L.status != LUA_YIELD) {
 		    if (L.status != LUA_OK)
 		      return resume_error(L, "cannot resume dead coroutine");
-		    else if (L.ci != L.base_ci)
+		    else if (L.ci != L.base_ci[0])
 		      return resume_error(L, "cannot resume non-suspended coroutine");
 		  }
 		  luai_userstateresume(L, nargs);
@@ -460,7 +460,7 @@ namespace KopiLua
 			lua_assert(L.baseCcalls == G(L).nCcalls);
 			status = L.status;
 		  }
-		  --L.nCcalls;
+		  --G(L).nCcalls;
           L.baseCcalls = 0;
 		  lua_unlock(L);
 		  return status;

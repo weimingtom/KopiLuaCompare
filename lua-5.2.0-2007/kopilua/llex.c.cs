@@ -14,7 +14,8 @@ namespace KopiLua
 {
 	using TValue = Lua.lua_TValue;
 	using lua_Number = System.Double;
-
+    using StkId = Lua.lua_TValue;
+    	
 	public partial class Lua
 	{
 
@@ -106,11 +107,11 @@ namespace KopiLua
 		  lua_State L = ls.L;
           TValue o;  /* entry for `str' */
 		  TString ts = luaS_newlstr(L, str, l);
-		  setsvalue2s(L, L.top++, ts);  /* anchor string */
+		  setsvalue2s(L, StkId.inc(ref L.top), ts);  /* anchor string */
 		  o = luaH_setstr(L, ls.fs.h, ts);
 		  if (ttisnil(o))
 		    setbvalue(o, 1);  /* make sure `str' will not be collected */
-		  L.top--;
+		  StkId.dec(ref L.top);
 		  return ts;
 		}
 

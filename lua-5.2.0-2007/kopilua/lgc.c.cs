@@ -506,7 +506,7 @@ namespace KopiLua
 		    GCTM(L);
 		  } while (curr != last);  /* go only until original last */
 		  /* do not finalize new udata created during previous finalizations  */
-		  while (g.tmudata)
+		  while (g.tmudata != null)
 		    udata2finalize(g);  /* simply remove them from list */
 		}
 
@@ -608,15 +608,13 @@ namespace KopiLua
 			  }
 			}
 			case GCSsweepstring: {
-			  correctestimate(g, sweepwholelist(L, new ArrayRef(g.strt.hash, g.sweepstrgc++)));
+		  	  correctestimate(g, delegate () {sweepwholelist(L, new ArrayRef(g.strt.hash, g.sweepstrgc++)); });
 			  if (g.sweepstrgc >= g.strt.size)  /* nothing more to sweep? */
 				g.gcstate = GCSsweep;  /* end sweep-string phase */
-			  lua_assert(old >= g.totalbytes);
-			  g.estimate -= (uint)(old - g.totalbytes);
 			  return GCSWEEPCOST;
 			}
 			case GCSsweep: {
-			  correctestimate(g, g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX));
+		  	  correctestimate(g, delegate () {g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);});
 			  if (g.sweepgc.get() == null)  /* nothing more to sweep? */
 				g.gcstate = GCSfinalize;  /* end sweep phase */
 			  return GCSWEEPMAX*GCSWEEPCOST;
@@ -629,7 +627,7 @@ namespace KopiLua
 				return GCFINALIZECOST;
 			  }
 			  else {
-                correctestimate(g, checkSizes(L));
+		  		correctestimate(g, delegate() {checkSizes(L);});
 				g.gcstate = GCSpause;  /* end collection */
 				g.gcdept = 0;
 				return 0;
@@ -669,7 +667,7 @@ namespace KopiLua
 		public static void luaC_fullgc (lua_State L, int isemergency) {
           int stopstate;
 		  global_State g = G(L);
-          g.emergencygc = isemergency;
+		  g.emergencygc = (byte)(isemergency & 0xff);
 		  if (g.gcstate <= GCSpropagate) {
 			/* reset sweep marks to sweep all elements (returning them to white) */
 			g.sweepstrgc = 0;
@@ -688,7 +686,7 @@ namespace KopiLua
 		  }
 		  markroot(L);
 		  /* do not run finalizers during emergency GC */
-		  stopstate = isemergency ? GCSfinalize : GCSpause;
+		  stopstate = isemergency != 0 ? GCSfinalize : GCSpause;
 		  while (g.gcstate != stopstate)
 			singlestep(L);
 		  setthreshold(g);

@@ -140,7 +140,7 @@ namespace KopiLua
 		  luaL_buffinit(L, b);
 		  for (; i <= last; i++) {
 		    lua_rawgeti(L, 1, i);
-		    luaL_argcheck(L, lua_isstring(L, -1), 1, "table contains non-strings");
+		    luaL_argcheck(L, lua_isstring(L, -1) != 0, 1, "table contains non-strings");
 		    luaL_addvalue(b);
 		    if (i != last)
 		      luaL_addlstring(b, sep, lsep);

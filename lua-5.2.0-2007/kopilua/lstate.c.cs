@@ -173,10 +173,9 @@ namespace KopiLua
 		  L.marked = luaC_white(g);
 		  g.emergencygc = 0;
 		  g.nCcalls = 0;
-		  ???//???remove next statment
-		  lu_byte marked = L.marked;	// can't pass properties in as ref
+		  lu_byte marked = L.marked;	// can't pass properties in as ref ???//FIXME:???
 		  set2bits(ref marked, FIXEDBIT, SFIXEDBIT);
-		  L.marked = marked; ???//remove this
+		  L.marked = marked; //remove this //FIXME:???
 		  preinit_state(L, g);
 		  g.frealloc = f;
 		  g.ud = ud;

@@ -34,6 +34,18 @@ namespace KopiLua
 			ptr.pc--;
 			return result;
 		}
+		public static InstructionPtr inc(ref InstructionPtr ptr, int n)
+		{
+			InstructionPtr result = new InstructionPtr(ptr.codes, ptr.pc);
+			ptr.pc += n;
+			return result;
+		}
+		public static InstructionPtr dec(ref InstructionPtr ptr, int n)
+		{
+			InstructionPtr result = new InstructionPtr(ptr.codes, ptr.pc);
+			ptr.pc -= n;
+			return result;
+		}
 		public static bool operator <(InstructionPtr p1, InstructionPtr p2)
 		{
 			Debug.Assert(p1.codes == p2.codes);

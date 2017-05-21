@@ -108,9 +108,9 @@ namespace KopiLua
 		}
 
 		private static int math_log (lua_State L) {
-		  lua_Number res = log(luaL_checknumber(L, 1));
+		  lua_Number res = Math.Log(luaL_checknumber(L, 1));
 		  if (!lua_isnoneornil(L, 2))
-		    res /= log(luaL_checknumber(L, 2));
+		    res /= Math.Log(luaL_checknumber(L, 2));
 		  lua_pushnumber(L, res);
 		  return 1;
 		}
