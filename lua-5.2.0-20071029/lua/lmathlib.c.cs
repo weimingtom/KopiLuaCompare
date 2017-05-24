@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.67 2005/08/26 17:36:32 roberto Exp roberto $
+** $Id: lmathlib.c,v 1.69 2007/03/27 12:37:00 roberto Exp roberto $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -211,6 +211,7 @@ static int math_random (lua_State *L) {
 
 static int math_randomseed (lua_State *L) {
   srand(luaL_checkint(L, 1));
+  (void)rand(); /* discard first value to avoid undesirable correlations */
   return 0;
 }
 
@@ -257,10 +258,6 @@ LUALIB_API int luaopen_math (lua_State *L) {
   lua_setfield(L, -2, "pi");
   lua_pushnumber(L, HUGE_VAL);
   lua_setfield(L, -2, "huge");
-#if defined(LUA_COMPAT_MOD)
-  lua_getfield(L, -1, "fmod");
-  lua_setfield(L, -2, "mod");
-#endif
   return 1;
 }
 

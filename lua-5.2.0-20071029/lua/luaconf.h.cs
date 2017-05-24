@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.85 2006/08/30 13:19:58 roberto Exp roberto $
+** $Id: luaconf.h,v 1.91 2007/08/30 16:13:13 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -24,7 +24,7 @@
 ** CHANGE it (define it) if you want Lua to avoid the use of any
 ** non-ansi feature or library.
 */
-#if defined(__STRICT_ANSI__)
+#if !defined(LUA_ANSI) && defined(__STRICT_ANSI__)
 #define LUA_ANSI
 #endif
 
@@ -33,9 +33,15 @@
 /*#define LUA_WIN*/
 #endif
 
+#if defined(LUA_WIN)
+#include <windows.h>
+#endif
+
+
+
 #if defined(LUA_USE_LINUX)
 /*#define LUA_USE_POSIX*/
-/*#define LUA_USE_DLOPEN	*/	/* needs an extra library: -ldl */
+/*#define LUA_USE_DLOPEN*/		/* needs an extra library: -ldl */
 /*#define LUA_USE_READLINE*/	/* needs some extra libraries */
 #endif
 
@@ -315,32 +321,11 @@
 
 
 /*
-@@ LUA_COMPAT_GETN controls compatibility with old getn behavior.
-** CHANGE it (define it) if you want exact compatibility with the
-** behavior of setn/getn in Lua 5.0.
-*/
-#undef LUA_COMPAT_GETN
-
-/*
-@@ LUA_COMPAT_LOADLIB controls compatibility about global loadlib.
-** CHANGE it to undefined as soon as you do not need a global 'loadlib'
-** function (the function is still available as 'package.loadlib').
-*/
-#undef LUA_COMPAT_LOADLIB
-
-/*
 @@ LUA_COMPAT_VARARG controls compatibility with old vararg feature.
 ** CHANGE it to undefined as soon as your programs use only '...' to
 ** access vararg parameters (instead of the old 'arg' table).
 */
 #define LUA_COMPAT_VARARG
-
-/*
-@@ LUA_COMPAT_MOD controls compatibility with old math.mod function.
-** CHANGE it to undefined as soon as your programs use 'math.fmod' or
-** the new '%' operator instead of 'math.mod'.
-*/
-#define LUA_COMPAT_MOD
 
 /*
 @@ LUA_COMPAT_GFIND controls compatibility with old 'string.gfind' name.
@@ -350,12 +335,13 @@
 #define LUA_COMPAT_GFIND
 
 /*
-@@ LUA_COMPAT_OPENLIB controls compatibility with old 'luaL_openlib'
-@* behavior.
-** CHANGE it to undefined as soon as you replace to 'luaL_register'
-** your uses of 'luaL_openlib'
+@@ LUA_COMPAT_DEBUGLIB controls compatibility with preloading
+@* the debug library.
+** CHANGE it to undefined as soon as you add 'require"debug"' everywhere
+** you need the debug library.
 */
-#define LUA_COMPAT_OPENLIB
+#define LUA_COMPAT_DEBUGLIB
+
 
 
 
@@ -652,13 +638,25 @@ union luai_Cast { double l_d; long l_l; };
 
 
 /*
+@@ LUA_STRFTIMEOPTIONS is the list of valid conversion specifier
+@* characters for the 'strftime' function;
+@@ LUA_STRFTIMEPREFIX is the list of valid modifiers for
+@* that function.
+** CHANGE them if you want to use non-ansi options specific to your system.
+*/
+#define LUA_STRFTIMEOPTIONS	"aAbBcdHIjmMpSUwWxXyYz%"
+#define LUA_STRFTIMEPREFIX	""
+
+
+
+/*
 @@ lua_popen spawns a new process connected to the current one through
 @* the file streams.
 ** CHANGE it if you have a way to implement it in your system.
 */
 #if defined(LUA_USE_POPEN)
 
-#define lua_popen(L,c,m)	((void)L, popen(c,m))
+#define lua_popen(L,c,m)	((void)L, fflush(NULL), popen(c,m))
 #define lua_pclose(L,file)	((void)L, (pclose(file) != -1))
 
 #elif defined(LUA_WIN)

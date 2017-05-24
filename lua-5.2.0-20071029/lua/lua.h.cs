@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.222 2006/10/17 19:59:04 roberto Exp roberto $
+** $Id: lua.h,v 1.225 2007/04/17 13:19:53 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -19,7 +19,7 @@
 #define LUA_VERSION	"Lua 5.2"
 #define LUA_RELEASE	"Lua 5.2.0"
 #define LUA_VERSION_NUM	502
-#define LUA_COPYRIGHT	"Copyright (C) 1994-2006 Lua.org, PUC-Rio"
+#define LUA_COPYRIGHT	LUA_RELEASE "  Copyright (C) 1994-2007 Lua.org, PUC-Rio"
 #define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
 
 
@@ -158,11 +158,11 @@ LUA_API const void     *(lua_topointer) (lua_State *L, int idx);
 /*
 ** push functions (C -> stack)
 */
-LUA_API void  (lua_pushnil) (lua_State *L);
-LUA_API void  (lua_pushnumber) (lua_State *L, lua_Number n);
-LUA_API void  (lua_pushinteger) (lua_State *L, lua_Integer n);
-LUA_API void  (lua_pushlstring) (lua_State *L, const char *s, size_t l);
-LUA_API void  (lua_pushstring) (lua_State *L, const char *s);
+LUA_API void        (lua_pushnil) (lua_State *L);
+LUA_API void        (lua_pushnumber) (lua_State *L, lua_Number n);
+LUA_API void        (lua_pushinteger) (lua_State *L, lua_Integer n);
+LUA_API const char *(lua_pushlstring) (lua_State *L, const char *s, size_t l);
+LUA_API const char *(lua_pushstring) (lua_State *L, const char *s);
 LUA_API const char *(lua_pushvfstring) (lua_State *L, const char *fmt,
                                                       va_list argp);
 LUA_API const char *(lua_pushfstring) (lua_State *L, const char *fmt, ...);

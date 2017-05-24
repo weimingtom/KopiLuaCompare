@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.134 2006/09/11 14:07:24 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.137 2007/10/25 19:30:36 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -28,26 +28,28 @@
 static int str_len (lua_State *L) {
   size_t l;
   luaL_checklstring(L, 1, &l);
-  lua_pushinteger(L, l);
+  lua_pushinteger(L, (lua_Integer)l);
   return 1;
 }
 
 
-static ptrdiff_t posrelat (ptrdiff_t pos, size_t len) {
-  /* relative string position: negative means back from end */
-  return (pos>=0) ? pos : (ptrdiff_t)len+pos+1;
+/* translate a relative string position: negative means back from end */
+static size_t posrelat (ptrdiff_t pos, size_t len) {
+  if (pos >= 0) return (size_t)pos;
+  else if ((size_t)-pos > len) return 0;
+  else return len - ((size_t)-pos) + 1;
 }
 
 
 static int str_sub (lua_State *L) {
   size_t l;
   const char *s = luaL_checklstring(L, 1, &l);
-  ptrdiff_t start = posrelat(luaL_checkinteger(L, 2), l);
-  ptrdiff_t end = posrelat(luaL_optinteger(L, 3, -1), l);
+  size_t start = posrelat(luaL_checkinteger(L, 2), l);
+  size_t end = posrelat(luaL_optinteger(L, 3, -1), l);
   if (start < 1) start = 1;
-  if (end > (ptrdiff_t)l) end = (ptrdiff_t)l;
+  if (end > l) end = l;
   if (start <= end)
-    lua_pushlstring(L, s+start-1, end-start+1);
+    lua_pushlstring(L, s + start - 1, end - start + 1);
   else lua_pushliteral(L, "");
   return 1;
 }
@@ -105,11 +107,11 @@ static int str_rep (lua_State *L) {
 static int str_byte (lua_State *L) {
   size_t l;
   const char *s = luaL_checklstring(L, 1, &l);
-  ptrdiff_t posi = posrelat(luaL_optinteger(L, 2, 1), l);
-  ptrdiff_t pose = posrelat(luaL_optinteger(L, 3, posi), l);
+  size_t posi = posrelat(luaL_optinteger(L, 2, 1), l);
+  size_t pose = posrelat(luaL_optinteger(L, 3, posi), l);
   int n, i;
-  if (posi <= 0) posi = 1;
-  if ((size_t)pose > l) pose = l;
+  if (posi < 1) posi = 1;
+  if (pose > l) pose = l;
   if (posi > pose) return 0;  /* empty interval; return no values */
   n = (int)(pose -  posi + 1);
   if (posi + n <= pose)  /* overflow? */
@@ -495,33 +497,33 @@ static int str_find_aux (lua_State *L, int find) {
   size_t l1, l2;
   const char *s = luaL_checklstring(L, 1, &l1);
   const char *p = luaL_checklstring(L, 2, &l2);
-  ptrdiff_t init = posrelat(luaL_optinteger(L, 3, 1), l1) - 1;
-  if (init < 0) init = 0;
-  else if ((size_t)(init) > l1) init = (ptrdiff_t)l1;
+  size_t init = posrelat(luaL_optinteger(L, 3, 1), l1);
+  if (init < 1) init = 1;
+  else if (init > l1) init = l1 + 1;
   if (find && (lua_toboolean(L, 4) ||  /* explicit request? */
       strpbrk(p, SPECIALS) == NULL)) {  /* or no special characters? */
     /* do a plain search */
-    const char *s2 = lmemfind(s+init, l1-init, p, l2);
+    const char *s2 = lmemfind(s + init - 1, l1 - init + 1, p, l2);
     if (s2) {
-      lua_pushinteger(L, s2-s+1);
-      lua_pushinteger(L, s2-s+l2);
+      lua_pushinteger(L, s2 - s + 1);
+      lua_pushinteger(L, s2 - s + l2);
       return 2;
     }
   }
   else {
     MatchState ms;
     int anchor = (*p == '^') ? (p++, 1) : 0;
-    const char *s1=s+init;
+    const char *s1 = s + init - 1;
     ms.L = L;
     ms.src_init = s;
-    ms.src_end = s+l1;
+    ms.src_end = s + l1;
     do {
       const char *res;
       ms.level = 0;
       if ((res=match(&ms, s1, p)) != NULL) {
         if (find) {
-          lua_pushinteger(L, s1-s+1);  /* start */
-          lua_pushinteger(L, res-s);   /* end */
+          lua_pushinteger(L, s1 - s + 1);  /* start */
+          lua_pushinteger(L, res - s);   /* end */
           return push_captures(&ms, NULL, 0) + 2;
         }
         else
@@ -609,14 +611,9 @@ static void add_s (MatchState *ms, luaL_Buffer *b, const char *s,
 
 
 static void add_value (MatchState *ms, luaL_Buffer *b, const char *s,
-                                                       const char *e) {
+                                       const char *e, int tr) {
   lua_State *L = ms->L;
-  switch (lua_type(L, 3)) {
-    case LUA_TNUMBER:
-    case LUA_TSTRING: {
-      add_s(ms, b, s, e);
-      return;
-    }
+  switch (tr) {
     case LUA_TFUNCTION: {
       int n;
       lua_pushvalue(L, 3);
@@ -629,8 +626,8 @@ static void add_value (MatchState *ms, luaL_Buffer *b, const char *s,
       lua_gettable(L, 3);
       break;
     }
-    default: {
-      luaL_argerror(L, 3, "string/function/table expected");
+    default: {  /* LUA_TNUMBER or LUA_TSTRING */
+      add_s(ms, b, s, e);
       return;
     }
   }
@@ -648,11 +645,15 @@ static int str_gsub (lua_State *L) {
   size_t srcl;
   const char *src = luaL_checklstring(L, 1, &srcl);
   const char *p = luaL_checkstring(L, 2);
-  int max_s = luaL_optint(L, 4, srcl+1);
+  int tr = lua_type(L, 3);
+  size_t max_s = luaL_optinteger(L, 4, srcl+1);
   int anchor = (*p == '^') ? (p++, 1) : 0;
-  int n = 0;
+  size_t n = 0;
   MatchState ms;
   luaL_Buffer b;
+  luaL_argcheck(L, tr == LUA_TNUMBER || tr == LUA_TSTRING ||
+                   tr == LUA_TFUNCTION || tr == LUA_TTABLE, 3,
+                      "string/function/table expected");
   luaL_buffinit(L, &b);
   ms.L = L;
   ms.src_init = src;
@@ -663,7 +664,7 @@ static int str_gsub (lua_State *L) {
     e = match(&ms, src, p);
     if (e) {
       n++;
-      add_value(&ms, &b, src, e);
+      add_value(&ms, &b, src, e, tr);
     }
     if (e && e>src) /* non empty match? */
       src = e;  /* skip it */
@@ -697,25 +698,20 @@ static void addquoted (lua_State *L, luaL_Buffer *b, int arg) {
   const char *s = luaL_checklstring(L, arg, &l);
   luaL_addchar(b, '"');
   while (l--) {
-    switch (*s) {
-      case '"': case '\\': case '\n': {
-        luaL_addchar(b, '\\');
-        luaL_addchar(b, *s);
-        break;
-      }
-      case '\r': {
-        luaL_addlstring(b, "\\r", 2);
-        break;
-      }
-      case '\0': {
-        luaL_addlstring(b, "\\000", 4);
-        break;
-      }
-      default: {
-        luaL_addchar(b, *s);
-        break;
-      }
+    if (*s == '"' || *s == '\\' || *s == '\n') {
+      luaL_addchar(b, '\\');
+      luaL_addchar(b, *s);
     }
+    else if (*s == '\0' || iscntrl(uchar(*s))) {
+      char buff[10];
+      if (*s != '\0' && !isdigit(uchar(*(s+1))))
+        sprintf(buff, "\\%d", uchar(*s));
+      else
+        sprintf(buff, "\\%03d", uchar(*s));
+      luaL_addstring(b, buff);
+    }
+    else
+      luaL_addchar(b, *s);
     s++;
   }
   luaL_addchar(b, '"');

@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.194 2006/10/20 19:30:53 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.199 2007/10/17 17:26:39 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -114,11 +114,11 @@ static int luaB_setmetatable (lua_State *L) {
 }
 
 
-static void getfunc (lua_State *L) {
+static void getfunc (lua_State *L, int opt) {
   if (lua_isfunction(L, 1)) lua_pushvalue(L, 1);
   else {
     lua_Debug ar;
-    int level = luaL_optint(L, 1, 1);
+    int level = opt ? luaL_optint(L, 1, 1) : luaL_checkint(L, 1);
     luaL_argcheck(L, level >= 0, 1, "level must be non-negative");
     if (lua_getstack(L, level, &ar) == 0)
       luaL_argerror(L, 1, "invalid level");
@@ -131,7 +131,7 @@ static void getfunc (lua_State *L) {
 
 
 static int luaB_getfenv (lua_State *L) {
-  getfunc(L);
+  getfunc(L, 1);
   if (lua_iscfunction(L, -1))  /* is a C function? */
     lua_pushvalue(L, LUA_GLOBALSINDEX);  /* return the thread's global env. */
   else
@@ -142,7 +142,7 @@ static int luaB_getfenv (lua_State *L) {
 
 static int luaB_setfenv (lua_State *L) {
   luaL_checktype(L, 2, LUA_TTABLE);
-  getfunc(L);
+  getfunc(L, 0);
   lua_pushvalue(L, 2);
   if (lua_isnumber(L, 1) && lua_tonumber(L, 1) == 0) {
     /* change environment of current thread */
@@ -209,7 +209,7 @@ static int luaB_collectgarbage (lua_State *L) {
       return 1;
     }
     default: {
-      lua_pushnumber(L, res);
+      lua_pushinteger(L, res);
       return 1;
     }
   }
@@ -220,6 +220,22 @@ static int luaB_type (lua_State *L) {
   luaL_checkany(L, 1);
   lua_pushstring(L, luaL_typename(L, 1));
   return 1;
+}
+
+
+static int pairsmeta (lua_State *L, const char *method, int iszero) {
+  if (!luaL_getmetafield(L, 1, method)) {  /* no metamethod? */
+    luaL_checktype(L, 1, LUA_TTABLE);  /* argument must be a table */
+    lua_pushvalue(L, lua_upvalueindex(1));  /* will return generator, */
+    lua_pushvalue(L, 1);  /* state, */
+    if (iszero) lua_pushinteger(L, 0);  /* and initial value */
+    else lua_pushnil(L);
+  }
+  else {
+    lua_pushvalue(L, 1);  /* argument 'self' to metamethod */
+    lua_call(L, 1, 3);  /* get 3 values from metamethod */
+  }
+  return 3;
 }
 
 
@@ -236,11 +252,7 @@ static int luaB_next (lua_State *L) {
 
 
 static int luaB_pairs (lua_State *L) {
-  luaL_checktype(L, 1, LUA_TTABLE);
-  lua_pushvalue(L, lua_upvalueindex(1));  /* return generator, */
-  lua_pushvalue(L, 1);  /* state, */
-  lua_pushnil(L);  /* and initial value */
-  return 3;
+  return pairsmeta(L, "__pairs", 0);
 }
 
 
@@ -255,11 +267,7 @@ static int ipairsaux (lua_State *L) {
 
 
 static int luaB_ipairs (lua_State *L) {
-  luaL_checktype(L, 1, LUA_TTABLE);
-  lua_pushvalue(L, lua_upvalueindex(1));  /* return generator, */
-  lua_pushvalue(L, 1);  /* state, */
-  lua_pushinteger(L, 0);  /* and initial value */
-  return 3;
+  return pairsmeta(L, "__ipairs", 1);
 }
 
 
@@ -343,7 +351,7 @@ static int luaB_unpack (lua_State *L) {
   int i, e, n;
   luaL_checktype(L, 1, LUA_TTABLE);
   i = luaL_optint(L, 2, 1);
-  e = luaL_opt(L, luaL_checkint, 3, luaL_getn(L, 1));
+  e = luaL_opt(L, luaL_checkint, 3, (int)lua_objlen(L, 1));
   n = e - i + 1;  /* number of elements */
   if (n <= 0) return 0;  /* empty range */
   luaL_checkstack(L, n, "table too big to unpack");
@@ -396,25 +404,7 @@ static int luaB_xpcall (lua_State *L) {
 
 static int luaB_tostring (lua_State *L) {
   luaL_checkany(L, 1);
-  if (luaL_callmeta(L, 1, "__tostring"))  /* is there a metafield? */
-    return 1;  /* use its value */
-  switch (lua_type(L, 1)) {
-    case LUA_TNUMBER:
-      lua_pushstring(L, lua_tostring(L, 1));
-      break;
-    case LUA_TSTRING:
-      lua_pushvalue(L, 1);
-      break;
-    case LUA_TBOOLEAN:
-      lua_pushstring(L, (lua_toboolean(L, 1) ? "true" : "false"));
-      break;
-    case LUA_TNIL:
-      lua_pushliteral(L, "nil");
-      break;
-    default:
-      lua_pushfstring(L, "%s: %p", luaL_typename(L, 1), lua_topointer(L, 1));
-      break;
-  }
+  luaL_tostring(L, 1);
   return 1;
 }
 

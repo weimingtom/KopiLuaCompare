@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.34 2006/08/07 19:14:30 roberto Exp roberto $
+** $Id: ltable.c,v 2.36 2007/04/10 12:18:17 roberto Exp roberto $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -84,8 +84,8 @@ static const Node dummynode_ = {
 static Node *hashnum (const Table *t, lua_Number n) {
   unsigned int a[numints];
   int i;
-  n += 1;  /* normalize number (avoid -0) */
-  lua_assert(sizeof(a) <= sizeof(n));
+  if (luai_numeq(n, 0))  /* avoid problems with -0 */
+    return gnode(t, 0);
   memcpy(a, &n, sizeof(a));
   for (i = 1; i < numints; i++) a[0] += a[i];
   return hashmod(t, a[0]);
@@ -184,6 +184,24 @@ int luaH_next (lua_State *L, Table *t, StkId key) {
 ** Rehash
 ** ==============================================================
 */
+
+
+static int ceillog2 (unsigned int x) {
+  static const lu_byte log_2[256] = {
+    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
+  };
+  int l = 0;
+  x--;
+  while (x >= 256) { l += 8; x >>= 8; }
+  return l + log_2[x];
+}
 
 
 static int computesizes (int nums[], int *narray) {

@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.h,v 1.87 2005/12/29 15:32:11 roberto Exp roberto $
+** $Id: lauxlib.h,v 1.92 2007/06/22 15:33:54 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -14,18 +14,6 @@
 
 #include "lua.h"
 
-
-#if defined(LUA_COMPAT_GETN)
-LUALIB_API int (luaL_getn) (lua_State *L, int t);
-LUALIB_API void (luaL_setn) (lua_State *L, int t, int n);
-#else
-#define luaL_getn(L,i)          ((int)lua_objlen(L, i))
-#define luaL_setn(L,i,j)        ((void)0)  /* no op! */
-#endif
-
-#if defined(LUA_COMPAT_OPENLIB)
-#define luaI_openlib	luaL_openlib
-#endif
 
 
 /* extra error code for `luaL_load' */
@@ -45,6 +33,7 @@ LUALIB_API void (luaL_register) (lua_State *L, const char *libname,
                                 const luaL_Reg *l);
 LUALIB_API int (luaL_getmetafield) (lua_State *L, int obj, const char *e);
 LUALIB_API int (luaL_callmeta) (lua_State *L, int obj, const char *e);
+LUALIB_API const char *luaL_tostring (lua_State *L, int idx);
 LUALIB_API int (luaL_typerror) (lua_State *L, int narg, const char *tname);
 LUALIB_API int (luaL_argerror) (lua_State *L, int numarg, const char *extramsg);
 LUALIB_API const char *(luaL_checklstring) (lua_State *L, int numArg,
@@ -63,6 +52,7 @@ LUALIB_API void (luaL_checktype) (lua_State *L, int narg, int t);
 LUALIB_API void (luaL_checkany) (lua_State *L, int narg);
 
 LUALIB_API int   (luaL_newmetatable) (lua_State *L, const char *tname);
+LUALIB_API void *(luaL_testudata) (lua_State *L, int ud, const char *tname);
 LUALIB_API void *(luaL_checkudata) (lua_State *L, int ud, const char *tname);
 
 LUALIB_API void (luaL_where) (lua_State *L, int lvl);
@@ -88,6 +78,8 @@ LUALIB_API const char *(luaL_gsub) (lua_State *L, const char *s, const char *p,
 LUALIB_API const char *(luaL_findtable) (lua_State *L, int idx,
                                          const char *fname, int szhint);
 
+LUALIB_API void luaL_traceback (lua_State *L, lua_State *L1,
+                                const char *msg, int level);
 
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.68 2006/09/19 13:57:50 roberto Exp roberto $
+** $Id: lvm.c,v 2.72 2007/06/19 19:48:15 roberto Exp roberto $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -162,7 +162,7 @@ static int call_binTM (lua_State *L, const TValue *p1, const TValue *p2,
   const TValue *tm = luaT_gettmbyobj(L, p1, event);  /* try first operand */
   if (ttisnil(tm))
     tm = luaT_gettmbyobj(L, p2, event);  /* try second operand */
-  if (!ttisfunction(tm)) return 0;
+  if (ttisnil(tm)) return 0;
   callTMres(L, res, tm, p1, p2);
   return 1;
 }
@@ -247,7 +247,7 @@ static int lessequal (lua_State *L, const TValue *l, const TValue *r) {
 }
 
 
-int luaV_equalval (lua_State *L, const TValue *t1, const TValue *t2) {
+int luaV_equalval_ (lua_State *L, const TValue *t1, const TValue *t2) {
   const TValue *tm;
   lua_assert(ttype(t1) == ttype(t2));
   switch (ttype(t1)) {
@@ -257,8 +257,7 @@ int luaV_equalval (lua_State *L, const TValue *t1, const TValue *t2) {
     case LUA_TLIGHTUSERDATA: return pvalue(t1) == pvalue(t2);
     case LUA_TUSERDATA: {
       if (uvalue(t1) == uvalue(t2)) return 1;
-      tm = get_compTM(L, uvalue(t1)->metatable, uvalue(t2)->metatable,
-                         TM_EQ);
+      tm = get_compTM(L, uvalue(t1)->metatable, uvalue(t2)->metatable, TM_EQ);
       break;  /* will try TM */
     }
     case LUA_TTABLE: {
@@ -278,12 +277,12 @@ void luaV_concat (lua_State *L, int total, int last) {
   do {
     StkId top = L->base + last + 1;
     int n = 2;  /* number of elements handled in this pass (at least 2) */
-    if (!tostring(L, top-2) || !tostring(L, top-1)) {
+    if (!(ttisstring(top-2) || ttisnumber(top-2)) || !tostring(L, top-1)) {
       if (!call_binTM(L, top-2, top-1, top-2, TM_CONCAT))
         luaG_concaterror(L, top-2, top-1);
     } else if (tsvalue(top-1)->len == 0) {  /* second operand is empty? */
-      /* do nothing; result is already first operand */ ;
-    } else if (tsvalue(top-2)->len == 0) {  /* fist operand is empty? */
+      (void)tostring(L, top - 2);  /* result is first operand */ ;
+    } else if (ttisstring(top-2) && tsvalue(top-2)->len == 0) {
         setsvalue2s(L, top-2, rawtsvalue(top-1));  /* result is second op. */
     } else {
       /* at least two (non-empty) string values; get as many as possible */
@@ -308,6 +307,33 @@ void luaV_concat (lua_State *L, int total, int last) {
     total -= n-1;  /* got `n' strings to create 1 new */
     last -= n-1;
   } while (total > 1);  /* repeat until only 1 result left */
+}
+
+
+static void objlen (lua_State *L, StkId ra, const TValue *rb) {
+  const TValue *tm;
+  switch (ttype(rb)) {
+    case LUA_TTABLE: {
+      Table *h = hvalue(rb);
+      tm = fasttm(L, h->metatable, TM_LEN);
+      if (tm) break;  /* metamethod? break switch to call it */
+      setnvalue(ra, cast_num(luaH_getn(h)));  /* else primitive len */
+      return;
+    }
+    case LUA_TSTRING: {
+      tm = fasttm(L, G(L)->mt[LUA_TSTRING], TM_LEN);
+      if (tm) break;  /* metamethod? break switch to call it */
+      setnvalue(ra, cast_num(tsvalue(rb)->len));
+      return;
+    }
+    default: {  /* try metamethod */
+      tm = luaT_gettmbyobj(L, rb, TM_LEN);
+      if (ttisnil(tm))  /* no metamethod? */
+        luaG_typeerror(L, rb, "get length of");
+      break;
+    }
+  }
+  callTMres(L, ra, tm, rb, luaO_nilobject);
 }
 
 
@@ -510,23 +536,7 @@ void luaV_execute (lua_State *L, int nexeccalls) {
         continue;
       }
       case OP_LEN: {
-        const TValue *rb = RB(i);
-        switch (ttype(rb)) {
-          case LUA_TTABLE: {
-            setnvalue(ra, cast_num(luaH_getn(hvalue(rb))));
-            break;
-          }
-          case LUA_TSTRING: {
-            setnvalue(ra, cast_num(tsvalue(rb)->len));
-            break;
-          }
-          default: {  /* try metamethod */
-            Protect(
-              if (!call_binTM(L, rb, rb, ra, TM_LEN))
-                luaG_typeerror(L, rb, "get length of");
-            )
-          }
-        }
+        Protect(objlen(L, ra, RB(i)));
         continue;
       }
       case OP_CONCAT: {
@@ -567,14 +577,14 @@ void luaV_execute (lua_State *L, int nexeccalls) {
         continue;
       }
       case OP_TEST: {
-        if (l_isfalse(ra) != GETARG_C(i))
+        if (GETARG_C(i) ? !l_isfalse(ra) : l_isfalse(ra))
           dojump(L, GETARG_sBx(*L->savedpc));
         L->savedpc++;
         continue;
       }
       case OP_TESTSET: {
         TValue *rb = RB(i);
-        if (l_isfalse(rb) != GETARG_C(i)) {
+        if (GETARG_C(i) ? !l_isfalse(rb) : l_isfalse(rb)) {
           setobjs2s(L, ra, rb);
           dojump(L, GETARG_sBx(*L->savedpc));
         }

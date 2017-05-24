@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.49 2006/10/24 13:31:48 roberto Exp roberto $
+** $Id: lparser.c,v 2.55 2007/10/18 11:01:52 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -64,7 +64,7 @@ static void anchor_token (LexState *ls) {
 
 static void error_expected (LexState *ls, int token) {
   luaX_syntaxerror(ls,
-      luaO_pushfstring(ls->L, LUA_QS " expected", luaX_token2str(ls, token)));
+      luaO_pushfstring(ls->L, "%s expected", luaX_token2str(ls, token)));
 }
 
 
@@ -73,9 +73,9 @@ static void errorlimit (FuncState *fs, int limit, const char *what) {
   const char *where = (fs->f->linedefined == 0) ?
              "main function" :
              luaO_pushfstring(fs->L, "function at line %d", fs->f->linedefined);
-  msg = luaO_pushfstring(fs->L, "too many %s in %s (limit is %d)",
-                                what, where, limit);
-  luaX_lexerror(fs->ls, msg, fs->ls->t.token);
+  msg = luaO_pushfstring(fs->L, "too many %s (limit is %d) in %s",
+                                what, limit, where);
+  luaX_syntaxerror(fs->ls, msg);
 }
 
 
@@ -109,7 +109,7 @@ static void check_match (LexState *ls, int what, int who, int where) {
       error_expected(ls, what);
     else {
       luaX_syntaxerror(ls, luaO_pushfstring(ls->L,
-             LUA_QS " expected (to close " LUA_QS " at line %d)",
+             "%s expected (to close %s at line %d)",
               luaX_token2str(ls, what), luaX_token2str(ls, who), where));
     }
   }
@@ -175,8 +175,7 @@ static void adjustlocalvars (LexState *ls, int nvars) {
 }
 
 
-static void removevars (LexState *ls, int tolevel) {
-  FuncState *fs = ls->fs;
+static void removevars (FuncState *fs, int tolevel) {
   while (fs->nactvar > tolevel)
     getlocvar(fs, --fs->nactvar).endpc = fs->pc;
 }
@@ -299,7 +298,7 @@ static void enterblock (FuncState *fs, BlockCnt *bl, lu_byte isbreakable) {
 static void leaveblock (FuncState *fs) {
   BlockCnt *bl = fs->bl;
   fs->bl = bl->previous;
-  removevars(fs->ls, bl->nactvar);
+  removevars(fs, bl->nactvar);
   if (bl->upval)
     luaK_codeABC(fs, OP_CLOSE, bl->nactvar, 0, 0);
   /* a block either controls scope or breaks (never both) */
@@ -336,7 +335,7 @@ static void open_func (LexState *ls, FuncState *fs) {
   fs->L = L;
   ls->fs = fs;
   fs->pc = 0;
-  fs->lasttarget = -1;
+  fs->lasttarget = 0;
   fs->jpc = NO_JUMP;
   fs->freereg = 0;
   fs->nk = 0;
@@ -362,7 +361,7 @@ static void close_func (LexState *ls) {
   lua_State *L = ls->L;
   FuncState *fs = ls->fs;
   Proto *f = fs->f;
-  removevars(ls, 0);
+  removevars(fs, 0);
   luaK_ret(fs, 0, 0);  /* final return */
   luaM_reallocvector(L, f->code, f->sizecode, fs->pc, Instruction);
   f->sizecode = fs->pc;
@@ -522,8 +521,7 @@ static void constructor (LexState *ls, expdesc *t) {
     closelistfield(fs, &cc);
     switch(ls->t.token) {
       case TK_NAME: {  /* may be listfields or recfields */
-        luaX_lookahead(ls);
-        if (ls->lookahead.token != '=')  /* expression? */
+        if (luaX_lookahead(ls) != '=')  /* expression? */
           listfield(ls, &cc);
         else
           recfield(ls, &cc);
@@ -734,7 +732,7 @@ static void primaryexp (LexState *ls, expdesc *v) {
 
 
 static void simpleexp (LexState *ls, expdesc *v) {
-  /* simpleexp -> NUMBER | STRING | NIL | true | false | ... |
+  /* simpleexp -> NUMBER | STRING | NIL | TRUE | FALSE | ... |
                   constructor | FUNCTION body | primaryexp */
   switch (ls->t.token) {
     case TK_NUMBER: {
@@ -947,6 +945,8 @@ static void assignment (LexState *ls, struct LHS_assign *lh, int nvars) {
     primaryexp(ls, &nv.v);
     if (nv.v.k == VLOCAL)
       check_conflict(ls, lh, &nv.v);
+    luaY_checklimit(ls->fs, nvars, LUAI_MAXCCALLS - G(ls->L)->nCcalls,
+                    "variable names");
     assignment(ls, &nv, nvars+1);
   }
   else {  /* assignment -> `=' explist1 */
