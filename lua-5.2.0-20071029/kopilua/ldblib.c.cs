@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.104 2005/12/29 15:32:11 roberto Exp roberto $
+** $Id: ldblib.c,v 1.106 2007/04/26 20:39:38 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -309,58 +309,16 @@ namespace KopiLua
 		}
 
 
-		public const int LEVELS1	= 12;	/* size of the first part of the stack */
-		public const int LEVELS2	= 10;	/* size of the second part of the stack */
-
 		private static int db_errorfb (lua_State L) {
-		  int level;
-		  bool firstpart = true;  /* still before eventual `...' */
 		  int arg;
-		  lua_State L1 = getthread(L, out arg);
-		  lua_Debug ar = new lua_Debug();
-		  if (lua_isnumber(L, arg+2) != 0) {
-			level = (int)lua_tointeger(L, arg+2);
-			lua_pop(L, 1);
+		  lua_State L1 = getthread(L, arg);
+		  CharPtr msg = lua_tostring(L, arg + 1);
+		  if (msg == null && !lua_isnoneornil(L, arg + 1))  /* non-string 'msg'? */
+		    lua_pushvalue(L, arg + 1);  /* return it untouched */
+		  else {
+		    int level = luaL_optint(L, arg + 2, (L == L1) ? 1 : 0);
+		    luaL_traceback(L, L1, msg, level);
 		  }
-		  else
-			level = (L == L1) ? 1 : 0;  /* level 0 may be this own function */
-		  if (lua_gettop(L) == arg)
-			lua_pushliteral(L, "");
-		  else if (lua_isstring(L, arg+1)==0) return 1;  /* message is not a string */
-		  else lua_pushliteral(L, "\n");
-		  lua_pushliteral(L, "stack traceback:");
-		  while (lua_getstack(L1, level++, ar) != 0) {
-			if (level > LEVELS1 && firstpart) {
-			  /* no more than `LEVELS2' more levels? */
-			  if (lua_getstack(L1, level+LEVELS2, ar)==0)
-				level--;  /* keep going */
-			  else {
-				lua_pushliteral(L, "\n\t...");  /* too many levels */
-				while (lua_getstack(L1, level+LEVELS2, ar) != 0)  /* find last levels */
-				  level++;
-			  }
-			  firstpart = false;
-			  continue;
-			}
-			lua_pushliteral(L, "\n\t");
-			lua_getinfo(L1, "Snl", ar);
-			lua_pushfstring(L, "%s:", ar.short_src);
-			if (ar.currentline > 0)
-			  lua_pushfstring(L, "%d:", ar.currentline);
-			if (ar.namewhat != '\0')  /* is there a name? */
-				lua_pushfstring(L, " in function " + LUA_QS, ar.name);
-			else {
-			  if (ar.what == 'm')  /* main? */
-				lua_pushfstring(L, " in main chunk");
-			  else if (ar.what == 'C' || ar.what == 't')
-				lua_pushliteral(L, " ?");  /* C function or tail call */
-			  else
-				lua_pushfstring(L, " in function <%s:%d>",
-								   ar.short_src, ar.linedefined);
-			}
-			lua_concat(L, lua_gettop(L) - arg);
-		  }
-		  lua_concat(L, lua_gettop(L) - arg);
 		  return 1;
 		}
 

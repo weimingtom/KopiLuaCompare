@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.163 2006/09/25 15:35:00 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.173 2007/09/05 17:17:39 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -21,10 +21,6 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		/* number of prereserved references (for internal use) */
-		public const int RESERVED_REFS  = 1;	/* only FREELIST_REF is reserved */
-		public const int FREELIST_REF	= 1;	/* free list of references */
-
 
 		/* convert a stack index to positive */
 		public static int abs_index(lua_State L, int i)
@@ -91,20 +87,65 @@ namespace KopiLua
 		}
 
 
+		private const int LEVELS1 = 12;	/* size of the first part of the stack */
+		private const int LEVELS2 = 10;	/* size of the second part of the stack */
+
+
+		private static void pushfuncname (lua_State L, lua_Debug ar) {
+		  if (ar.namewhat[0] != '\0')  /* is there a name? */
+		    lua_pushfstring(L, "function " + LUA_QS, ar.name);
+		  else if (ar.what[0] == 'm')  /* main? */
+		      lua_pushfstring(L, "main chunk");
+		  else if (ar.what[0] == 'C' || ar.what[0] == 't')
+		    lua_pushliteral(L, "?");  /* C function or tail call */
+		  else
+		    lua_pushfstring(L, "function <%s:%d>", ar->short_src, ar->linedefined);
+		}
+
+
+		static int countlevels (lua_State L) {
+		  lua_Debug ar;
+		  int level = 1;
+		  while (lua_getstack(L, level, ar)) level++;
+		  return level;
+		}
+
+
+		public static void luaL_traceback (lua_State L, lua_State L1,
+		                                CharPtr msg, int level) {
+		  lua_Debug ar;
+		  int top = lua_gettop(L);
+		  int numlevels = countlevels(L1);
+		  int mark = (numlevels > LEVELS1 + LEVELS2) ? LEVELS1 : 0;
+		  if (msg) lua_pushfstring(L, "%s\n", msg);
+		  lua_pushliteral(L, "stack traceback:");
+		  while (lua_getstack(L1, level++, &ar)) {
+		    if (level == mark) {  /* too many levels? */
+		      lua_pushliteral(L, "\n\t...");  /* add a '...' */
+		      level = numlevels - LEVELS2;  /* and skip to last ones */
+		    }
+		    else {
+		      lua_getinfo(L1, "Sln", &ar);
+		      lua_pushfstring(L, "\n\t%s:", ar.short_src);
+		      if (ar.currentline > 0)
+		        lua_pushfstring(L, "%d:", ar.currentline);
+		      lua_pushliteral(L, " in ");
+		      pushfuncname(L, ar);
+		      lua_concat(L, lua_gettop(L) - top);
+		    }
+		  }
+		  lua_concat(L, lua_gettop(L) - top);
+		}
+
 		/* }====================================================== */
 
 
-		public static int luaL_checkoption (lua_State L, int narg, CharPtr def,
-										 CharPtr [] lst) {
-		  CharPtr name = (def != null) ? luaL_optstring(L, narg, def) :
-									 luaL_checkstring(L, narg);
-		  int i;
-		  for (i=0; i<lst.Length; i++)
-			if (strcmp(lst[i], name)==0)
-			  return i;
-		  return luaL_argerror(L, narg,
-							   lua_pushfstring(L, "invalid option " + LUA_QS, name));
-		}
+		/*
+		** {======================================================
+		** Userdata's metatable manipulation
+		** =======================================================
+		*/
+
 
 
 		public static int luaL_newmetatable (lua_State L, CharPtr tname) {
@@ -119,7 +160,7 @@ namespace KopiLua
 		}
 
 
-		public static object luaL_checkudata (lua_State L, int ud, CharPtr tname) {
+		public static object luaL_testudata (lua_State L, int ud, CharPtr tname) {
 		  object p = lua_touserdata(L, ud);
 		  if (p != null) {  /* value is a userdata? */
 			if (lua_getmetatable(L, ud) != 0) {  /* does it have a metatable? */
@@ -130,11 +171,35 @@ namespace KopiLua
 			  }
 			}
 		  }
-		  luaL_typerror(L, ud, tname);  /* else error */
-		  return null;  /* to avoid warnings */
+		  return null;  /* value is not a userdata of the proper type */
 		}
 
+		public static object luaL_checkudata (lua_State L, int ud, CharPtr tname) {
+		  object p = luaL_testudata(L, ud, tname);
+		  if (p == null) luaL_typerror(L, ud, tname);
+		  return p;
+		}
 
+		/* }====================================================== */
+
+
+		/*
+		** {======================================================
+		** Argument check functions
+		** =======================================================
+		*/
+
+		public static int luaL_checkoption (lua_State L, int narg, CharPtr def,
+										 CharPtr [] lst) {
+		  CharPtr name = (def != null) ? luaL_optstring(L, narg, def) :
+									 luaL_checkstring(L, narg);
+		  int i;
+		  for (i=0; i<lst.Length; i++)
+			if (strcmp(lst[i], name)==0)
+			  return i;
+		  return luaL_argerror(L, narg,
+							   lua_pushfstring(L, "invalid option " + LUA_QS, name));
+		}
 		public static void luaL_checkstack (lua_State L, int space, CharPtr mes) {
 		  if (lua_checkstack(L, space) == 0)
 			luaL_error(L, "stack overflow (%s)", mes);
@@ -198,187 +263,7 @@ namespace KopiLua
 		}
 
 
-		public static int luaL_getmetafield (lua_State L, int obj, CharPtr event_) {
-		  if (lua_getmetatable(L, obj)==0)  /* no metatable? */
-			return 0;
-		  lua_pushstring(L, event_);
-		  lua_rawget(L, -2);
-		  if (lua_isnil(L, -1)) {
-			lua_pop(L, 2);  /* remove metatable and metafield */
-			return 0;
-		  }
-		  else {
-			lua_remove(L, -2);  /* remove only metatable */
-			return 1;
-		  }
-		}
-
-
-		public static int luaL_callmeta (lua_State L, int obj, CharPtr event_) {
-		  obj = abs_index(L, obj);
-		  if (luaL_getmetafield(L, obj, event_)==0)  /* no metafield? */
-			return 0;
-		  lua_pushvalue(L, obj);
-		  lua_call(L, 1, 1);
-		  return 1;
-		}
-
-
-		public static void luaL_register(lua_State L, CharPtr libname,
-										luaL_Reg[] l) {
-		  luaI_openlib(L, libname, l, 0);
-		}
-
-		// we could just take the .Length member here, but let's try
-		// to keep it as close to the C implementation as possible.
-		private static int libsize (luaL_Reg[] l) {
-		  int size = 0;
-		  for (; l[size].name!=null; size++);
-		  return size;
-		}
-
-		public static void luaI_openlib (lua_State L, CharPtr libname,
-									  luaL_Reg[] l, int nup) {		  
-		  if (libname!=null) {
-			int size = libsize(l);
-			/* check whether lib already exists */
-			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
-			lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
-			if (!lua_istable(L, -1)) {  /* not found? */
-			  lua_pop(L, 1);  /* remove previous result */
-			  /* try global variable (and create one if it does not exist) */
-			  if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, size) != null)
-				luaL_error(L, "name conflict for module " + LUA_QS, libname);
-			  lua_pushvalue(L, -1);
-			  lua_setfield(L, -3, libname);  /* _LOADED[libname] = new table */
-			}
-			lua_remove(L, -2);  /* remove _LOADED table */
-			lua_insert(L, -(nup+1));  /* move library table to below upvalues */
-		  }
-		  int reg_num = 0;
-		  for (; l[reg_num].name!=null; reg_num++) {
-			int i;
-			for (i=0; i<nup; i++)  /* copy upvalues to the top */
-			  lua_pushvalue(L, -nup);
-			lua_pushcclosure(L, l[reg_num].func, nup);
-			lua_setfield(L, -(nup+2), l[reg_num].name);
-		  }
-		  lua_pop(L, nup);  /* remove upvalues */
-		}
-
-
-
-		/*
-		** {======================================================
-		** getn-setn: size for arrays
-		** =======================================================
-		*/
-
-		#if LUA_COMPAT_GETN
-
-		static int checkint (lua_State L, int topop) {
-		  int n = (lua_type(L, -1) == LUA_TNUMBER) ? lua_tointeger(L, -1) : -1;
-		  lua_pop(L, topop);
-		  return n;
-		}
-
-
-		static void getsizes (lua_State L) {
-		  lua_getfield(L, LUA_REGISTRYINDEX, "LUA_SIZES");
-		  if (lua_isnil(L, -1)) {  /* no `size' table? */
-			lua_pop(L, 1);  /* remove nil */
-			lua_newtable(L);  /* create it */
-			lua_pushvalue(L, -1);  /* `size' will be its own metatable */
-			lua_setmetatable(L, -2);
-			lua_pushliteral(L, "kv");
-			lua_setfield(L, -2, "__mode");  /* metatable(N).__mode = "kv" */
-			lua_pushvalue(L, -1);
-			lua_setfield(L, LUA_REGISTRYINDEX, "LUA_SIZES");  /* store in register */
-		  }
-		}
-
-
-		public static void luaL_setn (lua_State L, int t, int n) {
-		  t = abs_index(L, t);
-		  lua_pushliteral(L, "n");
-		  lua_rawget(L, t);
-		  if (checkint(L, 1) >= 0) {  /* is there a numeric field `n'? */
-			lua_pushliteral(L, "n");  /* use it */
-			lua_pushinteger(L, n);
-			lua_rawset(L, t);
-		  }
-		  else {  /* use `sizes' */
-			getsizes(L);
-			lua_pushvalue(L, t);
-			lua_pushinteger(L, n);
-			lua_rawset(L, -3);  /* sizes[t] = n */
-			lua_pop(L, 1);  /* remove `sizes' */
-		  }
-		}
-
-
-		public static int luaL_getn (lua_State L, int t) {
-		  int n;
-		  t = abs_index(L, t);
-		  lua_pushliteral(L, "n");  /* try t.n */
-		  lua_rawget(L, t);
-		  if ((n = checkint(L, 1)) >= 0) return n;
-		  getsizes(L);  /* else try sizes[t] */
-		  lua_pushvalue(L, t);
-		  lua_rawget(L, -2);
-		  if ((n = checkint(L, 2)) >= 0) return n;
-		  return (int)lua_objlen(L, t);
-		}
-
-		#endif
-
-		/* }====================================================== */
-
-
-
-		public static CharPtr luaL_gsub (lua_State L, CharPtr s, CharPtr p,
-																	   CharPtr r) {
-		  CharPtr wild;
-		  uint l = (uint)strlen(p);
-		  luaL_Buffer b = new luaL_Buffer();
-		  luaL_buffinit(L, b);
-		  while ((wild = strstr(s, p)) != null) {
-			luaL_addlstring(b, s, (uint)(wild - s));  /* push prefix */
-			luaL_addstring(b, r);  /* push replacement in place of pattern */
-			s = wild + l;  /* continue after `p' */
-		  }
-		  luaL_addstring(b, s);  /* push last suffix */
-		  luaL_pushresult(b);
-		  return lua_tostring(L, -1);
-		}
-
-
-		public static CharPtr luaL_findtable (lua_State L, int idx,
-											   CharPtr fname, int szhint) {
-		  CharPtr e;
-		  lua_pushvalue(L, idx);
-		  do {
-			e = strchr(fname, '.');
-			if (e == null) e = fname + strlen(fname);
-			lua_pushlstring(L, fname, (uint)(e - fname));
-			lua_rawget(L, -2);
-			if (lua_isnil(L, -1)) {  /* no such field? */
-			  lua_pop(L, 1);  /* remove this nil */
-			  lua_createtable(L, 0, (e == '.' ? 1 : szhint)); /* new table for field */
-			  lua_pushlstring(L, fname, (uint)(e - fname));
-			  lua_pushvalue(L, -2);
-			  lua_settable(L, -4);  /* set new table into field */
-			}
-			else if (!lua_istable(L, -1)) {  /* field has a non-table value? */
-			  lua_pop(L, 2);  /* remove table and value */
-			  return fname;  /* return problematic part of the name */
-			}
-			lua_remove(L, -2);  /* remove previous table */
-			fname = e + 1;
-		  } while (e == '.');
-		  return null;
-		}
-
+        /* }====================================================== */
 
 
 		/*
@@ -483,6 +368,17 @@ namespace KopiLua
 
 		/* }====================================================== */
 
+		/*
+		** {======================================================
+		** Reference system
+		** =======================================================
+		*/
+
+		/* number of prereserved references (for internal use) */
+		private const int RESERVED_REFS = 1;	/* only FREELIST_REF is reserved */
+
+		private const int FREELIST_REF = 1;	/* free list of references */
+
 
 		public static int luaL_ref (lua_State L, int t) {
 		  int ref_;
@@ -519,7 +415,8 @@ namespace KopiLua
 		  }
 		}
 
-
+        /* }====================================================== */
+		
 
 		/*
 		** {======================================================
@@ -579,9 +476,8 @@ namespace KopiLua
 			while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
 			if (c == '\n') c = getc(lf.f);
 		  }
-		  if (c == LUA_SIGNATURE[0] && lf.f != stdin) {  /* binary file? */
-            fclose(lf.f);
-			lf.f = fopen(filename, "rb");  /* reopen in binary mode */
+		  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
+			lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
 			if (lf.f == null) return errfile(L, "reopen", fnameindex);
 			/* skip eventual `#!...' */
 		   while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
@@ -590,7 +486,7 @@ namespace KopiLua
 		  ungetc(c, lf.f);
 		  status = lua_load(L, getF, lf, lua_tostring(L, -1));
 		  readstatus = ferror(lf.f);
-		  if (lf.f != stdin) fclose(lf.f);  /* close file (even in case of errors) */
+		  if (filename) fclose(lf.f);  /* close file (even in case of errors) */
 		  if (readstatus != 0) {
 			lua_settop(L, fnameindex);  /* ignore results from `lua_load' */
 			return errfile(L, "read", fnameindex);
@@ -632,7 +528,135 @@ namespace KopiLua
 
 
 		/* }====================================================== */
+        //FIXME:-------->
+		public static int luaL_getmetafield (lua_State L, int obj, CharPtr event_) {
+		  if (lua_getmetatable(L, obj)==0)  /* no metatable? */
+			return 0;
+		  lua_pushstring(L, event_);
+		  lua_rawget(L, -2);
+		  if (lua_isnil(L, -1)) {
+			lua_pop(L, 2);  /* remove metatable and metafield */
+			return 0;
+		  }
+		  else {
+			lua_remove(L, -2);  /* remove only metatable */
+			return 1;
+		  }
+		}
 
+
+		public static int luaL_callmeta (lua_State L, int obj, CharPtr event_) {
+		  obj = abs_index(L, obj);
+		  if (luaL_getmetafield(L, obj, event_)==0)  /* no metafield? */
+			return 0;
+		  lua_pushvalue(L, obj);
+		  lua_call(L, 1, 1);
+		  return 1;
+		}
+
+
+		public static CharPtr luaL_tostring (lua_State L, int idx) {
+		  if (!luaL_callmeta(L, idx, "__tostring")) {  /* no metafield? */
+		    switch (lua_type(L, idx)) {
+		      case LUA_TNUMBER:
+		        return lua_pushstring(L, lua_tostring(L, idx));
+		      case LUA_TSTRING:
+		        lua_pushvalue(L, idx);
+		        break;
+		      case LUA_TBOOLEAN:
+		        return lua_pushstring(L, (lua_toboolean(L, idx) ? "true" : "false"));
+		      case LUA_TNIL:
+		        return lua_pushliteral(L, "nil");
+		      default:
+		        return lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
+		                                            lua_topointer(L, idx));
+		    }
+		  }
+		  return lua_tostring(L, -1);
+		}
+
+
+		// we could just take the .Length member here, but let's try
+		// to keep it as close to the C implementation as possible.
+		private static int libsize (luaL_Reg[] l) {
+		  int size = 0;
+		  for (; l[size].name!=null; size++);
+		  return size;
+		}
+
+		public static void luaL_register (lua_State L, CharPtr libname,
+									  luaL_Reg[] l) {		  
+		  if (libname!=null) {
+			int size = libsize(l);
+			/* check whether lib already exists */
+			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
+			lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
+			if (!lua_istable(L, -1)) {  /* not found? */
+			  lua_pop(L, 1);  /* remove previous result */
+			  /* try global variable (and create one if it does not exist) */
+			  if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, size) != null)
+				luaL_error(L, "name conflict for module " + LUA_QS, libname);
+			  lua_pushvalue(L, -1);
+			  lua_setfield(L, -3, libname);  /* _LOADED[libname] = new table */
+			}
+			lua_remove(L, -2);  /* remove _LOADED table */
+		  }
+		  int reg_num = 0;
+		  for (; l[reg_num].name!=null; reg_num++) {
+		    lua_pushcfunction(L, l[reg_num].func);
+		    lua_setfield(L, -2, l[reg_num].name);
+		  }
+		  lua_pop(L, nup);  /* remove upvalues */
+		}
+
+
+
+		public static CharPtr luaL_gsub (lua_State L, CharPtr s, CharPtr p,
+																	   CharPtr r) {
+		  CharPtr wild;
+		  uint l = (uint)strlen(p);
+		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_buffinit(L, b);
+		  while ((wild = strstr(s, p)) != null) {
+			luaL_addlstring(b, s, (uint)(wild - s));  /* push prefix */
+			luaL_addstring(b, r);  /* push replacement in place of pattern */
+			s = wild + l;  /* continue after `p' */
+		  }
+		  luaL_addstring(b, s);  /* push last suffix */
+		  luaL_pushresult(b);
+		  return lua_tostring(L, -1);
+		}
+
+
+		public static CharPtr luaL_findtable (lua_State L, int idx,
+											   CharPtr fname, int szhint) {
+		  CharPtr e;
+		  lua_pushvalue(L, idx);
+		  do {
+			e = strchr(fname, '.');
+			if (e == null) e = fname + strlen(fname);
+			lua_pushlstring(L, fname, (uint)(e - fname));
+			lua_rawget(L, -2);
+			if (lua_isnil(L, -1)) {  /* no such field? */
+			  lua_pop(L, 1);  /* remove this nil */
+			  lua_createtable(L, 0, (e == '.' ? 1 : szhint)); /* new table for field */
+			  lua_pushlstring(L, fname, (uint)(e - fname));
+			  lua_pushvalue(L, -2);
+			  lua_settable(L, -4);  /* set new table into field */
+			}
+			else if (!lua_istable(L, -1)) {  /* field has a non-table value? */
+			  lua_pop(L, 2);  /* remove table and value */
+			  return fname;  /* return problematic part of the name */
+			}
+			lua_remove(L, -2);  /* remove previous table */
+			fname = e + 1;
+		  } while (e == '.');
+		  return null;
+		}
+
+
+		
+        //FIXME:<--------
 
 		private static object l_alloc (Type t) {
 			return System.Activator.CreateInstance(t);
@@ -640,11 +664,9 @@ namespace KopiLua
 
 
 		private static int panic (lua_State L) {
-		  //(void)L;  /* to avoid warnings */
 		  fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
 						   lua_tostring(L, -1));
-          exit(EXIT_FAILURE);  /* do not return to Lua */
-		  return 0;
+          return (exit(EXIT_FAILURE), 0);  /* do not return to Lua */ //FIXME:
 		}
 
 

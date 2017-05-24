@@ -1,5 +1,5 @@
 /*
-** $Id: linit.c,v 1.13 2005/08/26 17:36:32 roberto Exp roberto $
+** $Id: linit.c,v 1.14 2005/12/29 15:32:11 roberto Exp roberto $
 ** Initialization of libraries for lua.c
 ** See Copyright Notice in lua.h
 */
@@ -12,6 +12,9 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
+		/*
+		** these libs are preloaded in Lua and are readily available to any program
+		*/
 		private readonly static luaL_Reg[] lualibs = {
 		  new luaL_Reg("", luaopen_base),
 		  new luaL_Reg(LUA_LOADLIBNAME, luaopen_package),
@@ -20,6 +23,12 @@ namespace KopiLua
 		  new luaL_Reg(LUA_OSLIBNAME, luaopen_os),
 		  new luaL_Reg(LUA_STRLIBNAME, luaopen_string),
 		  new luaL_Reg(LUA_MATHLIBNAME, luaopen_math),
+		  new luaL_Reg(null, null)
+		};
+		/*
+		** these libs must be required before used
+		*/
+		private readonly static luaL_Reg[] luareqlibs = {
 		  new luaL_Reg(LUA_DBLIBNAME, luaopen_debug),
 		  new luaL_Reg(null, null)
 		};
@@ -33,6 +42,19 @@ namespace KopiLua
 			lua_pushstring(L, lib.name);
 			lua_call(L, 1, 0);
 		  }
+		  //lib = luareqlibs; //FIXME:
+		  luaL_findtable(L, LUA_GLOBALSINDEX, "package.preload", 0);
+		  for (int i=0; i<luareqlibs.Length-1; i++) {
+		    luaL_Reg lib = luareqlibs[i];
+		    lua_pushcfunction(L, lib.func);
+		    lua_setfield(L, -2, lib.name);
+		  }
+		  lua_pop(L, 1);  /* remove package.preload table */
+#if LUA_COMPAT_DEBUGLIB
+		  lua_getglobal(L, "require");
+		  lua_pushliteral(L, LUA_DBLIBNAME);
+		  lua_call(L, 1, 0);  /* call 'require"debug"' */
+#endif
 		}
 
 	}

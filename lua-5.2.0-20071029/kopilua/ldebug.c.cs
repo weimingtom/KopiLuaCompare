@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.33 2006/09/19 13:57:50 roberto Exp roberto $
+** $Id: ldebug.c,v 2.36 2007/05/09 15:49:36 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -525,16 +525,39 @@ namespace KopiLua
 
 
 		private static CharPtr getfuncname (lua_State L, CallInfo ci, ref CharPtr name) {
+          TMS tm = 0;
 		  Instruction i;
 		  if ((isLua(ci) && ci.tailcalls > 0) || !isLua(ci - 1))
 			return null;  /* calling function is not Lua (or is unknown) */
 		  CallInfo.dec(ref ci);  /* calling function */
 		  i = ci_func(ci).l.p.code[currentpc(L, ci)];
-		  if (GET_OPCODE(i) == OpCode.OP_CALL || GET_OPCODE(i) == OpCode.OP_TAILCALL ||
-			  GET_OPCODE(i) == OpCode.OP_TFORLOOP)
-			return getobjname(L, ci, GETARG_A(i), ref name);
-		  else
-			return null;  /* no useful name can be found */
+		  switch (GET_OPCODE(i)) {
+		    case OP_CALL:
+		    case OP_TAILCALL:
+		    case OP_TFORLOOP:
+		      return getobjname(L, ci, GETARG_A(i), name);
+		    case OP_GETGLOBAL:
+		    case OP_SELF:
+		    case OP_GETTABLE: tm = TM_INDEX; break;
+		    case OP_SETGLOBAL:
+		    case OP_SETTABLE: tm = TM_NEWINDEX; break;
+		    case OP_EQ: tm = TM_EQ; break;
+		    case OP_ADD: tm = TM_ADD; break;
+		    case OP_SUB: tm = TM_SUB; break;
+		    case OP_MUL: tm = TM_MUL; break;
+		    case OP_DIV: tm = TM_DIV; break;
+		    case OP_MOD: tm = TM_MOD; break;
+		    case OP_POW: tm = TM_POW; break;
+		    case OP_UNM: tm = TM_UNM; break;
+		    case OP_LEN: tm = TM_LEN; break;
+		    case OP_LT: tm = TM_LT; break;
+		    case OP_LE: tm = TM_LE; break;
+		    case OP_CONCAT: tm = TM_CONCAT; break;
+		    default:
+		      return null;  /* else no useful name can be found */
+		  }
+		  name = getstr(G(L)->tmname[tm]);
+		  return "metamethod";
 		}
 
 
@@ -562,8 +585,8 @@ namespace KopiLua
 
 
 		public static void luaG_concaterror (lua_State L, StkId p1, StkId p2) {
-		  if (ttisstring(p1)) p1 = p2;
-		  lua_assert(!ttisstring(p1));
+		  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
+		  lua_assert(!ttisstring(p1) && !ttisnumber(p2));
 		  luaG_typeerror(L, p1, "concatenate");
 		}
 

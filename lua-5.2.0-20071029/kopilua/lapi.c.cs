@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.58 2006/10/17 20:00:07 roberto Exp roberto $
+** $Id: lapi.c,v 2.60 2007/04/17 13:19:53 roberto Exp roberto $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -22,7 +22,7 @@ namespace KopiLua
 	public partial class Lua
 	{
 		public const string lua_ident =
-  "$LuaVersion: " + LUA_RELEASE + " " + LUA_COPYRIGHT + " $" + 
+  "$LuaVersion: " + LUA_COPYRIGHT + " $" + 
   "$LuaAuthors: " + LUA_AUTHORS + " $";
 
 		public static void api_checknelems(lua_State L, int n)
@@ -410,20 +410,25 @@ namespace KopiLua
 		}
 
 
-		public static void lua_pushlstring (lua_State L, CharPtr s, uint len) {
+		public static CharPtr lua_pushlstring (lua_State L, CharPtr s, uint len) {
+          TString ts;
 		  lua_lock(L);
 		  luaC_checkGC(L);
-		  setsvalue2s(L, L.top, luaS_newlstr(L, s, len));
+		  ts = luaS_newlstr(L, s, len);
+		  setsvalue2s(L, L.top, ts);
 		  api_incr_top(L);
 		  lua_unlock(L);
+          return getstr(ts);
 		}
 
 
-		public static void lua_pushstring (lua_State L, CharPtr s) {
-		  if (s == null)
+		public static CharPtr lua_pushstring (lua_State L, CharPtr s) {
+		  if (s == null) {
 			lua_pushnil(L);
+            return null;
+          }
 		  else
-			lua_pushlstring(L, s, (uint)strlen(s));
+			return lua_pushlstring(L, s, (uint)strlen(s));
 		}
 
 

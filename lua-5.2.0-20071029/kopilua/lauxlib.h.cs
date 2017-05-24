@@ -5,17 +5,7 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		#if LUA_COMPAT_GETN
-		public static int luaL_getn(lua_State L, int t);
-		public static void luaL_setn(lua_State L, int t, int n);
-		#else
-		public static int luaL_getn(lua_State L, int i) {return (int)lua_objlen(L, i);}
-		public static void luaL_setn(lua_State L, int i, int j) {} /* no op! */
-		#endif
 
-		#if LUA_COMPAT_OPENLIB
-		//#define luaI_openlib	luaL_openlib
-		#endif
 
 
 		/* extra error code for `luaL_load' */

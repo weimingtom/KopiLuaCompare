@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.30 2006/09/22 19:14:17 roberto Exp roberto $
+** $Id: lcode.c,v 2.33 2007/03/27 14:11:38 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -31,9 +31,6 @@ namespace KopiLua
 		public static void luaK_nil (FuncState fs, int from, int n) {
 		  InstructionPtr previous;
 		  if (fs.pc > fs.lasttarget) {  /* no jumps to current position? */
-			if (fs.pc == 0)   /* function start? */
-			  return;  /* positions are already clean */
-
 		    previous = new InstructionPtr(fs.f.code, fs.pc-1);
 		    if (GET_OPCODE(previous) == OpCode.OP_LOADNIL) {
 			  int pfrom = GETARG_A(previous);
@@ -440,19 +437,22 @@ namespace KopiLua
 		public static int luaK_exp2RK (FuncState fs, expdesc e) {
 		  luaK_exp2val(fs, e);
 		  switch (e.k) {
-			case expkind.VKNUM:
 			case expkind.VTRUE:
 			case expkind.VFALSE:
 			case expkind.VNIL: {
 			  if (fs.nk <= MAXINDEXRK) {  /* constant fit in RK operand? */
-				e.u.s.info = (e.k == expkind.VNIL)  ? nilK(fs) :
-							  (e.k == expkind.VKNUM) ? luaK_numberK(fs, e.u.nval) :
-							  boolK(fs, (e.k == expkind.VTRUE) ? 1 : 0);
+				e.u.s.info = (e.k == expkind.VNIL)  ? nilK(fs) : boolK(fs, (e.k == expkind.VTRUE));
 				e.k = expkind.VK;
 				return RKASK(e.u.s.info);
 			  }
 			  else break;
 			}
+		    case expkind.VKNUM: {
+		      e.u.s.info = luaK_numberK(fs, e.u.nval);
+		      e.k = expkind.VK;
+		      /* go through */
+			  goto case expkind.VK; ???//FIXME:
+		    }
 			case expkind.VK: {
 			  if (e.u.s.info <= MAXINDEXRK)  /* constant fit in argC? */
 				return RKASK(e.u.s.info);
@@ -644,8 +644,6 @@ namespace KopiLua
 			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
 			  r = luai_nummod(null, v1, v2); break;
 			case OpCode.OP_POW: r = luai_numpow(null, v1, v2); break;
-			case OpCode.OP_UNM: r = luai_numunm(null, v1); break;
-			case OpCode.OP_LEN: return 0;  /* no constant folding for 'len' */
 			default: lua_assert(0); r = 0; break;
 		  }
 		  if (luai_numisnan(null, r)) return 0;  /* do not attempt to produce NaN */
@@ -658,10 +656,16 @@ namespace KopiLua
 		  if (constfolding(op, e1, e2) != 0)
 			return;
 		  else {
-			int o1 = luaK_exp2RK(fs, e1);
 			int o2 = (op != OpCode.OP_UNM && op != OpCode.OP_LEN) ? luaK_exp2RK(fs, e2) : 0;
-			freeexp(fs, e2);
-			freeexp(fs, e1);
+			int o1 = luaK_exp2RK(fs, e1);
+		    if (o1 > o2) {
+		      freeexp(fs, e1);
+		      freeexp(fs, e2);
+		    }
+		    else {
+		      freeexp(fs, e2);
+		      freeexp(fs, e1);
+		    }
 			e1.u.s.info = luaK_codeABC(fs, op, 0, o1, o2);
 			e1.k = expkind.VRELOCABLE;
 		  }
@@ -689,9 +693,12 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-			  if (e.k == expkind.VK)
+			  if (isnumeral(e))  /* -constant? */
+		        e.u.nval = luai_numunm(null, e.u.nval);
+		      else {
 				luaK_exp2anyreg(fs, e);  /* cannot operate on non-numeric constants */
-			  codearith(fs, OpCode.OP_UNM, e, e2);
+			    codearith(fs, OpCode.OP_UNM, e, e2);
+              }
 			  break;
 			}
 			case UnOpr.OPR_NOT: codenot(fs, e); break;
@@ -719,8 +726,13 @@ namespace KopiLua
 			  luaK_exp2nextreg(fs, v);  /* operand must be on the `stack' */
 			  break;
 			}
+		    case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
+		    case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
+		      if (!isnumeral(v)) luaK_exp2RK(fs, v);
+		      break;
+		    }
 			default: {
-			  if (isnumeral(v) == 0) luaK_exp2RK(fs, v);
+			  luaK_exp2RK(fs, v);
 			  break;
 			}
 		  }
