@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.68 2006/09/19 13:57:50 roberto Exp roberto $
+** $Id: lvm.c,v 2.72 2007/06/19 19:48:15 roberto Exp roberto $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -155,7 +155,7 @@ namespace KopiLua
 		  TValue tm = luaT_gettmbyobj(L, p1, event_);  /* try first operand */
 		  if (ttisnil(tm))
 			tm = luaT_gettmbyobj(L, p2, event_);  /* try second operand */
-		  if (!ttisfunction(tm)) return 0;
+		  if (ttisnil(tm)) return 0;
 		  callTMres(L, res, tm, p1, p2);
 		  return 1;
 		}
@@ -242,7 +242,7 @@ namespace KopiLua
 
 		static CharPtr mybuff = null;
 
-		public static int luaV_equalval (lua_State L, TValue t1, TValue t2) {
+		public static int luaV_equalval_ (lua_State L, TValue t1, TValue t2) {
 		  TValue tm = null;
 		  lua_assert(ttype(t1) == ttype(t2));
 		  switch (ttype(t1)) {
@@ -252,8 +252,7 @@ namespace KopiLua
 			case LUA_TLIGHTUSERDATA: return (pvalue(t1) == pvalue(t2)) ? 1 : 0;
 			case LUA_TUSERDATA: {
 			  if (uvalue(t1) == uvalue(t2)) return 1;
-			  tm = get_compTM(L, uvalue(t1).metatable, uvalue(t2).metatable,
-								 TMS.TM_EQ);
+			  tm = get_compTM(L, uvalue(t1).metatable, uvalue(t2).metatable, TMS.TM_EQ);
 			  break;  /* will try TM */
 			}
 			case LUA_TTABLE: {
@@ -273,12 +272,12 @@ namespace KopiLua
 		  do {
 			StkId top = L.base_ + last + 1;
 			int n = 2;  /* number of elements handled in this pass (at least 2) */
-			if (tostring(L, top-2) == 0 || tostring(L, top-1) == 0) {
+			if (!(ttisstring(top-2) || ttisnumber(top-2)) || !tostring(L, top-1)) {
 			  if (call_binTM(L, top-2, top-1, top-2, TMS.TM_CONCAT)==0)
 				luaG_concaterror(L, top-2, top-1);
 		    } else if (tsvalue(top-1).len == 0) {  /* second operand is empty? */
-		      /* do nothing; result is already first operand */ ;
-		    } else if (tsvalue(top-2).len == 0) {  /* fist operand is empty? */
+		      tostring(L, top - 2);  /* result is first operand */ ; //FIXME:<-------
+		    } else if (ttisstring(top-2) && tsvalue(top-2).len == 0) {
 		        setsvalue2s(L, top-2, rawtsvalue(top-1));  /* result is second op. */
 		    } else {
 			  /* at least two (non-empty) string values; get as many as possible */
@@ -307,6 +306,33 @@ namespace KopiLua
 		  } while (total > 1);  /* repeat until only 1 result left */
 		}
 
+
+
+		private static void objlen (lua_State L, StkId ra, const TValue rb) {
+		  const TValue tm;
+		  switch (ttype(rb)) {
+		    case LUA_TTABLE: {
+		      Table h = hvalue(rb);
+		      tm = fasttm(L, h.metatable, TM_LEN);
+		      if (tm) break;  /* metamethod? break switch to call it */
+		      setnvalue(ra, cast_num(luaH_getn(h)));  /* else primitive len */
+		      return;
+		    }
+		    case LUA_TSTRING: {
+		      tm = fasttm(L, G(L).mt[LUA_TSTRING], TM_LEN);
+		      if (tm) break;  /* metamethod? break switch to call it */
+		      setnvalue(ra, cast_num(tsvalue(rb)->len));
+		      return;
+		    }
+		    default: {  /* try metamethod */
+		      tm = luaT_gettmbyobj(L, rb, TM_LEN);
+		      if (ttisnil(tm))  /* no metamethod? */
+		        luaG_typeerror(L, rb, "get length of");
+		      break;
+		    }
+		  }
+		  callTMres(L, ra, tm, rb, luaO_nilobject);
+		}
 
 		public static void Arith (lua_State L, StkId ra, TValue rb,
 						   TValue rc, TMS op) {
@@ -629,26 +655,10 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_LEN: {
-				TValue rb = RB(L, base_, i);
-				switch (ttype(rb)) {
-				  case LUA_TTABLE: {
-					setnvalue(ra, (lua_Number)luaH_getn(hvalue(rb)));
-					break;
-				  }
-				  case LUA_TSTRING: {
-					setnvalue(ra, (lua_Number)tsvalue(rb).len);
-					break;
-				  }
-				  default: {  /* try metamethod */
-					//Protect(
-					  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-					  if (call_binTM(L, rb, rb, ra, TMS.TM_LEN) == 0)
-						luaG_typeerror(L, rb, "get length of");
-					  base_ = L.base_;
-					//)
-					  break;
-				  }
-				}
+				//Protect(
+				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
+				  objlen(L, ra, RB(i))
+				//)
 				continue;
 			  }
 			  case OpCode.OP_CONCAT: {
@@ -699,14 +709,14 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_TEST: {
-				if (l_isfalse(ra) != GETARG_C(i))
+				if (GETARG_C(i) ? !l_isfalse(ra) : l_isfalse(ra))
 				  dojump(L, GETARG_sBx(L.savedpc[0]));
 				InstructionPtr.inc(ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_TESTSET: {
 				TValue rb = RB(L, base_, i);
-				if (l_isfalse(rb) != GETARG_C(i)) {
+				if (GETARG_C(i) ? !l_isfalse(rb) : l_isfalse(rb)) {
 				  setobjs2s(L, ra, rb);
 				  dojump(L, GETARG_sBx(L.savedpc[0]));
 				}

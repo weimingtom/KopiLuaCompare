@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.74 2006/06/22 16:12:59 roberto Exp roberto $
+** $Id: liolib.c,v 2.75 2006/09/18 14:03:18 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -94,11 +94,18 @@ namespace KopiLua
 		}
 
 
+		/*
+		** function to (not) close the standard files stdin, stdout, and stderr
+		*/
+		private static int io_noclose (lua_State L) {
+		  lua_pushnil(L);
+		  lua_pushliteral(L, "cannot close standard file");
+		  return 2;
+		}
 
 
 		/*
-		** this function has a separated environment, which defines the
-		** correct __close for 'popen' files
+		** function to close 'popen' files
 		*/
 		private static int io_pclose (lua_State L) {
 		  FilePtr p = topfile(L);
@@ -108,6 +115,9 @@ namespace KopiLua
 		}
 
 
+		/*
+		** function to close regular files
+		*/
 		private static int io_fclose (lua_State L) {
 		  FilePtr p = topfile(L);
 		  int ok = (fclose(p.file) == 0) ? 1 : 0;
@@ -159,6 +169,10 @@ namespace KopiLua
 		}
 
 
+		/*
+		** this function has a separated environment, which defines the
+		** correct __close for 'popen' files
+		*/
 		private static int io_popen (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
 		  CharPtr mode = luaL_optstring(L, 2, "r");
@@ -508,32 +522,35 @@ namespace KopiLua
 			lua_pushvalue(L, -1);
 			lua_rawseti(L, LUA_ENVIRONINDEX, k);
 		  }
-		  lua_setfield(L, -2, fname);
+		  lua_pushvalue(L, -2);  /* copy environment */
+		  lua_setfenv(L, -2);  /* set it */
+		  lua_setfield(L, -3, fname);
 		}
 
 
+		private static void newfenv (lua_State L, lua_CFunction cls) {
+		  lua_createtable(L, 0, 1);
+		  lua_pushcfunction(L, cls);
+		  lua_setfield(L, -2, "__close");
+		}
 
 		public static int luaopen_io (lua_State L) {
 		  createmeta(L);
 		  /* create (private) environment (with fields IO_INPUT, IO_OUTPUT, __close) */
-		  lua_createtable(L, 2, 1);
+		  newfenv(L, io_fclose);
 		  lua_replace(L, LUA_ENVIRONINDEX);
 		  /* open library */
 		  luaL_register(L, LUA_IOLIBNAME, iolib);
 		  /* create (and set) default files */
+          newfenv(L, io_noclose);  /* close function for default files */
 		  createstdfile(L, stdin, IO_INPUT, "stdin");
 		  createstdfile(L, stdout, IO_OUTPUT, "stdout");
 		  createstdfile(L, stderr, 0, "stderr");
-		  /* create environment for 'popen' */
+		  lua_pop(L, 1);  /* pop environment for default files */
 		  lua_getfield(L, -1, "popen");
-		  lua_createtable(L, 0, 1);
-		  lua_pushcfunction(L, io_pclose);
-		  lua_setfield(L, -2, "__close");
+		  newfenv(L, io_pclose);  /* create environment for 'popen' */
 		  lua_setfenv(L, -2);
 		  lua_pop(L, 1);  /* pop 'popen' */
-		  /* set default close function */
-		  lua_pushcfunction(L, io_fclose);
-		  lua_setfield(L, LUA_ENVIRONINDEX, "__close");
 		  return 1;
 		}
 

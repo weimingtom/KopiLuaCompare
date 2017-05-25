@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.163 2006/09/18 14:03:18 roberto Exp roberto $
+** $Id: lua.c,v 1.167 2007/08/07 16:53:40 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -50,7 +50,7 @@ namespace KopiLua
 		static void print_usage()
 		{
 			Console.Error.Write(
-			"usage: {0} [options] [script [args]].\n" +
+			"usage: {0} [options] [script [args]]\n" +
 			"Available options are:\n" +
 			"  -e stat  execute string " + Lua.LUA_QL("stat").ToString() + "\n" +
 			"  -l name  require library " + Lua.LUA_QL("name").ToString() + "\n" +
@@ -87,22 +87,14 @@ namespace KopiLua
 
 		static int traceback(Lua.lua_State L)
 		{
-			Lua.lua_getfield(L, Lua.LUA_GLOBALSINDEX, "debug");
-			if (!Lua.lua_istable(L, -1))
-			{
-				Lua.lua_pop(L, 1);
-				return 1;
-			}
-			Lua.lua_getfield(L, -1, "traceback");
-			if (!Lua.lua_isfunction(L, -1))
-			{
-				Lua.lua_pop(L, 2);
-				return 1;
-			}
-			Lua.lua_pushvalue(L, 1);  /* pass error message */
-			Lua.lua_pushinteger(L, 2);  /* skip this function and traceback */
-			Lua.lua_call(L, 2, 1);  /* call debug.traceback */
-			return 1;
+		  CharPtr msg = lua_tostring(L, 1);
+		  if (msg)
+		    luaL_traceback(L, L, msg, 1);
+		  else if (!lua_isnoneornil(L, 1)) {  /* is there an error object? */
+		    if (!luaL_callmeta(L, 1, "__tostring"))  /* try its 'tostring' metamethod */
+		      lua_pushliteral(L, "(no error message)");
+		  }
+		  return 1;
 		}
 
 
@@ -112,6 +104,7 @@ namespace KopiLua
 			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
 			Lua.lua_pushcfunction(L, traceback);  /* push traceback function */
 			Lua.lua_insert(L, base_);  /* put it under chunk and args */
+            globalL = L;  /* to be available to 'laction' */
 			//signal(SIGINT, laction);
 			status = Lua.lua_pcall(L, narg, ((clear!=0) ? 0 : Lua.LUA_MULTRET), base_);
 			//signal(SIGINT, SIG_DFL);
@@ -124,7 +117,7 @@ namespace KopiLua
 
 		static void print_version()
 		{
-			l_message(null, Lua.LUA_RELEASE + "  " + Lua.LUA_COPYRIGHT);
+			l_message(NULL, LUA_COPYRIGHT);
 		}
 
 
@@ -167,7 +160,7 @@ namespace KopiLua
 		{
 			Lua.lua_getglobal(L, "require");
 			Lua.lua_pushstring(L, name);
-			return report(L, Lua.lua_pcall(L, 1, 0, 0));
+			return report(L, Lua.docall(L, 1, 1));
 		}
 
 
@@ -182,7 +175,7 @@ namespace KopiLua
 		}
 
 		/* mark in error messages for incomplete statements */
-		private static Lua.CharPtr mark	= Lua.LUA_QL("<eof>");
+		private static Lua.CharPtr mark	= "<eof>";
 		private static int marklen = mark.chars.Length - 1; //FIXME:???
 
 		static int incomplete(Lua.lua_State L, int status)
@@ -402,7 +395,6 @@ namespace KopiLua
 			string[] argv = s.argv;
 			int script;
 			int has_i = 0, has_v = 0, has_e = 0;
-			globalL = L;
 			if ((argv.Length>0) && (argv[0]!="")) progname = argv[0];
 			Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
 			Lua.luaL_openlibs(L);  /* open libraries */

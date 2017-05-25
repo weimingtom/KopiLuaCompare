@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.134 2006/09/11 14:07:24 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.137 2007/10/25 19:30:36 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -23,26 +23,28 @@ namespace KopiLua
 		private static int str_len (lua_State L) {
 		  uint l;
 		  luaL_checklstring(L, 1, out l);
-		  lua_pushinteger(L, (int)l);
+		  lua_pushinteger(L, (lua_Integer)l);
 		  return 1;
 		}
 
 
-		private static ptrdiff_t posrelat (ptrdiff_t pos, uint len) {
-		  /* relative string position: negative means back from end */
-		  return (pos>=0) ? pos : (ptrdiff_t)len+pos+1;
+        /* translate a relative string position: negative means back from end */
+		private static uint posrelat (ptrdiff_t pos, uint len) {
+		  if (pos >= 0) return (uint)pos;
+		  else if ((uint)-pos > len) return 0;
+		  else return len - ((uint)-pos) + 1;
 		}
 
 
 		private static int str_sub (lua_State L) {
-		  uint l;
+		  uint l; //FIXME:???l ? 1 ?
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  ptrdiff_t start = posrelat(luaL_checkinteger(L, 2), l);
-		  ptrdiff_t end = posrelat(luaL_optinteger(L, 3, -1), l);
+		  uint start = posrelat(luaL_checkinteger(L, 2), l);
+		  uint end = posrelat(luaL_optinteger(L, 3, -1), l);
 		  if (start < 1) start = 1;
-		  if (end > (ptrdiff_t)l) end = (ptrdiff_t)l;
+		  if (end > l) end = l;
 		  if (start <= end)
-			lua_pushlstring(L, s+start-1, (uint)(end-start+1));
+			lua_pushlstring(L, s + start-1, (uint)(end - start+1));
 		  else lua_pushliteral(L, "");
 		  return 1;
 		}
@@ -100,11 +102,11 @@ namespace KopiLua
 		private static int str_byte (lua_State L) {
 		  uint l;
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  ptrdiff_t posi = posrelat(luaL_optinteger(L, 2, 1), l);
-		  ptrdiff_t pose = posrelat(luaL_optinteger(L, 3, posi), l);
+		  uint posi = posrelat(luaL_optinteger(L, 2, 1), l);
+		  uint pose = posrelat(luaL_optinteger(L, 3, posi), l);
 		  int n, i;
-		  if (posi <= 0) posi = 1;
-		  if ((uint)pose > l) pose = (int)l;
+		  if (posi < 1) posi = 1;
+		  if (pose > l) pose = l;
 		  if (posi > pose) return 0;  /* empty interval; return no values */
 		  n = (int)(pose -  posi + 1);
 		  if (posi + n <= pose)  /* overflow? */
@@ -518,16 +520,16 @@ namespace KopiLua
 		  uint l1, l2;
 		  CharPtr s = luaL_checklstring(L, 1, out l1);
 		  CharPtr p = luaL_checklstring(L, 2, out l2);
-		  ptrdiff_t init = posrelat(luaL_optinteger(L, 3, 1), l1) - 1;
-		  if (init < 0) init = 0;
-		  else if ((uint)(init) > l1) init = (ptrdiff_t)l1;
+		  uint init = posrelat(luaL_optinteger(L, 3, 1), l1);
+		  if (init < 1) init = 1;
+		  else if (init > l1) init = l1 + 1;
 		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) ||  /* explicit request? */
 			  strpbrk(p, SPECIALS) == null)) {  /* or no special characters? */
 			/* do a plain search */
-			CharPtr s2 = lmemfind(s+init, (uint)(l1-init), p, (uint)(l2));
+			CharPtr s2 = lmemfind(s + init - 1, l1 - init + 1, p, l2);
 			if (s2 != null) {
-			  lua_pushinteger(L, s2-s+1);
-			  lua_pushinteger(L, (int)(s2-s+l2));
+			  lua_pushinteger(L, s2 - s + 1);
+			  lua_pushinteger(L, (int)(s2 - s + l2));
 			  return 2;
 			}
 		  }
@@ -539,17 +541,17 @@ namespace KopiLua
 				p = p.next();
 				anchor = 1;
 			}
-			CharPtr s1=s+init;
+			CharPtr s1=s + init - 1;
 			ms.L = L;
 			ms.src_init = s;
-			ms.src_end = s+l1;
+			ms.src_end = s + l1;
 			do {
 			  CharPtr res;
 			  ms.level = 0;
 			  if ((res=match(ms, s1, p)) != null) {
 				if (find != 0) {
-				  lua_pushinteger(L, s1-s+1);  /* start */
-				  lua_pushinteger(L, res-s);   /* end */
+				  lua_pushinteger(L, s1 - s + 1);  /* start */
+				  lua_pushinteger(L, res - s);   /* end */
 				  return push_captures(ms, null, null) + 2;
 				}
 				else
@@ -637,14 +639,9 @@ namespace KopiLua
 
 
 		private static void add_value (MatchState ms, luaL_Buffer b, CharPtr s,
-															   CharPtr e) {
+															   CharPtr e, int tr) {
 		  lua_State L = ms.L;
-		  switch (lua_type(L, 3)) {
-			case LUA_TNUMBER:
-			case LUA_TSTRING: {
-			  add_s(ms, b, s, e);
-			  return;
-			}
+		  switch (tr) {
 			case LUA_TFUNCTION: {
 			  int n;
 			  lua_pushvalue(L, 3);
@@ -657,8 +654,8 @@ namespace KopiLua
 			  lua_gettable(L, 3);
 			  break;
 			}
-		    default: {
-		      luaL_argerror(L, 3, "string/function/table expected");
+		    default: {   /* LUA_TNUMBER or LUA_TSTRING */
+      		  add_s(ms, b, s, e);
 		      return;
 		    }
 		  }
@@ -676,16 +673,20 @@ namespace KopiLua
 		  uint srcl;
 		  CharPtr src = luaL_checklstring(L, 1, out srcl);
 		  CharPtr p = luaL_checkstring(L, 2);
-		  int max_s = luaL_optint(L, 4, (int)(srcl+1));
+          int tr = lua_type(L, 3);
+		  uint max_s = luaL_optinteger(L, 4, (int)(srcl+1));
 		  int anchor = 0;
 		  if (p[0] == '^')
 		  {
 			  p = p.next();
 			  anchor = 1;
 		  }
-		  int n = 0;
+		  uint n = 0;
 		  MatchState ms = new MatchState();
 		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_argcheck(L, tr == LUA_TNUMBER || tr == LUA_TSTRING ||
+		                   tr == LUA_TFUNCTION || tr == LUA_TTABLE, 3,
+		                      "string/function/table expected");
 		  luaL_buffinit(L, b);
 		  ms.L = L;
 		  ms.src_init = src;
@@ -696,7 +697,7 @@ namespace KopiLua
 			e = match(ms, src, p);
 			if (e != null) {
 			  n++;
-			  add_value(ms, b, src, e);
+			  add_value(ms, b, src, e, tr);
 			}
 			if ((e!=null) && e>src) /* non empty match? */
 			  src = e;  /* skip it */
@@ -734,26 +735,21 @@ namespace KopiLua
 		  CharPtr s = luaL_checklstring(L, arg, out l);
 		  luaL_addchar(b, '"');
 		  while ((l--) != 0) {
-			switch (s[0]) {
-			  case '"': case '\\': case '\n': {
-				luaL_addchar(b, '\\');
-				luaL_addchar(b, s[0]);
-				break;
-			  }
-			  case '\r': {
-				luaL_addlstring(b, "\\r", 2);
-				break;
-			  }
-			  case '\0': {
-				luaL_addlstring(b, "\\000", 4);
-				break;
-			  }
-			  default: {
-				luaL_addchar(b, s[0]);
-				break;
-			  }
-			}
-			s = s.next();
+		    if (s[0] == '"' || s[0] == '\\' || s[0] == '\n') {
+		      luaL_addchar(b, '\\');
+		      luaL_addchar(b, s[0]);
+		    }
+		    else if (s[0] == '\0' || iscntrl(uchar(s[0]))) {
+		      char buff[10];
+		      if (s[0] != '\0' && !isdigit(uchar(s[1])))
+		        sprintf(buff, "\\%d", uchar(s[0]));
+		      else
+		        sprintf(buff, "\\%03d", uchar(s[0]));
+		      luaL_addstring(b, buff);
+		    }
+		    else
+		      luaL_addchar(b, s[0]);
+		    s = s.next();
 		  }
 		  luaL_addchar(b, '"');
 		}

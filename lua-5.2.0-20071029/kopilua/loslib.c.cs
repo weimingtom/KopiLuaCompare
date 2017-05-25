@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.19 2006/04/26 18:19:49 roberto Exp roberto $
+** $Id: loslib.c,v 1.21 2007/05/03 20:49:29 roberto Exp roberto $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -159,23 +159,31 @@ namespace KopiLua
 		  else {
 			  luaL_error(L, "strftime not implemented yet"); // todo: implement this - mjf
 #if false
+			  //FIXME:not implemented ------------------>
 			CharPtr cc = new char[3];
 			luaL_Buffer b;
-			cc[0] = '%'; cc[2] = '\0';
-			luaL_buffinit(L, b);
-			for (; s[0] != 0; s.inc()) {
-			  if (s[0] != '%' || s[1] == '\0')  /* no conversion specifier? */
-				luaL_addchar(b, s[0]);
-			  else {
-				uint reslen;
-				CharPtr buff = new char[200];  /* should be big enough for any conversion result */
-				s.inc();
-				cc[1] = s[0];
-				reslen = strftime(buff, buff.Length, cc, stm);
-				luaL_addlstring(b, buff, reslen);
-			  }
-			}
-			luaL_pushresult(b);
+			cc[0] = '%';
+		    luaL_buffinit(L, &b);
+		    for (; *s; s++) {
+		      if (*s != '%')  /* no conversion specifier? */
+		        luaL_addchar(&b, *s);
+		      else {
+		        size_t reslen;
+		        int i = 1;
+		        char buff[200];  /* should be big enough for any conversion result */
+		        if (*(++s) != '\0' && strchr(LUA_STRFTIMEPREFIX, *s))
+		          cc[i++] = *(s++);
+		        if (*s != '\0' && strchr(LUA_STRFTIMEOPTIONS, *s))
+		          cc[i++] = *s;
+		        else {
+		          const char *msg = lua_pushfstring(L,
+		                              "invalid conversion specifier '%%%c'", *s);
+		          return luaL_argerror(L, 1, msg);
+		        }
+		        cc[i] = '\0';
+		        reslen = strftime(buff, sizeof(buff), cc, stm);
+		        luaL_addlstring(&b, buff, reslen);
+		      }
 #endif // #if 0
 		  }
 			return 1;
@@ -229,8 +237,7 @@ namespace KopiLua
 
 
 		private static int os_exit (lua_State L) {
-			Environment.Exit(EXIT_SUCCESS);
-			return 0;  /* to avoid warnings */
+			return (exit(luaL_optint(L, 1, EXIT_SUCCESS)), 0);  /* avoid warnings */ ???// FIXME:return (Environment.Exit(EXIT_SUCCESS);
 		}
 
 		private readonly static luaL_Reg[] syslib = {

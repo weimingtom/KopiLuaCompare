@@ -332,7 +332,7 @@ namespace KopiLua
 		public static Table gco2h(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
 		public static Proto gco2p(GCObject o) { return (Proto)check_exp(o.gch.tt == LUA_TPROTO, o.p); }
 		public static UpVal gco2uv(GCObject o) { return (UpVal)check_exp(o.gch.tt == LUA_TUPVAL, o.uv); }
-		public static UpVal ngcotouv(GCObject o) {return (UpVal)check_exp((o == null) || (o.gch.tt == LUA_TUPVAL), o.uv); }
+		public static UpVal ngcotouv(GCObject o) {return (UpVal)check_exp((o.gch.tt == LUA_TUPVAL), o.uv); }
 		public static lua_State gco2th(GCObject o) { return (lua_State)check_exp(o.gch.tt == LUA_TTHREAD, o.th); }
 
 		/* macro to convert any Lua object into a GCObject */

@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.c,v 2.7 2005/12/22 16:19:56 roberto Exp roberto $
+** $Id: ltm.c,v 2.8 2006/01/10 12:50:00 roberto Exp roberto $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -22,9 +22,9 @@ namespace KopiLua
 
 		private readonly static CharPtr[] luaT_eventname = {  /* ORDER TM */
 			"__index", "__newindex",
-			"__gc", "__mode", "__eq",
-			"__add", "__sub", "__mul", "__div", "__mod",
-			"__pow", "__unm", "__len", "__lt", "__le",
+		    "__gc", "__mode", "__len", "__eq",
+		    "__add", "__sub", "__mul", "__div", "__mod",
+		    "__pow", "__unm", "__lt", "__le",
 			"__concat", "__call"
 		  };
 

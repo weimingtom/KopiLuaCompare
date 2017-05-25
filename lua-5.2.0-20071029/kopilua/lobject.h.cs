@@ -684,7 +684,5 @@ namespace KopiLua
 
 		public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL);
 		public static TValue luaO_nilobject = luaO_nilobject_;
-
-		public static int ceillog2(int x)	{return luaO_log2((uint)(x-1)) + 1;}
 	}
 }

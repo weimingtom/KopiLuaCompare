@@ -13,6 +13,7 @@ namespace KopiLua
 		  TM_NEWINDEX,
 		  TM_GC,
 		  TM_MODE,
+		  TM_LEN,
 		  TM_EQ,  /* last tag method with `fast' access */
 		  TM_ADD,
 		  TM_SUB,
@@ -21,7 +22,6 @@ namespace KopiLua
 		  TM_MOD,
 		  TM_POW,
 		  TM_UNM,
-		  TM_LEN,
 		  TM_LT,
 		  TM_LE,
 		  TM_CONCAT,

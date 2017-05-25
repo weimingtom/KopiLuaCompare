@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.222 2006/10/17 19:59:04 roberto Exp roberto $
+** $Id: lua.h,v 1.225 2007/04/17 13:19:53 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -21,8 +21,8 @@ namespace KopiLua
 		public const string LUA_VERSION = "Lua 5.2";
 		public const string LUA_RELEASE = "Lua 5.2.0";
 		public const int LUA_VERSION_NUM	= 502;
-		public const string LUA_COPYRIGHT = "Copyright (C) 1994-2006 Lua.org, PUC-Rio";
-		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo & W. Celes";
+		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2007 Lua.org, PUC-Rio";
+		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
 
 
 		/* mark for precompiled code ('<esc>Lua') */

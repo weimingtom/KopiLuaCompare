@@ -14,7 +14,7 @@ namespace KopiLua
 		}
 
 		public static int equalobj(lua_State L, TValue o1, TValue o2) {
-			return ((ttype(o1) == ttype(o2)) && (luaV_equalval(L, o1, o2) != 0)) ? 1 : 0;
+			return ((ttype(o1) == ttype(o2)) && (luaV_equalval_(L, o1, o2) != 0)) ? 1 : 0;
 		}
 	}
 }

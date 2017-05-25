@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.85 2006/08/30 13:19:58 roberto Exp roberto $
+** $Id: luaconf.h,v 1.91 2007/08/30 16:13:13 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -33,7 +33,7 @@ namespace KopiLua
 		** CHANGE it (define it) if you want Lua to avoid the use of any
 		** non-ansi feature or library.
 		*/
-		//#if defined(__STRICT_ANSI__)
+		//#if !defined(LUA_ANSI) && defined(__STRICT_ANSI__)
 		//#define LUA_ANSI
 		//#endif
 
@@ -41,6 +41,12 @@ namespace KopiLua
 		//#if !defined(LUA_ANSI) && _WIN32
 		//#define LUA_WIN
 		//#endif
+
+		//#if defined(LUA_WIN)
+		//#include <windows.h>
+		//#endif
+
+
 
 		//#if defined(LUA_USE_LINUX)
 		//#define LUA_USE_POSIX
@@ -324,19 +330,7 @@ namespace KopiLua
 		*/
 		public const int LUAI_GCMUL	= 200; /* GC runs 'twice the speed' of memory allocation */
 
-		/*
-		@@ LUA_COMPAT_GETN controls compatibility with old getn behavior.
-		** CHANGE it (define it) if you want exact compatibility with the
-		** behavior of setn/getn in Lua 5.0.
-		*/
-		//#undef LUA_COMPAT_GETN /* dotnet port doesn't define in the first place */
 
-		/*
-		@@ LUA_COMPAT_LOADLIB controls compatibility about global loadlib.
-		** CHANGE it to undefined as soon as you do not need a global 'loadlib'
-		** function (the function is still available as 'package.loadlib').
-		*/
-		//#undef LUA_COMPAT_LOADLIB /* dotnet port doesn't define in the first place */
 
 		/*
 		@@ LUA_COMPAT_VARARG controls compatibility with old vararg feature.
@@ -345,12 +339,6 @@ namespace KopiLua
 		*/
 		//#define LUA_COMPAT_VARARG /* defined higher up */
 
-		/*
-		@@ LUA_COMPAT_MOD controls compatibility with old math.mod function.
-		** CHANGE it to undefined as soon as your programs use 'math.fmod' or
-		** the new '%' operator instead of 'math.mod'.
-		*/
-		//#define LUA_COMPAT_MOD /* defined higher up */
 
 
 		/*
@@ -361,12 +349,12 @@ namespace KopiLua
 		//#define LUA_COMPAT_GFIND /* defined higher up */
 
 		/*
-		@@ LUA_COMPAT_OPENLIB controls compatibility with old 'luaL_openlib'
-		@* behavior.
-		** CHANGE it to undefined as soon as you replace to 'luaL_register'
-		** your uses of 'luaL_openlib'
+		@@ LUA_COMPAT_DEBUGLIB controls compatibility with preloading
+		@* the debug library.
+		** CHANGE it to undefined as soon as you add 'require"debug"' everywhere
+		** you need the debug library.
 		*/
-		//#define LUA_COMPAT_OPENLIB /* defined higher up */
+		//#define LUA_COMPAT_DEBUGLIB /* defined higher up */
 
 
 
@@ -707,6 +695,17 @@ namespace KopiLua
 		#endif
 
 
+
+		/*
+		@@ LUA_STRFTIMEOPTIONS is the list of valid conversion specifier
+		@* characters for the 'strftime' function;
+		@@ LUA_STRFTIMEPREFIX is the list of valid modifiers for
+		@* that function.
+		** CHANGE them if you want to use non-ansi options specific to your system.
+		*/
+		public const string LUA_STRFTIMEOPTIONS	= "aAbBcdHIjmMpSUwWxXyYz%";
+		public const string LUA_STRFTIMEPREFIX = "";
+
 		/*
 		@@ lua_popen spawns a new process connected to the current one through
 		@* the file streams.
@@ -714,7 +713,7 @@ namespace KopiLua
 		*/
 		//#if LUA_USE_POPEN
 
-		//#define lua_popen(L,c,m)	((void)L, popen(c,m))
+		//#define lua_popen(L,c,m)	((void)L, fflush(NULL), popen(c,m))
 		//#define lua_pclose(L,file)	((void)L, (pclose(file) != -1))
 
 		//#elif LUA_WIN

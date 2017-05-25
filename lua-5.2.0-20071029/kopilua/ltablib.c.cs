@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.37 2005/10/21 13:47:42 roberto Exp roberto $
+** $Id: ltablib.c,v 1.40 2007/06/21 13:50:53 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -14,7 +14,7 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return luaL_getn(L, n);}
+		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return lua_objlen(L, n);}
 
 		private static int foreachi (lua_State L) {
 		  int i;
@@ -73,14 +73,7 @@ namespace KopiLua
 
 
 		private static int setn (lua_State L) {
-		  luaL_checktype(L, 1, LUA_TTABLE);
-		//#ifndef luaL_setn
-		  //luaL_setn(L, 1, luaL_checkint(L, 2));
-		//#else
-		  luaL_error(L, LUA_QL("setn") + " is obsolete");
-		//#endif
-		  lua_pushvalue(L, 1);
-		  return 1;
+		  return luaL_error(L, LUA_QL("setn") " is obsolete");
 		}
 
 
@@ -106,7 +99,6 @@ namespace KopiLua
 			  return luaL_error(L, "wrong number of arguments to " + LUA_QL("insert"));
 			}
 		  }
-		  luaL_setn(L, 1, e);  /* new size */
 		  lua_rawseti(L, 1, pos);  /* t[pos] = v */
 		  return 0;
 		}
@@ -136,11 +128,13 @@ namespace KopiLua
 		  CharPtr sep = luaL_optlstring(L, 2, "", out lsep);
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  i = luaL_optint(L, 3, 1);
-		  last = luaL_opt_integer(L, luaL_checkint, 4, luaL_getn(L, 1));
+		  last = luaL_opt_integer(L, luaL_checkint, 4, (int)lua_objlen(L, 1));
 		  luaL_buffinit(L, b);
 		  for (; i <= last; i++) {
 		    lua_rawgeti(L, 1, i);
-		    luaL_argcheck(L, lua_isstring(L, -1) != 0, 1, "table contains non-strings");
+		    if (!lua_isstring(L, -1))
+		      return luaL_error(L, "invalid value (%s) at index %d in table for "
+		                            LUA_QL("concat"), luaL_typename(L, -1), i);
 		    luaL_addvalue(b);
 		    if (i != last)
 		      luaL_addlstring(b, sep, lsep);

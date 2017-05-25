@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.22 2006/08/30 13:19:58 roberto Exp roberto $
+** $Id: llex.c,v 2.27 2007/09/14 13:27:04 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -27,24 +27,25 @@ namespace KopiLua
 
 
 		/* ORDER RESERVED */
-		public static readonly string[] luaX_tokens = {
+		private static readonly string[] luaX_tokens = {
 			"and", "break", "do", "else", "elseif",
 			"end", "false", "for", "function", "if",
 			"in", "local", "nil", "not", "or", "repeat",
 			"return", "then", "true", "until", "while",
-			"..", "...", "==", ">=", "<=", "~=",
-			"<number>", "<name>", "<string>", "<eof>"
+			"..", "...", "==", ">=", "<=", "~=", "<eof>"
+			"<number>", "<name>", "<string>"
 		};
 
 
 		public static void save_and_next(LexState ls) {save(ls, ls.current); next(ls);}
 
+		//static void lexerror (LexState *ls, const char *msg, int token);
 		private static void save (LexState ls, int c) {
 		  Mbuffer b = ls.buff;
 		  if (b.n + 1 > b.buffsize) {
 			uint newsize;
 			if (b.buffsize >= MAX_SIZET/2)
-			  luaX_lexerror(ls, "lexical element too long", 0);
+			  lexerror(ls, "lexical element too long", 0);
 			newsize = b.buffsize * 2;
 			luaZ_resizebuffer(ls.L, b, (int)newsize);
 		  }
@@ -69,10 +70,16 @@ namespace KopiLua
 		public static CharPtr luaX_token2str (LexState ls, int token) {
 		  if (token < FIRST_RESERVED) {
 			lua_assert(token == (byte)token);
-			return (iscntrl(token)) ? luaO_pushfstring(ls.L, "char(%d)", token) :
-									  luaO_pushfstring(ls.L, "%c", token);
+			return (isprint(token)) ? luaO_pushfstring(ls.L, LUA_QL("%c"), token) :
+									  luaO_pushfstring(ls.L, "char(%d)", token);
 		  }
-		  else
+		  else {
+		    CharPtr s = luaX_tokens[token - FIRST_RESERVED];
+		    if (token < TK_EOS)
+		      return luaO_pushfstring(ls.L, LUA_QS, s);
+		    else
+		      return s;
+		  }
 			return luaX_tokens[(int)token-FIRST_RESERVED];
 		}
 
@@ -83,13 +90,13 @@ namespace KopiLua
 			case (int)RESERVED.TK_STRING:
 			case (int)RESERVED.TK_NUMBER:
 			  save(ls, '\0');
-			  return luaZ_buffer(ls.buff);
+			  return luaO_pushfstring(ls.L, LUA_QS, luaZ_buffer(ls.buff));
 			default:
 			  return luaX_token2str(ls, token);
 		  }
 		}
 
-		public static void luaX_lexerror (LexState ls, CharPtr msg, int token) {
+		private static void lexerror (LexState ls, CharPtr msg, int token) {
 		  CharPtr buff = new char[MAXSRC];
 		  luaO_chunkid(buff, getstr(ls.source), MAXSRC);
 		  msg = luaO_pushfstring(ls.L, "%s:%d: %s", buff, ls.linenumber, msg);
@@ -99,7 +106,7 @@ namespace KopiLua
 		}
 
 		public static void luaX_syntaxerror (LexState ls, CharPtr msg) {
-		  luaX_lexerror(ls, msg, ls.t.token);
+		  lexerror(ls, msg, ls.t.token);
 		}
 
 		public static TString luaX_newstring(LexState ls, CharPtr str, uint l)
@@ -165,18 +172,22 @@ namespace KopiLua
 		}
 
 
+        //FIXME:
+		//#if !defined(getlocaledecpoint)
+		//#define getlocaledecpoint()	(localeconv()->decimal_point[0])
+		//#endif
 		private static void trydecpoint (LexState ls, SemInfo seminfo) {
 		  /* format error: try to update decimal point separator */
 			// todo: add proper support for localeconv - mjf
-			//lconv cv = localeconv();
+			//lconv cv = localeconv(); //FIXME:
 			char old = ls.decpoint;
-			ls.decpoint = '.'; // (cv ? cv.decimal_point[0] : '.');
+			ls.decpoint = '.'; // (cv ? cv.decimal_point[0] : '.'); //getlocaledecpoint() //FIXME:
 			buffreplace(ls, old, ls.decpoint);  /* try updated decimal separator */
 			if (luaO_str2d(luaZ_buffer(ls.buff), out seminfo.r) == 0)
 			{
 				/* format error with correct decimal point: no more options */
 				buffreplace(ls, ls.decpoint, '.');  /* undo change (for error message) */
-				luaX_lexerror(ls, "malformed number", (int)RESERVED.TK_NUMBER);
+				lexerror(ls, "malformed number", (int)RESERVED.TK_NUMBER);
 			}
 		}
 
@@ -218,7 +229,7 @@ namespace KopiLua
 		  for (;;) {
 			switch (ls.current) {
 			  case EOZ:
-				luaX_lexerror(ls, (seminfo != null) ? "unfinished long string" :
+				lexerror(ls, (seminfo != null) ? "unfinished long string" :
 										   "unfinished long comment", (int)RESERVED.TK_EOS);
 				break;  /* to avoid warnings */
 			  case ']':
@@ -254,11 +265,11 @@ namespace KopiLua
 		  while (ls.current != del) {
 			switch (ls.current) {
 			  case EOZ:
-				luaX_lexerror(ls, "unfinished string", (int)RESERVED.TK_EOS);
+				lexerror(ls, "unfinished string", (int)RESERVED.TK_EOS);
 				continue;  /* to avoid warnings */
 			  case '\n':
 			  case '\r':
-				luaX_lexerror(ls, "unfinished string", (int)RESERVED.TK_STRING);
+				lexerror(ls, "unfinished string", (int)RESERVED.TK_STRING);
 				continue;  /* to avoid warnings */
 			  case '\\': {
 				int c;
@@ -285,7 +296,7 @@ namespace KopiLua
 						next(ls);
 					  } while (++i<3 && isdigit(ls.current));
 					  if (c > System.Byte.MaxValue)
-						luaX_lexerror(ls, "escape sequence too large", (int)RESERVED.TK_STRING);
+						lexerror(ls, "escape sequence too large", (int)RESERVED.TK_STRING);
 					  save(ls, c);
 					}
 					continue;
@@ -341,7 +352,7 @@ namespace KopiLua
 				  return (int)RESERVED.TK_STRING;
 				}
 				else if (sep == -1) return '[';
-				else luaX_lexerror(ls, "invalid long string delimiter", (int)RESERVED.TK_STRING);
+				else lexerror(ls, "invalid long string delimiter", (int)RESERVED.TK_STRING);
 			  }
 			  break;
 			  case '=': {
@@ -433,9 +444,10 @@ namespace KopiLua
 		}
 
 
-		public static void luaX_lookahead (LexState ls) {
+		public static int luaX_lookahead (LexState ls) {
 			lua_assert(ls.lookahead.token == (int)RESERVED.TK_EOS);
 		  ls.lookahead.token = llex(ls, ls.lookahead.seminfo);
+             return ls.lookahead.token;
 		}
 
 	}
