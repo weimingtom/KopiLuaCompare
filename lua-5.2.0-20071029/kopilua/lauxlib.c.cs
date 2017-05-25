@@ -99,33 +99,33 @@ namespace KopiLua
 		  else if (ar.what[0] == 'C' || ar.what[0] == 't')
 		    lua_pushliteral(L, "?");  /* C function or tail call */
 		  else
-		    lua_pushfstring(L, "function <%s:%d>", ar->short_src, ar->linedefined);
+		    lua_pushfstring(L, "function <%s:%d>", ar.short_src, ar.linedefined);
 		}
 
 
 		static int countlevels (lua_State L) {
-		  lua_Debug ar;
+		  lua_Debug ar = new lua_Debug();
 		  int level = 1;
-		  while (lua_getstack(L, level, ar)) level++;
+		  while (lua_getstack(L, level, ar) != 0) level++;
 		  return level;
 		}
 
 
 		public static void luaL_traceback (lua_State L, lua_State L1,
 		                                CharPtr msg, int level) {
-		  lua_Debug ar;
+		  lua_Debug ar = new lua_Debug();
 		  int top = lua_gettop(L);
 		  int numlevels = countlevels(L1);
 		  int mark = (numlevels > LEVELS1 + LEVELS2) ? LEVELS1 : 0;
-		  if (msg) lua_pushfstring(L, "%s\n", msg);
+		  if (msg != null) lua_pushfstring(L, "%s\n", msg);
 		  lua_pushliteral(L, "stack traceback:");
-		  while (lua_getstack(L1, level++, &ar)) {
+		  while (lua_getstack(L1, level++, ar) != 0) {
 		    if (level == mark) {  /* too many levels? */
 		      lua_pushliteral(L, "\n\t...");  /* add a '...' */
 		      level = numlevels - LEVELS2;  /* and skip to last ones */
 		    }
 		    else {
-		      lua_getinfo(L1, "Sln", &ar);
+		      lua_getinfo(L1, "Sln", ar);
 		      lua_pushfstring(L, "\n\t%s:", ar.short_src);
 		      if (ar.currentline > 0)
 		        lua_pushfstring(L, "%d:", ar.currentline);
@@ -476,7 +476,7 @@ namespace KopiLua
 			while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
 			if (c == '\n') c = getc(lf.f);
 		  }
-		  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
+		  if (c == LUA_SIGNATURE[0] && filename != null) {  /* binary file? */
 			lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
 			if (lf.f == null) return errfile(L, "reopen", fnameindex);
 			/* skip eventual `#!...' */
@@ -486,7 +486,7 @@ namespace KopiLua
 		  ungetc(c, lf.f);
 		  status = lua_load(L, getF, lf, lua_tostring(L, -1));
 		  readstatus = ferror(lf.f);
-		  if (filename) fclose(lf.f);  /* close file (even in case of errors) */
+		  if (filename != null) fclose(lf.f);  /* close file (even in case of errors) */
 		  if (readstatus != 0) {
 			lua_settop(L, fnameindex);  /* ignore results from `lua_load' */
 			return errfile(L, "read", fnameindex);
@@ -556,7 +556,7 @@ namespace KopiLua
 
 
 		public static CharPtr luaL_tostring (lua_State L, int idx) {
-		  if (!luaL_callmeta(L, idx, "__tostring")) {  /* no metafield? */
+		  if (luaL_callmeta(L, idx, "__tostring") == 0) {  /* no metafield? */
 		    switch (lua_type(L, idx)) {
 		      case LUA_TNUMBER:
 		        return lua_pushstring(L, lua_tostring(L, idx));
@@ -564,7 +564,7 @@ namespace KopiLua
 		        lua_pushvalue(L, idx);
 		        break;
 		      case LUA_TBOOLEAN:
-		        return lua_pushstring(L, (lua_toboolean(L, idx) ? "true" : "false"));
+		        return lua_pushstring(L, (lua_toboolean(L, idx) != 0 ? "true" : "false"));
 		      case LUA_TNIL:
 		        return lua_pushliteral(L, "nil");
 		      default:
@@ -606,7 +606,6 @@ namespace KopiLua
 		    lua_pushcfunction(L, l[reg_num].func);
 		    lua_setfield(L, -2, l[reg_num].name);
 		  }
-		  lua_pop(L, nup);  /* remove upvalues */
 		}
 
 
@@ -666,7 +665,7 @@ namespace KopiLua
 		private static int panic (lua_State L) {
 		  fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
 						   lua_tostring(L, -1));
-          return (exit(EXIT_FAILURE), 0);  /* do not return to Lua */ //FIXME:
+          exit(EXIT_FAILURE); return 0;  /* do not return to Lua */ //FIXME:
 		}
 
 

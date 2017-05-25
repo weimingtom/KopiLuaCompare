@@ -32,7 +32,7 @@ namespace KopiLua
 			"end", "false", "for", "function", "if",
 			"in", "local", "nil", "not", "or", "repeat",
 			"return", "then", "true", "until", "while",
-			"..", "...", "==", ">=", "<=", "~=", "<eof>"
+			"..", "...", "==", ">=", "<=", "~=", "<eof>",
 			"<number>", "<name>", "<string>"
 		};
 
@@ -70,17 +70,16 @@ namespace KopiLua
 		public static CharPtr luaX_token2str (LexState ls, int token) {
 		  if (token < FIRST_RESERVED) {
 			lua_assert(token == (byte)token);
-			return (isprint(token)) ? luaO_pushfstring(ls.L, LUA_QL("%c"), token) :
+			return (isprint((byte)token)) ? luaO_pushfstring(ls.L, LUA_QL("%c"), token) :
 									  luaO_pushfstring(ls.L, "char(%d)", token);
 		  }
 		  else {
 		    CharPtr s = luaX_tokens[token - FIRST_RESERVED];
-		    if (token < TK_EOS)
+		    if (token < (int)RESERVED.TK_EOS)
 		      return luaO_pushfstring(ls.L, LUA_QS, s);
 		    else
 		      return s;
 		  }
-			return luaX_tokens[(int)token-FIRST_RESERVED];
 		}
 
 

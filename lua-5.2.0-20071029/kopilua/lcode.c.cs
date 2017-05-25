@@ -441,7 +441,7 @@ namespace KopiLua
 			case expkind.VFALSE:
 			case expkind.VNIL: {
 			  if (fs.nk <= MAXINDEXRK) {  /* constant fit in RK operand? */
-				e.u.s.info = (e.k == expkind.VNIL)  ? nilK(fs) : boolK(fs, (e.k == expkind.VTRUE));
+		  		e.u.s.info = (e.k == expkind.VNIL)  ? nilK(fs) : boolK(fs, (e.k == expkind.VTRUE) ? 1 : 0);
 				e.k = expkind.VK;
 				return RKASK(e.u.s.info);
 			  }
@@ -451,7 +451,7 @@ namespace KopiLua
 		      e.u.s.info = luaK_numberK(fs, e.u.nval);
 		      e.k = expkind.VK;
 		      /* go through */
-			  goto case expkind.VK; ???//FIXME:
+			  goto case expkind.VK;//FIXME:
 		    }
 			case expkind.VK: {
 			  if (e.u.s.info <= MAXINDEXRK)  /* constant fit in argC? */
@@ -693,7 +693,7 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-			  if (isnumeral(e))  /* -constant? */
+			  if (isnumeral(e) != 0)  /* -constant? */
 		        e.u.nval = luai_numunm(null, e.u.nval);
 		      else {
 				luaK_exp2anyreg(fs, e);  /* cannot operate on non-numeric constants */
@@ -728,7 +728,7 @@ namespace KopiLua
 			}
 		    case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
 		    case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
-		      if (!isnumeral(v)) luaK_exp2RK(fs, v);
+		      if (isnumeral(v) == 0) luaK_exp2RK(fs, v);
 		      break;
 		    }
 			default: {

@@ -87,12 +87,12 @@ namespace KopiLua
 
 		static int traceback(Lua.lua_State L)
 		{
-		  CharPtr msg = lua_tostring(L, 1);
-		  if (msg)
-		    luaL_traceback(L, L, msg, 1);
-		  else if (!lua_isnoneornil(L, 1)) {  /* is there an error object? */
-		    if (!luaL_callmeta(L, 1, "__tostring"))  /* try its 'tostring' metamethod */
-		      lua_pushliteral(L, "(no error message)");
+		  Lua.CharPtr msg = Lua.lua_tostring(L, 1);
+		  if (msg != null)
+		    Lua.luaL_traceback(L, L, msg, 1);
+		  else if (!Lua.lua_isnoneornil(L, 1)) {  /* is there an error object? */
+		    if (Lua.luaL_callmeta(L, 1, "__tostring") == 0)  /* try its 'tostring' metamethod */
+		      Lua.lua_pushliteral(L, "(no error message)");
 		  }
 		  return 1;
 		}
@@ -117,7 +117,7 @@ namespace KopiLua
 
 		static void print_version()
 		{
-			l_message(NULL, LUA_COPYRIGHT);
+			l_message(null, Lua.LUA_COPYRIGHT);
 		}
 
 
@@ -160,7 +160,7 @@ namespace KopiLua
 		{
 			Lua.lua_getglobal(L, "require");
 			Lua.lua_pushstring(L, name);
-			return report(L, Lua.docall(L, 1, 1));
+			return report(L, docall(L, 1, 1));
 		}
 
 

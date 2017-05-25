@@ -20,6 +20,8 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+		private static char uchar(char c) {return c;}
+		
 		private static int str_len (lua_State L) {
 		  uint l;
 		  luaL_checklstring(L, 1, out l);
@@ -103,7 +105,7 @@ namespace KopiLua
 		  uint l;
 		  CharPtr s = luaL_checklstring(L, 1, out l);
 		  uint posi = posrelat(luaL_optinteger(L, 2, 1), l);
-		  uint pose = posrelat(luaL_optinteger(L, 3, posi), l);
+		  uint pose = posrelat(luaL_optinteger(L, 3, (int)posi), l);
 		  int n, i;
 		  if (posi < 1) posi = 1;
 		  if (pose > l) pose = l;
@@ -674,7 +676,7 @@ namespace KopiLua
 		  CharPtr src = luaL_checklstring(L, 1, out srcl);
 		  CharPtr p = luaL_checkstring(L, 2);
           int tr = lua_type(L, 3);
-		  uint max_s = luaL_optinteger(L, 4, (int)(srcl+1));
+          uint max_s = (uint)luaL_optinteger(L, 4, (int)(srcl+1));
 		  int anchor = 0;
 		  if (p[0] == '^')
 		  {
@@ -712,7 +714,7 @@ namespace KopiLua
 		  }
 		  luaL_addlstring(b, src, (uint)(ms.src_end-src));
 		  luaL_pushresult(b);
-		  lua_pushinteger(L, n);  /* number of substitutions */
+		  lua_pushinteger(L, (int)n);  /* number of substitutions */
 		  return 2;
 		}
 
@@ -740,7 +742,7 @@ namespace KopiLua
 		      luaL_addchar(b, s[0]);
 		    }
 		    else if (s[0] == '\0' || iscntrl(uchar(s[0]))) {
-		      char buff[10];
+		      CharPtr buff = new char[10];
 		      if (s[0] != '\0' && !isdigit(uchar(s[1])))
 		        sprintf(buff, "\\%d", uchar(s[0]));
 		      else

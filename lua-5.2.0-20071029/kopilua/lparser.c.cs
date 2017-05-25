@@ -161,7 +161,7 @@ namespace KopiLua
 		}
 
 
-		private static void removevars (LexState ls, int tolevel) {
+		private static void removevars (FuncState fs, int tolevel) {
 		  while (fs.nactvar > tolevel)
 			getlocvar(fs, --fs.nactvar).endpc = fs.pc;
 		}
@@ -350,7 +350,7 @@ namespace KopiLua
 		  FuncState fs = ls.fs;
 		  Proto f = fs.f;
 		  lastfunc = f;
-		  removevars(ls, 0);
+		  removevars(fs, 0);
 		  luaK_ret(fs, 0, 0);  /* final return */
 		  luaM_reallocvector(L, ref f.code, f.sizecode, fs.pc/*, typeof(Instruction)*/);
 		  f.sizecode = fs.pc;

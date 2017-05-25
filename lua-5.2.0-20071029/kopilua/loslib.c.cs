@@ -237,7 +237,7 @@ namespace KopiLua
 
 
 		private static int os_exit (lua_State L) {
-			return (exit(luaL_optint(L, 1, EXIT_SUCCESS)), 0);  /* avoid warnings */ ???// FIXME:return (Environment.Exit(EXIT_SUCCESS);
+			exit(luaL_optint(L, 1, EXIT_SUCCESS)); return 0;  /* avoid warnings */
 		}
 
 		private readonly static luaL_Reg[] syslib = {

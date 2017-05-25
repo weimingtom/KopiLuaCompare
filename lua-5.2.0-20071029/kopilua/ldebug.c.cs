@@ -532,31 +532,31 @@ namespace KopiLua
 		  CallInfo.dec(ref ci);  /* calling function */
 		  i = ci_func(ci).l.p.code[currentpc(L, ci)];
 		  switch (GET_OPCODE(i)) {
-		    case OP_CALL:
-		    case OP_TAILCALL:
-		    case OP_TFORLOOP:
-		      return getobjname(L, ci, GETARG_A(i), name);
-		    case OP_GETGLOBAL:
-		    case OP_SELF:
-		    case OP_GETTABLE: tm = TM_INDEX; break;
-		    case OP_SETGLOBAL:
-		    case OP_SETTABLE: tm = TM_NEWINDEX; break;
-		    case OP_EQ: tm = TM_EQ; break;
-		    case OP_ADD: tm = TM_ADD; break;
-		    case OP_SUB: tm = TM_SUB; break;
-		    case OP_MUL: tm = TM_MUL; break;
-		    case OP_DIV: tm = TM_DIV; break;
-		    case OP_MOD: tm = TM_MOD; break;
-		    case OP_POW: tm = TM_POW; break;
-		    case OP_UNM: tm = TM_UNM; break;
-		    case OP_LEN: tm = TM_LEN; break;
-		    case OP_LT: tm = TM_LT; break;
-		    case OP_LE: tm = TM_LE; break;
-		    case OP_CONCAT: tm = TM_CONCAT; break;
+		    case OpCode.OP_CALL:
+		    case OpCode.OP_TAILCALL:
+		    case OpCode.OP_TFORLOOP:
+		      return getobjname(L, ci, GETARG_A(i), ref name);
+		    case OpCode.OP_GETGLOBAL:
+		    case OpCode.OP_SELF:
+		    case OpCode.OP_GETTABLE: tm = TMS.TM_INDEX; break;
+		    case OpCode.OP_SETGLOBAL:
+		    case OpCode.OP_SETTABLE: tm = TMS.TM_NEWINDEX; break;
+		    case OpCode.OP_EQ: tm = TMS.TM_EQ; break;
+		    case OpCode.OP_ADD: tm = TMS.TM_ADD; break;
+		    case OpCode.OP_SUB: tm = TMS.TM_SUB; break;
+		    case OpCode.OP_MUL: tm = TMS.TM_MUL; break;
+		    case OpCode.OP_DIV: tm = TMS.TM_DIV; break;
+		    case OpCode.OP_MOD: tm = TMS.TM_MOD; break;
+		    case OpCode.OP_POW: tm = TMS.TM_POW; break;
+		    case OpCode.OP_UNM: tm = TMS.TM_UNM; break;
+		    case OpCode.OP_LEN: tm = TMS.TM_LEN; break;
+		    case OpCode.OP_LT: tm = TMS.TM_LT; break;
+		    case OpCode.OP_LE: tm = TMS.TM_LE; break;
+		    case OpCode.OP_CONCAT: tm = TMS.TM_CONCAT; break;
 		    default:
 		      return null;  /* else no useful name can be found */
 		  }
-		  name = getstr(G(L)->tmname[tm]);
+		  name = getstr(G(L).tmname[(int)tm]); //FIXME:(int)
 		  return "metamethod";
 		}
 

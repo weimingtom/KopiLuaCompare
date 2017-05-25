@@ -110,7 +110,7 @@ namespace KopiLua
 		  if (lua_isfunction(L, 1)) lua_pushvalue(L, 1);
 		  else {
 			lua_Debug ar = new lua_Debug();
-			int level = opt ? luaL_optint(L, 1, 1) : luaL_checkint(L, 1);
+			int level = opt != 0 ? luaL_optint(L, 1, 1) : luaL_checkint(L, 1);
 			luaL_argcheck(L, level >= 0, 1, "level must be non-negative");
 			if (lua_getstack(L, level, ar) == 0)
 			  luaL_argerror(L, 1, "invalid level");
@@ -214,11 +214,11 @@ namespace KopiLua
 		  return 1;
 		}
 		private static int pairsmeta (lua_State L, CharPtr method, int iszero) {
-		  if (!luaL_getmetafield(L, 1, method)) {  /* no metamethod? */
+		  if (luaL_getmetafield(L, 1, method) == 0) {  /* no metamethod? */
 		    luaL_checktype(L, 1, LUA_TTABLE);  /* argument must be a table */
 		    lua_pushvalue(L, lua_upvalueindex(1));  /* will return generator, */
 		    lua_pushvalue(L, 1);  /* state, */
-		    if (iszero) lua_pushinteger(L, 0);  /* and initial value */
+		    if (iszero != 0) lua_pushinteger(L, 0);  /* and initial value */
 		    else lua_pushnil(L);
 		  }
 		  else {

@@ -178,11 +178,11 @@ namespace KopiLua
             return lua_type(L, (int)n) <= 0;
         }
 
-        public static void lua_pushliteral(lua_State L, CharPtr s)
+        public static CharPtr lua_pushliteral(lua_State L, CharPtr s)
         {
             //TODO: Implement use using lua_pushlstring instead of lua_pushstring
 			//lua_pushlstring(L, "" s, (sizeof(s)/GetUnmanagedSize(typeof(char)))-1)
-            lua_pushstring(L, s);
+            return lua_pushstring(L, s);
         }
 
         public static void lua_setglobal(lua_State L, CharPtr s)

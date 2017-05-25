@@ -14,7 +14,7 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return lua_objlen(L, n);}
+		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_objlen(L, n);}
 
 		private static int foreachi (lua_State L) {
 		  int i;
@@ -73,7 +73,7 @@ namespace KopiLua
 
 
 		private static int setn (lua_State L) {
-		  return luaL_error(L, LUA_QL("setn") " is obsolete");
+		  return luaL_error(L, LUA_QL("setn") + " is obsolete");
 		}
 
 
@@ -108,7 +108,6 @@ namespace KopiLua
 		  int e = aux_getn(L, 1);
 		  int pos = luaL_optint(L, 2, e);
 		  if (e == 0) return 0;  /* table is `empty' */
-		  luaL_setn(L, 1, e - 1);  /* t.n = n-1 */
 		  lua_rawgeti(L, 1, pos);  /* result = t[pos] */
 		  for ( ;pos<e; pos++) {
 			lua_rawgeti(L, 1, pos+1);
@@ -132,8 +131,8 @@ namespace KopiLua
 		  luaL_buffinit(L, b);
 		  for (; i <= last; i++) {
 		    lua_rawgeti(L, 1, i);
-		    if (!lua_isstring(L, -1))
-		      return luaL_error(L, "invalid value (%s) at index %d in table for "
+		    if (lua_isstring(L, -1) == 0)
+		      return luaL_error(L, "invalid value (%s) at index %d in table for " +
 		                            LUA_QL("concat"), luaL_typename(L, -1), i);
 		    luaL_addvalue(b);
 		    if (i != last)

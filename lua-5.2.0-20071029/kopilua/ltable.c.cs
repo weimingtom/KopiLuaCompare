@@ -15,7 +15,8 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using lua_Number = System.Double;
-
+	using lu_byte = System.Byte;
+	
 	public partial class Lua
 	{
 		/*
@@ -176,10 +177,7 @@ namespace KopiLua
 		** Rehash
 		** ==============================================================
 		*/
-
-        ???//FIXME:???
-		private static int ceillog2 (uint x) {
-		  static const lu_byte log_2[256] = {
+	  	private static readonly lu_byte[] log_2 = {
 		    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
 		    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
 		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
@@ -188,7 +186,8 @@ namespace KopiLua
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
-		  };
+		};
+        private static int ceillog2 (uint x) {
 		  int l = 0;
 		  x--;
 		  while (x >= 256) { l += 8; x >>= 8; }
@@ -221,7 +220,7 @@ namespace KopiLua
 		private static int countint (TValue key, int[] nums) {
 		  int k = arrayindex(key);
 		  if (0 < k && k <= MAXASIZE) {  /* is `key' an appropriate array index? */
-			nums[ceillog2(k)]++;  /* count as such */
+		  	nums[ceillog2((uint)k)]++;  /* count as such */
 			return 1;
 		  }
 		  else
@@ -287,7 +286,7 @@ namespace KopiLua
 		  }
 		  else {
 			int i;
-			lsize = ceillog2(size);
+			lsize = ceillog2((uint)size);
 			if (lsize > MAXBITS)
 			  luaG_runerror(L, "table overflow");
 			size = twoto(lsize);

@@ -210,7 +210,7 @@ namespace KopiLua
 		private static int math_randomseed (lua_State L) {
 		  //srand(luaL_checkint(L, 1));
 			rng = new Random(luaL_checkint(L, 1)); 
-		  rand(); /* discard first value to avoid undesirable correlations */ ???//FIXME:???
+		  rng.Next(); /* discard first value to avoid undesirable correlations */ //FIXME:???
 		  return 0;
 		}
 

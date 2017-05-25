@@ -311,7 +311,7 @@ namespace KopiLua
 
 		private static int db_errorfb (lua_State L) {
 		  int arg;
-		  lua_State L1 = getthread(L, arg);
+		  lua_State L1 = getthread(L, out arg);
 		  CharPtr msg = lua_tostring(L, arg + 1);
 		  if (msg == null && !lua_isnoneornil(L, arg + 1))  /* non-string 'msg'? */
 		    lua_pushvalue(L, arg + 1);  /* return it untouched */

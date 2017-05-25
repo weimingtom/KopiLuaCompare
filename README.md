@@ -5,6 +5,7 @@
 * lua-5.1.4 (done)  
 * lua-5.1.5 (done)  
 * lua-5.2.0-2007 (done)  
+* lua-5.2.0-20071029 (done)  
 * lua-5.3.4 (pending)    
 
 ## Ref  
