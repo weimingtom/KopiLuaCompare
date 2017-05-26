@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.39 2006/07/11 15:53:29 roberto Exp roberto $
+** $Id: lgc.c,v 2.41 2007/10/29 16:51:20 roberto Exp roberto $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -44,10 +44,6 @@
 #define markfinalized(u)	l_setbit((u)->marked, FINALIZEDBIT)
 
 
-#define KEYWEAK         bitmask(KEYWEAKBIT)
-#define VALUEWEAK       bitmask(VALUEWEAKBIT)
-
-
 
 #define markvalue(g,o) { checkconsistency(o); \
   if (iscollectable(o) && iswhite(gcvalue(o))) reallymarkobject(g,gcvalue(o)); }
@@ -59,10 +55,34 @@
 #define setthreshold(g)  (g->GCthreshold = (g->estimate/100) * g->gcpause)
 
 
+static void linktable (Table *h, GCObject **p) {
+  h->gclist = *p;
+  *p = obj2gco(h);
+}
+
+
 static void removeentry (Node *n) {
   lua_assert(ttisnil(gval(n)));
   if (iscollectable(gkey(n)))
     setttype(gkey(n), LUA_TDEADKEY);  /* dead key; remove it */
+}
+
+
+/*
+** The next function tells whether a key or value can be cleared from
+** a weak table. Non-collectable objects are never removed from weak
+** tables. Strings behave as `values', so are never removed too. for
+** other objects: if really collected, cannot keep them; for userdata
+** being finalized, keep them in keys, but not in values
+*/
+static int iscleared (const TValue *o, int iskey) {
+  if (!iscollectable(o)) return 0;
+  if (ttisstring(o)) {
+    stringmark(rawtsvalue(o));  /* strings are `values', so are never weak */
+    return 0;
+  }
+  return iswhite(gcvalue(o)) ||
+    (ttisuserdata(o) && (!iskey && isfinalized(uvalue(o))));
 }
 
 
@@ -93,8 +113,7 @@ static void reallymarkobject (global_State *g, GCObject *o) {
       break;
     }
     case LUA_TTABLE: {
-      gco2h(o)->gclist = g->gray;
-      g->gray = o;
+      linktable(gco2h(o), &g->gray);
       break;
     }
     case LUA_TTHREAD: {
@@ -155,30 +174,61 @@ size_t luaC_separateudata (lua_State *L, int all) {
 }
 
 
-static int traversetable (global_State *g, Table *h) {
-  int i;
-  int weakkey = 0;
-  int weakvalue = 0;
-  const TValue *mode;
-  markobject(g, h->metatable);
-  mode = gfasttm(g, h->metatable, TM_MODE);
-  if (mode && ttisstring(mode)) {  /* is there a weak mode? */
-    weakkey = (strchr(svalue(mode), 'k') != NULL);
-    weakvalue = (strchr(svalue(mode), 'v') != NULL);
-    if (weakkey || weakvalue) {  /* is really weak? */
-      h->marked &= ~(KEYWEAK | VALUEWEAK);  /* clear bits */
-      h->marked |= cast_byte((weakkey << KEYWEAKBIT) |
-                             (weakvalue << VALUEWEAKBIT));
-      h->gclist = g->weak;  /* must be cleared after GC, ... */
-      g->weak = obj2gco(h);  /* ... so put in the appropriate list */
+static void traverseweakvalue (global_State *g, Table *h) {
+  int i = sizenode(h);
+  while (i--) {
+    Node *n = gnode(h, i);
+    lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
+    if (ttisnil(gval(n)))
+      removeentry(n);  /* remove empty entries */
+    else {
+      lua_assert(!ttisnil(gkey(n)));
+      markvalue(g, gkey(n));
     }
   }
-  if (weakkey && weakvalue) return 1;
-  if (!weakvalue) {
-    i = h->sizearray;
-    while (i--)
-      markvalue(g, &h->array[i]);
+  linktable(h, &g->weak);
+}
+
+
+static int traverseephemeron (global_State *g, Table *h) {
+  int marked = 0;
+  int hasclears = 0;
+  int i = h->sizearray;
+  while (i--) {  /* mark array part (numeric keys are 'strong') */
+    if (iscollectable(&h->array[i]) && iswhite(gcvalue(&h->array[i]))) {
+      marked = 1;
+      reallymarkobject(g, gcvalue(&h->array[i]));
+    }
   }
+  i = sizenode(h);
+  while (i--) {
+    Node *n = gnode(h, i);
+    lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
+    if (ttisnil(gval(n)))  /* entry is empty? */
+      removeentry(n);  /* remove it */
+    else if (iscollectable(gval(n)) && iswhite(gcvalue(gval(n)))) {
+      /* value is not marked yet */
+      if (iscleared(key2tval(n), 1))  /* key is not marked (yet)? */
+        hasclears = 1;  /* may have to propagate mark from key to value */
+      else {  /* mark value only if key is marked */
+        marked = 1;  /* some mark changed status */
+        reallymarkobject(g, gcvalue(gval(n)));
+      }
+    }
+  }
+  if (hasclears)
+    linktable(h, &g->ephemeron);
+  else  /* nothing to propagate */
+    linktable(h, &g->weak);  /* avoid convergence phase  */
+  return marked;
+}
+
+
+static void traversestrongtable (global_State *g, Table *h) {
+  int i;
+  i = h->sizearray;
+  while (i--)
+    markvalue(g, &h->array[i]);
   i = sizenode(h);
   while (i--) {
     Node *n = gnode(h, i);
@@ -187,11 +237,33 @@ static int traversetable (global_State *g, Table *h) {
       removeentry(n);  /* remove empty entries */
     else {
       lua_assert(!ttisnil(gkey(n)));
-      if (!weakkey) markvalue(g, gkey(n));
-      if (!weakvalue) markvalue(g, gval(n));
+      markvalue(g, gkey(n));
+      markvalue(g, gval(n));
     }
   }
-  return weakkey || weakvalue;
+}
+
+
+static void traversetable (global_State *g, Table *h) {
+  const TValue *mode = gfasttm(g, h->metatable, TM_MODE);
+  markobject(g, h->metatable);
+  if (mode && ttisstring(mode)) {  /* is there a weak mode? */
+    int weakkey = (strchr(svalue(mode), 'k') != NULL);
+    int weakvalue = (strchr(svalue(mode), 'v') != NULL);
+    if (weakkey || weakvalue) {  /* is really weak? */
+      black2gray(obj2gco(h));  /* keep table gray */
+      if (!weakkey)  /* strong keys? */
+        traverseweakvalue(g, h);
+      else if (!weakvalue)  /* strong values? */
+        traverseephemeron(g, h);
+      else {
+        lua_assert(weakkey && weakvalue);  /* nothing to traverse now */
+        linktable(h, &g->allweak);
+      }
+      return;
+    }  /* else go through */
+  }
+  traversestrongtable(g, h);
 }
 
 
@@ -266,7 +338,7 @@ static void traversestack (global_State *g, lua_State *l) {
   for (; o <= lim; o++)
     setnilvalue(o);
   if (!g->emergencygc)  /* cannot change stack in emergency... */
-    checkstacksizes(l, lim);  /* ...(interpreter does not expect that change) */
+    checkstacksizes(l, lim);  /* ...(mutator does not expect that change) */
 }
 
 
@@ -282,8 +354,7 @@ static l_mem propagatemark (global_State *g) {
     case LUA_TTABLE: {
       Table *h = gco2h(o);
       g->gray = h->gclist;
-      if (traversetable(g, h))  /* table is weak? */
-        black2gray(o);  /* keep it gray */
+      traversetable(g, h);
       return sizeof(Table) + sizeof(TValue) * h->sizearray +
                              sizeof(Node) * sizenode(h);
     }
@@ -327,22 +398,23 @@ static size_t propagateall (global_State *g) {
 }
 
 
-/*
-** The next function tells whether a key or value can be cleared from
-** a weak table. Non-collectable objects are never removed from weak
-** tables. Strings behave as `values', so are never removed too. for
-** other objects: if really collected, cannot keep them; for userdata
-** being finalized, keep them in keys, but not in values
-*/
-static int iscleared (const TValue *o, int iskey) {
-  if (!iscollectable(o)) return 0;
-  if (ttisstring(o)) {
-    stringmark(rawtsvalue(o));  /* strings are `values', so are never weak */
-    return 0;
-  }
-  return iswhite(gcvalue(o)) ||
-    (ttisuserdata(o) && (!iskey && isfinalized(uvalue(o))));
+static void convergeephemerons (global_State *g) {
+  int changed;
+  do {
+    GCObject *w;
+    GCObject *next = g->ephemeron;
+    g->ephemeron = NULL;
+    changed = 0;
+    while ((w = next) != NULL) {
+      next = gco2h(w)->gclist;
+      if (traverseephemeron(g, gco2h(w))) {
+        changed = 1;
+        propagateall(g);
+      }
+    }
+  } while (changed);
 }
+
 
 
 /*
@@ -352,14 +424,10 @@ static void cleartable (GCObject *l) {
   while (l) {
     Table *h = gco2h(l);
     int i = h->sizearray;
-    lua_assert(testbit(h->marked, VALUEWEAKBIT) ||
-               testbit(h->marked, KEYWEAKBIT));
-    if (testbit(h->marked, VALUEWEAKBIT)) {
-      while (i--) {
-        TValue *o = &h->array[i];
-        if (iscleared(o, 0))  /* value was collected? */
-          setnilvalue(o);  /* remove value */
-      }
+    while (i--) {
+      TValue *o = &h->array[i];
+      if (iscleared(o, 0))  /* value was collected? */
+        setnilvalue(o);  /* remove value */
     }
     i = sizenode(h);
     while (i--) {
@@ -516,7 +584,7 @@ static void markroot (lua_State *L) {
   global_State *g = G(L);
   g->gray = NULL;
   g->grayagain = NULL;
-  g->weak = NULL;
+  g->weak = g->ephemeron = g->allweak = NULL;
   markobject(g, g->mainthread);
   /* make global table be traversed before main stack */
   markvalue(g, gt(g->mainthread));
@@ -550,14 +618,23 @@ static void atomic (lua_State *L) {
   markobject(g, L);  /* mark running thread */
   markmt(g);  /* mark basic metatables (again) */
   propagateall(g);
+  /* remark ephemeron tables */
+  g->gray = g->ephemeron;
+  g->ephemeron = NULL;
+  propagateall(g);
   /* remark gray again */
   g->gray = g->grayagain;
   g->grayagain = NULL;
   propagateall(g);
+  convergeephemerons(g);
   udsize = luaC_separateudata(L, 0);  /* separate userdata to be finalized */
   marktmu(g);  /* mark `preserved' userdata */
   udsize += propagateall(g);  /* remark, to propagate `preserveness' */
-  cleartable(g->weak);  /* remove collected objects from weak tables */
+  convergeephemerons(g);
+  /* remove collected objects from weak tables */
+  cleartable(g->weak);
+  cleartable(g->ephemeron);
+  cleartable(g->allweak);
   /* flip current white */
   g->currentwhite = cast_byte(otherwhite(g));
   g->sweepstrgc = 0;
@@ -656,7 +733,7 @@ void luaC_fullgc (lua_State *L, int isemergency) {
     /* reset other collector lists */
     g->gray = NULL;
     g->grayagain = NULL;
-    g->weak = NULL;
+    g->weak = g->ephemeron = g->allweak = NULL;
     g->gcstate = GCSsweepstring;
   }
   lua_assert(g->gcstate != GCSpause && g->gcstate != GCSpropagate);
