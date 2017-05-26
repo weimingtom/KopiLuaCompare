@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.57 2007/03/26 15:57:35 roberto Exp roberto $
+** $Id: loadlib.c,v 1.58 2007/06/21 13:52:27 roberto Exp roberto $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -345,6 +345,33 @@ namespace KopiLua
 		  return l;
 		}
 
+		private static CharPtr searchpath (lua_State L, CharPtr name,
+		                                             CharPtr path) {
+		  lua_pushliteral(L, "");  /* error accumulator */
+		  while ((path = pushnexttemplate(L, path)) != null) {
+		    CharPtr filename = luaL_gsub(L, lua_tostring(L, -1),
+		                                     LUA_PATH_MARK, name);
+		    lua_remove(L, -2);  /* remove path template */
+		    if (readable(filename))  /* does file exist and is readable? */
+		      return filename;  /* return that file name */
+		    lua_pushfstring(L, "\n\tno file " + LUA_QS, filename);
+		    lua_remove(L, -2);  /* remove file name */
+		    lua_concat(L, 2);  /* add entry to possible error message */
+		  }
+		  return null;  /* not found */
+		}
+
+
+		private static int ll_searchpath (lua_State L) {
+		  CharPtr f = searchpath(L, luaL_checkstring(L, 1), luaL_checkstring(L, 2));
+		  if (f != null) return 1;
+		  else {  /* error message is on top of the stack */
+		    lua_pushnil(L);
+		    lua_insert(L, -2);
+		    return 2;  /* return nil + error message */
+		  }
+		}
+
 
 		private static CharPtr findfile (lua_State L, CharPtr name,
 												   CharPtr pname) {
@@ -354,18 +381,7 @@ namespace KopiLua
 		  path = lua_tostring(L, -1);
 		  if (path == null)
 			luaL_error(L, LUA_QL("package.%s") + " must be a string", pname);
-		  lua_pushliteral(L, "");  /* error accumulator */
-		  while ((path = pushnexttemplate(L, path)) != null) {
-			CharPtr filename;
-			filename = luaL_gsub(L, lua_tostring(L, -1), LUA_PATH_MARK, name);
-			lua_remove(L, -2);  /* remove path template */
-			if (readable(filename) != 0)  /* does file exist and is readable? */
-			  return filename;  /* return that file name */
-			lua_pushfstring(L, "\n\tno file " + LUA_QS, filename);
-			lua_remove(L, -2);  /* remove file name */
-			lua_concat(L, 2);  /* add entry to possible error message */
-		  }
-		  return null;  /* not found */
+		  return searchpath(L, name, path);
 		}
 
 
@@ -603,6 +619,7 @@ namespace KopiLua
 
 		private readonly static luaL_Reg[] pk_funcs = {
 		  new luaL_Reg("loadlib", ll_loadlib),
+          new luaL_Reg("searchpath", ll_searchpath),
 		  new luaL_Reg("seeall", ll_seeall),
 		  new luaL_Reg(null, null)
 		};
