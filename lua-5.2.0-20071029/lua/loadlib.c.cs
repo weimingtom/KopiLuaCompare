@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.58 2007/06/21 13:52:27 roberto Exp roberto $
+** $Id: loadlib.c,v 1.57 2007/03/26 15:57:35 roberto Exp roberto $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -346,34 +346,6 @@ static const char *pushnexttemplate (lua_State *L, const char *path) {
 }
 
 
-static const char *searchpath (lua_State *L, const char *name,
-                                             const char *path) {
-  lua_pushliteral(L, "");  /* error accumulator */
-  while ((path = pushnexttemplate(L, path)) != NULL) {
-    const char *filename = luaL_gsub(L, lua_tostring(L, -1),
-                                     LUA_PATH_MARK, name);
-    lua_remove(L, -2);  /* remove path template */
-    if (readable(filename))  /* does file exist and is readable? */
-      return filename;  /* return that file name */
-    lua_pushfstring(L, "\n\tno file " LUA_QS, filename);
-    lua_remove(L, -2);  /* remove file name */
-    lua_concat(L, 2);  /* add entry to possible error message */
-  }
-  return NULL;  /* not found */
-}
-
-
-static int ll_searchpath (lua_State *L) {
-  const char *f = searchpath(L, luaL_checkstring(L, 1), luaL_checkstring(L, 2));
-  if (f != NULL) return 1;
-  else {  /* error message is on top of the stack */
-    lua_pushnil(L);
-    lua_insert(L, -2);
-    return 2;  /* return nil + error message */
-  }
-}
-
-
 static const char *findfile (lua_State *L, const char *name,
                                            const char *pname) {
   const char *path;
@@ -382,7 +354,18 @@ static const char *findfile (lua_State *L, const char *name,
   path = lua_tostring(L, -1);
   if (path == NULL)
     luaL_error(L, LUA_QL("package.%s") " must be a string", pname);
-  return searchpath(L, name, path);
+  lua_pushliteral(L, "");  /* error accumulator */
+  while ((path = pushnexttemplate(L, path)) != NULL) {
+    const char *filename;
+    filename = luaL_gsub(L, lua_tostring(L, -1), LUA_PATH_MARK, name);
+    lua_remove(L, -2);  /* remove path template */
+    if (readable(filename))  /* does file exist and is readable? */
+      return filename;  /* return that file name */
+    lua_pushfstring(L, "\n\tno file " LUA_QS, filename);
+    lua_remove(L, -2);  /* remove file name */
+    lua_concat(L, 2);  /* add entry to possible error message */
+  }
+  return NULL;  /* not found */
 }
 
 
@@ -621,7 +604,6 @@ static void setpath (lua_State *L, const char *fieldname, const char *envname,
 
 static const luaL_Reg pk_funcs[] = {
   {"loadlib", ll_loadlib},
-  {"searchpath", ll_searchpath},
   {"seeall", ll_seeall},
   {NULL, NULL}
 };

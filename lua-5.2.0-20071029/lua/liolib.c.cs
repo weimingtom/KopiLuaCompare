@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.76 2007/04/19 20:22:32 roberto Exp roberto $
+** $Id: liolib.c,v 2.75 2006/09/18 14:03:18 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -51,14 +51,15 @@ static void fileerror (lua_State *L, int arg, const char *filename) {
 }
 
 
-#define tofilep(L)	((FILE **)luaL_checkudata(L, 1, LUA_FILEHANDLE))
+#define topfile(L)	((FILE **)luaL_checkudata(L, 1, LUA_FILEHANDLE))
 
 
 static int io_type (lua_State *L) {
   void *ud;
   luaL_checkany(L, 1);
-  ud = luaL_testudata(L, 1, LUA_FILEHANDLE);
-  if (ud == NULL)
+  ud = lua_touserdata(L, 1);
+  lua_getfield(L, LUA_REGISTRYINDEX, LUA_FILEHANDLE);
+  if (ud == NULL || !lua_getmetatable(L, 1) || !lua_rawequal(L, -2, -1))
     lua_pushnil(L);  /* not a file */
   else if (*((FILE **)ud) == NULL)
     lua_pushliteral(L, "closed file");
@@ -69,7 +70,7 @@ static int io_type (lua_State *L) {
 
 
 static FILE *tofile (lua_State *L) {
-  FILE **f = tofilep(L);
+  FILE **f = topfile(L);
   if (*f == NULL)
     luaL_error(L, "attempt to use a closed file");
   return *f;
@@ -105,7 +106,7 @@ static int io_noclose (lua_State *L) {
 ** function to close 'popen' files
 */
 static int io_pclose (lua_State *L) {
-  FILE **p = tofilep(L);
+  FILE **p = topfile(L);
   int ok = lua_pclose(L, *p);
   *p = NULL;
   return pushresult(L, ok, NULL);
@@ -116,7 +117,7 @@ static int io_pclose (lua_State *L) {
 ** function to close regular files
 */
 static int io_fclose (lua_State *L) {
-  FILE **p = tofilep(L);
+  FILE **p = topfile(L);
   int ok = (fclose(*p) == 0);
   *p = NULL;
   return pushresult(L, ok, NULL);
@@ -139,7 +140,7 @@ static int io_close (lua_State *L) {
 
 
 static int io_gc (lua_State *L) {
-  FILE *f = *tofilep(L);
+  FILE *f = *topfile(L);
   /* ignore closed files */
   if (f != NULL)
     aux_close(L);
@@ -148,7 +149,7 @@ static int io_gc (lua_State *L) {
 
 
 static int io_tostring (lua_State *L) {
-  FILE *f = *tofilep(L);
+  FILE *f = *topfile(L);
   if (f == NULL)
     lua_pushliteral(L, "file (closed)");
   else
