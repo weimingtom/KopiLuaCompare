@@ -1,5 +1,5 @@
 /*
-** $Id: linit.c,v 1.15 2007/06/22 16:59:11 roberto Exp roberto $
+** $Id: linit.c,v 1.14 2005/12/29 15:32:11 roberto Exp roberto $
 ** Initialization of libraries for lua.c
 ** See Copyright Notice in lua.h
 */
@@ -16,7 +16,7 @@ namespace KopiLua
 		** these libs are preloaded in Lua and are readily available to any program
 		*/
 		private readonly static luaL_Reg[] lualibs = {
-		  new luaL_Reg("_G", luaopen_base),
+		  new luaL_Reg("", luaopen_base),
 		  new luaL_Reg(LUA_LOADLIBNAME, luaopen_package),
 		  new luaL_Reg(LUA_TABLIBNAME, luaopen_table),
 		  new luaL_Reg(LUA_IOLIBNAME, luaopen_io),

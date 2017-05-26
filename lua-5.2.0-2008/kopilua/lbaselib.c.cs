@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.199 2007/10/17 17:26:39 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.200 2007/10/25 19:31:05 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -99,7 +99,7 @@ namespace KopiLua
 		  luaL_argcheck(L, t == LUA_TNIL || t == LUA_TTABLE, 2,
 							"nil or table expected");
 		  if (luaL_getmetafield(L, 1, "__metatable") != 0)
-			luaL_error(L, "cannot change a protected metatable");
+			return luaL_error(L, "cannot change a protected metatable");
 		  lua_settop(L, 2);
 		  lua_setmetatable(L, 1);
 		  return 1;
@@ -116,8 +116,7 @@ namespace KopiLua
 			  luaL_argerror(L, 1, "invalid level");
 			lua_getinfo(L, "f", ar);
 			if (lua_isnil(L, -1))
-			  luaL_error(L, "no function environment for tail call at level %d",
-							level);
+			  luaL_error(L, "no function environment for tail call at level %d", level);
 		  }
 		}
 
@@ -144,7 +143,7 @@ namespace KopiLua
 			return 0;
 		  }
 		  else if (lua_iscfunction(L, -2) || lua_setfenv(L, -2) == 0)
-			luaL_error(L,
+			return luaL_error(L,
 				  LUA_QL("setfenv") + " cannot change environment of given object");
 		  return 1;
 		}
@@ -306,12 +305,10 @@ namespace KopiLua
 			  lua_replace(L, 3);  /* save string in a reserved stack slot */
 			  return lua_tolstring(L, 3, out size);
 		  }
-		  else
-		  {
-			  size = 0;
+		  else {
 			  luaL_error(L, "reader function must return a string");
+		      return null;  /* to avoid warnings */
 		  }
-		  return null;  /* to avoid warnings */
 		}
 
 
@@ -469,7 +466,7 @@ namespace KopiLua
 		private static int auxresume (lua_State L, lua_State co, int narg) {
 		  int status;
 		  if (lua_checkstack(co, narg)==0)
-			luaL_error(L, "too many arguments to resume");
+			return luaL_error(L, "too many arguments to resume");
 	      if (lua_status(co) == LUA_OK && lua_gettop(co) == 0) {
 		    lua_pushliteral(L, "cannot resume dead coroutine");
 		    return -1;  /* error flag */
@@ -479,7 +476,7 @@ namespace KopiLua
 		  if (status == LUA_OK || status == LUA_YIELD) {
 			int nres = lua_gettop(co);
 			if (lua_checkstack(L, nres)==0)
-			  luaL_error(L, "too many results to resume");
+			  return luaL_error(L, "too many results to resume");
 			lua_xmove(co, L, nres);  /* move yielded values */
 			return nres;
 		  }

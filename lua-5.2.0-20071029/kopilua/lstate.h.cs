@@ -149,9 +149,7 @@ namespace KopiLua
 		  public GCObjectRef sweepgc;  /* position of sweep in `rootgc' */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
-		  public GCObject weak;  /* list of (something) weak tables */
-		  public GCObject ephemeron;  /* list of ephemeron tables */
-		  public GCObject allweak;  /* list of all-weak tables */
+		  public GCObject weak;  /* list of weak tables (to be cleared) */
 		  public GCObject tmudata;  /* last element of list of userdata to be GC */
 		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatentation */
 		  public lu_mem GCthreshold;

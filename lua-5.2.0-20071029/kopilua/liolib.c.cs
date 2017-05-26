@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.76 2007/04/19 20:22:32 roberto Exp roberto $
+** $Id: liolib.c,v 2.75 2006/09/18 14:03:18 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -52,14 +52,15 @@ namespace KopiLua
 		}
 
 
-		public static FilePtr tofilep(lua_State L) { return (FilePtr)luaL_checkudata(L, 1, LUA_FILEHANDLE); }
+		public static FilePtr topfile(lua_State L) { return (FilePtr)luaL_checkudata(L, 1, LUA_FILEHANDLE); }
 
 
 		private static int io_type (lua_State L) {
 		  object ud;
 		  luaL_checkany(L, 1);
-		  ud = luaL_testudata(L, 1, LUA_FILEHANDLE);
-          if (ud == null)
+		  ud = lua_touserdata(L, 1);
+		  lua_getfield(L, LUA_REGISTRYINDEX, LUA_FILEHANDLE);
+		  if (ud == null || (lua_getmetatable(L, 1)==0) || (lua_rawequal(L, -2, -1)==0))
 			lua_pushnil(L);  /* not a file */
 		  else if ( (ud as FilePtr).file == null)
 			lua_pushliteral(L, "closed file");
@@ -70,7 +71,7 @@ namespace KopiLua
 
 
 		private static Stream tofile (lua_State L) {
-		  FilePtr f = tofilep(L);
+		  FilePtr f = topfile(L);
 		  if (f.file == null)
 			luaL_error(L, "attempt to use a closed file");
 		  return f.file;
@@ -107,7 +108,7 @@ namespace KopiLua
 		** function to close 'popen' files
 		*/
 		private static int io_pclose (lua_State L) {
-		  FilePtr p = tofilep(L);
+		  FilePtr p = topfile(L);
 		  int ok = (lua_pclose(L, p.file) == 0) ? 1 : 0;
 		  p.file = null;
 		  return pushresult(L, ok, null);
@@ -118,7 +119,7 @@ namespace KopiLua
 		** function to close regular files
 		*/
 		private static int io_fclose (lua_State L) {
-		  FilePtr p = tofilep(L);
+		  FilePtr p = topfile(L);
 		  int ok = (fclose(p.file) == 0) ? 1 : 0;
 		  p.file = null;
 		  return pushresult(L, ok, null);
@@ -141,7 +142,7 @@ namespace KopiLua
 
 
 		private static int io_gc (lua_State L) {
-		  Stream f = tofilep(L).file; //FIXME:FilePtr p = tofilep(L);
+		  Stream f = topfile(L).file;
 		  /* ignore closed files */
 		  if (f != null)
 			aux_close(L);
@@ -150,7 +151,7 @@ namespace KopiLua
 
 
 		private static int io_tostring (lua_State L) {
-		  Stream f = tofilep(L).file; //FIXME:FilePtr p = tofilep(L);
+		  Stream f = topfile(L).file;
 		  if (f == null)
 			lua_pushliteral(L, "file (closed)");
 		  else
