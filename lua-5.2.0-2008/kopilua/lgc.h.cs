@@ -38,8 +38,6 @@ namespace KopiLua
 		** bit 1 - object is white (type 1)
 		** bit 2 - object is black
 		** bit 3 - for userdata: has been finalized
-		** bit 3 - for tables: has weak keys
-		** bit 4 - for tables: has weak values
 		** bit 5 - object is fixed (should not be collected)
 		** bit 6 - object is "super" fixed (only the main thread)
 		*/
@@ -49,8 +47,6 @@ namespace KopiLua
 		public const int WHITE1BIT		= 1;
 		public const int BLACKBIT		= 2;
 		public const int FINALIZEDBIT	= 3;
-		public const int KEYWEAKBIT		= 3;
-		public const int VALUEWEAKBIT	= 4;
 		public const int FIXEDBIT		= 5;
 		public const int SFIXEDBIT		= 6;
 		public readonly static int WHITEBITS		= bit2mask(WHITE0BIT, WHITE1BIT);

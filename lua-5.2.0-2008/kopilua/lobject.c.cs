@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.24 2006/11/22 11:02:03 roberto Exp roberto $
+** $Id: lobject.c,v 2.26 2007/11/09 18:54:25 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -136,11 +136,9 @@ namespace KopiLua
 		        break;
 		      }
 		      default: {
-		        CharPtr buff = new char[3];
-		        buff[0] = '%';
-		        buff[1] = e[1];
-		        buff[2] = '\0';
-		        pushstr(L, buff);
+		        luaG_runerror(L,
+		            "invalid option " + LUA_QL("%%%c") + " to " + LUA_QL("lua_pushfstring"),
+		            *(e + 1));
 		        break;
 		      }
 		    }
@@ -159,39 +157,45 @@ namespace KopiLua
 		}
 
 
+		private static int LL(x) { return (sizeof(x) - 1); }
+		private const string RETS = "...";
+		private const string PRE = "[string \"";
+		private const string POS = "\"]";
+
+		public void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l); a += (l); }
 		public static void luaO_chunkid (CharPtr out_, CharPtr source, uint bufflen) {
-			//out_ = "";
-		  if (source[0] == '=') {
-		    strncpy(out_, source+1, (int)bufflen);  /* remove first char */
-		    out_[bufflen-1] = '\0';  /* ensures null termination */
-		  }
-		  else {  /* out = "source", or "...source" */
-		    if (source[0] == '@') {
-		      uint l;
-		      source = source.next();  /* skip the `@' */
-		      bufflen -= (uint)(" '...' ".Length + 1);
-		      l = (uint)strlen(source);
-		      strcpy(out_, "");
-		      if (l > bufflen) {
-		        source += (l-bufflen);  /* get last part of file name */
-		        strcat(out_, "...");
-		      }
-		      strcat(out_, source);
-		    }
-		    else {  /* out = [string "string"] */
-		      uint len = strcspn(source, "\n\r");  /* stop at first newline */
-		      bufflen -= (uint)(" [string \"...\"] ".Length + 1);
-		      if (len > bufflen) len = bufflen;
-		      strcpy(out_, "[string \"");
-		      if (source[len] != '\0') {  /* must truncate? */
-		        strncat(out_, source, (int)len);
-		        strcat(out_, "...");
-		      }
-		      else
-		        strcat(out_, source);
-		      strcat(out_, "\"]");
+		  size_t l = strlen(source);
+		  if (*source == '=') {  /* 'literal' source */
+		    if (l <= bufflen)  /* small enough? */
+		      memcpy(out, source + 1, l);
+		    else {  /* truncate it */
+		      addstr(out, source + 1, bufflen - 1);
+		      *out = '\0';
 		    }
 		  }
+		  else if (*source == '@') {  /* file name */
+		    if (l <= bufflen)  /* small enough? */
+		      memcpy(out, source + 1, l);
+		    else {  /* add '...' before rest of name */
+		      addstr(out, RETS, LL(RETS));
+		      bufflen -= LL(RETS);
+		      memcpy(out, source + 1 + l - bufflen, bufflen);
+		    }
+		  }
+		  else {  /* string; format as [string "source"] */
+		    const char *nl = strchr(source, '\n');  /* find first new line (if any) */
+		    addstr(out, PRE, LL(PRE));  /* add prefix */
+		    bufflen -= LL(PRE RETS POS);  /* save space for prefix+sufix */
+		    if (l < bufflen && nl == NULL) {  /* small one-line source? */
+		      addstr(out, source, l);  /* keep it */
+		    }
+		    else {
+		      if (nl != null) l = nl - source;  /* stop at first newline */
+		      if (l > bufflen) l = bufflen;
+		      addstr(out, source, l);
+		      addstr(out, RETS, LL(RETS));
+		    }
+		    memcpy(out, POS, LL(POS) + 1);
 		}
 
 	}
