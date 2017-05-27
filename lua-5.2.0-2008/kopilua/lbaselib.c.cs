@@ -307,6 +307,7 @@ namespace KopiLua
 		  }
 		  else {
 			  luaL_error(L, "reader function must return a string");
+			  size = 0; //FIXME:added
 		      return null;  /* to avoid warnings */
 		  }
 		}

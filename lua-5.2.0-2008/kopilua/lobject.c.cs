@@ -24,7 +24,7 @@ namespace KopiLua
 
 	
 
-
+		
 		/*
 		** converts an integer to a "floating point byte", represented as
 		** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
@@ -138,7 +138,8 @@ namespace KopiLua
 		      default: {
 		        luaG_runerror(L,
 		            "invalid option " + LUA_QL("%%%c") + " to " + LUA_QL("lua_pushfstring"),
-		            *(e + 1));
+		            (e + 1).ToString()); 
+		    	//FIXME: *(e+1)
 		        break;
 		      }
 		    }
@@ -157,46 +158,46 @@ namespace KopiLua
 		}
 
 
-		private static int LL(x) { return (sizeof(x) - 1); }
+		private static uint LL(string x) { return (uint)x.Length; }
 		private const string RETS = "...";
 		private const string PRE = "[string \"";
 		private const string POS = "\"]";
 
-		public void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l); a += (l); }
+		public static void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l); a += (l); }
 		public static void luaO_chunkid (CharPtr out_, CharPtr source, uint bufflen) {
-		  size_t l = strlen(source);
-		  if (*source == '=') {  /* 'literal' source */
+		  uint l = (uint)strlen(source);
+		  if (source[0] == '=') {  /* 'literal' source */
 		    if (l <= bufflen)  /* small enough? */
-		      memcpy(out, source + 1, l);
+		      memcpy(out_, source + 1, l);
 		    else {  /* truncate it */
-		      addstr(out, source + 1, bufflen - 1);
-		      *out = '\0';
+		      addstr(out_, source + 1, bufflen - 1);
+		      out_ = "";//FIXME:???//*out_ = '\0';
 		    }
 		  }
-		  else if (*source == '@') {  /* file name */
+		  else if (source[0] == '@') {  /* file name */
 		    if (l <= bufflen)  /* small enough? */
-		      memcpy(out, source + 1, l);
+		      memcpy(out_, source + 1, l);
 		    else {  /* add '...' before rest of name */
-		      addstr(out, RETS, LL(RETS));
+		      addstr(out_, RETS, LL(RETS));
 		      bufflen -= LL(RETS);
-		      memcpy(out, source + 1 + l - bufflen, bufflen);
+		      memcpy(out_, source + 1 + l - bufflen, bufflen);
 		    }
 		  }
 		  else {  /* string; format as [string "source"] */
-		    const char *nl = strchr(source, '\n');  /* find first new line (if any) */
-		    addstr(out, PRE, LL(PRE));  /* add prefix */
-		    bufflen -= LL(PRE RETS POS);  /* save space for prefix+sufix */
-		    if (l < bufflen && nl == NULL) {  /* small one-line source? */
-		      addstr(out, source, l);  /* keep it */
+		    CharPtr nl = strchr(source, '\n');  /* find first new line (if any) */
+		    addstr(out_, PRE, LL(PRE));  /* add prefix */
+		    bufflen -= LL(PRE + RETS + POS);  /* save space for prefix+sufix */
+		    if (l < bufflen && nl == null) {  /* small one-line source? */
+		      addstr(out_, source, l);  /* keep it */
 		    }
 		    else {
-		      if (nl != null) l = nl - source;  /* stop at first newline */
+		      if (nl != null) l = (uint)(nl - source);  /* stop at first newline */ //FIXME:(uint)
 		      if (l > bufflen) l = bufflen;
-		      addstr(out, source, l);
-		      addstr(out, RETS, LL(RETS));
+		      addstr(out_, source, l);
+		      addstr(out_, RETS, LL(RETS));
 		    }
-		    memcpy(out, POS, LL(POS) + 1);
+		    memcpy(out_, POS, LL(POS) + 1);
+		  }
 		}
-
 	}
 }

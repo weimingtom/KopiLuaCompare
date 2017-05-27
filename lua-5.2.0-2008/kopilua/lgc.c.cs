@@ -69,9 +69,9 @@ namespace KopiLua
 		}
 
 
-		private static void linktable (Table h, GCObjectRef p) {
-		  h.gclist = *p;
-		  *p = obj2gco(h);
+		private static void linktable (Table h, ref GCObject p) {
+		  h.gclist = p;
+		  p = obj2gco(h);
 		}
 		
 		
@@ -95,7 +95,7 @@ namespace KopiLua
 		    return 0;
 		  }
 		  return iswhite(gcvalue(o)) ||
-		    (ttisuserdata(o) && (!iskey && isfinalized(uvalue(o))));
+		  	(ttisuserdata(o) && (iskey == 0 && isfinalized(uvalue(o)))) ? 1 : 0;
 		}
 
 
@@ -128,7 +128,7 @@ namespace KopiLua
 			  break;
 			}
 			case LUA_TTABLE: {
-			  linktable(gco2h(o), g.gray);
+			  linktable(gco2h(o), ref g.gray);
 			  break;
 			}
 			case LUA_TTHREAD: {
@@ -192,10 +192,10 @@ namespace KopiLua
 
 
 
-		static void traverseweakvalue (global_State *g, Table *h) {
+		private static void traverseweakvalue (global_State g, Table h) {
 		  int i = sizenode(h);
-		  while (i--) {
-		    Node *n = gnode(h, i);
+		  while (i-- != 0) {
+		    Node n = gnode(h, i);
 		    lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
 		    if (ttisnil(gval(n)))
 		      removeentry(n);  /* remove empty entries */
@@ -204,29 +204,29 @@ namespace KopiLua
 		      markvalue(g, gkey(n));
 		    }
 		  }
-		  linktable(h, &g->weak);
+		  linktable(h, ref g.weak);
 		}
 
 
-		static int traverseephemeron (global_State *g, Table *h) {
+		private static int traverseephemeron (global_State g, Table h) {
 		  int marked = 0;
 		  int hasclears = 0;
-		  int i = h->sizearray;
-		  while (i--) {  /* mark array part (numeric keys are 'strong') */
-		    if (iscollectable(&h->array[i]) && iswhite(gcvalue(&h->array[i]))) {
+		  int i = h.sizearray;
+		  while (i-- != 0) {  /* mark array part (numeric keys are 'strong') */
+		    if (iscollectable(h.array[i]) && iswhite(gcvalue(h.array[i]))) {
 		      marked = 1;
-		      reallymarkobject(g, gcvalue(&h->array[i]));
+		      reallymarkobject(g, gcvalue(h.array[i]));
 		    }
 		  }
 		  i = sizenode(h);
-		  while (i--) {
-		    Node *n = gnode(h, i);
+		  while (i-- != 0) {
+		    Node n = gnode(h, i);
 		    lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
 		    else if (iscollectable(gval(n)) && iswhite(gcvalue(gval(n)))) {
 		      /* value is not marked yet */
-		      if (iscleared(key2tval(n), 1))  /* key is not marked (yet)? */
+		      if (iscleared(key2tval(n), 1) != 0)  /* key is not marked (yet)? */
 		        hasclears = 1;  /* may have to propagate mark from key to value */
 		      else {  /* mark value only if key is marked */
 		        marked = 1;  /* some mark changed status */
@@ -234,22 +234,22 @@ namespace KopiLua
 		      }
 		    }
 		  }
-		  if (hasclears)
-		    linktable(h, &g->ephemeron);
+		  if (hasclears != 0)
+		    linktable(h, ref g.ephemeron);
 		  else  /* nothing to propagate */
-		    linktable(h, &g->weak);  /* avoid convergence phase  */
+		    linktable(h, ref g.weak);  /* avoid convergence phase  */
 		  return marked;
 		}
 
 
-		static void traversestrongtable (global_State *g, Table *h) {
+		private static void traversestrongtable (global_State g, Table h) {
 		  int i;
-		  i = h->sizearray;
-		  while (i--)
-		    markvalue(g, &h->array[i]);
+		  i = h.sizearray;
+		  while (i-- != 0)
+		    markvalue(g, h.array[i]);
 		  i = sizenode(h);
-		  while (i--) {
-		    Node *n = gnode(h, i);
+		  while (i-- != 0) {
+		    Node n = gnode(h, i);
 		    lua_assert(ttype(gkey(n)) != LUA_TDEADKEY || ttisnil(gval(n)));
 		    if (ttisnil(gval(n)))
 		      removeentry(n);  /* remove empty entries */
@@ -262,21 +262,22 @@ namespace KopiLua
 		}
 
 
-		static void traversetable (global_State *g, Table *h) {
-		  const TValue *mode = gfasttm(g, h->metatable, TM_MODE);
-		  markobject(g, h->metatable);
-		  if (mode && ttisstring(mode)) {  /* is there a weak mode? */
-		    int weakkey = (strchr(svalue(mode), 'k') != NULL);
-		    int weakvalue = (strchr(svalue(mode), 'v') != NULL);
-		    if (weakkey || weakvalue) {  /* is really weak? */
+		private static void traversetable (global_State g, Table h) {
+		  TValue mode = gfasttm(g, h.metatable, TMS.TM_MODE);
+		  markobject(g, h.metatable);
+		  //FIXME:??? modify mode!=0 to mode!=null, avoid lua_TValue.operator int() exception
+		  if (mode != null && ttisstring(mode)) {  /* is there a weak mode? */ 
+		  	int weakkey = (strchr(svalue(mode), 'k') != null) ? 1 : 0;
+		    int weakvalue = (strchr(svalue(mode), 'v') != null) ? 1 : 0;
+		    if (weakkey != 0 || weakvalue != 0) {  /* is really weak? */
 		      black2gray(obj2gco(h));  /* keep table gray */
-		      if (!weakkey)  /* strong keys? */
+		      if (weakkey == 0)  /* strong keys? */
 		        traverseweakvalue(g, h);
-		      else if (!weakvalue)  /* strong values? */
+		      else if (weakvalue == 0)  /* strong values? */
 		        traverseephemeron(g, h);
 		      else {
-		        lua_assert(weakkey && weakvalue);  /* nothing to traverse now */
-		        linktable(h, &g->allweak);
+		        lua_assert(weakkey != 0 && weakvalue != 0);  /* nothing to traverse now */
+		        linktable(h, ref g.allweak);
 		      }
 		      return;
 		    }  /* else go through */
@@ -424,21 +425,21 @@ namespace KopiLua
 
 		//FIXME:-------------------->
 
-		static void convergeephemerons (global_State *g) {
+		private static void convergeephemerons (global_State g) {
 		  int changed;
 		  do {
-		    GCObject *w;
-		    GCObject *next = g->ephemeron;
-		    g->ephemeron = NULL;
+		    GCObject w;
+		    GCObject next = g.ephemeron;
+		    g.ephemeron = null;
 		    changed = 0;
-		    while ((w = next) != NULL) {
-		      next = gco2h(w)->gclist;
-		      if (traverseephemeron(g, gco2h(w))) {
+		    while ((w = next) != null) {
+		      next = gco2h(w).gclist;
+		      if (traverseephemeron(g, gco2h(w)) != 0) {
 		        changed = 1;
 		        propagateall(g);
 		      }
 		    }
-		  } while (changed);
+		  } while (changed != 0);
 		}
 
         //FIXME:<--------------------------
@@ -451,14 +452,14 @@ namespace KopiLua
 			int i = h.sizearray;
 		    while (i--!= 0) {
 			  TValue o = h.array[i];
-			  if (iscleared(o, false))  /* value was collected? */
+			  if (iscleared(o, 0) != 0)  /* value was collected? */
 			    setnilvalue(o);  /* remove value */
 		    }
 			i = sizenode(h);
 			while (i-- != 0) {
 			  Node n = gnode(h, i);
 			  if (!ttisnil(gval(n)) &&  /* non-empty entry? */
-				  (iscleared(key2tval(n), true) || iscleared(gval(n), false))) {
+				  (iscleared(key2tval(n), 1) != 0 || iscleared(gval(n), 0) != 0)) {
 				setnilvalue(gval(n));  /* remove value ... */
 				removeentry(n);  /* remove entry from Table */
 			  }
@@ -647,7 +648,7 @@ namespace KopiLua
 		  propagateall(g);
 		  /* remark ephemeron tables */
 		  g.gray = g.ephemeron;
-		  g.ephemeron = NULL;
+		  g.ephemeron = null;
 		  propagateall(g);
 		  /* remark gray again */
 		  g.gray = g.grayagain;
