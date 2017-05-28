@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.36 2007/05/09 15:49:36 roberto Exp roberto $
+** $Id: ldebug.c,v 2.41 2008/08/26 13:27:42 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -75,7 +75,7 @@ namespace KopiLua
 		  lua_lock(L);
 		  for (ci = L.ci; level > 0 && ci > L.base_ci[0]; CallInfo.dec(ref ci)) {
 			level--;
-			if (f_isLua(ci))  /* Lua function? */
+			if (isLua(ci))  /* Lua function? */
 			  level -= ci.tailcalls;  /* skip lost tail calls */
 		  }
 		  if (level == 0 && ci > L.base_ci[0]) {  /* level found? */
@@ -257,20 +257,20 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		private static int checkjump(Proto pt, int pc) { if (!(0 <= pc && pc < pt.sizecode)) return 0; return 1; }
+        //#define check(x)		if (!(x)) return 0;
 
+        //FIXME: #define, return to outside
 		private static int checkreg(Proto pt, int reg) { if (!((reg) < (pt).maxstacksize)) return 0; return 1; }
 
 
 
 		private static int precheck (Proto pt) {
 		  if (!(pt.maxstacksize <= MAXSTACK)) return 0;
-		  lua_assert(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize);
-		  lua_assert(!((pt.is_vararg & VARARG_NEEDSARG)==0) ||
-					  ((pt.is_vararg & VARARG_HASARG)!=0));
-		  if (!(pt.sizeupvalues <= pt.nups)) return 0;
+		  if (!(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize)) return 0;
+		  if (!(!((pt.is_vararg & VARARG_NEEDSARG)==0) || ((pt.is_vararg & VARARG_HASARG)!=0))) return 0;
+		  if (!(pt.sizeupvalues == pt.nups || pt.sizeupvalues == 0)) return 0;
 		  if (!(pt.sizelineinfo == pt.sizecode || pt.sizelineinfo == 0)) return 0;
-		  if (!(GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
+		  if (!(pt.sizecode > 0 && GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
 		  return 1;
 		}
 
@@ -307,6 +307,7 @@ namespace KopiLua
 		private static Instruction symbexec (Proto pt, int lastpc, int reg) {
 		  int pc;
 		  int last;  /* stores position of last instruction that changed `reg' */
+		  //FIXME:added int dest;
 		  int dest;
 		  last = pt.sizecode-1;  /* points to final return (a `neutral' instruction) */
 		  if (precheck(pt)==0) return 0;
@@ -317,9 +318,9 @@ namespace KopiLua
 			int b = 0;
 			int c = 0;
 			if (!((int)op < NUM_OPCODES)) return 0;
-			checkreg(pt, a);
 			switch (getOpMode(op)) {
 			  case OpMode.iABC: {
+                checkreg(pt, a);
 				b = GETARG_B(i);
 				c = GETARG_C(i);
 				if (checkArgMode(pt, b, getBMode(op))==0) return 0;
@@ -327,32 +328,28 @@ namespace KopiLua
 				break;
 			  }
 			  case OpMode.iABx: {
+                checkreg(pt, a);
 				b = GETARG_Bx(i);
 				if (getBMode(op) == OpArgMask.OpArgK) if (!(b < pt.sizek)) return 0;
 				break;
 			  }
 			  case OpMode.iAsBx: {
+                checkreg(pt, a);
 				b = GETARG_sBx(i);
 				if (getBMode(op) == OpArgMask.OpArgR) {
+				  //FIXME: int dest -> dest
 				  dest = pc+1+b;
 				  if (!((0 <= dest && dest < pt.sizecode))) return 0;
-				  if (dest > 0) {
-					/* cannot jump to a setlist count */
-		            Instruction d = pt.code[dest-1];
-		            if(!(!(GET_OPCODE(d) == OpCode.OP_SETLIST && GETARG_C(d) == 0))) return 0;
-
-				  }
 				}
 				break;
 			  }
+              case iAx: break;
 			}
 			if (testAMode(op) != 0) {
 			  if (a == reg) last = pc;  /* change register `a' */
 			}
-			if (testTMode(op) != 0) {
-			  if (!(pc+2 < pt.sizecode)) return 0;  /* check skip */
+			if (testTMode(op) != 0) 
 			  if (!(GET_OPCODE(pt.code[pc + 1]) == OpCode.OP_JMP)) return 0;
-			}
 			switch (op) {
 			  case OpCode.OP_LOADBOOL: {
 				if (!(c == 0 || pc+2 < pt.sizecode)) return 0;  /* check its jump */
@@ -382,15 +379,18 @@ namespace KopiLua
 				if (!(b < c)) return 0;  /* at least two operands */
 				break;
 			  }
-			  case OpCode.OP_TFORLOOP: {
+			  case OpCode.OP_TFORCALL: {
 				if (!(c >= 1)) return 0;  /* at least one result (control variable) */
 				checkreg(pt, a+2+c);  /* space for results */
+                check(GET_OPCODE(pt.code[pc+1]) == OpCode.OP_TFORLOOP);
 				if (reg >= a+2) last = pc;  /* affect all regs above its base */
 				break;
 			  }
+              case OpCode.OP_TFORLOOP:
 			  case OpCode.OP_FORLOOP:
 			  case OpCode.OP_FORPREP:
 				checkreg(pt, a+3);
+				//FIXME:dest added 
 				/* go through ...no, on second thoughts don't, because this is C# */
 				dest = pc + 1 + b;
 				/* not full check and jump is forward and do not skip `lastpc'? */
@@ -426,7 +426,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETLIST: {
 				if (b > 0) checkreg(pt, a + b);
-				if (c == 0) pc++;
+				if (c == 0) if (!(GET_OPCODE(pt.code[pc + 1]) == OpCode.OP_EXTRAARG)) return 0;
 				break;
 			  }
 			  case OpCode.OP_CLOSURE: {
@@ -458,7 +458,6 @@ namespace KopiLua
 		}
 
 		//#undef check
-		//#undef checkjump
 		//#undef checkreg
 
 		/* }====================================================== */

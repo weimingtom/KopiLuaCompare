@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.33 2007/03/27 14:11:38 roberto Exp roberto $
+** $Id: lcode.c,v 2.35 2008/04/02 16:16:06 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -693,10 +693,10 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-			  if (isnumeral(e) != 0)  /* -constant? */
-		        e.u.nval = luai_numunm(null, e.u.nval);
+			  if (isnumeral(e) != 0 && e.u.nval != 0)  /* minus non-zero constant? */
+		        e.u.nval = luai_numunm(null, e.u.nval);  /* fold it */
 		      else {
-				luaK_exp2anyreg(fs, e);  /* cannot operate on non-numeric constants */
+				luaK_exp2anyreg(fs, e);
 			    codearith(fs, OpCode.OP_UNM, e, e2);
               }
 			  break;
@@ -820,16 +820,25 @@ namespace KopiLua
 		  return luaK_code(fs, CREATE_ABx(o, a, bc));
 		}
 
+
+		private static int luaK_codeAx (FuncState fs, OpCode o, int a) {
+		  lua_assert(getOpMode(o) == iAx);
+		  return luaK_code(fs, CREATE_Ax(o, a));
+		}
+
+
 		public static void luaK_setlist (FuncState fs, int base_, int nelems, int tostore) {
 		  int c =  (nelems - 1)/LFIELDS_PER_FLUSH + 1;
 		  int b = (tostore == LUA_MULTRET) ? 0 : tostore;
 		  lua_assert(tostore != 0);
 		  if (c <= MAXARG_C)
 			luaK_codeABC(fs, OpCode.OP_SETLIST, base_, b, c);
-		  else {
-			  luaK_codeABC(fs, OpCode.OP_SETLIST, base_, b, 0);
-			luaK_code(fs, c);
+		  else if (c <= MAXARG_Ax) {
+			luaK_codeABC(fs, OpCode.OP_SETLIST, base_, b, 0);
+			luaK_codeAx(fs, OpCode.OP_EXTRAARG, c);
 		  }
+		  else
+		    luaX_syntaxerror(fs.ls, "constructor too long");
 		  fs.freereg = base_ + 1;  /* free registers with list values */
 		}
 

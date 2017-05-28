@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.61 2007/08/07 16:53:40 roberto Exp roberto $
+** $Id: lapi.c,v 2.67 2008/07/04 18:27:11 roberto Exp roberto $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -59,6 +59,7 @@ namespace KopiLua
 			default: {
 			  Closure func = curr_func(L);
 			  idx = LUA_GLOBALSINDEX - idx;
+              api_check(L, idx <= UCHAR_MAX + 1);
 			  return (idx <= func.c.nupvalues)
 						? func.c.upvalue[idx-1]
 						: (TValue)luaO_nilobject;
@@ -79,15 +80,14 @@ namespace KopiLua
 
 
 		public static int lua_checkstack (lua_State L, int size) {
-		  int res;
+		  int res = 1;
 		  lua_lock(L);
-		  if ((L.top - L.base_ + size) > LUAI_MAXCSTACK)
+		  if (size > LUAI_MAXCSTACK || (L.top - L.base_ + size) > LUAI_MAXCSTACK)
 			res = 0;  /* stack overflow */
-		  else {
+		  else if (size > 0) {
 			luaD_checkstack(L, size);
 			if (L.ci.top < L.top + size)
 			  L.ci.top = L.top + size;
-            res = 1;
 		  }
 		  lua_unlock(L);
 		  return res;
@@ -189,6 +189,7 @@ namespace KopiLua
 			if (idx < LUA_GLOBALSINDEX)  /* function upvalue? */
 			  luaC_barrier(L, curr_func(L), L.top - 1);
 		  }
+		  /* LUA_GLOBALSINDEX does not need gc barrier (threads are never black) */
 		  StkId.dec(ref L.top);
 		  lua_unlock(L);
 		}
@@ -465,8 +466,9 @@ namespace KopiLua
 		public static void lua_pushcclosure (lua_State L, lua_CFunction fn, int n) {
 		  Closure cl;
 		  lua_lock(L);
-		  luaC_checkGC(L);
 		  api_checknelems(L, n);
+		  api_check(L, n <= UCHAR_MAX);
+		  luaC_checkGC(L);
 		  cl = luaF_newCclosure(L, n, getcurrenv(L));
 		  cl.c.f = fn;
 		  L.top -= n;
@@ -698,8 +700,10 @@ namespace KopiLua
 			}
 			case LUA_TUSERDATA: {
 			  uvalue(obj).metatable = mt;
-			  if (mt != null)
+			  if (mt != null) {
 				luaC_objbarrier(L, rawuvalue(obj), mt);
+                luaC_checkfinalizer(L, rawuvalue(obj));
+              }
 			  break;
 			}
 			default: {
@@ -909,17 +913,19 @@ namespace KopiLua
 			  break;
 			}
 			case LUA_GCSTEP: {
+              lu_mem oldts = g.GCthreshold;
 			  lu_mem a = ((lu_mem)data << 10);
-			  if (a <= g.totalbytes)
-				g.GCthreshold = (uint)(g.totalbytes - a);
-			  else
-				g.GCthreshold = 0;
-			  
-		      while (g.GCthreshold <= g.totalbytes)
+			  g.GCthreshold = (a <= g.totalbytes) ? g.totalbytes - a : 0;
+		      while (g.GCthreshold <= g.totalbytes) {
 		        luaC_step(L);
-		      if (g.gcstate == GCSpause)  /* end of cycle? */
-		        res = 1;  /* signal it */
-			  break;
+		        if (g.gcstate == GCSpause) {  /* end of cycle? */
+		          res = 1;  /* signal it */
+			      break;
+			    }
+              }
+		      if (oldts == MAX_LUMEM)  /* collector was stopped? */
+		        g.GCthreshold = oldts;  /* keep it that way */
+		      break;
 			}
 			case LUA_GCSETPAUSE: {
 			  res = g.gcpause;

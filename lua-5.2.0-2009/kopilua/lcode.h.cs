@@ -30,5 +30,7 @@ namespace KopiLua
 		public static int luaK_codeAsBx(FuncState fs, OpCode o, int A, int sBx)	{return luaK_codeABx(fs,o,A,sBx+MAXARG_sBx);}
 
 		public static void luaK_setmultret(FuncState fs, expdesc e)	{luaK_setreturns(fs, e, LUA_MULTRET);}
+		
+		public static void luaK_jumpto(FuncState fs, int t)	{luaK_patchlist(fs, luaK_jump(fs), t);}
 	}
 }

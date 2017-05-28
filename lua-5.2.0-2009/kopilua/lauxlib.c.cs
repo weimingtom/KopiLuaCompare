@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.173 2007/09/05 17:17:39 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.178 2008/06/13 18:45:35 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -44,8 +44,7 @@ namespace KopiLua
 		  if (strcmp(ar.namewhat, "method") == 0) {
 			narg--;  /* do not count `self' */
 			if (narg == 0)  /* error is in the self argument itself? */
-			  return luaL_error(L, "calling " + LUA_QS + " on bad self ({1})",
-								   ar.name, extramsg);
+			  return luaL_error(L, "calling " + LUA_QS + " on bad self", ar.name);
 		  }
 		  if (ar.name == null)
 			ar.name = "?";
@@ -165,13 +164,13 @@ namespace KopiLua
 		  if (p != null) {  /* value is a userdata? */
 			if (lua_getmetatable(L, ud) != 0) {  /* does it have a metatable? */
 			  lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get correct metatable */
-			  if (lua_rawequal(L, -1, -2) != 0) {  /* does it have the correct mt? */
-				lua_pop(L, 2);  /* remove both metatables */
-				return p;
-			  }
+			  if (lua_rawequal(L, -1, -2) == 0)  /* not the same? */
+                p = null;  /* value is a userdata with wrong metatable */
+			  lua_pop(L, 2);  /* remove both metatables */
+			  return p;
 			}
 		  }
-		  return null;  /* value is not a userdata of the proper type */
+		  return null;  /* value is not a userdata with a metatable */
 		}
 
 		public static object luaL_checkudata (lua_State L, int ud, CharPtr tname) {
@@ -480,7 +479,7 @@ namespace KopiLua
 			lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
 			if (lf.f == null) return errfile(L, "reopen", fnameindex);
 			/* skip eventual `#!...' */
-		   while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
+		    while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
 			lf.extraline = 0;
 		  }
 		  ungetc(c, lf.f);
@@ -555,23 +554,28 @@ namespace KopiLua
 		}
 
 
-		public static CharPtr luaL_tostring (lua_State L, int idx) {
+		public static CharPtr luaL_tolstring (lua_State L, int idx, uint[] len) { //FIXME: size_t * -> uint[]
 		  if (luaL_callmeta(L, idx, "__tostring") == 0) {  /* no metafield? */
 		    switch (lua_type(L, idx)) {
 		      case LUA_TNUMBER:
-		        return lua_pushstring(L, lua_tostring(L, idx));
+		        lua_pushstring(L, lua_tostring(L, idx));
+                break;
 		      case LUA_TSTRING:
 		        lua_pushvalue(L, idx);
 		        break;
 		      case LUA_TBOOLEAN:
-		        return lua_pushstring(L, (lua_toboolean(L, idx) != 0 ? "true" : "false"));
+		        lua_pushstring(L, (lua_toboolean(L, idx) != 0 ? "true" : "false"));
+                break;
 		      case LUA_TNIL:
-		        return lua_pushliteral(L, "nil");
+		        lua_pushliteral(L, "nil");
+                break;
 		      default:
-		        return lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
+		        lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
 		                                            lua_topointer(L, idx));
+                break;
 		    }
 		  }
+          if (len != null) len[0] = lua_objlen(L, -1);
 		  return lua_tostring(L, -1);
 		}
 
@@ -584,17 +588,17 @@ namespace KopiLua
 		  return size;
 		}
 
+
 		public static void luaL_register (lua_State L, CharPtr libname,
 									  luaL_Reg[] l) {		  
 		  if (libname!=null) {
-			int size = libsize(l);
 			/* check whether lib already exists */
-			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
+			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);
 			lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
 			if (!lua_istable(L, -1)) {  /* not found? */
 			  lua_pop(L, 1);  /* remove previous result */
 			  /* try global variable (and create one if it does not exist) */
-			  if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, size) != null)
+			  if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, libsize(l)) != null)
 				luaL_error(L, "name conflict for module " + LUA_QS, libname);
 			  lua_pushvalue(L, -1);
 			  lua_setfield(L, -3, libname);  /* _LOADED[libname] = new table */
