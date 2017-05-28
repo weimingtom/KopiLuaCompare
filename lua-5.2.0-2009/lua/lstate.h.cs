@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.29 2007/10/29 16:51:20 roberto Exp roberto $
+** $Id: lstate.h,v 2.35 2008/08/13 17:01:33 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -13,6 +13,32 @@
 #include "ltm.h"
 #include "lzio.h"
 
+
+/*
+
+** Some notes about garbage-collected objects:  All objects in Lua must
+** be kept somehow accessible until being freed.
+**
+** Lua keeps most objects linked in list g->rootgc. The link uses field
+** 'next' of the CommonHeader.
+**
+** Strings are kept in several lists headed by the array g->strt.hash.
+**
+** Open upvalues are not subject to independent garbage collection. They
+** are collected together with their respective threads. Lua keeps a
+** double-linked list with all open upvalues (g->uvhead) so that it can
+** mark objects referred by them. (They are always gray, so they must
+** be remarked in the atomic step. Usually their contents would be marked
+** when traversing the respective threads, but the thread may already be
+** dead, while the upvalue is still accessible through closures.)
+**
+** Userdata with finalizers are kept in the list g->rootgc, but after
+** the mainthread, which should be otherwise the last element in the
+** list, as it was the first one inserted there.
+**
+** The list g->tobefnz links all userdata being finalized.
+
+*/
 
 
 struct lua_longjmp;  /* defined in ldo.c */
@@ -34,6 +60,11 @@ struct lua_longjmp;  /* defined in ldo.c */
 #define BASIC_STACK_SIZE        (2*LUA_MINSTACK)
 
 
+/* kinds of Garbage Collection */
+#define KGC_NORMAL	0
+#define KGC_FORCED	1	/* gc was forced by the program */
+#define KGC_EMERGENCY	2	/* gc was forced by an allocation failure */
+
 
 typedef struct stringtable {
   GCObject **hash;
@@ -50,16 +81,24 @@ typedef struct CallInfo {
   StkId func;  /* function index in the stack */
   StkId	top;  /* top for this function */
   const Instruction *savedpc;
-  int nresults;  /* expected number of results from this function */
+  short nresults;  /* expected number of results from this function */
+  lu_byte callstatus;
   int tailcalls;  /* number of tail calls lost under this entry */
 } CallInfo;
 
 
+/*
+** Bits in CallInfo status
+*/
+#define CIST_LUA	1	/* call is running a Lua function */
+#define CIST_HOOKED	2	/* call is running a debug hook */
+#define CIST_REENTRY	4	/* call is running on same invocation of
+                                   luaV_execute of previous call */
+
 
 #define curr_func(L)	(clvalue(L->ci->func))
 #define ci_func(ci)	(clvalue((ci)->func))
-#define f_isLua(ci)	(!ci_func(ci)->c.isC)
-#define isLua(ci)	(ttisfunction((ci)->func) && f_isLua(ci))
+#define isLua(ci)	((ci)->callstatus & CIST_LUA)
 
 
 /*
@@ -72,16 +111,16 @@ typedef struct global_State {
   unsigned short nCcalls;  /* number of nested C calls */
   lu_byte currentwhite;
   lu_byte gcstate;  /* state of garbage collector */
-  lu_byte emergencygc;  /* true when collect was trigged by alloc error */
+  lu_byte gckind;  /* kind of GC running */
   int sweepstrgc;  /* position of sweep in `strt' */
   GCObject *rootgc;  /* list of all collectable objects */
-  GCObject **sweepgc;  /* position of sweep in `rootgc' */
+  GCObject **sweepgc;  /* current position of sweep */
   GCObject *gray;  /* list of gray objects */
   GCObject *grayagain;  /* list of objects to be traversed atomically */
-  GCObject *weak;  /* list of (something) weak tables */
-  GCObject *ephemeron;  /* list of ephemeron tables */
+  GCObject *weak;  /* list of tables with weak values */
+  GCObject *ephemeron;  /* list of ephemeron tables (weak keys) */
   GCObject *allweak;  /* list of all-weak tables */
-  GCObject *tmudata;  /* last element of list of userdata to be GC */
+  GCObject *tobefnz;  /* list of userdata to be GC */
   Mbuffer buff;  /* temporary buffer for string concatentation */
   lu_mem GCthreshold;
   lu_mem totalbytes;  /* number of bytes currently allocated */
@@ -138,7 +177,7 @@ struct lua_State {
 ** Union of all collectable objects
 */
 union GCObject {
-  GCheader gch;
+  GCheader gch;  /* common header */
   union TString ts;
   union Udata u;
   union Closure cl;
@@ -149,13 +188,15 @@ union GCObject {
 };
 
 
+#define gch(o)		(&(o)->gch)
+
 /* macros to convert a GCObject into a specific value */
 #define rawgco2ts(o)	check_exp((o)->gch.tt == LUA_TSTRING, &((o)->ts))
 #define gco2ts(o)	(&rawgco2ts(o)->tsv)
 #define rawgco2u(o)	check_exp((o)->gch.tt == LUA_TUSERDATA, &((o)->u))
 #define gco2u(o)	(&rawgco2u(o)->uv)
 #define gco2cl(o)	check_exp((o)->gch.tt == LUA_TFUNCTION, &((o)->cl))
-#define gco2h(o)	check_exp((o)->gch.tt == LUA_TTABLE, &((o)->h))
+#define gco2t(o)	check_exp((o)->gch.tt == LUA_TTABLE, &((o)->h))
 #define gco2p(o)	check_exp((o)->gch.tt == LUA_TPROTO, &((o)->p))
 #define gco2uv(o)	check_exp((o)->gch.tt == LUA_TUPVAL, &((o)->uv))
 #define ngcotouv(o)	check_exp((o)->gch.tt == LUA_TUPVAL, &((o)->uv))

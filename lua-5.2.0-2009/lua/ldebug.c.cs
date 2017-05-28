@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.36 2007/05/09 15:49:36 roberto Exp roberto $
+** $Id: ldebug.c,v 2.41 2008/08/26 13:27:42 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -88,7 +88,7 @@ LUA_API int lua_getstack (lua_State *L, int level, lua_Debug *ar) {
   lua_lock(L);
   for (ci = L->ci; level > 0 && ci > L->base_ci; ci--) {
     level--;
-    if (f_isLua(ci))  /* Lua function? */
+    if (isLua(ci))  /* Lua function? */
       level -= ci->tailcalls;  /* skip lost tail calls */
   }
   if (level == 0 && ci > L->base_ci) {  /* level found? */
@@ -272,20 +272,17 @@ LUA_API int lua_getinfo (lua_State *L, const char *what, lua_Debug *ar) {
 
 #define check(x)		if (!(x)) return 0;
 
-#define checkjump(pt,pc)	check(0 <= pc && pc < pt->sizecode)
-
 #define checkreg(pt,reg)	check((reg) < (pt)->maxstacksize)
 
 
 
 static int precheck (const Proto *pt) {
   check(pt->maxstacksize <= MAXSTACK);
-  lua_assert(pt->numparams+(pt->is_vararg & VARARG_HASARG) <= pt->maxstacksize);
-  lua_assert(!(pt->is_vararg & VARARG_NEEDSARG) ||
-              (pt->is_vararg & VARARG_HASARG));
-  check(pt->sizeupvalues <= pt->nups);
+  check(pt->numparams+(pt->is_vararg & VARARG_HASARG) <= pt->maxstacksize);
+  check(!(pt->is_vararg & VARARG_NEEDSARG) || (pt->is_vararg & VARARG_HASARG));
+  check(pt->sizeupvalues == pt->nups || pt->sizeupvalues == 0);
   check(pt->sizelineinfo == pt->sizecode || pt->sizelineinfo == 0);
-  check(GET_OPCODE(pt->code[pt->sizecode-1]) == OP_RETURN);
+  check(pt->sizecode > 0 && GET_OPCODE(pt->code[pt->sizecode-1]) == OP_RETURN);
   return 1;
 }
 
@@ -331,9 +328,9 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
     int b = 0;
     int c = 0;
     check(op < NUM_OPCODES);
-    checkreg(pt, a);
     switch (getOpMode(op)) {
       case iABC: {
+        checkreg(pt, a);
         b = GETARG_B(i);
         c = GETARG_C(i);
         check(checkArgMode(pt, b, getBMode(op)));
@@ -341,31 +338,27 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
         break;
       }
       case iABx: {
+        checkreg(pt, a);
         b = GETARG_Bx(i);
         if (getBMode(op) == OpArgK) check(b < pt->sizek);
         break;
       }
       case iAsBx: {
+        checkreg(pt, a);
         b = GETARG_sBx(i);
         if (getBMode(op) == OpArgR) {
           int dest = pc+1+b;
           check(0 <= dest && dest < pt->sizecode);
-          if (dest > 0) {
-            /* cannot jump to a setlist count */
-            Instruction d = pt->code[dest-1];
-            check(!(GET_OPCODE(d) == OP_SETLIST && GETARG_C(d) == 0));
-          }
         }
         break;
       }
+      case iAx: break;
     }
     if (testAMode(op)) {
       if (a == reg) last = pc;  /* change register `a' */
     }
-    if (testTMode(op)) {
-      check(pc+2 < pt->sizecode);  /* check skip */
+    if (testTMode(op))
       check(GET_OPCODE(pt->code[pc+1]) == OP_JMP);
-    }
     switch (op) {
       case OP_LOADBOOL: {
         check(c == 0 || pc+2 < pt->sizecode);  /* check its jump */
@@ -395,12 +388,14 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
         check(b < c);  /* at least two operands */
         break;
       }
-      case OP_TFORLOOP: {
+      case OP_TFORCALL: {
         check(c >= 1);  /* at least one result (control variable) */
         checkreg(pt, a+2+c);  /* space for results */
+        check(GET_OPCODE(pt->code[pc+1]) == OP_TFORLOOP);
         if (reg >= a+2) last = pc;  /* affect all regs above its base */
         break;
       }
+      case OP_TFORLOOP:
       case OP_FORLOOP:
       case OP_FORPREP:
         checkreg(pt, a+3);
@@ -433,7 +428,7 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
       }
       case OP_SETLIST: {
         if (b > 0) checkreg(pt, a + b);
-        if (c == 0) pc++;
+        if (c == 0) check(GET_OPCODE(pt->code[pc + 1]) == OP_EXTRAARG);
         break;
       }
       case OP_CLOSURE: {
@@ -464,7 +459,6 @@ static Instruction symbexec (const Proto *pt, int lastpc, int reg) {
 }
 
 #undef check
-#undef checkjump
 #undef checkreg
 
 /* }====================================================== */

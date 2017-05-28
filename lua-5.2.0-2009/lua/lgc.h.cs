@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.h,v 2.16 2006/07/11 15:53:29 roberto Exp roberto $
+** $Id: lgc.h,v 2.18 2008/02/19 18:55:09 roberto Exp roberto $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -21,20 +21,22 @@
 #define GCSfinalize	4
 
 
+#define issweep(g)  (GCSsweepstring <= (g)->gcstate && (g)->gcstate <= GCSsweep)
+
+
 /*
 ** some userful bit tricks
 */
-#define resetbits(x,m)	((x) &= cast(lu_byte, ~(m)))
-#define setbits(x,m)	((x) |= (m))
-#define testbits(x,m)	((x) & (m))
-#define bitmask(b)	(1<<(b))
-#define bit2mask(b1,b2)	(bitmask(b1) | bitmask(b2))
-#define l_setbit(x,b)	setbits(x, bitmask(b))
-#define resetbit(x,b)	resetbits(x, bitmask(b))
-#define testbit(x,b)	testbits(x, bitmask(b))
+#define resetbits(x,m)		((x) &= cast(lu_byte, ~(m)))
+#define setbits(x,m)		((x) |= (m))
+#define testbits(x,m)		((x) & (m))
+#define bitmask(b)		(1<<(b))
+#define bit2mask(b1,b2)		(bitmask(b1) | bitmask(b2))
+#define l_setbit(x,b)		setbits(x, bitmask(b))
+#define resetbit(x,b)		resetbits(x, bitmask(b))
+#define testbit(x,b)		testbits(x, bitmask(b))
 #define set2bits(x,b1,b2)	setbits(x, (bit2mask(b1, b2)))
 #define reset2bits(x,b1,b2)	resetbits(x, (bit2mask(b1, b2)))
-#define test2bits(x,b1,b2)	testbits(x, (bit2mask(b1, b2)))
 
 
 
@@ -44,6 +46,7 @@
 ** bit 1 - object is white (type 1)
 ** bit 2 - object is black
 ** bit 3 - for userdata: has been finalized
+** bit 4 - for userdata: it's in 2nd part of rootgc list or in tobefnz
 ** bit 5 - object is fixed (should not be collected)
 ** bit 6 - object is "super" fixed (only the main thread)
 */
@@ -53,12 +56,13 @@
 #define WHITE1BIT	1
 #define BLACKBIT	2
 #define FINALIZEDBIT	3
+#define SEPARATED	4
 #define FIXEDBIT	5
 #define SFIXEDBIT	6
 #define WHITEBITS	bit2mask(WHITE0BIT, WHITE1BIT)
 
 
-#define iswhite(x)      test2bits((x)->gch.marked, WHITE0BIT, WHITE1BIT)
+#define iswhite(x)      testbits((x)->gch.marked, WHITEBITS)
 #define isblack(x)      testbit((x)->gch.marked, BLACKBIT)
 #define isgray(x)	(!isblack(x) && !iswhite(x))
 
@@ -93,7 +97,7 @@
    { if (iswhite(obj2gco(o)) && isblack(obj2gco(t))) luaC_barrierback(L,t); }
 
 LUAI_FUNC size_t luaC_separateudata (lua_State *L, int all);
-LUAI_FUNC void luaC_callGCTM (lua_State *L);
+LUAI_FUNC void luaC_callAllGCTM (lua_State *L);
 LUAI_FUNC void luaC_freeall (lua_State *L);
 LUAI_FUNC void luaC_step (lua_State *L);
 LUAI_FUNC void luaC_fullgc (lua_State *L, int isemergency);
@@ -101,6 +105,7 @@ LUAI_FUNC void luaC_link (lua_State *L, GCObject *o, lu_byte tt);
 LUAI_FUNC void luaC_linkupval (lua_State *L, UpVal *uv);
 LUAI_FUNC void luaC_barrierf (lua_State *L, GCObject *o, GCObject *v);
 LUAI_FUNC void luaC_barrierback (lua_State *L, Table *t);
+LUAI_FUNC void luaC_checkfinalizer (lua_State *L, Udata *u);
 
 
 #endif

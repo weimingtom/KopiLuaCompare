@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.200 2007/10/25 19:31:05 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.207 2008/07/03 14:23:35 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -9,7 +9,6 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define lbaselib_c
 #define LUA_LIB
@@ -184,7 +183,7 @@ static int luaB_rawset (lua_State *L) {
 
 
 static int luaB_gcinfo (lua_State *L) {
-  lua_pushinteger(L, lua_getgccount(L));
+  lua_pushinteger(L, lua_gc(L, LUA_GCCOUNT, 0));
   return 1;
 }
 
@@ -353,10 +352,12 @@ static int luaB_unpack (lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   i = luaL_optint(L, 2, 1);
   e = luaL_opt(L, luaL_checkint, 3, (int)lua_objlen(L, 1));
+  if (i > e) return 0;  /* empty range */
   n = e - i + 1;  /* number of elements */
-  if (n <= 0) return 0;  /* empty range */
-  luaL_checkstack(L, n, "table too big to unpack");
-  for (; i<=e; i++)  /* push arg[i...e] */
+  if (n <= 0 || !lua_checkstack(L, n))  /* n <= 0 means arith. overflow */
+    return luaL_error(L, "too many results to unpack");
+  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
+  while (i++ < e)  /* push arg[i + 1...e] */
     lua_rawgeti(L, 1, i);
   return n;
 }
@@ -405,7 +406,7 @@ static int luaB_xpcall (lua_State *L) {
 
 static int luaB_tostring (lua_State *L) {
   luaL_checkany(L, 1);
-  luaL_tostring(L, 1);
+  luaL_tolstring(L, 1, NULL);
   return 1;
 }
 
@@ -416,7 +417,9 @@ static int luaB_newproxy (lua_State *L) {
   if (lua_toboolean(L, 1) == 0)
     return 1;  /* no metatable */
   else if (lua_isboolean(L, 1)) {
-    lua_newtable(L);  /* create a new metatable `m' ... */
+    lua_createtable(L, 0, 1);  /* create a new metatable `m' ... */
+    lua_pushboolean(L, 1);
+    lua_setfield(L, -2, "__gc");  /* ... m.__gc = false (HACK!!)... */
     lua_pushvalue(L, -1);  /* ... and mark `m' as a valid metatable */
     lua_pushboolean(L, 1);
     lua_rawset(L, lua_upvalueindex(1));  /* weaktable[m] = true */
@@ -483,7 +486,7 @@ static int auxresume (lua_State *L, lua_State *co, int narg) {
   status = lua_resume(co, narg);
   if (status == LUA_OK || status == LUA_YIELD) {
     int nres = lua_gettop(co);
-    if (!lua_checkstack(L, nres))
+    if (!lua_checkstack(L, nres + 1))
       return luaL_error(L, "too many results to resume");
     lua_xmove(co, L, nres);  /* move yielded values */
     return nres;
@@ -579,9 +582,9 @@ static int luaB_costatus (lua_State *L) {
 
 
 static int luaB_corunning (lua_State *L) {
-  if (lua_pushthread(L))
-    lua_pushnil(L);  /* main thread is not a coroutine */
-  return 1;
+  int ismain = lua_pushthread(L);
+  lua_pushboolean(L, ismain);
+  return 2;
 }
 
 

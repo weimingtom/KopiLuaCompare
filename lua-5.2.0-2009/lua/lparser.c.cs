@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.55 2007/10/18 11:01:52 roberto Exp roberto $
+** $Id: lparser.c,v 2.59 2008/10/28 12:55:00 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -29,7 +29,7 @@
 
 #define hasmultret(k)		((k) == VCALL || (k) == VVARARG)
 
-#define getlocvar(fs, i)	((fs)->f->locvars[(fs)->actvar[i]])
+#define getlocvar(fs, i)	((fs)->f->locvars[(fs)->actvar[i].idx])
 
 #define luaY_checklimit(fs,v,l,m)	if ((v)>(l)) errorlimit(fs,l,m)
 
@@ -161,8 +161,9 @@ static int registerlocalvar (LexState *ls, TString *varname) {
 
 static void new_localvar (LexState *ls, TString *name, int n) {
   FuncState *fs = ls->fs;
+  int reg = registerlocalvar(ls, name);
   luaY_checklimit(fs, fs->nactvar+n+1, LUAI_MAXVARS, "local variables");
-  fs->actvar[fs->nactvar+n] = cast(unsigned short, registerlocalvar(ls, name));
+  fs->actvar[fs->nactvar+n].idx = cast(unsigned short, reg);
 }
 
 
@@ -315,7 +316,7 @@ static void pushclosure (LexState *ls, FuncState *func, expdesc *v) {
   int oldsize = f->sizep;
   int i;
   luaM_growvector(ls->L, f->p, fs->np, f->sizep, Proto *,
-                  MAXARG_Bx, "constants");
+                  MAXARG_Bx, "functions");
   while (oldsize < f->sizep) f->p[oldsize++] = NULL;
   f->p[fs->np++] = func->f;
   luaC_objbarrier(ls->L, f, func->f);
@@ -1007,7 +1008,7 @@ static void whilestat (LexState *ls, int line) {
   enterblock(fs, &bl, 1);
   checknext(ls, TK_DO);
   block(ls);
-  luaK_patchlist(fs, luaK_jump(fs), whileinit);
+  luaK_jumpto(fs, whileinit);
   check_match(ls, TK_END, TK_WHILE, line);
   leaveblock(fs);
   luaK_patchtohere(fs, condexit);  /* false conditions finish the loop */
@@ -1028,13 +1029,13 @@ static void repeatstat (LexState *ls, int line) {
   condexit = cond(ls);  /* read condition (inside scope block) */
   if (!bl2.upval) {  /* no upvalues? */
     leaveblock(fs);  /* finish scope */
-    luaK_patchlist(ls->fs, condexit, repeat_init);  /* close the loop */
+    luaK_patchlist(fs, condexit, repeat_init);  /* close the loop */
   }
   else {  /* complete semantics when there are upvalues */
     breakstat(ls);  /* if condition then break */
     luaK_patchtohere(ls->fs, condexit);  /* else... */
     leaveblock(fs);  /* finish scope... */
-    luaK_patchlist(ls->fs, luaK_jump(fs), repeat_init);  /* and repeat */
+    luaK_jumpto(fs, repeat_init);  /* and repeat */
   }
   leaveblock(fs);  /* finish loop */
 }
@@ -1064,10 +1065,15 @@ static void forbody (LexState *ls, int base, int line, int nvars, int isnum) {
   block(ls);
   leaveblock(fs);  /* end of scope for declared variables */
   luaK_patchtohere(fs, prep);
-  endfor = (isnum) ? luaK_codeAsBx(fs, OP_FORLOOP, base, NO_JUMP) :
-                     luaK_codeABC(fs, OP_TFORLOOP, base, 0, nvars);
-  luaK_fixline(fs, line);  /* pretend that `OP_FOR' starts the loop */
-  luaK_patchlist(fs, (isnum ? endfor : luaK_jump(fs)), prep + 1);
+  if (isnum)  /* numeric for? */
+    endfor = luaK_codeAsBx(fs, OP_FORLOOP, base, NO_JUMP);
+  else {  /* generic for */
+    luaK_codeABC(fs, OP_TFORCALL, base, 0, nvars);
+    luaK_fixline(fs, line);
+    endfor = luaK_codeAsBx(fs, OP_TFORLOOP, base + 2, NO_JUMP);
+  }
+  luaK_patchlist(fs, endfor, prep + 1);
+  luaK_fixline(fs, line);
 }
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.h,v 2.7 2005/08/24 16:15:49 roberto Exp roberto $
+** $Id: ldo.h,v 2.9 2008/07/03 14:24:36 roberto Exp roberto $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -28,12 +28,6 @@
 #define restoreci(L,n)		((CallInfo *)((char *)L->base_ci + (n)))
 
 
-/* results from luaD_precall */
-#define PCRLUA		0	/* initiated a call to a Lua function */
-#define PCRC		1	/* did a call to a C function */
-#define PCRYIELD	2	/* C funtion yielded */
-
-
 /* type of protected functions, to be ran by `runprotected' */
 typedef void (*Pfunc) (lua_State *L, void *ud);
 
@@ -51,6 +45,7 @@ LUAI_FUNC void luaD_growstack (lua_State *L, int n);
 LUAI_FUNC void luaD_throw (lua_State *L, int errcode);
 LUAI_FUNC int luaD_rawrunprotected (lua_State *L, Pfunc f, void *ud);
 
+/* exported for Coco */
 LUAI_FUNC void luaD_seterrorobj (lua_State *L, int errcode, StkId oldtop);
 
 #endif

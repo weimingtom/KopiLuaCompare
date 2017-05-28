@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.138 2007/10/29 15:51:10 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.141 2008/06/12 14:21:18 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -36,7 +36,7 @@ static int str_len (lua_State *L) {
 /* translate a relative string position: negative means back from end */
 static size_t posrelat (ptrdiff_t pos, size_t len) {
   if (pos >= 0) return (size_t)pos;
-  else if ((size_t)-pos > len) return 0;
+  else if (pos == -pos || (size_t)-pos > len) return 0;
   else return len - ((size_t)-pos) + 1;
 }
 
@@ -499,7 +499,10 @@ static int str_find_aux (lua_State *L, int find) {
   const char *p = luaL_checklstring(L, 2, &l2);
   size_t init = posrelat(luaL_optinteger(L, 3, 1), l1);
   if (init < 1) init = 1;
-  else if (init > l1) init = l1 + 1;
+  else if (init > l1 + 1) {  /* start after string's end? */
+    lua_pushnil(L);  /* cannot find anything */
+    return 1;
+  }
   if (find && (lua_toboolean(L, 4) ||  /* explicit request? */
       strpbrk(p, SPECIALS) == NULL)) {  /* or no special characters? */
     /* do a plain search */
@@ -597,8 +600,12 @@ static void add_s (MatchState *ms, luaL_Buffer *b, const char *s,
       luaL_addchar(b, news[i]);
     else {
       i++;  /* skip ESC */
-      if (!isdigit(uchar(news[i])))
+      if (!isdigit(uchar(news[i]))) {
+        if (news[i] != L_ESC)
+          luaL_error(ms->L, "invalid use of " LUA_QL("%c")
+                           " in replacement string", L_ESC);
         luaL_addchar(b, news[i]);
+      }
       else if (news[i] == '0')
           luaL_addlstring(b, s, e - s);
       else {

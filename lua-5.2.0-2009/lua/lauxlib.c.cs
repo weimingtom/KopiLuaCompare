@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.173 2007/09/05 17:17:39 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.178 2008/06/13 18:45:35 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -43,8 +43,7 @@ LUALIB_API int luaL_argerror (lua_State *L, int narg, const char *extramsg) {
   if (strcmp(ar.namewhat, "method") == 0) {
     narg--;  /* do not count `self' */
     if (narg == 0)  /* error is in the self argument itself? */
-      return luaL_error(L, "calling " LUA_QS " on bad self (%s)",
-                           ar.name, extramsg);
+      return luaL_error(L, "calling " LUA_QS " on bad self", ar.name);
   }
   if (ar.name == NULL)
     ar.name = "?";
@@ -165,13 +164,13 @@ LUALIB_API void *luaL_testudata (lua_State *L, int ud, const char *tname) {
   if (p != NULL) {  /* value is a userdata? */
     if (lua_getmetatable(L, ud)) {  /* does it have a metatable? */
       lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get correct metatable */
-      if (lua_rawequal(L, -1, -2)) {  /* does it have the correct mt? */
-        lua_pop(L, 2);  /* remove both metatables */
-        return p;
-      }
+      if (!lua_rawequal(L, -1, -2))  /* not the same? */
+        p = NULL;  /* value is a userdata with wrong metatable */
+      lua_pop(L, 2);  /* remove both metatables */
+      return p;
     }
   }
-  return NULL;  /* value is not a userdata of the proper type */
+  return NULL;  /* value is not a userdata with a metatable */
 }
 
 
@@ -475,7 +474,7 @@ LUALIB_API int luaL_loadfile (lua_State *L, const char *filename) {
     lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
     if (lf.f == NULL) return errfile(L, "reopen", fnameindex);
     /* skip eventual `#!...' */
-   while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
+    while ((c = getc(lf.f)) != EOF && c != LUA_SIGNATURE[0]) ;
     lf.extraline = 0;
   }
   ungetc(c, lf.f);
@@ -550,23 +549,28 @@ LUALIB_API int luaL_callmeta (lua_State *L, int obj, const char *event) {
 }
 
 
-LUALIB_API const char *luaL_tostring (lua_State *L, int idx) {
+LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
   if (!luaL_callmeta(L, idx, "__tostring")) {  /* no metafield? */
     switch (lua_type(L, idx)) {
       case LUA_TNUMBER:
-        return lua_pushstring(L, lua_tostring(L, idx));
+        lua_pushstring(L, lua_tostring(L, idx));
+        break;
       case LUA_TSTRING:
         lua_pushvalue(L, idx);
         break;
       case LUA_TBOOLEAN:
-        return lua_pushstring(L, (lua_toboolean(L, idx) ? "true" : "false"));
+        lua_pushstring(L, (lua_toboolean(L, idx) ? "true" : "false"));
+        break;
       case LUA_TNIL:
-        return lua_pushliteral(L, "nil");
+        lua_pushliteral(L, "nil");
+        break;
       default:
-        return lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
+        lua_pushfstring(L, "%s: %p", luaL_typename(L, idx),
                                             lua_topointer(L, idx));
+        break;
     }
   }
+  if (len) *len = lua_objlen(L, -1);
   return lua_tostring(L, -1);
 }
 
@@ -581,14 +585,13 @@ static int libsize (const luaL_Reg *l) {
 LUALIB_API void luaL_register (lua_State *L, const char *libname,
                                const luaL_Reg *l) {
   if (libname) {
-    int size = libsize(l);
     /* check whether lib already exists */
-    luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", size);
+    luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);
     lua_getfield(L, -1, libname);  /* get _LOADED[libname] */
     if (!lua_istable(L, -1)) {  /* not found? */
       lua_pop(L, 1);  /* remove previous result */
       /* try global variable (and create one if it does not exist) */
-      if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, size) != NULL)
+      if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, libsize(l)) != NULL)
         luaL_error(L, "name conflict for module " LUA_QS, libname);
       lua_pushvalue(L, -1);
       lua_setfield(L, -3, libname);  /* _LOADED[libname] = new table */

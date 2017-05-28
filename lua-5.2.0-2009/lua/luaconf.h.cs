@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.92 2007/09/14 13:26:03 roberto Exp roberto $
+** $Id: luaconf.h,v 1.99 2008/07/11 17:50:31 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -182,7 +182,11 @@
 @* be exported to outside modules.
 ** CHANGE them if you need to mark them in some special way. Elf/gcc
 ** (versions 3.2 and later) mark them as "hidden" to optimize access
-** when Lua is compiled as a shared library.
+** when Lua is compiled as a shared library. Not all elf targets support
+** this attribute. Unfortunately, gcc does not offer a way to check
+** whether the target offers that support, and those without support
+** give a warning about it. To avoid these warnings, change to the
+** default definition.
 */
 #if defined(luaall_c)
 #define LUAI_FUNC	static
@@ -304,7 +308,7 @@
 ** mean larger pauses which mean slower collection.) You can also change
 ** this value dynamically.
 */
-#define LUAI_GCPAUSE	200  /* 200% (wait memory to double before next GC) */
+#define LUAI_GCPAUSE	162  /* 162% (wait memory to double before next GC) */
 
 
 /*
@@ -317,6 +321,14 @@
 */
 #define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
 
+
+
+/*
+@@ LUA_COMPAT_API includes some macros and functions that supply some
+@* compatibility with previous versions.
+** CHANGE it (undefine it) if you do not need these compatibility facilities.
+*/
+#define LUA_COMPAT_API
 
 
 /*
@@ -389,15 +401,11 @@
 */
 #if LUAI_BITSINT >= 32
 #define LUAI_UINT32	unsigned int
-#define LUAI_INT32	int
-#define LUAI_MAXINT32	INT_MAX
 #define LUAI_UMEM	size_t
 #define LUAI_MEM	ptrdiff_t
 #else
 /* 16-bit ints */
 #define LUAI_UINT32	unsigned long
-#define LUAI_INT32	long
-#define LUAI_MAXINT32	LONG_MAX
 #define LUAI_UMEM	unsigned long
 #define LUAI_MEM	long
 #endif
@@ -415,11 +423,20 @@
 /*
 @@ LUAI_MAXCSTACK limits the number of Lua stack slots that a C function
 @* can use.
-** CHANGE it if you need lots of (Lua) stack space for your C
-** functions. This limit is arbitrary; its only purpose is to stop C
-** functions to consume unlimited stack space.
+** CHANGE it if you need a different limit. This limit is arbitrary;
+** its only purpose is to stop C functions to consume unlimited stack
+** space.
 */
-#define LUAI_MAXCSTACK	2048
+/* life is simpler if stack size fits in an int (16 is an estimate
+   for the size of a Lua value) */
+#if SHRT_MAX < (INT_MAX / 16)
+#define LUAI_MCS_AUX	SHRT_MAX
+#else
+#define LUAI_MCS_AUX	(INT_MAX / 16)
+#endif
+
+/* reserve some space for pseudo-indices */
+#define LUAI_MAXCSTACK  (LUAI_MCS_AUX - 1000)
 
 
 

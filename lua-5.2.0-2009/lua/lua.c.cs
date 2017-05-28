@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.167 2007/08/07 16:53:40 roberto Exp roberto $
+** $Id: lua.c,v 1.170 2008/06/26 19:47:51 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -68,6 +68,8 @@ static int report (lua_State *L, int status) {
     if (msg == NULL) msg = "(error object is not a string)";
     l_message(progname, msg);
     lua_pop(L, 1);
+    /* force a complete garbage collection in case of errors */
+    lua_gc(L, LUA_GCCOLLECT, 0);
   }
   return status;
 }
@@ -95,14 +97,12 @@ static int docall (lua_State *L, int narg, int clear) {
   status = lua_pcall(L, narg, (clear ? 0 : LUA_MULTRET), base);
   signal(SIGINT, SIG_DFL);
   lua_remove(L, base);  /* remove traceback function */
-  /* force a complete garbage collection in case of errors */
-  if (status != LUA_OK) lua_gc(L, LUA_GCCOLLECT, 0);
   return status;
 }
 
 
 static void print_version (void) {
-  l_message(NULL, LUA_COPYRIGHT);
+  printf("%s\n", LUA_COPYRIGHT);
 }
 
 
@@ -373,7 +373,7 @@ static int pmain (lua_State *L) {
 int main (int argc, char **argv) {
   int status;
   struct Smain s;
-  lua_State *L = lua_open();  /* create state */
+  lua_State *L = luaL_newstate();  /* create state */
   if (L == NULL) {
     l_message(argv[0], "cannot create state: not enough memory");
     return EXIT_FAILURE;
