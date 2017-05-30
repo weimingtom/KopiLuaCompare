@@ -114,12 +114,12 @@ namespace KopiLua
 
 		public static void SETARG_A(InstructionPtr i, int v)
 		{
-			setarg(i, v, POS_B, SIZE_B);
+			setarg(i, v, POS_A, SIZE_A);
 		}
 
 		public static int GETARG_B(Instruction i)
 		{
-			return getarg(i, POS_C, SIZE_C);
+			return getarg(i, POS_B, SIZE_B);
 		}
 		public static int GETARG_B(InstructionPtr i) { return GETARG_B(i[0]); } //FIXME: added
 

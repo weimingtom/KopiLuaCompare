@@ -362,6 +362,15 @@ namespace KopiLua
 			public GCObject get() { return this.header.next; }
 			GCheader header;
 		}
+
+		public class PtrRef : GCObjectRef
+		{
+			public PtrRef(GCObject obj) { this.obj = obj; }
+			public void set(GCObject value) { this.obj = value; }
+			public GCObject get() { return this.obj; }
+			GCObject obj;
+		}
+		
 		
 		/* macros to convert a GCObject into a specific value */
 		public static TString rawgco2ts(GCObject o) { return (TString)check_exp(o.gch.tt == LUA_TSTRING, o.ts); }

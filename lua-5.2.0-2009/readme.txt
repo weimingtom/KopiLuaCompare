@@ -102,3 +102,25 @@ UCHAR_MAX
 ->
 System.Byte.MaxValue
 
+-----------------------
+
+Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging
+
+-----------------------
+
+
+		public class PtrRef : GCObjectRef
+		{
+			public PtrRef(GCObject obj) { this.obj = obj; }
+			public void set(GCObject value) { this.obj = value; }
+			public GCObject get() { return this.obj; }
+			GCObject obj;
+		}
+		
+->
+
+		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????
+		  /* find last 'next' field in 'tobefnz' list (to insert elements in its end) */
+		  while (lastnext.get() != null) lastnext = new PtrRef(gch(lastnext.get()).next);
+		  
+		  		

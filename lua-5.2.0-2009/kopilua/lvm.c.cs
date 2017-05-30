@@ -493,7 +493,7 @@ namespace KopiLua
 		  k = cl.p.k;
 		  /* main loop of interpreter */
 		  for (;;) {
-			Instruction i = InstructionPtr.inc(ref L.savedpc)[0];
+			Instruction i = L.savedpc[0]; InstructionPtr.inc(ref L.savedpc); //FIXME:++
 			StkId ra;
 			if ( ((L.hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) != 0) &&
 				(((--L.hookcount) == 0) || ((L.hookmask & LUA_MASKLINE) != 0))) {
@@ -509,7 +509,7 @@ namespace KopiLua
 			lua_assert(base_ == L.base_ && L.base_ == L.ci.base_);
 			lua_assert(base_ <= L.top && ((L.top - L.stack) <= L.stacksize));
 			lua_assert(L.top == L.ci.top || (luaG_checkopenop(i)!=0));
-			//Dump(pc.pc, i);			
+			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
 				setobjs2s(L, ra, RB(L, base_, i));

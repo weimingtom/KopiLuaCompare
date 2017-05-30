@@ -659,9 +659,9 @@ namespace KopiLua
 		  uint deadmem = 0;  /* total size of all objects to be finalized */
 		  GCObjectRef p = new NextRef(g.mainthread);
 		  GCObject curr;
-		  GCObjectRef lastnext = new NextRef(g.tobefnz); //FIXME:??????
+		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????
 		  /* find last 'next' field in 'tobefnz' list (to insert elements in its end) */
-		  while (lastnext.get() != null) lastnext = new NextRef(gch(lastnext.get()).next);
+		  while (lastnext.get() != null) lastnext = new PtrRef(gch(lastnext.get()).next);
 		  while ((curr = p.get()) != null) {  /* traverse all finalizable objects */
 		    lua_assert(ttisuserdata(gch(curr)) && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
@@ -674,7 +674,7 @@ namespace KopiLua
 		      /* link 'curr' at the end of 'tobefnz' list */
 		      gch(curr).next = lastnext.get();
 		      lastnext.set(curr);
-		      lastnext = new NextRef(gch(curr).next);
+		      lastnext = new PtrRef(gch(curr).next);
 		    }
 		  }
 		  return deadmem;
