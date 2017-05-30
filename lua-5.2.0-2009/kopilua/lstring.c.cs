@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.9 2006/07/11 15:53:29 roberto Exp roberto $
+** $Id: lstring.c,v 2.10 2007/11/09 18:55:07 roberto Exp roberto $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -39,15 +39,16 @@ namespace KopiLua
 		  for (i=0; i<tb.size; i++) {
 			GCObject p = tb.hash[i];
 			while (p != null) {  /* for each node in the list */
-			  GCObject next = p.gch.next;  /* save next */
+			  GCObject next = gch(p).next;  /* save next */
 			  uint h = gco2ts(p).hash;
 			  int h1 = (int)lmod(h, newsize);  /* new position */
 			  lua_assert((int)(h%newsize) == lmod(h, newsize));
-			  p.gch.next = newhash[h1];  /* chain it */
+			  gch(p).next = newhash[h1];  /* chain it */
 			  newhash[h1] = p;
 			  p = next;
 			}
 		  }
+		  //FIXME:here changed
 		  //luaM_freearray(L, tb.hash);
 		  if (tb.hash != null)
 			  SubtractTotalBytes(L, tb.hash.Length * GetUnmanagedSize(typeof(GCObjectRef)));
@@ -90,7 +91,7 @@ namespace KopiLua
 			h = h ^ ((h<<5)+(h>>2)+(byte)str[l1-1]);
 		  for (o = G(L).strt.hash[lmod(h, G(L).strt.size)];
 			   o != null;
-			   o = o.gch.next) {
+			   o = gch(o).next) {
 			TString ts = rawgco2ts(o);			
 			if (h == ts.tsv.hash && ts.tsv.len == l &&
 									(memcmp(str, getstr(ts), l) == 0)) {
@@ -104,35 +105,38 @@ namespace KopiLua
 		  return res;
 		}
 
-
+		//FIXME:here changed
 		public static Udata luaS_newudata(lua_State L, uint s, Table e)
 		{
-			Udata u = new Udata();
-			u.uv.marked = luaC_white(G(L));  /* is not finalized */
-			u.uv.tt = LUA_TUSERDATA;
+		    Udata u;
+			//FIXME:not added
+		    //if (s > MAX_SIZET - sizeof(Udata))
+			//  luaM_toobig(L);
+			//FXIME:here changed
+			u = new Udata();
+			luaC_link(L, obj2gco(u), LUA_TUSERDATA);
 			u.uv.len = s;
 			u.uv.metatable = null;
 			u.uv.env = e;
-			u.user_data = new byte[s];
-			/* chain it on udata list (after main thread) */
-			u.uv.next = G(L).mainthread.next;
-			G(L).mainthread.next = obj2gco(u);
+			u.user_data = new byte[s]; //FIXME:???
 			return u;
 		}
 
+        //FIXME:here changed
 		public static Udata luaS_newudata(lua_State L, Type t, Table e)
 		{
-			Udata u = new Udata();
-			u.uv.marked = luaC_white(G(L));  /* is not finalized */
-			u.uv.tt = LUA_TUSERDATA;
+		    Udata u;
+		    //FIXME:not added
+		    //if (s > MAX_SIZET - sizeof(Udata))
+			//  luaM_toobig(L);
+			//FXIME:here changed
+			u = new Udata();
+			luaC_link(L, obj2gco(u), LUA_TUSERDATA);
 			u.uv.len = 0;
 			u.uv.metatable = null;
 			u.uv.env = e;
-			u.user_data = luaM_realloc_(L, t);
-			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));
-			/* chain it on udata list (after main thread) */
-			u.uv.next = G(L).mainthread.next;
-			G(L).mainthread.next = obj2gco(u);
+			u.user_data = luaM_realloc_(L, t);  //FIXME:???
+			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:???
 			return u;
 		}
 

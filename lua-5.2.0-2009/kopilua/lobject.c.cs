@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.26 2007/11/09 18:54:25 roberto Exp roberto $
+** $Id: lobject.c,v 2.27 2007/12/19 17:24:38 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -30,7 +30,7 @@ namespace KopiLua
 		** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
 		** eeeee != 0 and (xxx) otherwise.
 		*/
-		public static int luaO_int2fb (uint x) {
+		public static int luaO_int2fb (lu_int32 x) {
 		  int e = 0;  /* expoent */
           if (x < 8) return (int)x;
 		  while (x >= 0x10) {
@@ -49,7 +49,24 @@ namespace KopiLua
 		}
 
 
+		public static int luaO_ceillog2 (unsigned int x) {
+		  static const lu_byte log_2[256] = {
+		    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
+		    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
+		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
+		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
+		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
+		  };
+		  int l = 0;
+		  x--;
+		  while (x >= 256) { l += 8; x >>= 8; }
+		  return l + log_2[x];
+		}
 
+        
 		public static int luaO_rawequalObj (TValue t1, TValue t2) {
 		  if (ttype(t1) != ttype(t2)) return 0;
 		  else switch (ttype(t1)) {

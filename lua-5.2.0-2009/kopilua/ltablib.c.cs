@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.41 2007/09/12 20:53:24 roberto Exp roberto $
+** $Id: ltablib.c,v 1.43 2008/02/14 16:03:27 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -120,6 +120,14 @@ namespace KopiLua
 		}
 
 
+		private static void addfield (lua_State L, luaL_Buffer b, int i) {
+		  lua_rawgeti(L, 1, i);
+		  if (!lua_isstring(L, -1))
+		    luaL_error(L, "invalid value (%s) at index %d in table for " + 
+		                  LUA_QL("concat"), luaL_typename(L, -1), i);
+		    luaL_addvalue(b);
+		}
+
 
 		private static int tconcat (lua_State L) {
 		  luaL_Buffer b = new luaL_Buffer();
@@ -130,15 +138,12 @@ namespace KopiLua
 		  i = luaL_optint(L, 3, 1);
 		  last = luaL_opt_integer(L, luaL_checkint, 4, (int)lua_objlen(L, 1));
 		  luaL_buffinit(L, b);
-		  for (; i <= last; i++) {
-		    lua_rawgeti(L, 1, i);
-		    if (lua_isstring(L, -1) == 0)
-		      return luaL_error(L, "invalid value (%s) at index %d in table for " +
-		                            LUA_QL("concat"), luaL_typename(L, -1), i);
-		    luaL_addvalue(b);
-		    if (i != last)
-		      luaL_addlstring(b, sep, lsep);
+		  for (; i < last; i++) {
+		    addfield(L, b, i);
+		    luaL_addlstring(b, sep, lsep);
 		  }
+		  if (i == last)  /* add last value (if interval was not empty) */
+		    addfield(L, b, i);
 		  luaL_pushresult(b);
 		  return 1;
 		}
@@ -218,13 +223,13 @@ namespace KopiLua
 			i = l; j = u-1;
 			for (;;) {  /* invariant: a[l..i] <= P <= a[j..u] */
 			  /* repeat ++i until a[i] >= P */
-			  while (auxsort_loop1(L, ref i) != 0) {
-				if (i>u) luaL_error(L, "invalid order function for sorting");
+			  while (auxsort_loop1(L, ref i) != 0) { //FIXME:here changed
+				if (i>=u) luaL_error(L, "invalid order function for sorting");
 				lua_pop(L, 1);  /* remove a[i] */
 			  }
 			  /* repeat --j until a[j] <= P */
-			  while (auxsort_loop2(L, ref j) != 0) {
-				if (j<l) luaL_error(L, "invalid order function for sorting");
+			  while (auxsort_loop2(L, ref j) != 0) { //FIXME:here changed
+				if (j<=l) luaL_error(L, "invalid order function for sorting");
 				lua_pop(L, 1);  /* remove a[j] */
 			  }
 			  if (j<i) {

@@ -1,5 +1,5 @@
 /*
-** $Id: ldump.c,v 2.8 2006/02/17 15:51:03 roberto Exp roberto $
+** $Id: ldump.c,v 2.9 2006/09/11 14:07:24 roberto Exp roberto $
 ** save precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -91,7 +91,7 @@ namespace KopiLua
 
 		private static void DumpString(TString s, DumpState D)
 		{
-		 if (s==null || getstr(s)==null)
+		 if (s==null)
 		 {
 		  uint size=0;
 		  DumpVar(size,D);

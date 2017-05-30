@@ -16,8 +16,8 @@ namespace KopiLua
 		  VFALSE,
 		  VK,		/* info = index of constant in `k' */
 		  VKNUM,	/* nval = numerical value */
-		  VLOCAL,	/* info = local register */
-		  VUPVAL,       /* info = index of upvalue in `upvalues' */
+		  VLOCAL,	/* info = local register; aux = read only */
+		  VUPVAL,       /* info = index of upvalue in `upvalues'; aux = read only */
 		  VGLOBAL,	/* info = index of table; aux = index of global name in `k' */
 		  VINDEXED,	/* info = table register; aux = index register (or `k') */
 		  VJMP,		/* info = instruction pc */
@@ -72,6 +72,9 @@ namespace KopiLua
 		  public lu_byte info;
 		};
 
+		public class vardesc {
+		  ushort idx;
+		};
 
 		/* state needed to generate code for a given function */
 		public class FuncState {
@@ -96,7 +99,7 @@ namespace KopiLua
 		  public short nlocvars;  /* number of elements in `locvars' */
 		  public lu_byte nactvar;  /* number of active local variables */
 		  public upvaldesc[] upvalues = new upvaldesc[LUAI_MAXUPVALUES];  /* upvalues */
-		  public ushort[] actvar = new ushort[LUAI_MAXVARS];  /* declared-variable stack */
+		  public vardesc[] actvar = new vardesc[LUAI_MAXVARS];  /* declared-variable stack */
 		};
 	}
 }

@@ -30,10 +30,7 @@ namespace KopiLua
 		public static CallInfo restoreci(lua_State L, int n)	{ return L.base_ci[n]; }
 
 
-		/* results from luaD_precall */
-		public const int PCRLUA		= 0;	/* initiated a call to a Lua function */
-		public const int PCRC		= 1;	/* did a call to a C function */
-		public const int PCRYIELD	= 2;	/* C funtion yielded */
+
 
 
 		/* type of protected functions, to be ran by `runprotected' */

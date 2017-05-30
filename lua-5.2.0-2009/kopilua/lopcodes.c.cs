@@ -1,5 +1,5 @@
 /*
-** $Id: lopcodes.c,v 1.37 2005/11/08 19:45:36 roberto Exp roberto $
+** $Id: lopcodes.c,v 1.39 2008/04/02 16:16:06 roberto Exp roberto $
 ** See Copyright Notice in lua.h
 */
 
@@ -52,11 +52,14 @@ namespace KopiLua
 		  "RETURN",
 		  "FORLOOP",
 		  "FORPREP",
-		  "TFORLOOP",
+		  "TFORCALL",
 		  "SETLIST",
 		  "CLOSE",
 		  "CLOSURE",
 		  "VARARG",
+		  "TFORLOOP",
+		  "EXTRAARG",
+		  null
 		};
 
 
@@ -100,11 +103,13 @@ namespace KopiLua
 		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABC)		/* OP_RETURN */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_FORLOOP */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_FORPREP */
-		 ,opmode(1, 0, OpArgMask.OpArgN, OpArgMask.OpArgU, OpMode.iABC)		/* OP_TFORLOOP */
+		 ,opmode(0, 0, OpArgMask.OpArgN, OpArgMask.OpArgU, OpMode.iABC)		/* OP_TFORCALL */
 		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iABC)		/* OP_SETLIST */
 		 ,opmode(0, 0, OpArgMask.OpArgN, OpArgMask.OpArgN, OpMode.iABC)		/* OP_CLOSE */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABx)		/* OP_CLOSURE */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABC)		/* OP_VARARG */
+		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_TFORLOOP */
+		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iAx)		/* OP_EXTRAARG */
 		};
 
 	}

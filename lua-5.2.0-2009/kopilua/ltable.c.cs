@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.36 2007/04/10 12:18:17 roberto Exp roberto $
+** $Id: ltable.c,v 2.37 2007/04/18 19:24:35 roberto Exp roberto $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -177,22 +177,6 @@ namespace KopiLua
 		** Rehash
 		** ==============================================================
 		*/
-	  	private static readonly lu_byte[] log_2 = {
-		    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
-		    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
-		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
-		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
-		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
-		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
-		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
-		};
-        private static int ceillog2 (uint x) {
-		  int l = 0;
-		  x--;
-		  while (x >= 256) { l += 8; x >>= 8; }
-		  return l + log_2[x];
-		}
 
 
 		private static int computesizes (int[] nums, ref int narray) {
@@ -220,7 +204,7 @@ namespace KopiLua
 		private static int countint (TValue key, int[] nums) {
 		  int k = arrayindex(key);
 		  if (0 < k && k <= MAXASIZE) {  /* is `key' an appropriate array index? */
-		  	nums[ceillog2((uint)k)]++;  /* count as such */
+		  	nums[luaO_ceillog2(k)]++;  /* count as such */
 			return 1;
 		  }
 		  else
@@ -286,7 +270,7 @@ namespace KopiLua
 		  }
 		  else {
 			int i;
-			lsize = ceillog2((uint)size);
+			lsize = luaO_ceillog2(size);
 			if (lsize > MAXBITS)
 			  luaG_runerror(L, "table overflow");
 			size = twoto(lsize);

@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.27 2007/09/14 13:27:04 roberto Exp roberto $
+** $Id: llex.c,v 2.28 2007/10/25 16:45:47 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -64,8 +64,6 @@ namespace KopiLua
 		}
 
 
-		public const int MAXSRC          = 80;
-
 
 		public static CharPtr luaX_token2str (LexState ls, int token) {
 		  if (token < FIRST_RESERVED) {
@@ -95,19 +93,22 @@ namespace KopiLua
 		  }
 		}
 
+        
 		private static void lexerror (LexState ls, CharPtr msg, int token) {
-		  CharPtr buff = new char[MAXSRC];
-		  luaO_chunkid(buff, getstr(ls.source), MAXSRC);
+		  CharPtr buff = new char[LUA_IDSIZE];
+		  luaO_chunkid(buff, getstr(ls.source), LUA_IDSIZE);
 		  msg = luaO_pushfstring(ls.L, "%s:%d: %s", buff, ls.linenumber, msg);
 		  if (token != 0)
-			luaO_pushfstring(ls.L, "%s near " + LUA_QS, msg, txtToken(ls, token));
+			luaO_pushfstring(ls.L, "%s near %s", msg, txtToken(ls, token));
 		  luaD_throw(ls.L, LUA_ERRSYNTAX);
 		}
 
+        
 		public static void luaX_syntaxerror (LexState ls, CharPtr msg) {
 		  lexerror(ls, msg, ls.t.token);
 		}
 
+        
 		public static TString luaX_newstring(LexState ls, CharPtr str, uint l)
 		{
 		  lua_State L = ls.L;

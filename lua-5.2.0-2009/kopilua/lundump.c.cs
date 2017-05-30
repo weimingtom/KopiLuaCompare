@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.7 2006/02/17 15:51:03 roberto Exp roberto $
+** $Id: lundump.c,v 2.8 2006/09/11 14:07:24 roberto Exp roberto $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -132,7 +132,7 @@ namespace KopiLua
    			setnilvalue(o);
 			break;
 		   case LUA_TBOOLEAN:
-   			setbvalue(o, LoadChar(S));
+   			setbvalue(o, LoadChar(S)!=0);
 			break;
 		   case LUA_TNUMBER:
 			setnvalue(o, LoadNumber(S));
@@ -178,7 +178,9 @@ namespace KopiLua
 
 		private static Proto LoadFunction(LoadState S, TString p)
 		{
-		 Proto f=luaF_newproto(S.L);
+		 Proto f;
+		 if (++G(S.L).nCcalls > LUAI_MAXCCALLS) error(S, "function nest too deep");
+		 f=luaF_newproto(S.L);
 		 setptvalue2s(S.L,S.L.top,f); incr_top(S.L);
 		 f.source=LoadString(S); if (f.source==null) f.source=p;
 		 f.linedefined=LoadInt(S);
@@ -192,6 +194,7 @@ namespace KopiLua
 		 LoadDebug(S,f);
 		 IF (luaG_checkcode(f)==0 ? 1 : 0, "bad code");
 		 StkId.dec(ref S.L.top);
+         G(S.L).nCcalls--;
 		 return f;
 		}
 

@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.55 2007/10/18 11:01:52 roberto Exp roberto $
+** $Id: lparser.c,v 2.59 2008/10/28 12:55:00 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -22,7 +22,7 @@ namespace KopiLua
 
 		public static int hasmultret(expkind k)		{return ((k) == expkind.VCALL || (k) == expkind.VVARARG) ? 1 : 0;}
 
-		public static LocVar getlocvar(FuncState fs, int i)	{return fs.f.locvars[fs.actvar[i]];}
+		public static LocVar getlocvar(FuncState fs, int i)	{return fs.f.locvars[fs.actvar[i].idx];}
 
 		public static void luaY_checklimit(FuncState fs, int v, int l, CharPtr m) { if ((v) > (l)) errorlimit(fs, l, m); }
 
@@ -147,8 +147,9 @@ namespace KopiLua
 
 		private static void new_localvar (LexState ls, TString name, int n) {
 		  FuncState fs = ls.fs;
+          int reg = registerlocalvar(ls, name);
 		  luaY_checklimit(fs, fs.nactvar+n+1, LUAI_MAXVARS, "local variables");
-		  fs.actvar[fs.nactvar+n] = (ushort)registerlocalvar(ls, name);
+		  fs.actvar[fs.nactvar+n].idx = (ushort)reg;
 		}
 
 
@@ -302,7 +303,7 @@ namespace KopiLua
 		  int oldsize = f.sizep;
 		  int i;
 		  luaM_growvector(ls.L, ref f.p, fs.np, ref f.sizep, 
-						  MAXARG_Bx, "constants");
+						  MAXARG_Bx, "functions");
 		  while (oldsize < f.sizep) f.p[oldsize++] = null;
 		  f.p[fs.np++] = func.f;
 		  luaC_objbarrier(ls.L, f, func.f);
@@ -1024,7 +1025,7 @@ namespace KopiLua
 		  enterblock(fs, bl, 1);
 		  checknext(ls, (int)RESERVED.TK_DO);
 		  block(ls);
-		  luaK_patchlist(fs, luaK_jump(fs), whileinit);
+		  luaK_jumpto(fs, whileinit);
 		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_WHILE, line);
 		  leaveblock(fs);
 		  luaK_patchtohere(fs, condexit);  /* false conditions finish the loop */
@@ -1045,13 +1046,13 @@ namespace KopiLua
 		  condexit = cond(ls);  /* read condition (inside scope block) */
 		  if (bl2.upval==0) {  /* no upvalues? */
 			leaveblock(fs);  /* finish scope */
-			luaK_patchlist(ls.fs, condexit, repeat_init);  /* close the loop */
+			luaK_patchlist(fs, condexit, repeat_init);  /* close the loop */
 		  }
 		  else {  /* complete semantics when there are upvalues */
 			breakstat(ls);  /* if condition then break */
 			luaK_patchtohere(ls.fs, condexit);  /* else... */
 			leaveblock(fs);  /* finish scope... */
-			luaK_patchlist(ls.fs, luaK_jump(fs), repeat_init);  /* and repeat */
+			luaK_jumpto(fs, repeat_init);  /* and repeat */
 		  }
 		  leaveblock(fs);  /* finish loop */
 		}
@@ -1081,10 +1082,15 @@ namespace KopiLua
 		  block(ls);
 		  leaveblock(fs);  /* end of scope for declared variables */
 		  luaK_patchtohere(fs, prep);
-		  endfor = (isnum!=0) ? luaK_codeAsBx(fs, OpCode.OP_FORLOOP, base_, NO_JUMP) :
-							 luaK_codeABC(fs, OpCode.OP_TFORLOOP, base_, 0, nvars);
-		  luaK_fixline(fs, line);  /* pretend that `OP_FOR' starts the loop */
-		  luaK_patchlist(fs, ((isnum!=0) ? endfor : luaK_jump(fs)), prep + 1);
+		  if (isnum)  /* numeric for? */
+		    endfor = luaK_codeAsBx(fs, OP_FORLOOP, base, NO_JUMP);
+		  else {  /* generic for */
+		    luaK_codeABC(fs, OP_TFORCALL, base, 0, nvars);
+		    luaK_fixline(fs, line);
+		    endfor = luaK_codeAsBx(fs, OP_TFORLOOP, base + 2, NO_JUMP);
+		  }
+		  luaK_patchlist(fs, endfor, prep + 1);
+		  luaK_fixline(fs, line);
 		}
 
 

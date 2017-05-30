@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.41 2007/10/29 16:51:20 roberto Exp roberto $
+** $Id: lstate.c,v 2.46 2008/08/13 17:01:33 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -64,6 +64,7 @@ namespace KopiLua
 		  setnilvalue(StkId.inc(ref L1.top));  /* `function' entry for this `ci' */
 		  L1.base_ = L1.ci.base_ = L1.top;
 		  L1.ci.top = L1.top + LUA_MINSTACK;
+          L1.ci.callstatus = 0;
 		}
 
 
@@ -116,8 +117,6 @@ namespace KopiLua
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_freeall(L);  /* collect all objects */
-		  lua_assert(g.rootgc == obj2gco(L));
-		  lua_assert(g.strt.nuse == 0);
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L, L);
@@ -171,7 +170,7 @@ namespace KopiLua
 		  L.tt = LUA_TTHREAD;
 		  g.currentwhite = (lu_byte)bit2mask(WHITE0BIT, FIXEDBIT);
 		  L.marked = luaC_white(g);
-		  g.emergencygc = 0;
+		  g.gckind = KGC_NORMAL;
 		  g.nCcalls = 0;
 		  lu_byte marked = L.marked;	// can't pass properties in as ref ???//FIXME:???
 		  set2bits(ref marked, FIXEDBIT, SFIXEDBIT);
@@ -196,7 +195,7 @@ namespace KopiLua
 		  g.gray = null;
 		  g.grayagain = null;
 		  g.weak = g.ephemeron = g.allweak = null;
-		  g.tmudata = null;
+		  g.tobefnz = null;
 		  g.totalbytes = (uint)GetUnmanagedSize(typeof(LG));
 		  g.gcpause = LUAI_GCPAUSE;
 		  g.gcstepmul = LUAI_GCMUL;
@@ -215,7 +214,7 @@ namespace KopiLua
 
 		private static void callallgcTM (lua_State L, object ud) {
 		  //UNUSED(ud);
-		  luaC_callGCTM(L);  /* call GC metamethods for all udata */
+		  luaC_callAllGCTM(L);  /* call GC metamethods for all udata */
 		}
 
 
@@ -223,14 +222,15 @@ namespace KopiLua
 		  L = G(L).mainthread;  /* only the main thread can be closed */
 		  lua_lock(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
-		  luaC_separateudata(L, 1);  /* separate udata that have GC metamethods */
+		  luaC_separateudata(L, 1);  /* separate all udata with GC metamethods */
+          lua_assert(L->next == null);
 		  L.errfunc = 0;  /* no error function during GC metamethods */
 		  do {  /* repeat until no more errors */
 			L.ci = L.base_ci[0];
 			L.base_ = L.top = L.ci.base_;
 			G(L).nCcalls = 0;
 		  } while (luaD_rawrunprotected(L, callallgcTM, null) != LUA_OK);
-		  lua_assert(G(L).tmudata == null);
+		  lua_assert(G(L).tobefnz == null);
 		  luai_userstateclose(L);
 		  close_state(L);
 		}

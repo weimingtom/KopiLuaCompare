@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.138 2007/10/29 15:51:10 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.141 2008/06/12 14:21:18 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -33,7 +33,7 @@ namespace KopiLua
         /* translate a relative string position: negative means back from end */
 		private static uint posrelat (ptrdiff_t pos, uint len) {
 		  if (pos >= 0) return (uint)pos;
-		  else if ((uint)-pos > len) return 0;
+		  else if (pos == -pos || (uint)-pos > len) return 0;
 		  else return len - ((uint)-pos) + 1;
 		}
 
@@ -524,7 +524,10 @@ namespace KopiLua
 		  CharPtr p = luaL_checklstring(L, 2, out l2);
 		  uint init = posrelat(luaL_optinteger(L, 3, 1), l1);
 		  if (init < 1) init = 1;
-		  else if (init > l1) init = l1 + 1;
+		  else if (init > l1 + 1) {  /* start after string's end? */
+		    lua_pushnil(L);  /* cannot find anything */
+		    return 1;
+		  }
 		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) ||  /* explicit request? */
 			  strpbrk(p, SPECIALS) == null)) {  /* or no special characters? */
 			/* do a plain search */
@@ -627,8 +630,12 @@ namespace KopiLua
 			  luaL_addchar(b, news[i]);
 			else {
 			  i++;  /* skip ESC */
-			  if (!isdigit((byte)(news[i])))
-				luaL_addchar(b, news[i]);
+			  if (!isdigit((byte)(news[i]))) {
+		        if (news[i] != L_ESC)
+		          luaL_error(ms->L, "invalid use of " + LUA_QL("%c") + 
+		                           " in replacement string", L_ESC);
+		        luaL_addchar(b, news[i]);
+		      }
 			  else if (news[i] == '0')
 				  luaL_addlstring(b, s, (uint)(e - s));
 			  else {

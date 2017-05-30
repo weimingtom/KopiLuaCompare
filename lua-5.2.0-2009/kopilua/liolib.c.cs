@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.76 2007/04/19 20:22:32 roberto Exp roberto $
+** $Id: liolib.c,v 2.78 2008/02/12 16:51:03 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -310,6 +310,7 @@ namespace KopiLua
 
 
 		private static int read_chars (lua_State L, Stream f, uint n) {
+          uint tbr = n;  /* number of chars to be read */
 		  uint rlen;  /* how much to read */
 		  uint nr;  /* number of chars actually read */
 		  luaL_Buffer b = new luaL_Buffer();
@@ -317,13 +318,13 @@ namespace KopiLua
 		  rlen = LUAL_BUFFERSIZE;  /* try to read that much each time */
 		  do {
 			CharPtr p = luaL_prepbuffer(b);
-			if (rlen > n) rlen = n;  /* cannot read more than asked */
+			if (rlen > tbr) rlen = tbr;  /* cannot read more than asked */
 			nr = (uint)fread(p, GetUnmanagedSize(typeof(char)), (int)rlen, f);
 			luaL_addsize(b, (int)nr);
-			n -= nr;  /* still have to read `n' chars */
-		  } while (n > 0 && nr == rlen);  /* until end of count or eof */
+			tbr -= nr;  /* still have to read `n' chars */
+		  } while (tbr > 0 && nr == rlen);  /* until end of count or eof */
 		  luaL_pushresult(b);  /* close buffer */
-		  return (n == 0 || lua_objlen(L, -1) > 0) ? 1 : 0;
+		  return (tbr < n) ? 1 : 0;  /* true iff read something */
 		}
 
 
@@ -386,13 +387,13 @@ namespace KopiLua
 
 		private static int io_readline (lua_State L) {
 		  Stream f = (lua_touserdata(L, lua_upvalueindex(1)) as FilePtr).file;
-		  int sucess;
+		  int success;
 		  if (f == null)  /* file is already closed? */
 			luaL_error(L, "file is already closed");
-		  sucess = read_line(L, f);
+		  success = read_line(L, f);
 		  if (ferror(f)!=0)
 			return luaL_error(L, "%s", strerror(errno()));
-		  if (sucess != 0) return 1;
+		  if (success != 0) return 1;
 		  else {  /* EOF */
 			if (lua_toboolean(L, lua_upvalueindex(2)) != 0) {  /* generator created file? */
 			  lua_settop(L, 0);

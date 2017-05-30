@@ -9,6 +9,31 @@ namespace KopiLua
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
 	
+	/*
+
+	** Some notes about garbage-collected objects:  All objects in Lua must
+	** be kept somehow accessible until being freed.
+	**
+	** Lua keeps most objects linked in list g->rootgc. The link uses field
+	** 'next' of the CommonHeader.
+	**
+	** Strings are kept in several lists headed by the array g->strt.hash.
+	**
+	** Open upvalues are not subject to independent garbage collection. They
+	** are collected together with their respective threads. Lua keeps a
+	** double-linked list with all open upvalues (g->uvhead) so that it can
+	** mark objects referred by them. (They are always gray, so they must
+	** be remarked in the atomic step. Usually their contents would be marked
+	** when traversing the respective threads, but the thread may already be
+	** dead, while the upvalue is still accessible through closures.)
+	**
+	** Userdata with finalizers are kept in the list g->rootgc, but after
+	** the mainthread, which should be otherwise the last element in the
+	** list, as it was the first one inserted there.
+	**
+	** The list g->tobefnz links all userdata being finalized.
+
+	*/
 	public partial class Lua
 	{
 		/* table of globals */
@@ -26,6 +51,11 @@ namespace KopiLua
 
 		public const int BASIC_STACK_SIZE        = (2*LUA_MINSTACK);
 
+
+		/* kinds of Garbage Collection */
+		public const int KGC_NORMAL	= 0;
+		public const int KGC_FORCED	= 1;	/* gc was forced by the program */
+		public const int KGC_EMERGENCY = 2;	/* gc was forced by an allocation failure */
 
 
 		public class stringtable {
@@ -121,16 +151,23 @@ namespace KopiLua
 			public StkId func;  /* function index in the stack */
 			public StkId top;  /* top for this function */
 			public InstructionPtr savedpc;
-			public int nresults;  /* expected number of results from this function */
+			public short nresults;  /* expected number of results from this function */
+			public lu_byte callstatus;
 			public int tailcalls;  /* number of tail calls lost under this entry */
 		};
 
+		/*
+		** Bits in CallInfo status
+		*/
+		public const int CIST_LUA = 1;	/* call is running a Lua function */
+		public const int CIST_HOOKED = 2;	/* call is running a debug hook */
+		public const int CIST_REENTRY = 4;	/* call is running on same invocation of
+		                                   luaV_execute of previous call */
 
 
 		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
 		public static Closure ci_func(CallInfo ci) { return (clvalue(ci.func)); }
-		public static bool f_isLua(CallInfo ci)	{return ci_func(ci).c.isC==0;}
-		public static bool isLua(CallInfo ci)	{return (ttisfunction((ci).func) && f_isLua(ci));}
+		public static bool isLua(CallInfo ci)	{return (ci.callstatus & CIST_LUA) != 0;}
 
 
 		/*
@@ -143,16 +180,16 @@ namespace KopiLua
           public ushort nCcalls;  /* number of nested C calls */
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
-          public lu_byte emergencygc;  /* true when collect was trigged by alloc error */
+          public lu_byte gckind;  /* kind of GC running */
 		  public int sweepstrgc;  /* position of sweep in `strt' */
 		  public GCObject rootgc;  /* list of all collectable objects */
-		  public GCObjectRef sweepgc;  /* position of sweep in `rootgc' */
+		  public GCObjectRef sweepgc;  /* current position of sweep */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
-		  public GCObject weak;  /* list of (something) weak tables */
-		  public GCObject ephemeron;  /* list of ephemeron tables */
+		  public GCObject weak;  /* list of tables with weak values */
+		  public GCObject ephemeron;  /* list of ephemeron tables (weak keys) */
 		  public GCObject allweak;  /* list of all-weak tables */
-		  public GCObject tmudata;  /* last element of list of userdata to be GC */
+		  public GCObject tobefnz;  /* list of userdata to be GC */
 		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatentation */
 		  public lu_mem GCthreshold;
 		  public lu_mem totalbytes;  /* number of bytes currently allocated */
@@ -226,15 +263,17 @@ namespace KopiLua
 				//Debug.Assert(this.values != null);
 			}
 
-			public GCheader gch {get{return (GCheader)this;}}
+			public GCheader gch {get{return (GCheader)this;}}   /* common header */
 			public TString ts {get{return (TString)this;}}
 			public Udata u {get{return (Udata)this;}}
 			public Closure cl {get{return (Closure)this;}}
 			public Table h {get{return (Table)this;}}
 			public Proto p {get{return (Proto)this;}}
 			public UpVal uv {get{return (UpVal)this;}}
-			public lua_State th {get{return (lua_State)this;}}
+			public lua_State th {get{return (lua_State)this;}}  /* thread */
 		};
+
+		public static GCheader gch(GCObject o)	{ return o.gch; }
 
 		/*	this interface and is used for implementing GCObject references,
 		    it's used to emulate the behaviour of a C-style GCObject **
@@ -331,7 +370,7 @@ namespace KopiLua
 		public static Udata rawgco2u(GCObject o) { return (Udata)check_exp(o.gch.tt == LUA_TUSERDATA, o.u); }
 		public static Udata gco2u(GCObject o) { return (Udata)(rawgco2u(o).uv); }
 		public static Closure gco2cl(GCObject o) { return (Closure)check_exp(o.gch.tt == LUA_TFUNCTION, o.cl); }
-		public static Table gco2h(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
+		public static Table gco2t(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
 		public static Proto gco2p(GCObject o) { return (Proto)check_exp(o.gch.tt == LUA_TPROTO, o.p); }
 		public static UpVal gco2uv(GCObject o) { return (UpVal)check_exp(o.gch.tt == LUA_TUPVAL, o.uv); }
 		public static UpVal ngcotouv(GCObject o) {return (UpVal)check_exp((o.gch.tt == LUA_TUPVAL), o.uv); }

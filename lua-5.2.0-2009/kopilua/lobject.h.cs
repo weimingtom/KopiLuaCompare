@@ -384,7 +384,7 @@ namespace KopiLua
 
 		public static CharPtr getstr(TString ts) { return ts.str; }
 		public static CharPtr getstr(TString_tsv ts) { return ((TString)ts).str; }
-		public static CharPtr svalue(StkId o) { return getstr(tsvalue(o)); }
+		public static CharPtr svalue(StkId o) { return getstr(rawtsvalue(o)); }
 
 		public class Udata_uv : GCObject
 		{

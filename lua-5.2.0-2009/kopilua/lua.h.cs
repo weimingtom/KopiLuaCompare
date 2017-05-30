@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.225 2007/04/17 13:19:53 roberto Exp roberto $
+** $Id: lua.h,v 1.230 2008/07/18 19:58:10 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -21,7 +21,7 @@ namespace KopiLua
 		public const string LUA_VERSION = "Lua 5.2";
 		public const string LUA_RELEASE = "Lua 5.2.0";
 		public const int LUA_VERSION_NUM	= 502;
-		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2007 Lua.org, PUC-Rio";
+		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2008 Lua.org, PUC-Rio";
 		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
 
 
@@ -35,9 +35,9 @@ namespace KopiLua
 		/*
 		** pseudo-indices
 		*/
-		public const int LUA_REGISTRYINDEX	= (-10000);
-		public const int LUA_ENVIRONINDEX	= (-10001);
-		public const int LUA_GLOBALSINDEX	= (-10002);
+		public const int LUA_REGISTRYINDEX	= (-(LUAI_MCS_AUX) - 1);
+		public const int LUA_ENVIRONINDEX	= (LUA_REGISTRYINDEX - 1);
+		public const int LUA_GLOBALSINDEX	= (LUA_ENVIRONINDEX - 1);
 		public static int lua_upvalueindex(int i)	{return LUA_GLOBALSINDEX-i;}
 
 
@@ -203,6 +203,11 @@ namespace KopiLua
             return lua_tolstring(L, i, out blah);
         }
 
+		/*
+		** compatibility macros and functions
+		*/
+#if LUA_COMPAT_API
+
         public static uint lua_strlen(lua_State L, int i)
         {
             return lua_objlen(L, i);
@@ -229,6 +234,7 @@ namespace KopiLua
 		//#define lua_Chunkreader		lua_Reader
 		//#define lua_Chunkwriter		lua_Writer
 
+#endif
 
 		/*
 		** {======================================================================
@@ -278,7 +284,7 @@ namespace KopiLua
 
 
 		/******************************************************************************
-        * Copyright (C) 1994-2006 Lua.org, PUC-Rio.  All rights reserved.
+        * Copyright (C) 1994-2008 Lua.org, PUC-Rio.  All rights reserved.
 		*
 		* Permission is hereby granted, free of charge, to any person obtaining
 		* a copy of this software and associated documentation files (the
