@@ -21,7 +21,7 @@ namespace KopiLua
 
 
 		private static int currentpc (lua_State L, CallInfo ci) {
-		  if (!isLua(ci)) return -1;  /* function is not a Lua function? */
+		  if (isLua(ci) == 0) return -1;  /* function is not a Lua function? */
 		  if (ci == L.ci)
 			ci.savedpc = InstructionPtr.Assign(L.savedpc);
 		  return pcRel(ci.savedpc, ci_func(ci).l.p);
@@ -75,7 +75,7 @@ namespace KopiLua
 		  lua_lock(L);
 		  for (ci = L.ci; level > 0 && ci > L.base_ci[0]; CallInfo.dec(ref ci)) {
 			level--;
-			if (isLua(ci))  /* Lua function? */
+			if (isLua(ci) != 0)  /* Lua function? */
 			  level -= ci.tailcalls;  /* skip lost tail calls */
 		  }
 		  if (level == 0 && ci > L.base_ci[0]) {  /* level found? */
@@ -93,7 +93,7 @@ namespace KopiLua
 
 
 		private static Proto getluaproto (CallInfo ci) {
-		  return (isLua(ci) ? ci_func(ci).l.p : null);
+		  return (isLua(ci) != 0 ? ci_func(ci).l.p : null);
 		}
 
 
@@ -478,7 +478,7 @@ namespace KopiLua
 
 		private static CharPtr getobjname (lua_State L, CallInfo ci, int stackpos,
 									   ref CharPtr name) {
-		  if (isLua(ci)) {  /* a Lua function? */
+		  if (isLua(ci) != 0) {  /* a Lua function? */
 			Proto p = ci_func(ci).l.p;
 			int pc = currentpc(L, ci);
 			Instruction i;
@@ -526,7 +526,7 @@ namespace KopiLua
 		private static CharPtr getfuncname (lua_State L, CallInfo ci, ref CharPtr name) {
           TMS tm = 0;
 		  Instruction i;
-		  if ((isLua(ci) && ci.tailcalls > 0) || !isLua(ci - 1))
+		  if ((isLua(ci) != 0 && ci.tailcalls > 0) || isLua(ci - 1) == 0)
 			return null;  /* calling function is not Lua (or is unknown) */
 		  CallInfo.dec(ref ci);  /* calling function */
 		  i = ci_func(ci).l.p.code[currentpc(L, ci)];
@@ -611,7 +611,7 @@ namespace KopiLua
 
 		private static void addinfo (lua_State L, CharPtr msg) {
 		  CallInfo ci = L.ci;
-		  if (isLua(ci)) {  /* is Lua code? */
+		  if (isLua(ci) != 0) {  /* is Lua code? */
 			CharPtr buff = new CharPtr(new char[LUA_IDSIZE]);  /* add file:line information */
 			int line = currentline(L, ci);
 			luaO_chunkid(buff, getstr(getluaproto(ci).source), LUA_IDSIZE);

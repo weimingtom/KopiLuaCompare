@@ -223,7 +223,7 @@ namespace KopiLua
 		  lua_lock(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_separateudata(L, 1);  /* separate all udata with GC metamethods */
-          lua_assert(L->next == null);
+          lua_assert(L.next == null);
 		  L.errfunc = 0;  /* no error function during GC metamethods */
 		  do {  /* repeat until no more errors */
 			L.ci = L.base_ci[0];

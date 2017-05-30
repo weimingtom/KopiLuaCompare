@@ -238,9 +238,10 @@ namespace KopiLua
 
 		private static int os_exit (lua_State L) {
 		  int status = luaL_optint(L, 1, EXIT_SUCCESS);
-		  if (!lua_toboolean(L, 2))
+		  if (lua_toboolean(L, 2) == 0)
 		    lua_close(L);
 		  exit(status);
+		  return 0;//FIXME:added
 		}
 		
 

@@ -345,7 +345,7 @@ namespace KopiLua
 		private static StkId callrethooks (lua_State L, StkId firstResult) {
 		  ptrdiff_t fr = savestack(L, firstResult);  /* next call may change stack */
 		  luaD_callhook(L, LUA_HOOKRET, -1);
-		  if (isLua(L.ci)) {  /* Lua function? */
+		  if (isLua(L.ci) != 0) {  /* Lua function? */
 			while ((L.hookmask & LUA_MASKRET) != 0 && L.ci.tailcalls-- != 0) /* tail calls */
 			  luaD_callhook(L, LUA_HOOKTAILRET, -1);
 		  }
@@ -405,7 +405,7 @@ namespace KopiLua
 		  for (;;) {
 		    Instruction inst;
 		    luaV_execute(L);  /* execute down to higher C 'boundary' */
-		    if (L.ci == L.base_ci) {  /* stack is empty? */
+		    if (L.ci == L.base_ci[0]) {  /* stack is empty? */ //FIXME:???==
 		      lua_assert(L.baseCcalls == G(L).nCcalls);
 		      return;  /* coroutine finished normally */
 		    }
@@ -415,20 +415,20 @@ namespace KopiLua
 		      case OpCode.OP_ADD: case OpCode.OP_SUB: case OpCode.OP_MUL: case OpCode.OP_DIV:
 		      case OpCode.OP_MOD: case OpCode.OP_POW: case OpCode.OP_UNM: case OpCode.OP_LEN:
 		      case OpCode.OP_GETGLOBAL: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
-		        setobjs2s(L, L.base_ + GETARG_A(inst), --L.top);
+		        setobjs2s(L, L.base_ + GETARG_A(inst), StkId.dec(ref L.top)); //FIXME:--
 		        break;
 		      }
 		      case OpCode.OP_LE: case OpCode.OP_LT: case OpCode.OP_EQ: {
-		        int res = !l_isfalse(L.top - 1);
-		        L.top--;
+		    	int res = l_isfalse(L.top - 1) == 0 ? 1 : 0;
+		    	StkId.dec(ref L.top); //FIXME:--
 		        /* metamethod should not be called when operand is K */
-		        lua_assert(!ISK(GETARG_B(inst)));
-		        if (GET_OPCODE(inst) == OP_LE &&  /* "<=" using "<" instead? */
-		            ttisnil(luaT_gettmbyobj(L, L.base_ + GETARG_B(inst), TM_LE)))
-		          res = !res;  /* invert result */
-		        lua_assert(GET_OPCODE(L.savedpc[0]) == OP_JMP);
+		        lua_assert(ISK(GETARG_B(inst))==0);
+		        if (GET_OPCODE(inst) == OpCode.OP_LE &&  /* "<=" using "<" instead? */
+		            ttisnil(luaT_gettmbyobj(L, L.base_ + GETARG_B(inst), TMS.TM_LE)))
+		          res = (res == 0 ? 1 : 0);  /* invert result */
+		        lua_assert(GET_OPCODE(L.savedpc[0]) == OpCode.OP_JMP);
 		        if (res != GETARG_A(inst))  /* condition failed? */
-		          L.savedpc++;  /* skip jump instruction */
+		          InstructionPtr.inc(ref L.savedpc);  /* skip jump instruction */ //FIXME:++
 		        break;
 		      }
 		      case OpCode.OP_CONCAT: {
@@ -445,13 +445,14 @@ namespace KopiLua
 		        continue;
 		      }
 		      case OpCode.OP_TFORCALL: {
-		        lua_assert(GET_OPCODE(L.savedpc[0]) == OP_TFORLOOP);
+		        lua_assert(GET_OPCODE(L.savedpc[0]) == OpCode.OP_TFORLOOP);
 		        L.top = L.ci.top;  /* correct top */
 		        break;
 		      }
 		      case OpCode.OP_SETGLOBAL: case OpCode.OP_SETTABLE:
 		        break;  /* nothing to be done */
 		      default: lua_assert(0);
+		        break;//FIXME:
 		    }
 		  }
 		}
@@ -468,7 +469,7 @@ namespace KopiLua
 			lua_assert(L.status == LUA_YIELD);
 			L.status = LUA_OK;
 			if (isLua(ci) == 1)  /* yielded inside a hook? */
-		      L.base = L->ci.base;  /* just continue its execution */
+		      L.base_ = L.ci.base_;  /* just continue its execution */
 		    else {  /* 'common' yield */
 			  /* finish interrupted execution of `OP_CALL' */
 			  lua_assert(GET_OPCODE((ci-1).savedpc[-1]) == OpCode.OP_CALL ||
@@ -528,7 +529,7 @@ namespace KopiLua
 			luaG_runerror(L, "attempt to yield across metamethod/C-call boundary");
 		  L.base_ = L.top - nresults;  /* protect stack slots below */
 		  L.status = LUA_YIELD;
-		  if (!isLua(L.ci))  /* not inside a hook? */
+		  if (isLua(L.ci) == 0)  /* not inside a hook? */
 		    luaD_throw(L, LUA_YIELD);
 		  lua_assert(L.ci.callstatus & CIST_HOOKED);  /* must be inside a hook */
 		  lua_unlock(L);

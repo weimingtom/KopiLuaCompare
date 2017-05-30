@@ -132,7 +132,7 @@ namespace KopiLua
    			setnilvalue(o);
 			break;
 		   case LUA_TBOOLEAN:
-   			setbvalue(o, LoadChar(S)!=0);
+			setbvalue(o, LoadChar(S)!=0 ? 1 : 0);
 			break;
 		   case LUA_TNUMBER:
 			setnvalue(o, LoadNumber(S));

@@ -109,7 +109,7 @@ namespace KopiLua
 
 
 		static void print_version() {
-			printf("%s\n", Lua.LUA_COPYRIGHT);
+			Lua.printf("%s\n", Lua.LUA_COPYRIGHT);
 		}
 
 

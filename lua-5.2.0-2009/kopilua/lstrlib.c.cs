@@ -632,7 +632,7 @@ namespace KopiLua
 			  i++;  /* skip ESC */
 			  if (!isdigit((byte)(news[i]))) {
 		        if (news[i] != L_ESC)
-		          luaL_error(ms->L, "invalid use of " + LUA_QL("%c") + 
+		          luaL_error(ms.L, "invalid use of " + LUA_QL("%c") + 
 		                           " in replacement string", L_ESC);
 		        luaL_addchar(b, news[i]);
 		      }

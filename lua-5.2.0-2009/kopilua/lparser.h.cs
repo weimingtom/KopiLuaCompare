@@ -72,8 +72,8 @@ namespace KopiLua
 		  public lu_byte info;
 		};
 
-		public class vardesc {
-		  ushort idx;
+		public struct vardesc {
+		  public ushort idx;
 		};
 
 		/* state needed to generate code for a given function */

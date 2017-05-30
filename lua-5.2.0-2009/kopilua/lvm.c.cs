@@ -77,19 +77,19 @@ namespace KopiLua
 							TValue p2, TValue p3, int hasres) {
 		  ptrdiff_t result = savestack(L, p3);
 		  int oldbase = L.baseCcalls;
-		  setobj2s(L, L.top++, f);  /* push function */
-		  setobj2s(L, L.top++, p1);  /* 1st argument */
-		  setobj2s(L, L.top++, p2);  /* 2nd argument */
-		  if (!hasres)  /* no result? 'p3' is third argument */
-		    setobj2s(L, L.top++, p3);  /* 3th argument */
+		  setobj2s(L, L.top, f); StkId.inc(ref L.top);  /* push function */ //FIXME:++
+		  setobj2s(L, L.top, p1); StkId.inc(ref L.top);  /* 1st argument */ //FIXME:++
+		  setobj2s(L, L.top, p2); StkId.inc(ref L.top);  /* 2nd argument */ //FIXME:++
+		  if (hasres == 0)  /* no result? 'p3' is third argument */ //FIXME:++
+		    setobj2s(L, L.top, p3); StkId.inc(ref L.top); /* 3th argument */ //FIXME:++
 		  luaD_checkstack(L, 0);
-		  if (isLua(L.ci))  /* metamethod invoked from a Lua function? */
+		  if (isLua(L.ci) != 0)  /* metamethod invoked from a Lua function? */
 		    L.baseCcalls++;  /* allow it to yield */
 		  luaD_call(L, L.top - (4 - hasres), hasres);
-		  L.baseCcalls = oldbase;
-		  if (hasres) {  /* if has result, move it to its place */
+		  L.baseCcalls = (ushort)oldbase; //FIXME:???(ushort)
+		  if (hasres != 0) {  /* if has result, move it to its place */
 		    p3 = restorestack(L, result);
-		    setobjs2s(L, p3, --L.top);
+		    setobjs2s(L, p3, StkId.dec(ref L.top)); //FIXME:--
 		  }
 		}
 
@@ -272,7 +272,7 @@ namespace KopiLua
               L.top = top;  /* set top to current position (in case of yield) */
 			  if (call_binTM(L, top-2, top-1, top-2, TMS.TM_CONCAT)==0)
 				luaG_concaterror(L, top-2, top-1);
-              L.top = L->ci.top;  /* restore top */
+              L.top = L.ci.top;  /* restore top */
 		    } 
 			else if (tsvalue(top-1).len == 0) {  /* second operand is empty? */
 		      tostring(L, top - 2);  /* result is first operand */ ; //FIXME:<-------
@@ -729,9 +729,9 @@ namespace KopiLua
 				int b = GETARG_B(i);
 		        int nresults = GETARG_C(i) - 1;
 		        if (b != 0) L.top = ra+b;  /* else previous instruction set top */
-		        if (luaD_precall(L, ra, nresults)) {  /* C function? */
+		        if (luaD_precall(L, ra, nresults) != 0) {  /* C function? */
 		          if (nresults >= 0) L.top = L.ci.top;  /* adjust results */
-		          base = L.base;
+		          base_ = L.base_;
 		          continue;
 		        }
 		        else {  /* Lua function */
@@ -743,8 +743,8 @@ namespace KopiLua
 				int b = GETARG_B(i);
 				if (b != 0) L.top = ra + b;  /* else previous instruction set top */
 				lua_assert(GETARG_C(i) - 1 == LUA_MULTRET);
-		        if (luaD_precall(L, ra, LUA_MULTRET)) {  /* C function? */
-		          base = L->base;
+		        if (luaD_precall(L, ra, LUA_MULTRET) != 0) {  /* C function? */
+		          base_ = L.base_;
 		          continue;
 		        }
 		        else {
@@ -770,7 +770,7 @@ namespace KopiLua
 				if (b != 0) L.top = ra+b-1;
 				if (cl.p.sizep > 0) luaF_close(L, base_);
 				b = luaD_poscall(L, ra);
-				if (!((L.ci + 1).callstatus & CIST_REENTRY))
+				if (((L.ci + 1).callstatus & CIST_REENTRY) == 0)
 				  return;  /* external invocation: return */
 				else {  /* invocation via reentry: continue execution */
 				  if (b != 0) L.top = L.ci.top;
@@ -810,7 +810,7 @@ namespace KopiLua
 				setobjs2s(L, cb+2, ra+2);
 				setobjs2s(L, cb+1, ra+1);
 				setobjs2s(L, cb, ra);
-                L->baseCcalls++;  /* allow yields */
+                L.baseCcalls++;  /* allow yields */
 				L.top = cb+3;  /* func. + 2 args (state and index) */
 				//Protect(
 					//L.savedpc = InstructionPtr.Assign(pc);//FIXME:
@@ -819,13 +819,13 @@ namespace KopiLua
 				  //);
 				L.top = L.ci.top;
 		        L.baseCcalls--;
-		        i = (L.savedpc++)[0];  /* go to next instruction */
-		        ra = RA(i);
-		        lua_assert(GET_OPCODE(i) == OP_TFORLOOP);
+		        i = L.savedpc[0]; InstructionPtr.inc(ref L.savedpc);  /* go to next instruction */ //FIXME:++
+		        ra = RA(L, base_, i);
+		        lua_assert(GET_OPCODE(i) == OpCode.OP_TFORLOOP);
 		        /* go through */
-				goto case OP_TFORLOOP; //FIXME:added
+				goto case OpCode.OP_TFORLOOP; //FIXME:added
               }
-      		  case OP_TFORLOOP: {
+      		  case OpCode.OP_TFORLOOP: {
 	  		    if (!ttisnil(ra + 1)) {  /* continue loop? */
 				  setobjs2s(L, ra, ra + 1);  /* save control variable */
 				  dojump(L, GETARG_sBx(i));  /* jump back */
@@ -839,8 +839,8 @@ namespace KopiLua
 				Table h;
 				if (n == 0) n = cast_int(L.top - ra) - 1;
 				if (c == 0) {
-                  lua_assert(GET_OPCODE(L.savedpc[0]) == OP_EXTRAARG);
-                  c = GETARG_Ax((L.savedpc++)[0]); //FIXME:???
+                  lua_assert(GET_OPCODE(L.savedpc[0]) == OpCode.OP_EXTRAARG);
+                  c = GETARG_Ax(L.savedpc[0]); InstructionPtr.inc(ref L.savedpc); //FIXME:++
 				}
 				runtime_check(L, ttistable(ra));
 				h = hvalue(ra);
@@ -909,7 +909,7 @@ namespace KopiLua
 				}
 				continue;
 			  }
-		      case OP_EXTRAARG: {
+		      case OpCode.OP_EXTRAARG: {
 		        luaG_runerror(L, "bad opcode");
 		        return;
 		      }

@@ -1082,12 +1082,12 @@ namespace KopiLua
 		  block(ls);
 		  leaveblock(fs);  /* end of scope for declared variables */
 		  luaK_patchtohere(fs, prep);
-		  if (isnum)  /* numeric for? */
-		    endfor = luaK_codeAsBx(fs, OP_FORLOOP, base, NO_JUMP);
+		  if (isnum != 0)  /* numeric for? */
+		    endfor = luaK_codeAsBx(fs, OpCode.OP_FORLOOP, base_, NO_JUMP);
 		  else {  /* generic for */
-		    luaK_codeABC(fs, OP_TFORCALL, base, 0, nvars);
+		    luaK_codeABC(fs, OpCode.OP_TFORCALL, base_, 0, nvars);
 		    luaK_fixline(fs, line);
-		    endfor = luaK_codeAsBx(fs, OP_TFORLOOP, base + 2, NO_JUMP);
+		    endfor = luaK_codeAsBx(fs, OpCode.OP_TFORLOOP, base_ + 2, NO_JUMP);
 		  }
 		  luaK_patchlist(fs, endfor, prep + 1);
 		  luaK_fixline(fs, line);

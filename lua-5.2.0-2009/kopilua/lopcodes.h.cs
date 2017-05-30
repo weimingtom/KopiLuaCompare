@@ -99,8 +99,11 @@ namespace KopiLua
 
 		//FIXME:???
 		public static int getarg(Instruction i, int pos, int size) { return ((int)(((i)>>pos) & MASK1(size,0))); }
-		public static void setarg(InstructionPtr i, int v, int pos, int size) { ((i[0]) = (((i[0])&MASK0(size,pos)) |
-		                ((((Instruction)v)<<pos)&MASK1(size,pos)))); }
+		public static void setarg(InstructionPtr i, int v, int pos, int size) { 
+			//FIXME: changed here
+			i[0] = (Instruction)((i[0] & MASK0(size,pos)) |
+			              ( (((int)v) << pos) & MASK1(size, pos)));
+		}
 				
 
 		public static int GETARG_A(Instruction i)
@@ -116,13 +119,13 @@ namespace KopiLua
 
 		public static int GETARG_B(Instruction i)
 		{
-			return getarg(i, POS_C, SIZE_C)
+			return getarg(i, POS_C, SIZE_C);
 		}
 		public static int GETARG_B(InstructionPtr i) { return GETARG_B(i[0]); } //FIXME: added
 
 		public static void SETARG_B(InstructionPtr i, int v)
 		{
-			setarg(i, v, POS_B, SIZE_B)
+			setarg(i, v, POS_B, SIZE_B);
 		}
 
 		public static int GETARG_C(Instruction i)
@@ -153,7 +156,7 @@ namespace KopiLua
 		}
 		public static int GETARG_Ax(InstructionPtr i) { return GETARG_Ax(i[0]); } //FIXME: added
 
-		public static void SETARG_Ax(InstructionPtr i, int b)
+		public static void SETARG_Ax(InstructionPtr i, int v)
 		{
 			setarg(i, v, POS_Ax, SIZE_Ax);
 		}
@@ -183,8 +186,8 @@ namespace KopiLua
 
 		public static int CREATE_Ax(OpCode o, int a)
 		{
-			return ((((Instruction)o)<<POS_OP)
-					| (((Instruction)a)<<POS_A));
+			return (int)(((((int)o)<<POS_OP)
+			              | (((int)a)<<POS_A)));
 		}
 
 

@@ -167,7 +167,7 @@ namespace KopiLua
 
 		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
 		public static Closure ci_func(CallInfo ci) { return (clvalue(ci.func)); }
-		public static bool isLua(CallInfo ci)	{return (ci.callstatus & CIST_LUA) != 0;}
+		public static int isLua(CallInfo ci)	{return ((ci.callstatus & CIST_LUA) != 0) ? 1 : 0;}
 
 
 		/*
@@ -362,7 +362,6 @@ namespace KopiLua
 			public GCObject get() { return this.header.next; }
 			GCheader header;
 		}
-
 		
 		/* macros to convert a GCObject into a specific value */
 		public static TString rawgco2ts(GCObject o) { return (TString)check_exp(o.gch.tt == LUA_TSTRING, o.ts); }

@@ -216,7 +216,9 @@ namespace KopiLua
 		public static bool ttisfunction(TValue o)	{return (ttype(o) == LUA_TFUNCTION);}
 		public static bool ttisboolean(TValue o)	{return (ttype(o) == LUA_TBOOLEAN);}
 		public static bool ttisuserdata(TValue o)	{return (ttype(o) == LUA_TUSERDATA);}
+		public static bool ttisuserdata(CommonHeader o)	{return (ttype(o) == LUA_TUSERDATA);} //FIXME:added
 		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
+		public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
 		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
 
 		/* Macros to access values */

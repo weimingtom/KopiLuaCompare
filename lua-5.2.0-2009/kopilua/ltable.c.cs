@@ -204,7 +204,7 @@ namespace KopiLua
 		private static int countint (TValue key, int[] nums) {
 		  int k = arrayindex(key);
 		  if (0 < k && k <= MAXASIZE) {  /* is `key' an appropriate array index? */
-		  	nums[luaO_ceillog2(k)]++;  /* count as such */
+		  	nums[luaO_ceillog2((uint)k)]++;  /* count as such */
 			return 1;
 		  }
 		  else
@@ -270,7 +270,7 @@ namespace KopiLua
 		  }
 		  else {
 			int i;
-			lsize = luaO_ceillog2(size);
+			lsize = luaO_ceillog2((uint)size);
 			if (lsize > MAXBITS)
 			  luaG_runerror(L, "table overflow");
 			size = twoto(lsize);
