@@ -89,3 +89,16 @@ lvm.c
 
 17:46 2017-05-30
 lgc.c
+
+
+
+------------------------
+
+INT_MAX
+->
+Int32.MaxValue
+
+UCHAR_MAX
+->
+System.Byte.MaxValue
+

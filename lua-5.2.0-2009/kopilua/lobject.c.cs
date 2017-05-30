@@ -18,7 +18,8 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using l_uacNumber = System.Double;
 	using Instruction = System.UInt32;
-
+	using lu_int32 = System.UInt32;
+	
 	public partial class Lua
 	{
 
@@ -48,9 +49,7 @@ namespace KopiLua
 		  else return ((x & 7) + 8) << (e - 1);
 		}
 
-
-		public static int luaO_ceillog2 (unsigned int x) {
-		  static const lu_byte log_2[256] = {
+		private static readonly lu_byte[] log_2 = {
 		    0,1,2,2,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,
 		    6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,
 		    7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,7,
@@ -59,7 +58,9 @@ namespace KopiLua
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,
 		    8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8,8
-		  };
+		};
+		
+		public static int luaO_ceillog2 (uint x) {
 		  int l = 0;
 		  x--;
 		  while (x >= 256) { l += 8; x >>= 8; }

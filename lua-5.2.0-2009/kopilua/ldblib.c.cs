@@ -251,7 +251,7 @@ namespace KopiLua
 		private static int db_sethook (lua_State L) {
 		  int arg, mask, count;
 		  lua_Hook func;
-		  lua_State L1 = getthread(L, &arg);
+		  lua_State L1 = getthread(L, out arg);
 		  if (lua_isnoneornil(L, arg+1)) {
 		    lua_settop(L, arg+1);
 		    func = null; mask = 0; count = 0;  /* turn off hooks */

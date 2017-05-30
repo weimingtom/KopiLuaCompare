@@ -343,7 +343,7 @@ namespace KopiLua
 				}
 				break;
 			  }
-              case iAx: break;
+              case OpMode.iAx: break;
 			}
 			if (testAMode(op) != 0) {
 			  if (a == reg) last = pc;  /* change register `a' */
@@ -382,7 +382,7 @@ namespace KopiLua
 			  case OpCode.OP_TFORCALL: {
 				if (!(c >= 1)) return 0;  /* at least one result (control variable) */
 				checkreg(pt, a+2+c);  /* space for results */
-                check(GET_OPCODE(pt.code[pc+1]) == OpCode.OP_TFORLOOP);
+				if (!(GET_OPCODE(pt.code[pc+1]) == OpCode.OP_TFORLOOP)) return 0;
 				if (reg >= a+2) last = pc;  /* affect all regs above its base */
 				break;
 			  }

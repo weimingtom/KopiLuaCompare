@@ -649,7 +649,7 @@ namespace KopiLua
 
 
 		/* move 'dead' udata that need finalization to list 'tobefnz' */
-		public static size_t luaC_separateudata (lua_State L, int all) {
+		public static uint luaC_separateudata (lua_State L, int all) {
 		  global_State g = G(L);
 		  size_t deadmem = 0;  /* total size of all objects to be finalized */
 		  GCObject **p = &g->mainthread->next;

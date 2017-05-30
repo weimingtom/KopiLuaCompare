@@ -59,7 +59,7 @@ namespace KopiLua
 			default: {
 			  Closure func = curr_func(L);
 			  idx = LUA_GLOBALSINDEX - idx;
-              api_check(L, idx <= UCHAR_MAX + 1);
+              api_check(L, idx <= System.Byte.MaxValue + 1);
 			  return (idx <= func.c.nupvalues)
 						? func.c.upvalue[idx-1]
 						: (TValue)luaO_nilobject;
@@ -467,7 +467,7 @@ namespace KopiLua
 		  Closure cl;
 		  lua_lock(L);
 		  api_checknelems(L, n);
-		  api_check(L, n <= UCHAR_MAX);
+		  api_check(L, n <= System.Byte.MaxValue);
 		  luaC_checkGC(L);
 		  cl = luaF_newCclosure(L, n, getcurrenv(L));
 		  cl.c.f = fn;

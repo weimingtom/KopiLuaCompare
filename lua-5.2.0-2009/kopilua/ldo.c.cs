@@ -17,7 +17,8 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using lu_byte = System.Byte;
-
+	using Instruction = System.UInt32;
+	
 	public partial class Lua
 	{
 
@@ -207,7 +208,7 @@ namespace KopiLua
 			L.allowhook = 1;
 			L.ci.top = restorestack(L, ci_top);
 			L.top = restorestack(L, top);
-            L.ci.callstatus &= ~CIST_HOOKED;
+			L.ci.callstatus &= (byte)((~CIST_HOOKED) & 0xff);
 		  }
 		}
 
@@ -308,7 +309,7 @@ namespace KopiLua
 			L.savedpc = new InstructionPtr(p.code, 0);  /* starting point */
 			ci.tailcalls = 0;
             ci.callstatus = CIST_LUA;
-			ci.nresults = nresults;
+            ci.nresults = (short)nresults; //FIXME:???(short)
 			for (st = L.top; st < ci.top; StkId.inc(ref st))
 				setnilvalue(st);
 			L.top = ci.top;
@@ -328,7 +329,7 @@ namespace KopiLua
 			L.base_ = ci.base_ = ci.func + 1;
 			ci.top = L.top + LUA_MINSTACK;
 			lua_assert(ci.top <= L.stack_last);
-			ci.nresults = nresults;
+			ci.nresults = (short)nresults; //FIXME:???(short)
             ci.callstatus = 0;
 			if ((L.hookmask & LUA_MASKCALL) != 0)
 			  luaD_callhook(L, LUA_HOOKCALL, -1);
@@ -405,34 +406,34 @@ namespace KopiLua
 		    Instruction inst;
 		    luaV_execute(L);  /* execute down to higher C 'boundary' */
 		    if (L.ci == L.base_ci) {  /* stack is empty? */
-		      lua_assert(L.baseCcalls == G(L)->nCcalls);
+		      lua_assert(L.baseCcalls == G(L).nCcalls);
 		      return;  /* coroutine finished normally */
 		    }
 		    L.baseCcalls--;  /* undo increment that allows yields */
 		    inst = L.savedpc[-1];  /* interrupted instruction */
 		    switch (GET_OPCODE(inst)) {  /* finish its execution */
-		      case OP_ADD: case OP_SUB: case OP_MUL: case OP_DIV:
-		      case OP_MOD: case OP_POW: case OP_UNM: case OP_LEN:
-		      case OP_GETGLOBAL: case OP_GETTABLE: case OP_SELF: {
-		        setobjs2s(L, L->base + GETARG_A(inst), --L->top);
+		      case OpCode.OP_ADD: case OpCode.OP_SUB: case OpCode.OP_MUL: case OpCode.OP_DIV:
+		      case OpCode.OP_MOD: case OpCode.OP_POW: case OpCode.OP_UNM: case OpCode.OP_LEN:
+		      case OpCode.OP_GETGLOBAL: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
+		        setobjs2s(L, L.base_ + GETARG_A(inst), --L.top);
 		        break;
 		      }
-		      case OP_LE: case OP_LT: case OP_EQ: {
+		      case OpCode.OP_LE: case OpCode.OP_LT: case OpCode.OP_EQ: {
 		        int res = !l_isfalse(L.top - 1);
-		        L->top--;
+		        L.top--;
 		        /* metamethod should not be called when operand is K */
 		        lua_assert(!ISK(GETARG_B(inst)));
 		        if (GET_OPCODE(inst) == OP_LE &&  /* "<=" using "<" instead? */
-		            ttisnil(luaT_gettmbyobj(L, L->base + GETARG_B(inst), TM_LE)))
+		            ttisnil(luaT_gettmbyobj(L, L.base_ + GETARG_B(inst), TM_LE)))
 		          res = !res;  /* invert result */
 		        lua_assert(GET_OPCODE(L.savedpc[0]) == OP_JMP);
 		        if (res != GETARG_A(inst))  /* condition failed? */
-		          L->savedpc++;  /* skip jump instruction */
+		          L.savedpc++;  /* skip jump instruction */
 		        break;
 		      }
-		      case OP_CONCAT: {
+		      case OpCode.OP_CONCAT: {
 		        StkId top = L.top - 1;  /* top when __concat was called */
-		        int last = cast_int(top - L.base) - 2;  /* last element and ... */
+		        int last = cast_int(top - L.base_) - 2;  /* last element and ... */
 		        int b = GETARG_B(inst);      /* ... first element to concatenate */
 		        int total = last - b + 1;  /* number of elements to concatenate */
 		        setobj2s(L, top - 2, top);  /* put TM result in proper position */
@@ -440,15 +441,15 @@ namespace KopiLua
 		        if (total > 1)  /* are there elements to concat? */
 		          luaV_concat(L, total, last);  /* concat them (may yield again) */
 		        /* move final result to final position */
-		        setobj2s(L, L.base + GETARG_A(inst), L.base + b);
+		        setobj2s(L, L.base_ + GETARG_A(inst), L.base_ + b);
 		        continue;
 		      }
-		      case OP_TFORCALL: {
+		      case OpCode.OP_TFORCALL: {
 		        lua_assert(GET_OPCODE(L.savedpc[0]) == OP_TFORLOOP);
 		        L.top = L.ci.top;  /* correct top */
 		        break;
 		      }
-		      case OP_SETGLOBAL: case OP_SETTABLE:
+		      case OpCode.OP_SETGLOBAL: case OpCode.OP_SETTABLE:
 		        break;  /* nothing to be done */
 		      default: lua_assert(0);
 		    }

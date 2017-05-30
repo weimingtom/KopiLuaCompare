@@ -449,7 +449,7 @@ namespace KopiLua
 		//#define LUAI_MCS_AUX	(INT_MAX / 16)
 		//#endif
         //FIXME:here changed
-		public const int LUAI_MCS_AUX = SHRT_MAX < (INT_MAX / 16) ? SHRT_MAX : (INT_MAX / 16);
+        public const int LUAI_MCS_AUX = SHRT_MAX < (Int32.MaxValue / 16) ? (int)SHRT_MAX : (Int32.MaxValue / 16);
 
 		/* reserve some space for pseudo-indices */
 		public const int LUAI_MAXCSTACK = (LUAI_MCS_AUX - 1000);

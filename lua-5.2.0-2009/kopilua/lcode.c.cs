@@ -822,7 +822,7 @@ namespace KopiLua
 
 
 		private static int luaK_codeAx (FuncState fs, OpCode o, int a) {
-		  lua_assert(getOpMode(o) == iAx);
+		  lua_assert(getOpMode(o) == OpMode.iAx);
 		  return luaK_code(fs, CREATE_Ax(o, a));
 		}
 
