@@ -58,7 +58,9 @@ lua.h
 08:31 2017-05-30
 luaconf.h
 	NOTICE---------------->defined ouside!!! #define LUA_COMPAT_API
-
+    public const int LUAI_MCS_AUX = SHRT_MAX < (INT_MAX / 16) ? SHRT_MAX : (INT_MAX / 16);
+    
+    
 08:34 2017-05-30
 lundump.c
 lvm.h

@@ -206,7 +206,8 @@ namespace KopiLua
 		/*
 		** compatibility macros and functions
 		*/
-#if LUA_COMPAT_API
+		//FIXME: changed here
+		//#if LUA_COMPAT_API
 
         public static uint lua_strlen(lua_State L, int i)
         {
@@ -234,7 +235,7 @@ namespace KopiLua
 		//#define lua_Chunkreader		lua_Reader
 		//#define lua_Chunkwriter		lua_Writer
 
-#endif
+		//#endif
 
 		/*
 		** {======================================================================
