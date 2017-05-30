@@ -15,6 +15,9 @@ namespace KopiLua
 		public const int GCSfinalize	= 4;
 
 
+		public static bool issweep(global_State g) { return (GCSsweepstring <= g.gcstate && g.gcstate <= GCSsweep); }
+
+
 		/*
 		** some userful bit tricks
 		*/
@@ -28,7 +31,6 @@ namespace KopiLua
 		public static bool testbit(lu_byte x, int b) { return testbits(x, bitmask(b)); }
 		public static int set2bits(ref lu_byte x, int b1, int b2) { return setbits(ref x, (bit2mask(b1, b2))); }
 		public static int reset2bits(ref lu_byte x, int b1, int b2) { return resetbits(ref x, (bit2mask(b1, b2))); }
-		public static bool test2bits(lu_byte x, int b1, int b2) { return testbits(x, (bit2mask(b1, b2))); }
 
 
 
@@ -38,6 +40,7 @@ namespace KopiLua
 		** bit 1 - object is white (type 1)
 		** bit 2 - object is black
 		** bit 3 - for userdata: has been finalized
+		** bit 4 - for userdata: it's in 2nd part of rootgc list or in tobefnz
 		** bit 5 - object is fixed (should not be collected)
 		** bit 6 - object is "super" fixed (only the main thread)
 		*/
@@ -47,12 +50,13 @@ namespace KopiLua
 		public const int WHITE1BIT		= 1;
 		public const int BLACKBIT		= 2;
 		public const int FINALIZEDBIT	= 3;
+		public const int SEPARATED		= 4;
 		public const int FIXEDBIT		= 5;
 		public const int SFIXEDBIT		= 6;
 		public readonly static int WHITEBITS		= bit2mask(WHITE0BIT, WHITE1BIT);
 
 
-		public static bool iswhite(GCObject x) { return test2bits(x.gch.marked, WHITE0BIT, WHITE1BIT); }
+		public static bool iswhite(GCObject x) { return testbits(x.gch.marked, WHITEBITS); }
 		public static bool isblack(GCObject x) { return testbit(x.gch.marked, BLACKBIT); }
 		public static bool isgray(GCObject x) { return (!isblack(x) && !iswhite(x)); }
 

@@ -22,7 +22,7 @@ namespace KopiLua
 		===========================================================================*/
 
 
-		public enum OpMode {iABC, iABx, iAsBx};  /* basic instruction format */
+		public enum OpMode {iABC, iABx, iAsBx, iAx};  /* basic instruction format */
 
 
 		/*
@@ -32,6 +32,7 @@ namespace KopiLua
 		public const int SIZE_B		= 9;
 		public const int SIZE_Bx	= (SIZE_C + SIZE_B);
 		public const int SIZE_A		= 8;
+        public const int SIZE_Ax	= (SIZE_C + SIZE_B + SIZE_A);
 
 		public const int SIZE_OP	= 6;
 
@@ -40,6 +41,7 @@ namespace KopiLua
 		public const int POS_C		= (POS_A + SIZE_A);
 		public const int POS_B		= (POS_C + SIZE_C);
 		public const int POS_Bx		= POS_C;
+        public const int POS_Ax		= POS_A;
 
 
 		/*
@@ -55,6 +57,13 @@ namespace KopiLua
 		//public const int MAXARG_sBx			= System.Int32.MaxValue;
 		//#endif
 
+        //FIXME:???
+		//#if SIZE_Ax < LUAI_BITSINT-1
+		public const int MAXARG_Ax	= ((1<<SIZE_Ax)-1);
+		//#else
+		//public const int MAXARG_Ax	= MAX_INT;
+		//#endif
+
 
 		public const uint MAXARG_A        = (uint)((1 << (int)SIZE_A) -1);
 		public const uint MAXARG_B		  = (uint)((1 << (int)SIZE_B) -1);
@@ -62,8 +71,8 @@ namespace KopiLua
 
 
 		/* creates a mask with `n' 1 bits at position `p' */
-		//public static int MASK1(int n, int p) { return ((~((~(Instruction)0) << n)) << p); }
-		public static uint MASK1(int n, int p) { return (uint)((~((~0) << n)) << p); }
+		//public static int MASK1(int n, int p) { return ((~((~(Instruction)0) << (n)) << (p)); }
+		public static uint MASK1(int n, int p) { return (uint)((~((~0) << (n))) << (p)); }
 
 		/* creates a mask with `n' 0 bits at position `p' */
 		public static uint MASK0(int n, int p) { return (uint)(~MASK1(n, p)); }
@@ -88,49 +97,67 @@ namespace KopiLua
 		}
 		public static void SET_OPCODE(InstructionPtr i, OpCode opcode) { SET_OPCODE(ref i.codes[i.pc], opcode); }
 
+		//FIXME:???
+		public static int getarg(Instruction i, int pos, int size) { return ((int)(((i)>>pos) & MASK1(size,0))); }
+		public static void setarg(InstructionPtr i, int v, int pos, int size) { ((i[0]) = (((i[0])&MASK0(size,pos)) |
+		                ((((Instruction)v)<<pos)&MASK1(size,pos)))); }
+				
+
 		public static int GETARG_A(Instruction i)
 		{
-			return (int)((i >> POS_A) & MASK1(SIZE_A, 0));
+			return getarg(i, POS_A, SIZE_A);
 		}
-		public static int GETARG_A(InstructionPtr i) { return GETARG_A(i[0]); }
+		public static int GETARG_A(InstructionPtr i) { return GETARG_A(i[0]); } //FIXME:added
 
-		public static void SETARG_A(InstructionPtr i, int u)
+		public static void SETARG_A(InstructionPtr i, int v)
 		{
-			i[0] = (Instruction)((i[0] & MASK0(SIZE_A, POS_A)) | ((u << POS_A) & MASK1(SIZE_A, POS_A)));
+			setarg(i, v, POS_B, SIZE_B);
 		}
 
 		public static int GETARG_B(Instruction i)
 		{
-			return (int)((i>>POS_B) & MASK1(SIZE_B,0));
+			return getarg(i, POS_C, SIZE_C)
 		}
-		public static int GETARG_B(InstructionPtr i) { return GETARG_B(i[0]); }
+		public static int GETARG_B(InstructionPtr i) { return GETARG_B(i[0]); } //FIXME: added
 
-		public static void SETARG_B(InstructionPtr i, int b)
+		public static void SETARG_B(InstructionPtr i, int v)
 		{
-			i[0] = (Instruction)((i[0] & MASK0(SIZE_B, POS_B)) | ((b << POS_B) & MASK1(SIZE_B, POS_B)));
+			setarg(i, v, POS_B, SIZE_B)
 		}
 
 		public static int GETARG_C(Instruction i)
 		{
-			return (int)((i>>POS_C) & MASK1(SIZE_C,0));
+			return getarg(i, POS_C, SIZE_C);
 		}
-		public static int GETARG_C(InstructionPtr i) { return GETARG_C(i[0]); }
+		public static int GETARG_C(InstructionPtr i) { return GETARG_C(i[0]); } //FIXME: added
 
-		public static void SETARG_C(InstructionPtr i, int b)
+		public static void SETARG_C(InstructionPtr i, int v)
 		{
-			i[0] = (Instruction)((i[0] & MASK0(SIZE_C, POS_C)) | ((b << POS_C) & MASK1(SIZE_C, POS_C)));
+			setarg(i, v, POS_C, SIZE_C);
 		}
 
 		public static int GETARG_Bx(Instruction i)
 		{
-			return (int)((i>>POS_Bx) & MASK1(SIZE_Bx,0));
+			return getarg(i, POS_Bx, SIZE_Bx);
 		}
-		public static int GETARG_Bx(InstructionPtr i) { return GETARG_Bx(i[0]); }
+		public static int GETARG_Bx(InstructionPtr i) { return GETARG_Bx(i[0]); } //FIXME: added
 
-		public static void SETARG_Bx(InstructionPtr i, int b)
+		public static void SETARG_Bx(InstructionPtr i, int v)
 		{
-			i[0] = (Instruction)((i[0] & MASK0(SIZE_Bx, POS_Bx)) | ((b << POS_Bx) & MASK1(SIZE_Bx, POS_Bx)));
+			setarg(i, v, POS_Bx, SIZE_Bx);
 		}
+
+		public static int GETARG_Ax(Instruction i)
+		{
+			return getarg(i, POS_Ax, SIZE_Ax);
+		}
+		public static int GETARG_Ax(InstructionPtr i) { return GETARG_Ax(i[0]); } //FIXME: added
+
+		public static void SETARG_Ax(InstructionPtr i, int b)
+		{
+			setarg(i, v, POS_Ax, SIZE_Ax);
+		}
+
 
 		public static int GETARG_sBx(Instruction i)
 		{
@@ -152,6 +179,12 @@ namespace KopiLua
 		{
 			int result = (int)(((int)o << POS_OP) | (a << POS_A) | (bc << POS_Bx));
 			return (int)(((int)o << POS_OP) | (a << POS_A) | (bc << POS_Bx));
+		}
+
+		public static int CREATE_Ax(OpCode o, int a)
+		{
+			return ((((Instruction)o)<<POS_OP)
+					| (((Instruction)a)<<POS_A));
 		}
 
 
@@ -241,18 +274,21 @@ namespace KopiLua
 					if R(A) <?= R(A+1) then { pc+=sBx; R(A+3)=R(A) }*/
 		OP_FORPREP,/*	A sBx	R(A)-=R(A+2); pc+=sBx				*/
 
-		OP_TFORLOOP,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));
-								if R(A+3) ~= nil then R(A+2)=R(A+3) else pc++	*/
+		OP_TFORCALL,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));	*/
 		OP_SETLIST,/*	A B C	R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B	*/
 
 		OP_CLOSE,/*	A	close all variables in the stack up to (>=) R(A)*/
 		OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))	*/
 
-		OP_VARARG/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
+		OP_VARARG,/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
+		
+		OP_TFORLOOP,/*	A sBx	if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }*/
+
+		OP_EXTRAARG/*	Ax	extra argument for previous opcode		*/
 		};
 
 
-		public const int NUM_OPCODES	= (int)OpCode.OP_VARARG;
+		public const int NUM_OPCODES	= (int)OpCode.OP_EXTRAARG + 1; //FIXME: ???---> + 1
 
 
 
@@ -268,7 +304,7 @@ namespace KopiLua
 		  (*) In OP_RETURN, if (B == 0) then return up to `top'
 
 		  (*) In OP_SETLIST, if (B == 0) then B = `top';
-			  if (C == 0) then next `instruction' is real C
+			  if (C == 0) then next `instruction' is EXTRAARG(real C)
 
 		  (*) For comparisons, A specifies what condition the test should accept
 			  (true or false).
@@ -283,7 +319,7 @@ namespace KopiLua
 		** bits 2-3: C arg mode
 		** bits 4-5: B arg mode
 		** bit 6: instruction set register A
-		** bit 7: operator is a test
+		** bit 7: operator is a test (next instruction must be a jump)
 		*/
 
 		public enum OpArgMask {

@@ -66,8 +66,26 @@ lundump.c
 lvm.h
 
 
-lgc.c-----------------------------todo
-lgc.h-----------------------------todo
-lopcodes.h-----------------------------todo
-lvm.c-----------------------------todo
 
+
+
+
+16:35 2017-05-30
+lopcodes.h
+	//FIXME:???
+	//#if SIZE_Ax < LUAI_BITSINT-1
+	public const int MAXARG_Ax	= ((1<<SIZE_Ax)-1);
+	//#else
+	//public const int MAXARG_Ax	= MAX_INT;
+	//#endif
+
+16:40 2017-05-30
+lgc.h
+
+17:02 2017-05-30
+lvm.c
+	OP_TFORLOOP->OP_TFORCALL+OP_TFORLOOP
+	c = GETARG_Ax((L.savedpc++)[0]); //FIXME:???
+
+17:46 2017-05-30
+lgc.c
