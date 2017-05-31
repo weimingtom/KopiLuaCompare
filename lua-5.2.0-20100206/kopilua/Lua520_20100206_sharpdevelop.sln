@@ -2,7 +2,7 @@
 Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
 # SharpDevelop 4.4
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lua520_2010_sharpdevelop", "Lua520_2010_sharpdevelop.csproj", "{1F39043F-11B4-4202-9B0A-6606FA7BB355}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lua520_20100206_sharpdevelop", "Lua520_20100206_sharpdevelop.csproj", "{1F39043F-11B4-4202-9B0A-6606FA7BB355}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
