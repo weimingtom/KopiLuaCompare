@@ -1,10 +1,9 @@
 /*
-** $Id: lobject.c,v 2.27 2007/12/19 17:24:38 roberto Exp roberto $
+** $Id: lobject.c,v 2.34 2009/11/26 11:39:20 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
 
-#include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +14,7 @@
 
 #include "lua.h"
 
+#include "lctype.h"
 #include "ldebug.h"
 #include "ldo.h"
 #include "lmem.h"
@@ -25,7 +25,7 @@
 
 
 
-const TValue luaO_nilobject_ = {{NULL}, LUA_TNIL};
+LUAI_DDEF const TValue luaO_nilobject_ = {NILCONSTANT};
 
 
 /*
@@ -88,6 +88,20 @@ int luaO_rawequalObj (const TValue *t1, const TValue *t2) {
 }
 
 
+lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
+  switch (op) {
+    case LUA_OPADD: return luai_numadd(NULL, v1, v2);
+    case LUA_OPSUB: return luai_numsub(NULL, v1, v2);
+    case LUA_OPMUL: return luai_nummul(NULL, v1, v2);
+    case LUA_OPDIV: return luai_numdiv(NULL, v1, v2);
+    case LUA_OPMOD: return luai_nummod(NULL, v1, v2);
+    case LUA_OPPOW: return luai_numpow(NULL, v1, v2);
+    case LUA_OPUNM: return luai_numunm(NULL, v1);
+    default: lua_assert(0); return 0;
+  }
+}
+
+
 int luaO_str2d (const char *s, lua_Number *result) {
   char *endptr;
   *result = lua_str2number(s, &endptr);
@@ -95,7 +109,7 @@ int luaO_str2d (const char *s, lua_Number *result) {
   if (*endptr == 'x' || *endptr == 'X')  /* maybe an hexadecimal constant? */
     *result = cast_num(strtoul(s, &endptr, 16));
   if (*endptr == '\0') return 1;  /* most common case */
-  while (isspace(cast(unsigned char, *endptr))) endptr++;
+  while (lisspace(cast(unsigned char, *endptr))) endptr++;
   if (*endptr != '\0') return 0;  /* invalid trailing characters? */
   return 1;
 }
@@ -162,8 +176,7 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
     fmt = e+2;
   }
   pushstr(L, fmt);
-  luaV_concat(L, n+1, cast_int(L->top - L->base) - 1);
-  L->top -= n;
+  luaV_concat(L, n+1);
   return svalue(L->top - 1);
 }
 
@@ -208,7 +221,7 @@ void luaO_chunkid (char *out, const char *source, size_t bufflen) {
   else {  /* string; format as [string "source"] */
     const char *nl = strchr(source, '\n');  /* find first new line (if any) */
     addstr(out, PRE, LL(PRE));  /* add prefix */
-    bufflen -= LL(PRE RETS POS);  /* save space for prefix+sufix */
+    bufflen -= LL(PRE RETS POS);  /* save space for prefix+suffix */
     if (l < bufflen && nl == NULL) {  /* small one-line source? */
       addstr(out, source, l);  /* keep it */
     }

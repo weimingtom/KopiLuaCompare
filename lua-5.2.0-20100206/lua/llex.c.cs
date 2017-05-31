@@ -1,11 +1,10 @@
 /*
-** $Id: llex.c,v 2.28 2007/10/25 16:45:47 roberto Exp roberto $
+** $Id: llex.c,v 2.33 2009/05/18 17:28:04 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
 
 
-#include <ctype.h>
 #include <locale.h>
 #include <string.h>
 
@@ -14,6 +13,7 @@
 
 #include "lua.h"
 
+#include "lctype.h"
 #include "ldo.h"
 #include "llex.h"
 #include "lobject.h"
@@ -26,7 +26,6 @@
 
 
 #define next(ls) (ls->current = zgetc(ls->z))
-
 
 
 
@@ -52,14 +51,14 @@ static void lexerror (LexState *ls, const char *msg, int token);
 
 static void save (LexState *ls, int c) {
   Mbuffer *b = ls->buff;
-  if (b->n + 1 > b->buffsize) {
+  if (luaZ_bufflen(b) + 1 > luaZ_sizebuffer(b)) {
     size_t newsize;
-    if (b->buffsize >= MAX_SIZET/2)
+    if (luaZ_sizebuffer(b) >= MAX_SIZET/2)
       lexerror(ls, "lexical element too long", 0);
-    newsize = b->buffsize * 2;
+    newsize = luaZ_sizebuffer(b) * 2;
     luaZ_resizebuffer(ls->L, b, newsize);
   }
-  b->buffer[b->n++] = cast(char, c);
+  b->buffer[luaZ_bufflen(b)++] = cast(char, c);
 }
 
 
@@ -77,7 +76,7 @@ void luaX_init (lua_State *L) {
 const char *luaX_token2str (LexState *ls, int token) {
   if (token < FIRST_RESERVED) {
     lua_assert(token == cast(unsigned char, token));
-    return (isprint(token)) ? luaO_pushfstring(ls->L, LUA_QL("%c"), token) :
+    return (lisprint(token)) ? luaO_pushfstring(ls->L, LUA_QL("%c"), token) :
                               luaO_pushfstring(ls->L, "char(%d)", token);
   }
   else {
@@ -124,8 +123,10 @@ TString *luaX_newstring (LexState *ls, const char *str, size_t l) {
   TString *ts = luaS_newlstr(L, str, l);
   setsvalue2s(L, L->top++, ts);  /* anchor string */
   o = luaH_setstr(L, ls->fs->h, ts);
-  if (ttisnil(o))
+  if (ttisnil(o)) {
     setbvalue(o, 1);  /* make sure `str' will not be collected */
+    luaC_checkGC(L);
+  }
   L->top--;
   return ts;
 }
@@ -200,13 +201,13 @@ static void trydecpoint (LexState *ls, SemInfo *seminfo) {
 
 /* LUA_NUMBER */
 static void read_numeral (LexState *ls, SemInfo *seminfo) {
-  lua_assert(isdigit(ls->current));
+  lua_assert(lisdigit(ls->current));
   do {
     save_and_next(ls);
-  } while (isdigit(ls->current) || ls->current == '.');
+  } while (lisdigit(ls->current) || ls->current == '.');
   if (check_next(ls, "Ee"))  /* `E'? */
     check_next(ls, "+-");  /* optional exponent sign */
-  while (isalnum(ls->current) || ls->current == '_')
+  while (lislalnum(ls->current))
     save_and_next(ls);
   save(ls, '\0');
   buffreplace(ls, '.', ls->decpoint);  /* follow locale for decimal point */
@@ -264,6 +265,48 @@ static void read_long_string (LexState *ls, SemInfo *seminfo, int sep) {
 }
 
 
+static int hexavalue (int c) {
+  if (lisdigit(c)) return c - '0';
+  else if (lisupper(c)) return c - 'A' + 10;
+  else return c - 'a' + 10;
+}
+
+
+static int readhexaesc (LexState *ls) {
+  int c1, c2 = EOZ;
+  if (!lisxdigit(c1 = next(ls)) || !lisxdigit(c2 = next(ls))) {
+    luaZ_resetbuffer(ls->buff);  /* prepare error message */
+    save(ls, '\\'); save(ls, 'x');
+    if (c1 != EOZ) save(ls, c1);
+    if (c2 != EOZ) save(ls, c2);
+    lexerror(ls, "hexadecimal digit expected", TK_STRING);
+  }
+  return (hexavalue(c1) << 4) + hexavalue(c2);
+}
+
+
+static int readdecesc (LexState *ls) {
+  int c1 = ls->current, c2, c3;
+  int c = c1 - '0';
+  if (lisdigit(c2 = next(ls))) {
+    c = 10*c + c2 - '0';
+    if (lisdigit(c3 = next(ls))) {
+      c = 10*c + c3 - '0';
+      if (c > UCHAR_MAX) {
+        luaZ_resetbuffer(ls->buff);  /* prepare error message */
+        save(ls, '\\');
+        save(ls, c1); save(ls, c2); save(ls, c3);
+        lexerror(ls, "decimal escape too large", TK_STRING);
+      }
+      return c;
+    }
+  }
+  /* else, has read one character that was not a digit */
+  zungetc(ls->z);  /* return it to input stream */
+  return c;
+}
+
+
 static void read_string (LexState *ls, int del, SemInfo *seminfo) {
   save_and_next(ls);
   while (ls->current != del) {
@@ -275,8 +318,8 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo) {
       case '\r':
         lexerror(ls, "unfinished string", TK_STRING);
         continue;  /* to avoid warnings */
-      case '\\': {
-        int c;
+      case '\\': {  /* escape sequences */
+        int c;  /* final character to be saved */
         next(ls);  /* do not save the `\' */
         switch (ls->current) {
           case 'a': c = '\a'; break;
@@ -286,28 +329,20 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo) {
           case 'r': c = '\r'; break;
           case 't': c = '\t'; break;
           case 'v': c = '\v'; break;
-          case '\n':  /* go through */
+          case 'x': c = readhexaesc(ls); break;
+          case '\n':
           case '\r': save(ls, '\n'); inclinenumber(ls); continue;
           case EOZ: continue;  /* will raise an error next loop */
           default: {
-            if (!isdigit(ls->current))
-              save_and_next(ls);  /* handles \\, \", \', and \? */
-            else {  /* \xxx */
-              int i = 0;
-              c = 0;
-              do {
-                c = 10*c + (ls->current-'0');
-                next(ls);
-              } while (++i<3 && isdigit(ls->current));
-              if (c > UCHAR_MAX)
-                lexerror(ls, "escape sequence too large", TK_STRING);
-              save(ls, c);
-            }
-            continue;
+            if (!lisdigit(ls->current))
+              c = ls->current;  /* handles \\, \", \', and \? */
+            else  /* digital escape \ddd */
+              c = readdecesc(ls);
+            break;
           }
         }
-        save(ls, c);
         next(ls);
+        save(ls, c);
         continue;
       }
       default:
@@ -389,7 +424,7 @@ static int llex (LexState *ls, SemInfo *seminfo) {
             return TK_DOTS;   /* ... */
           else return TK_CONCAT;   /* .. */
         }
-        else if (!isdigit(ls->current)) return '.';
+        else if (!lisdigit(ls->current)) return '.';
         else {
           read_numeral(ls, seminfo);
           return TK_NUMBER;
@@ -399,21 +434,21 @@ static int llex (LexState *ls, SemInfo *seminfo) {
         return TK_EOS;
       }
       default: {
-        if (isspace(ls->current)) {
+        if (lisspace(ls->current)) {
           lua_assert(!currIsNewline(ls));
           next(ls);
           continue;
         }
-        else if (isdigit(ls->current)) {
+        else if (lisdigit(ls->current)) {
           read_numeral(ls, seminfo);
           return TK_NUMBER;
         }
-        else if (isalpha(ls->current) || ls->current == '_') {
+        else if (lislalpha(ls->current)) {
           /* identifier or reserved word */
           TString *ts;
           do {
             save_and_next(ls);
-          } while (isalnum(ls->current) || ls->current == '_');
+          } while (lislalnum(ls->current));
           ts = luaX_newstring(ls, luaZ_buffer(ls->buff),
                                   luaZ_bufflen(ls->buff));
           if (ts->tsv.reserved > 0)  /* reserved word? */

@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.141 2008/06/12 14:21:18 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.147 2009/12/17 12:50:20 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -18,6 +18,15 @@
 
 #include "lauxlib.h"
 #include "lualib.h"
+
+
+/*
+** maximum number of captures that a pattern can do during
+** pattern-matching. This limit is arbitrary.
+*/
+#if !defined(LUA_MAXCAPTURES)
+#define LUA_MAXCAPTURES		32
+#endif
 
 
 /* macro to `unsign' a character */
@@ -375,7 +384,15 @@ static const char *match (MatchState *ms, const char *s, const char *p) {
     case ')': {  /* end capture */
       return end_capture(ms, s, p+1);
     }
-    case L_ESC: {
+    case '\0': {  /* end of pattern */
+      return s;  /* match succeeded */
+    }
+    case '$': {
+      if (*(p+1) == '\0')  /* is the `$' the last char in pattern? */
+        return (s == ms->src_end) ? s : NULL;  /* check end of string */
+      else goto dflt;
+    }
+    case L_ESC: {  /* escaped sequences not in the format class[*+?-]? */
       switch (*(p+1)) {
         case 'b': {  /* balanced string? */
           s = matchbalance(ms, s, p+2);
@@ -394,25 +411,17 @@ static const char *match (MatchState *ms, const char *s, const char *p) {
              !matchbracketclass(uchar(*s), p, ep-1)) return NULL;
           p=ep; goto init;  /* else return match(ms, s, ep); */
         }
-        default: {
-          if (isdigit(uchar(*(p+1)))) {  /* capture results (%0-%9)? */
-            s = match_capture(ms, s, uchar(*(p+1)));
-            if (s == NULL) return NULL;
-            p+=2; goto init;  /* else return match(ms, s, p+2) */
-          }
-          goto dflt;  /* case default */
+        case '0': case '1': case '2': case '3':
+        case '4': case '5': case '6': case '7':
+        case '8': case '9': {  /* capture results (%0-%9)? */
+          s = match_capture(ms, s, uchar(*(p+1)));
+          if (s == NULL) return NULL;
+          p+=2; goto init;  /* else return match(ms, s, p+2) */
         }
+        default: break;  /* go through to 'dflt' */
       }
     }
-    case '\0': {  /* end of pattern */
-      return s;  /* match succeeded */
-    }
-    case '$': {
-      if (*(p+1) == '\0')  /* is the `$' the last char in pattern? */
-        return (s == ms->src_end) ? s : NULL;  /* check end of string */
-      else goto dflt;
-    }
-    default: dflt: {  /* it is a pattern item */
+    default: dflt: {  /* pattern class plus optional sufix */
       const char *ep = classend(ms, p);  /* points to what is next */
       int m = s<ms->src_end && singlematch(uchar(*s), p, ep);
       switch (*ep) {
@@ -689,6 +698,24 @@ static int str_gsub (lua_State *L) {
 /* }====================================================== */
 
 
+/*
+** length modifier for integer conversions ** in 'string.format' and
+** integer type corresponding to the previous length
+*/
+
+#if defined(LUA_USELONGLONG)
+
+#define LUA_INTFRMLEN           "ll"
+#define LUA_INTFRM_T            long long
+
+#else
+
+#define LUA_INTFRMLEN           "l"
+#define LUA_INTFRM_T            long
+
+#endif
+
+
 /* maximum size of each formatted item (> len(format('%99.99f', -1e308))) */
 #define MAX_ITEM	512
 /* valid flags in a format specification */
@@ -774,17 +801,16 @@ static int str_format (lua_State *L) {
       strfrmt = scanformat(L, strfrmt, form);
       switch (*strfrmt++) {
         case 'c': {
-          sprintf(buff, form, (int)luaL_checknumber(L, arg));
+          sprintf(buff, form, luaL_checkint(L, arg));
           break;
         }
-        case 'd':  case 'i': {
-          addintlen(form);
-          sprintf(buff, form, (LUA_INTFRM_T)luaL_checknumber(L, arg));
-          break;
-        }
+        case 'd':  case 'i':
         case 'o':  case 'u':  case 'x':  case 'X': {
+          lua_Number n = luaL_checknumber(L, arg);
+          LUA_INTFRM_T r = (n < 0) ? (LUA_INTFRM_T)n :
+                                     (LUA_INTFRM_T)(unsigned LUA_INTFRM_T)n;
           addintlen(form);
-          sprintf(buff, form, (unsigned LUA_INTFRM_T)luaL_checknumber(L, arg));
+          sprintf(buff, form, r);
           break;
         }
         case 'e':  case 'E': case 'f':
@@ -859,12 +885,8 @@ static void createmetatable (lua_State *L) {
 /*
 ** Open string library
 */
-LUALIB_API int luaopen_string (lua_State *L) {
+LUAMOD_API int luaopen_string (lua_State *L) {
   luaL_register(L, LUA_STRLIBNAME, strlib);
-#if defined(LUA_COMPAT_GFIND)
-  lua_getfield(L, -1, "gmatch");
-  lua_setfield(L, -2, "gfind");
-#endif
   createmetatable(L);
   return 1;
 }

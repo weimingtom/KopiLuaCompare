@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.35 2008/08/13 17:01:33 roberto Exp roberto $
+** $Id: lstate.h,v 2.51 2009/12/11 13:39:34 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -44,12 +44,6 @@
 struct lua_longjmp;  /* defined in ldo.c */
 
 
-/* table of globals */
-#define gt(L)	(&L->l_gt)
-
-/* registry */
-#define registry(L)	(&G(L)->l_registry)
-
 
 /* extra stack space to handle TM calls and some other extras */
 #define EXTRA_STACK   5
@@ -77,23 +71,39 @@ typedef struct stringtable {
 ** informations about a call
 */
 typedef struct CallInfo {
-  StkId base;  /* base for this function */
   StkId func;  /* function index in the stack */
   StkId	top;  /* top for this function */
-  const Instruction *savedpc;
-  short nresults;  /* expected number of results from this function */
+  struct CallInfo *previous, *next;  /* dynamic call link */
+  short nresults;  /* expected number of results from a call */
   lu_byte callstatus;
-  int tailcalls;  /* number of tail calls lost under this entry */
+  union {
+    struct {  /* only for Lua functions */
+      StkId base;  /* base for this function */
+      const Instruction *savedpc;
+    } l;
+    struct {  /* only for C functions */
+      int ctx;  /* context info. in case of yields */
+      lua_CFunction k;  /* continuation in case of yields */
+      ptrdiff_t old_errfunc;
+      ptrdiff_t oldtop;
+      lu_byte old_allowhook;
+      lu_byte status;
+    } c;
+  } u;
 } CallInfo;
 
 
 /*
 ** Bits in CallInfo status
 */
-#define CIST_LUA	1	/* call is running a Lua function */
-#define CIST_HOOKED	2	/* call is running a debug hook */
-#define CIST_REENTRY	4	/* call is running on same invocation of
+#define CIST_LUA	(1<<0)	/* call is running a Lua function */
+#define CIST_HOOKED	(1<<1)	/* call is running a debug hook */
+#define CIST_REENTRY	(1<<2)	/* call is running on same invocation of
                                    luaV_execute of previous call */
+#define CIST_YIELDED	(1<<3)	/* call reentered after suspension */
+#define CIST_YPCALL	(1<<4)	/* call is a yieldable protected call */
+#define CIST_STAT	(1<<5)	/* call has an error status (pcall) */
+#define CIST_TAIL	(1<<6)	/* call was tail called */
 
 
 #define curr_func(L)	(clvalue(L->ci->func))
@@ -121,17 +131,17 @@ typedef struct global_State {
   GCObject *ephemeron;  /* list of ephemeron tables (weak keys) */
   GCObject *allweak;  /* list of all-weak tables */
   GCObject *tobefnz;  /* list of userdata to be GC */
-  Mbuffer buff;  /* temporary buffer for string concatentation */
-  lu_mem GCthreshold;
+  Mbuffer buff;  /* temporary buffer for string concatenation */
+  lu_mem GCthreshold;  /* when totalbytes > GCthreshold, run GC step */
   lu_mem totalbytes;  /* number of bytes currently allocated */
-  lu_mem estimate;  /* an estimate of number of bytes actually in use */
-  lu_mem gcdept;  /* how much GC is `behind schedule' */
   int gcpause;  /* size of pause between successive GCs */
   int gcstepmul;  /* GC `granularity' */
   lua_CFunction panic;  /* to be called in unprotected errors */
   TValue l_registry;
+  struct Table *l_gt;  /* table of globals */
   struct lua_State *mainthread;
   UpVal uvhead;  /* head of double-linked list of all open upvalues */
+  const lua_Number *version;  /* pointer to version number */
   struct Table *mt[NUM_TAGS];  /* metatables for basic types */
   TString *tmname[TM_N];  /* array with tag-method names */
 } global_State;
@@ -144,29 +154,24 @@ struct lua_State {
   CommonHeader;
   lu_byte status;
   StkId top;  /* first free slot in the stack */
-  StkId base;  /* base of current function */
   global_State *l_G;
   CallInfo *ci;  /* call info for current function */
-  const Instruction *savedpc;  /* `savedpc' of current function */
   const Instruction *oldpc;  /* last pc traced */
   StkId stack_last;  /* last free slot in the stack */
   StkId stack;  /* stack base */
-  CallInfo *end_ci;  /* points after end of ci array*/
-  CallInfo *base_ci;  /* array of CallInfo's */
   int stacksize;
-  int size_ci;  /* size of array `base_ci' */
-  unsigned short baseCcalls;  /* number of nested C calls when resuming */
+  unsigned short nny;  /* number of non-yieldable calls in stack */
   lu_byte hookmask;
   lu_byte allowhook;
   int basehookcount;
   int hookcount;
   lua_Hook hook;
-  TValue l_gt;  /* table of globals */
   TValue env;  /* temporary place for environments */
   GCObject *openupval;  /* list of open upvalues in this stack */
   GCObject *gclist;
   struct lua_longjmp *errorJmp;  /* current error recover point */
   ptrdiff_t errfunc;  /* current error handling function (stack index) */
+  CallInfo base_ci;  /* CallInfo for first level (C calling Lua) */
 };
 
 
@@ -199,7 +204,6 @@ union GCObject {
 #define gco2t(o)	check_exp((o)->gch.tt == LUA_TTABLE, &((o)->h))
 #define gco2p(o)	check_exp((o)->gch.tt == LUA_TPROTO, &((o)->p))
 #define gco2uv(o)	check_exp((o)->gch.tt == LUA_TUPVAL, &((o)->uv))
-#define ngcotouv(o)	check_exp((o)->gch.tt == LUA_TUPVAL, &((o)->uv))
 #define gco2th(o)	check_exp((o)->gch.tt == LUA_TTHREAD, &((o)->th))
 
 /* macro to convert any Lua object into a GCObject */
@@ -207,6 +211,9 @@ union GCObject {
 
 
 LUAI_FUNC void luaE_freethread (lua_State *L, lua_State *L1);
+LUAI_FUNC CallInfo *luaE_extendCI (lua_State *L);
+LUAI_FUNC void luaE_freeCI (lua_State *L);
+
 
 #endif
 

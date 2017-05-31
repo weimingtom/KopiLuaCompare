@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.43 2008/02/14 16:03:27 roberto Exp roberto $
+** $Id: ltablib.c,v 1.53 2009/12/28 16:30:31 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -16,18 +16,20 @@
 #include "lualib.h"
 
 
-#define aux_getn(L,n)	(luaL_checktype(L, n, LUA_TTABLE), lua_objlen(L, n))
+#define aux_getn(L,n)	(luaL_checktype(L, n, LUA_TTABLE), lua_rawlen(L, n))
 
 
 static int foreachi (lua_State *L) {
-  int i;
   int n = aux_getn(L, 1);
+  int i;
+  if (lua_getctx(L, &i) == LUA_YIELD) goto poscall;
   luaL_checktype(L, 2, LUA_TFUNCTION);
-  for (i=1; i <= n; i++) {
+  for (i = 1; i <= n; i++) {
     lua_pushvalue(L, 2);  /* function */
     lua_pushinteger(L, i);  /* 1st argument */
     lua_rawgeti(L, 1, i);  /* 2nd argument */
-    lua_call(L, 2, 1);
+    lua_callk(L, 2, 1, i, foreachi);
+    poscall:
     if (!lua_isnil(L, -1))
       return 1;
     lua_pop(L, 1);  /* remove nil result */
@@ -36,23 +38,32 @@ static int foreachi (lua_State *L) {
 }
 
 
+static int foreachcont (lua_State *L) {
+  for (;;) {
+    if (!lua_isnil(L, -1))
+      return 1;
+    lua_pop(L, 2);  /* remove value and result */
+    if (lua_next(L, 1) == 0)  /* no more elements? */
+      return 0;
+    lua_pushvalue(L, 2);  /* function */
+    lua_pushvalue(L, -3);  /* key */
+    lua_pushvalue(L, -3);  /* value */
+    lua_callk(L, 2, 1, 0, foreachcont);
+  }
+}
+
+
 static int foreach (lua_State *L) {
   luaL_checktype(L, 1, LUA_TTABLE);
   luaL_checktype(L, 2, LUA_TFUNCTION);
   lua_pushnil(L);  /* first key */
-  while (lua_next(L, 1)) {
-    lua_pushvalue(L, 2);  /* function */
-    lua_pushvalue(L, -3);  /* key */
-    lua_pushvalue(L, -3);  /* value */
-    lua_call(L, 2, 1);
-    if (!lua_isnil(L, -1))
-      return 1;
-    lua_pop(L, 2);  /* remove value and result */
-  }
-  return 0;
+  lua_pushnil(L);  /* first value */
+  lua_pushnil(L);  /* first "return" */
+  return foreachcont(L);
 }
 
 
+#if defined(LUA_COMPAT_MAXN)
 static int maxn (lua_State *L) {
   lua_Number max = 0;
   luaL_checktype(L, 1, LUA_TTABLE);
@@ -67,16 +78,15 @@ static int maxn (lua_State *L) {
   lua_pushnumber(L, max);
   return 1;
 }
-
+#else
+static int maxn (lua_State *L) {
+  return luaL_error(L, "function 'maxn' is deprecated");
+}
+#endif
 
 static int getn (lua_State *L) {
   lua_pushinteger(L, aux_getn(L, 1));
   return 1;
-}
-
-
-static int setn (lua_State *L) {
-  return luaL_error(L, LUA_QL("setn") " is obsolete");
 }
 
 
@@ -139,7 +149,7 @@ static int tconcat (lua_State *L) {
   const char *sep = luaL_optlstring(L, 2, "", &lsep);
   luaL_checktype(L, 1, LUA_TTABLE);
   i = luaL_optint(L, 3, 1);
-  last = luaL_opt(L, luaL_checkint, 4, (int)lua_objlen(L, 1));
+  last = luaL_opt(L, luaL_checkint, 4, (int)lua_rawlen(L, 1));
   luaL_buffinit(L, &b);
   for (; i < last; i++) {
     addfield(L, &b, i);
@@ -152,12 +162,53 @@ static int tconcat (lua_State *L) {
 }
 
 
+/*
+** {======================================================
+** Pack/unpack
+** =======================================================
+*/
+
+static int pack (lua_State *L) {
+  int top = lua_gettop(L);
+  lua_createtable(L, top, 1);  /* create result table */
+  /* use function environment as a temporary place to keep new table */
+  lua_replace(L, LUA_ENVIRONINDEX);
+  lua_pushinteger(L, top);  /* number of elements */
+  lua_setfield(L, LUA_ENVIRONINDEX, "n");  /* t.n = number of elements */
+  for (; top >= 1; top--)  /* assign elements */
+    lua_rawseti(L, LUA_ENVIRONINDEX, top);
+  lua_pushvalue(L, LUA_ENVIRONINDEX);  /* return new table */
+  /* remove new table from environment to allow its later collection */
+  lua_copy(L, LUA_REGISTRYINDEX, LUA_ENVIRONINDEX);
+  return 1;
+}
+
+
+static int unpack (lua_State *L) {
+  int i, e, n;
+  luaL_checktype(L, 1, LUA_TTABLE);
+  i = luaL_optint(L, 2, 1);
+  e = luaL_opt(L, luaL_checkint, 3, (int)lua_rawlen(L, 1));
+  if (i > e) return 0;  /* empty range */
+  n = e - i + 1;  /* number of elements */
+  if (n <= 0 || !lua_checkstack(L, n))  /* n <= 0 means arith. overflow */
+    return luaL_error(L, "too many results to unpack");
+  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
+  while (i++ < e)  /* push arg[i + 1...e] */
+    lua_rawgeti(L, 1, i);
+  return n;
+}
+
+/* }====================================================== */
+
+
 
 /*
 ** {======================================================
 ** Quicksort
 ** (based on `Algorithms in MODULA-3', Robert Sedgewick;
 **  Addison-Wesley, 1993.)
+** =======================================================
 */
 
 
@@ -178,7 +229,7 @@ static int sort_comp (lua_State *L, int a, int b) {
     return res;
   }
   else  /* a < b? */
-    return lua_lessthan(L, a, b);
+    return lua_compare(L, a, b, LUA_OPLT);
 }
 
 static void auxsort (lua_State *L, int l, int u) {
@@ -264,15 +315,21 @@ static const luaL_Reg tab_funcs[] = {
   {"getn", getn},
   {"maxn", maxn},
   {"insert", tinsert},
+  {"pack", pack},
+  {"unpack", unpack},
   {"remove", tremove},
-  {"setn", setn},
   {"sort", sort},
   {NULL, NULL}
 };
 
 
-LUALIB_API int luaopen_table (lua_State *L) {
+LUAMOD_API int luaopen_table (lua_State *L) {
   luaL_register(L, LUA_TABLIBNAME, tab_funcs);
+#if defined(LUA_COMPAT_UNPACK)
+  /* _G.unpack = table.unpack */
+  lua_getfield(L, -1, "unpack");
+  lua_setfield(L, LUA_ENVIRONINDEX, "unpack");
+#endif
   return 1;
 }
 

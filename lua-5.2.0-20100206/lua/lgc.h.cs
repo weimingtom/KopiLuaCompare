@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.h,v 2.18 2008/02/19 18:55:09 roberto Exp roberto $
+** $Id: lgc.h,v 2.26 2009/12/11 21:31:14 roberto Exp roberto $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -16,16 +16,15 @@
 */
 #define GCSpause	0
 #define GCSpropagate	1
-#define GCSsweepstring	2
-#define GCSsweep	3
-#define GCSfinalize	4
+#define GCSatomic	2
+#define GCSsweepstring	3
+#define GCSsweep	4
+#define GCSfinalize	5
 
-
-#define issweep(g)  (GCSsweepstring <= (g)->gcstate && (g)->gcstate <= GCSsweep)
 
 
 /*
-** some userful bit tricks
+** some useful bit tricks
 */
 #define resetbits(x,m)		((x) &= cast(lu_byte, ~(m)))
 #define setbits(x,m)		((x) |= (m))
@@ -77,10 +76,8 @@
 #define luaC_white(g)	cast(lu_byte, (g)->currentwhite & WHITEBITS)
 
 
-#define luaC_checkGC(L) { \
-  condhardstacktests(luaD_reallocstack(L, L->stacksize - EXTRA_STACK - 1)); \
-  if (G(L)->totalbytes >= G(L)->GCthreshold) \
-	luaC_step(L); }
+#define luaC_checkGC(L) \
+  {condchangemem(L); if (G(L)->totalbytes >= G(L)->GCthreshold) luaC_step(L);}
 
 
 #define luaC_barrier(L,p,v) { if (valiswhite(v) && isblack(obj2gco(p)))  \
@@ -96,12 +93,13 @@
 #define luaC_objbarriert(L,t,o)  \
    { if (iswhite(obj2gco(o)) && isblack(obj2gco(t))) luaC_barrierback(L,t); }
 
-LUAI_FUNC size_t luaC_separateudata (lua_State *L, int all);
-LUAI_FUNC void luaC_callAllGCTM (lua_State *L);
-LUAI_FUNC void luaC_freeall (lua_State *L);
+LUAI_FUNC void luaC_separateudata (lua_State *L, int all);
+LUAI_FUNC void luaC_freeallobjects (lua_State *L);
 LUAI_FUNC void luaC_step (lua_State *L);
+LUAI_FUNC void luaC_runtilstate (lua_State *L, int statesmask);
 LUAI_FUNC void luaC_fullgc (lua_State *L, int isemergency);
-LUAI_FUNC void luaC_link (lua_State *L, GCObject *o, lu_byte tt);
+LUAI_FUNC GCObject *luaC_newobj (lua_State *L, int tt, size_t sz,
+                                 GCObject **list, int offset);
 LUAI_FUNC void luaC_linkupval (lua_State *L, UpVal *uv);
 LUAI_FUNC void luaC_barrierf (lua_State *L, GCObject *o, GCObject *v);
 LUAI_FUNC void luaC_barrierback (lua_State *L, Table *t);

@@ -1,5 +1,5 @@
 /*
-** $Id: lopcodes.h,v 1.127 2008/04/02 16:16:06 roberto Exp roberto $
+** $Id: lopcodes.h,v 1.132 2009/10/28 12:20:07 roberto Exp roberto $
 ** Opcodes for Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -166,15 +166,15 @@ typedef enum {
 name		args	description
 ------------------------------------------------------------------------*/
 OP_MOVE,/*	A B	R(A) := R(B)					*/
-OP_LOADK,/*	A Bx	R(A) := Kst(Bx)					*/
+OP_LOADK,/*	A Bx	R(A) := Kst(Bx - 1)				*/
 OP_LOADBOOL,/*	A B C	R(A) := (Bool)B; if (C) pc++			*/
 OP_LOADNIL,/*	A B	R(A) := ... := R(B) := nil			*/
 OP_GETUPVAL,/*	A B	R(A) := UpValue[B]				*/
 
-OP_GETGLOBAL,/*	A Bx	R(A) := Gbl[Kst(Bx)]				*/
+OP_GETGLOBAL,/*	A Bx	R(A) := Gbl[Kst(Bx - 1)]			*/
 OP_GETTABLE,/*	A B C	R(A) := R(B)[RK(C)]				*/
 
-OP_SETGLOBAL,/*	A Bx	Gbl[Kst(Bx)] := R(A)				*/
+OP_SETGLOBAL,/*	A Bx	Gbl[Kst(Bx - 1)] := R(A)			*/
 OP_SETUPVAL,/*	A B	UpValue[B] := R(A)				*/
 OP_SETTABLE,/*	A B C	R(A)[RK(B)] := RK(C)				*/
 
@@ -215,13 +215,13 @@ OP_TFORCALL,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));	*/
 OP_SETLIST,/*	A B C	R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B	*/
 
 OP_CLOSE,/*	A	close all variables in the stack up to (>=) R(A)*/
-OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))	*/
+OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx])			*/
 
-OP_VARARG,/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
+OP_VARARG,/*	A B	R(A), R(A+1), ..., R(A+B-2) = vararg		*/
 
 OP_TFORLOOP,/*	A sBx	if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }*/
 
-OP_EXTRAARG/*	Ax	extra argument for previous opcode		*/
+OP_EXTRAARG/*	Ax	extra (larger) argument for previous opcode	*/
 } OpCode;
 
 
@@ -231,22 +231,26 @@ OP_EXTRAARG/*	Ax	extra argument for previous opcode		*/
 
 /*===========================================================================
   Notes:
-  (*) In OP_CALL, if (B == 0) then B = top. C is the number of returns - 1,
-      and can be 0: OP_CALL then sets `top' to last_result+1, so
-      next open instruction (OP_CALL, OP_RETURN, OP_SETLIST) may use `top'.
+  (*) In OP_CALL, if (B == 0) then B = top. If (C == 0), then `top' is
+  set to last_result+1, so next open instruction (OP_CALL, OP_RETURN,
+  OP_SETLIST) may use `top'.
 
   (*) In OP_VARARG, if (B == 0) then use actual number of varargs and
-      set top (like in OP_CALL with C == 0).
+  set top (like in OP_CALL with C == 0).
 
-  (*) In OP_RETURN, if (B == 0) then return up to `top'
+  (*) In OP_RETURN, if (B == 0) then return up to `top'.
 
-  (*) In OP_SETLIST, if (B == 0) then B = `top';
-      if (C == 0) then next `instruction' is EXTRAARG(real C)
+  (*) In OP_SETLIST, if (B == 0) then B = `top'; if (C == 0) then next
+  'instruction' is EXTRAARG(real C).
+
+  (*) In OP_LOADK, OP_GETGLOBAL, and OP_SETGLOBAL, if (Bx == 0) then next
+  'instruction' is EXTRAARG(real Bx).
 
   (*) For comparisons, A specifies what condition the test should accept
-      (true or false).
+  (true or false).
 
-  (*) All `skips' (pc++) assume that next instruction is a jump
+  (*) All `skips' (pc++) assume that next instruction is a jump.
+
 ===========================================================================*/
 
 
@@ -266,7 +270,7 @@ enum OpArgMask {
   OpArgK   /* argument is a constant or register/constant */
 };
 
-LUAI_DATA const lu_byte luaP_opmodes[NUM_OPCODES];
+LUAI_DDEC const lu_byte luaP_opmodes[NUM_OPCODES];
 
 #define getOpMode(m)	(cast(enum OpMode, luaP_opmodes[m] & 3))
 #define getBMode(m)	(cast(enum OpArgMask, (luaP_opmodes[m] >> 4) & 3))
@@ -275,7 +279,7 @@ LUAI_DATA const lu_byte luaP_opmodes[NUM_OPCODES];
 #define testTMode(m)	(luaP_opmodes[m] & (1 << 7))
 
 
-LUAI_DATA const char *const luaP_opnames[NUM_OPCODES+1];  /* opcode names */
+LUAI_DDEC const char *const luaP_opnames[NUM_OPCODES+1];  /* opcode names */
 
 
 /* number of list items to accumulate before a SETLIST instruction */
