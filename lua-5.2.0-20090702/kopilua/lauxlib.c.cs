@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.178 2008/06/13 18:45:35 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.187 2009/06/18 18:59:58 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -31,63 +31,56 @@ namespace KopiLua
 
 		/*
 		** {======================================================
-		** Error-report functions
+		** Traceback
 		** =======================================================
 		*/
 
 
-		public static int luaL_argerror (lua_State L, int narg, CharPtr extramsg) {
-		  lua_Debug ar = new lua_Debug();
-		  if (lua_getstack(L, 0, ar)==0)  /* no stack frame? */
-			  return luaL_error(L, "bad argument #%d (%s)", narg, extramsg);
-		  lua_getinfo(L, "n", ar);
-		  if (strcmp(ar.namewhat, "method") == 0) {
-			narg--;  /* do not count `self' */
-			if (narg == 0)  /* error is in the self argument itself? */
-			  return luaL_error(L, "calling " + LUA_QS + " on bad self", ar.name);
-		  }
-		  if (ar.name == null)
-			ar.name = "?";
-		  return luaL_error(L, "bad argument #%d to " + LUA_QS + " (%s)",
-								narg, ar.name, extramsg);
-		}
-
-
-		public static int luaL_typerror (lua_State L, int narg, CharPtr tname) {
-		  CharPtr msg = lua_pushfstring(L, "%s expected, got %s",
-											tname, luaL_typename(L, narg));
-		  return luaL_argerror(L, narg, msg);
-		}
-
-
-		private static void tag_error (lua_State L, int narg, int tag) {
-		  luaL_typerror(L, narg, lua_typename(L, tag));
-		}
-
-
-		public static void luaL_where (lua_State L, int level) {
-		  lua_Debug ar = new lua_Debug();
-		  if (lua_getstack(L, level, ar) != 0) {  /* check function at level */
-			lua_getinfo(L, "Sl", ar);  /* get info about it */
-			if (ar.currentline > 0) {  /* is there info? */
-			  lua_pushfstring(L, "%s:%d: ", ar.short_src, ar.currentline);
-			  return;
-			}
-		  }
-		  lua_pushliteral(L, "");  /* else, no information available... */
-		}
-
-		public static int luaL_error(lua_State L, CharPtr fmt, params object[] p)
-		{
-		  luaL_where(L, 1);
-		  lua_pushvfstring(L, fmt, p);
-		  lua_concat(L, 2);
-		  return lua_error(L);
-		}
-
-
 		private const int LEVELS1 = 12;	/* size of the first part of the stack */
 		private const int LEVELS2 = 10;	/* size of the second part of the stack */
+		/*
+		** search for 'objidx' in table at index -1.
+		** return 1 + string at top if find a good name.
+		*/
+		private static int findfield (lua_State L, int objidx, int level) {
+		  int found = 0;
+		  if (level == 0 || !lua_istable(L, -1))
+		    return 0;  /* not found */
+		  lua_pushnil(L);  /* start 'next' loop */
+		  while (!found && lua_next(L, -2)) {  /* for each pair in table */
+		    if (lua_type(L, -2) == LUA_TSTRING) {  /* ignore non-string keys */
+		      if (lua_rawequal(L, objidx, -1)) {  /* found object? */
+		        lua_pop(L, 1);  /* remove value (but keep name) */
+		        return 1;
+		      }
+		      else if (findfield(L, objidx, level - 1)) {  /* try recursively */
+		        lua_remove(L, -2);  /* remove table (but keep name) */
+		        lua_pushliteral(L, ".");
+		        lua_insert(L, -2);  /* place '.' between the two names */
+		        lua_concat(L, 3);
+		        return 1;
+		      }
+		    }
+		    lua_pop(L, 1);  /* remove value */
+		  }
+		  return 0;  /* not found */
+		}
+
+
+		private static int pushglobalfuncname (lua_State L, lua_Debug ar) {
+		  int top = lua_gettop(L);
+		  lua_getinfo(L, "f", ar);  /* push function */
+		  lua_pushvalue(L, LUA_GLOBALSINDEX);  /* push global table */
+		  if (findfield(L, top + 1, 2)) {
+		    lua_replace(L, top + 1);  /* move name to proper place */
+		    lua_pop(L, 1);  /* remove other pushed value */
+		    return 1;
+		  }
+		  else {
+		    lua_settop(L, top);  /* remove function and global table */
+		    return 0;
+		  }
+		}
 
 
 		private static void pushfuncname (lua_State L, lua_Debug ar) {
@@ -95,8 +88,14 @@ namespace KopiLua
 		    lua_pushfstring(L, "function " + LUA_QS, ar.name);
 		  else if (ar.what[0] == 'm')  /* main? */
 		      lua_pushfstring(L, "main chunk");
-		  else if (ar.what[0] == 'C' || ar.what[0] == 't')
-		    lua_pushliteral(L, "?");  /* C function or tail call */
+		  else if (ar.what[0] == 'C' || ar.what[0] == 't') {
+		    if (pushglobalfuncname(L, ar)) {
+		      lua_pushfstring(L, "function " LUA_QS, lua_tostring(L, -1));
+		      lua_remove(L, -2);  /* remove name */
+		    }
+		    else
+		    	lua_pushliteral(L, "?");  /* C function or tail call */
+          }
 		  else
 		    lua_pushfstring(L, "function <%s:%d>", ar.short_src, ar.linedefined);
 		}
@@ -141,6 +140,67 @@ namespace KopiLua
 
 		/*
 		** {======================================================
+		** Error-report functions
+		** =======================================================
+		*/
+
+		LUALIB_API int luaL_argerror (lua_State *L, int narg, const char *extramsg) {
+		  lua_Debug ar;
+		  if (!lua_getstack(L, 0, &ar))  /* no stack frame? */
+		    return luaL_error(L, "bad argument #%d (%s)", narg, extramsg);
+		  lua_getinfo(L, "n", &ar);
+		  if (strcmp(ar.namewhat, "method") == 0) {
+		    narg--;  /* do not count `self' */
+		    if (narg == 0)  /* error is in the self argument itself? */
+		      return luaL_error(L, "calling " LUA_QS " on bad self", ar.name);
+		  }
+		  if (ar.name == NULL)
+		    ar.name = (pushglobalfuncname(L, &ar)) ? lua_tostring(L, -1) : "?";
+		  return luaL_error(L, "bad argument #%d to " LUA_QS " (%s)",
+		                        narg, ar.name, extramsg);
+		}
+
+
+		public int luaL_typeerror (lua_State L, int narg, CharPtr tname) {
+		  CharPtr msg = lua_pushfstring(L, "%s expected, got %s",
+		                                    tname, luaL_typename(L, narg));
+		  return luaL_argerror(L, narg, msg);
+		}
+
+
+		private static void tag_error (lua_State L, int narg, int tag) {
+		  luaL_typeerror(L, narg, lua_typename(L, tag));
+		}
+
+
+		public void luaL_where (lua_State L, int level) {
+		  lua_Debug ar = new lua_Debug();
+		  if (lua_getstack(L, level, ar)) {  /* check function at level */
+		    lua_getinfo(L, "Sl", ar);  /* get info about it */
+		    if (ar.currentline > 0) {  /* is there info? */
+		      lua_pushfstring(L, "%s:%d: ", ar.short_src, ar.currentline);
+		      return;
+		    }
+		  }
+		  lua_pushliteral(L, "");  /* else, no information available... */
+		}
+
+
+		public int luaL_error (lua_State *L, CharPtr fmt, params object[] argp) {
+		  //va_list argp;
+		  //va_start(argp, fmt);
+		  luaL_where(L, 1);
+		  lua_pushvfstring(L, fmt, argp);
+		  //va_end(argp);
+		  lua_concat(L, 2);
+		  return lua_error(L);
+		}
+
+		/* }====================================================== */
+
+
+		/*
+		** {======================================================
 		** Userdata's metatable manipulation
 		** =======================================================
 		*/
@@ -175,7 +235,7 @@ namespace KopiLua
 
 		public static object luaL_checkudata (lua_State L, int ud, CharPtr tname) {
 		  object p = luaL_testudata(L, ud, tname);
-		  if (p == null) luaL_typerror(L, ud, tname);
+		  if (p == null) luaL_typeerror(L, ud, tname);
 		  return p;
 		}
 
@@ -360,6 +420,7 @@ namespace KopiLua
 
 
 		public static void luaL_buffinit (lua_State L, luaL_Buffer B) {
+          luaL_checkstack(L, LIMIT + LUA_MINSTACK, "no space for new buffer");
 		  B.L = L;
 		  B.p = /*B.buffer*/ 0;
 		  B.lvl = 0;
@@ -439,6 +500,9 @@ namespace KopiLua
 			size = 1;
 			return "\n";
 		  }
+		  /* 'fread' can return > 0 *and* set the EOF flag. If next call to
+		     'getF' calls 'fread', terminal may still wait for user input.
+		     The next check avoids this problem. */
 		  if (feof(lf.f) != 0) return null;
 		  size = (uint)fread(lf.buff, 1, lf.buff.chars.Length, lf.f);
 		  return (size > 0) ? new CharPtr(lf.buff) : null;
@@ -591,6 +655,7 @@ namespace KopiLua
 
 		public static void luaL_register (lua_State L, CharPtr libname,
 									  luaL_Reg[] l) {		  
+          luaL_checkversion(L);
 		  if (libname!=null) {
 			/* check whether lib already exists */
 			luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);
@@ -669,7 +734,7 @@ namespace KopiLua
 		private static int panic (lua_State L) {
 		  fprintf(stderr, "PANIC: unprotected error in call to Lua API (%s)\n",
 						   lua_tostring(L, -1));
-          exit(EXIT_FAILURE); return 0;  /* do not return to Lua */ //FIXME:
+          return 0;  /* return to Lua to abort */
 		}
 
 
@@ -679,6 +744,16 @@ namespace KopiLua
 		  if (L != null) lua_atpanic(L, panic);
 		  return L;
 		}
+
+		public void luaL_checkversion_ (lua_State L, lua_Number ver) {
+		  lua_Number[] v = lua_version(L);
+		  if (v != lua_version(null))
+		    luaL_error(L, "multiple Lua VMs detected");
+		  else if (v[0] != ver)
+		    luaL_error(L, "version mismatch: app. needs %d, Lua core provides %f",
+		                  ver, v[0]);
+		}
+
 
 	}
 }

@@ -21,6 +21,7 @@ namespace KopiLua
 		  public CharPtr name;
 		  public lua_CFunction func;
 		};
+		private static void luaL_checkversion(lua_State L) { return luaL_checkversion_(L, LUA_VERSION_NUM);}
 
 
 		/*
@@ -105,12 +106,8 @@ namespace KopiLua
 		//#define luaL_reg	luaL_Reg
 
 
-		/* This file uses only the official API of Lua.
-		** Any function declared here could be written as an application function.
-		*/
-
-		//#define lauxlib_c
-		//#define LUA_LIB
+		/* compatibility with previous wrong spelling */
+		private static void luaL_typerror() { return luaL_typeerror(); }
 	}
 }
 
