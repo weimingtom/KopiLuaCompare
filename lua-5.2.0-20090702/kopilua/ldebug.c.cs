@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.41 2008/08/26 13:27:42 roberto Exp roberto $
+** $Id: ldebug.c,v 2.51 2009/06/01 19:09:26 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -20,20 +20,18 @@ namespace KopiLua
 
 
 
-		private static int currentpc (lua_State L, CallInfo ci) {
+		private static int currentpc (CallInfo ci) {
 		  if (isLua(ci) == 0) return -1;  /* function is not a Lua function? */
-		  if (ci == L.ci)
-			ci.savedpc = InstructionPtr.Assign(L.savedpc);
-		  return pcRel(ci.savedpc, ci_func(ci).l.p);
+		  return pcRel(ci.u.l.savedpc, ci_func(ci).l.p);
 		}
 
 
-		private static int currentline (lua_State L, CallInfo ci) {
-		  int pc = currentpc(L, ci);
+		private static int currentline (CallInfo ci) {
+		  int pc = currentpc(ci);
 		  if (pc < 0)
 			return -1;  /* only active lua functions have current-line information */
 		  else
-			return getline(ci_func(ci).l.p, pc);
+			return getfuncline(ci_func(ci).l.p, pc);
 		}
 
 
@@ -45,7 +43,7 @@ namespace KopiLua
 			mask = 0;
 			func = null;
 		  }
-          L.oldpc = L.savedpc;
+          L.oldpc = null;
 		  L.hook = func;
 		  L.basehookcount = count;
 		  resethookcount(L);
@@ -73,18 +71,18 @@ namespace KopiLua
 		  int status;
 		  CallInfo ci;
 		  lua_lock(L);
-		  for (ci = L.ci; level > 0 && ci > L.base_ci[0]; CallInfo.dec(ref ci)) {
+		  for (ci = L.ci; level > 0 && ci != L.base_ci[0]; ci = ci.previous) {
 			level--;
 			if (isLua(ci) != 0)  /* Lua function? */
-			  level -= ci.tailcalls;  /* skip lost tail calls */
+			  level -= ci.u.l.tailcalls;  /* skip lost tail calls */
 		  }
-		  if (level == 0 && ci > L.base_ci[0]) {  /* level found? */
+		  if (level == 0 && ci != L->base_ci[0]) {  /* level found? */
 			status = 1;
-			ar.i_ci = ci - L.base_ci[0];
+			ar.i_ci = ci;
 		  }
 		  else if (level < 0) {  /* level is of a lost tail call? */
 			status = 1;
-			ar.i_ci = 0;
+			ar.i_ci = null;
 		  }
 		  else status = 0;  /* no such level */
 		  lua_unlock(L);
@@ -92,32 +90,34 @@ namespace KopiLua
 		}
 
 
-		private static Proto getluaproto (CallInfo ci) {
-		  return (isLua(ci) != 0 ? ci_func(ci).l.p : null);
-		}
-
-
-		private static CharPtr findlocal (lua_State L, CallInfo ci, int n) {
-		  CharPtr name;
-		  Proto fp = getluaproto(ci);
-		  if ((fp!=null) && (name = luaF_getlocalname(fp, n, currentpc(L, ci))) != null)
-			return name;  /* is a local variable in a Lua function */
-		  else {
-			StkId limit = (ci == L.ci) ? L.top : (ci+1).func;
-			if (limit - ci.base_ >= n && n > 0)  /* is 'n' inside 'ci' stack? */
-			  return "(*temporary)";
-			else
-			  return null;
+		private static CharPtr findlocal (lua_State L, CallInfo ci, int n,
+		                              ref StkId pos) {
+		  CharPtr name = null;
+		  StkId base;
+		  if (isLua(ci)) {
+		    base = ci.u.l.base;
+		    name = luaF_getlocalname(ci_func(ci).l.p, n, currentpc(ci));
 		  }
+		  else
+		    base = ci.func + 1;
+		  if (name == null) {  /* no 'standard' name? */
+		    StkId limit = (ci == L.ci) ? L.top : ci.next.func;
+		    if (limit - base >= n && n > 0)  /* is 'n' inside 'ci' stack? */
+		      name = "(*temporary)";  /* generic name for any valid slot */
+		    else return null;  /* no name */
+		  }
+		  pos[0] = base + (n - 1);
+		  return name;
 		}
 
 
 		public static CharPtr lua_getlocal (lua_State L, lua_Debug ar, int n) {
-		  CallInfo ci = L.base_ci[ar.i_ci];
-		  CharPtr name = findlocal(L, ci, n);
+		  CallInfo ci = ar.i_ci;
+          StkId pos;
+		  CharPtr name = findlocal(L, ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null) {
-			  setobj2s(L, L.top, ci.base_ + (n - 1));
+			  setobj2s(L, L.top, pos);
 		      api_incr_top(L);
           }
 		  lua_unlock(L);
@@ -126,11 +126,12 @@ namespace KopiLua
 
 
 		public static CharPtr lua_setlocal (lua_State L, lua_Debug ar, int n) {
-		  CallInfo ci = L.base_ci[ar.i_ci];
-		  CharPtr name = findlocal(L, ci, n);
+		  CallInfo ci = ar.i_ci;
+          StkId pos;
+		  CharPtr name = findlocal(L, ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null)
-			  setobjs2s(L, ci.base_[n - 1], L.top-1);
+			  setobjs2s(L, pos, L.top-1);
 		  StkId.dec(ref L.top);  /* pop value */
 		  lua_unlock(L);
 		  return name;
@@ -196,7 +197,7 @@ namespace KopiLua
 				break;
 			  }
 			  case 'l': {
-				ar.currentline = (ci != null) ? currentline(L, ci) : -1;
+				ar.currentline = (ci != null) ? currentline(ci) : -1;
 				break;
 			  }
 			  case 'u': {
@@ -233,8 +234,8 @@ namespace KopiLua
 			f = clvalue(func);
 			StkId.dec(ref L.top);  /* pop function */
 		  }
-		  else if (ar.i_ci != 0) {  /* no tail call? */
-			ci = L.base_ci[ar.i_ci];
+		  else if (ar.i_ci != null) {  /* no tail call? */
+			ci = ar.i_ci;
 			lua_assert(ttisfunction(ci.func));
 			f = clvalue(ci.func);
 		  }
@@ -253,283 +254,122 @@ namespace KopiLua
 
 		/*
 		** {======================================================
-		** Symbolic Execution and code checker
+		** Symbolic Execution
 		** =======================================================
 		*/
 
-        //#define check(x)		if (!(x)) return 0;
-
-        //FIXME: #define, return to outside
-		private static int checkreg(Proto pt, int reg) { if (!((reg) < (pt).maxstacksize)) return 0; return 1; }
-
-
-
-		private static int precheck (Proto pt) {
-		  if (!(pt.maxstacksize <= MAXSTACK)) return 0;
-		  if (!(pt.numparams+(pt.is_vararg & VARARG_HASARG) <= pt.maxstacksize)) return 0;
-		  if (!(!((pt.is_vararg & VARARG_NEEDSARG)==0) || ((pt.is_vararg & VARARG_HASARG)!=0))) return 0;
-		  if (!(pt.sizeupvalues == pt.nups || pt.sizeupvalues == 0)) return 0;
-		  if (!(pt.sizelineinfo == pt.sizecode || pt.sizelineinfo == 0)) return 0;
-		  if (!(pt.sizecode > 0 && GET_OPCODE(pt.code[pt.sizecode - 1]) == OpCode.OP_RETURN)) return 0;
-		  return 1;
-		}
-
-
-		public static int checkopenop(Proto pt, int pc) { return luaG_checkopenop(pt.code[pc + 1]); }
-
-		public static int luaG_checkopenop (Instruction i) {
-		  switch (GET_OPCODE(i)) {
-			case OpCode.OP_CALL:
-			case OpCode.OP_TAILCALL:
-			case OpCode.OP_RETURN:
-			case OpCode.OP_SETLIST: {
-			  if (!(GETARG_B(i) == 0)) return 0;
-			  return 1;
-			}
-			default: return 0;  /* invalid instruction after an open call */
-		  }
-		}
-
-
-		private static int checkArgMode (Proto pt, int r, OpArgMask mode) {
-		  switch (mode) {
-			case OpArgMask.OpArgN: if (r!=0) return 0; break;
-			case OpArgMask.OpArgU: break;
-			case OpArgMask.OpArgR: checkreg(pt, r); break;
-			case OpArgMask.OpArgK:
-			  if (!( (ISK(r) != 0) ? INDEXK(r) < pt.sizek : r < pt.maxstacksize)) return 0;
-			  break;
-		  }
-		  return 1;
-		}
-
-
-		private static Instruction symbexec (Proto pt, int lastpc, int reg) {
-		  int pc;
-		  int last;  /* stores position of last instruction that changed `reg' */
-		  //FIXME:added int dest;
-		  int dest;
-		  last = pt.sizecode-1;  /* points to final return (a `neutral' instruction) */
-		  if (precheck(pt)==0) return 0;
-		  for (pc = 0; pc < lastpc; pc++) {
-			Instruction i = pt.code[pc];
-			OpCode op = GET_OPCODE(i);
-			int a = GETARG_A(i);
-			int b = 0;
-			int c = 0;
-			if (!((int)op < NUM_OPCODES)) return 0;
-			switch (getOpMode(op)) {
-			  case OpMode.iABC: {
-                checkreg(pt, a);
-				b = GETARG_B(i);
-				c = GETARG_C(i);
-				if (checkArgMode(pt, b, getBMode(op))==0) return 0;
-				if (checkArgMode(pt, c, getCMode(op))==0) return 0;
-				break;
-			  }
-			  case OpMode.iABx: {
-                checkreg(pt, a);
-				b = GETARG_Bx(i);
-				if (getBMode(op) == OpArgMask.OpArgK) if (!(b < pt.sizek)) return 0;
-				break;
-			  }
-			  case OpMode.iAsBx: {
-                checkreg(pt, a);
-				b = GETARG_sBx(i);
-				if (getBMode(op) == OpArgMask.OpArgR) {
-				  //FIXME: int dest -> dest
-				  dest = pc+1+b;
-				  if (!((0 <= dest && dest < pt.sizecode))) return 0;
-				}
-				break;
-			  }
-              case OpMode.iAx: break;
-			}
-			if (testAMode(op) != 0) {
-			  if (a == reg) last = pc;  /* change register `a' */
-			}
-			if (testTMode(op) != 0) 
-			  if (!(GET_OPCODE(pt.code[pc + 1]) == OpCode.OP_JMP)) return 0;
-			switch (op) {
-			  case OpCode.OP_LOADBOOL: {
-				if (!(c == 0 || pc+2 < pt.sizecode)) return 0;  /* check its jump */
-				break;
-			  }
-			  case OpCode.OP_LOADNIL: {
-				if (a <= reg && reg <= b)
-				  last = pc;  /* set registers from `a' to `b' */
-				break;
-			  }
-			  case OpCode.OP_GETUPVAL:
-			  case OpCode.OP_SETUPVAL: {
-				if (!(b < pt.nups)) return 0;
-				break;
-			  }
-			  case OpCode.OP_GETGLOBAL:
-			  case OpCode.OP_SETGLOBAL: {
-				if (!(ttisstring(pt.k[b]))) return 0;
-				break;
-			  }
-			  case OpCode.OP_SELF: {
-				checkreg(pt, a+1);
-				if (reg == a+1) last = pc;
-				break;
-			  }
-			  case OpCode.OP_CONCAT: {
-				if (!(b < c)) return 0;  /* at least two operands */
-				break;
-			  }
-			  case OpCode.OP_TFORCALL: {
-				if (!(c >= 1)) return 0;  /* at least one result (control variable) */
-				checkreg(pt, a+2+c);  /* space for results */
-				if (!(GET_OPCODE(pt.code[pc+1]) == OpCode.OP_TFORLOOP)) return 0;
-				if (reg >= a+2) last = pc;  /* affect all regs above its base */
-				break;
-			  }
-              case OpCode.OP_TFORLOOP:
-			  case OpCode.OP_FORLOOP:
-			  case OpCode.OP_FORPREP:
-				checkreg(pt, a+3);
-				//FIXME:dest added 
-				/* go through ...no, on second thoughts don't, because this is C# */
-				dest = pc + 1 + b;
-				/* not full check and jump is forward and do not skip `lastpc'? */
-				if (reg != NO_REG && pc < dest && dest <= lastpc)
-					pc += b;  /* do the jump */
-				break;
-
-			  case OpCode.OP_JMP: {
-				dest = pc+1+b;
-				/* not full check and jump is forward and do not skip `lastpc'? */
-				if (reg != NO_REG && pc < dest && dest <= lastpc)
-				  pc += b;  /* do the jump */
-				break;
-			  }
-			  case OpCode.OP_CALL:
-			  case OpCode.OP_TAILCALL: {
-				if (b != 0) {
-				  checkreg(pt, a+b-1);
-				}
-				c--;  /* c = num. returns */
-				if (c == LUA_MULTRET) {
-				  if (checkopenop(pt, pc)==0) return 0;
-				}
-				else if (c != 0)
-				  checkreg(pt, a+c-1);
-				if (reg >= a) last = pc;  /* affect all registers above base */
-				break;
-			  }
-			  case OpCode.OP_RETURN: {
-				b--;  /* b = num. returns */
-				if (b > 0) checkreg(pt, a+b-1);
-				break;
-			  }
-			  case OpCode.OP_SETLIST: {
-				if (b > 0) checkreg(pt, a + b);
-				if (c == 0) if (!(GET_OPCODE(pt.code[pc + 1]) == OpCode.OP_EXTRAARG)) return 0;
-				break;
-			  }
-			  case OpCode.OP_CLOSURE: {
-				int nup, j;
-				if (!(b < pt.sizep)) return 0;
-				nup = pt.p[b].nups;
-				if (!(pc + nup < pt.sizecode)) return 0;
-				for (j = 1; j <= nup; j++) {
-				  OpCode op1 = GET_OPCODE(pt.code[pc + j]);
-				  if (!(op1 == OpCode.OP_GETUPVAL || op1 == OpCode.OP_MOVE)) return 0;
-				}
-				if (reg != NO_REG)  /* tracing? */
-				  pc += nup;  /* do not 'execute' these pseudo-instructions */
-				break;
-			  }
-			  case OpCode.OP_VARARG: {
-				if (!(	(pt.is_vararg & VARARG_ISVARARG)!=0 &&
-						(pt.is_vararg & VARARG_NEEDSARG)==0		)) return 0;
-				b--;
-				if (b == LUA_MULTRET) if (checkopenop(pt, pc)==0) return 0;
-				checkreg(pt, a+b-1);
-				break;
-			  }
-			  default:
-				  break;
-			}
-		  }
-		  return pt.code[last];
-		}
-
-		//#undef check
-		//#undef checkreg
-
-		/* }====================================================== */
-
-
-		public static int luaG_checkcode (Proto pt) {
-		  return (symbexec(pt, pt.sizecode, NO_REG) != 0) ? 1 : 0;
-		}
-
-
 		private static CharPtr kname (Proto p, int c) {
-		  if (ISK(c)!=0 && ttisstring(p.k[INDEXK(c)]))
-			return svalue(p.k[INDEXK(c)]);
+		  if (ISK(c) && ttisstring(&p->k[INDEXK(c)]))
+		    return svalue(&p->k[INDEXK(c)]);
 		  else
-			return "?";
+		    return "?";
 		}
 
 
-		private static CharPtr getobjname (lua_State L, CallInfo ci, int stackpos,
-									   ref CharPtr name) {
-		  if (isLua(ci) != 0) {  /* a Lua function? */
-			Proto p = ci_func(ci).l.p;
-			int pc = currentpc(L, ci);
-			Instruction i;
-			name = luaF_getlocalname(p, stackpos+1, pc);
-			if (name!=null)  /* is a local? */
-			  return "local";
-			i = symbexec(p, pc, stackpos);  /* try symbolic execution */
-			lua_assert(pc != -1);
-			switch (GET_OPCODE(i)) {
-			  case OpCode.OP_GETGLOBAL: {
-				int g = GETARG_Bx(i);  /* global index */
-				lua_assert(ttisstring(p.k[g]));
-				name = svalue(p.k[g]);
-				return "global";
-			  }
-			  case OpCode.OP_MOVE: {
-				int a = GETARG_A(i);
-				int b = GETARG_B(i);  /* move from `b' to `a' */
-				if (b < a)
-				  return getobjname(L, ci, b, ref name);  /* get name for `b' */
-				break;
-			  }
-			  case OpCode.OP_GETTABLE: {
-				int k = GETARG_C(i);  /* key index */
-				name = kname(p, k);
-				return "field";
-			  }
-			  case OpCode.OP_GETUPVAL: {
-				int u = GETARG_B(i);  /* upvalue index */
-				name = (p.upvalues!=null) ? getstr(p.upvalues[u]) : "?";
-				return "upvalue";
-			  }
-			  case OpCode.OP_SELF: {
-				int k = GETARG_C(i);  /* key index */
-				name = kname(p, k);
-				return "method";
-			  }
-			  default: break;
-			}
+		private static CharPtr getobjname (lua_State L, CallInfo ci, int reg,
+		                               ref CharPtr name) {
+		  Proto *p;
+		  int lastpc, pc;
+		  const char *what = NULL;
+		  lua_assert(isLua(ci));
+		  p = ci_func(ci)->l.p;
+		  lastpc = currentpc(ci);
+		  *name = luaF_getlocalname(p, reg + 1, lastpc);
+		  if (*name)  /* is a local? */
+		    return "local";
+		  /* else try symbolic execution */
+		  for (pc = 0; pc < lastpc; pc++) {
+		    Instruction i = p->code[pc];
+		    OpCode op = GET_OPCODE(i);
+		    int a = GETARG_A(i);
+		    switch (op) {
+		      case OP_GETGLOBAL: {
+		        if (reg == a) {
+		          int g = GETARG_Bx(i);  /* global index */
+		          lua_assert(ttisstring(&p->k[g]));
+		          *name = svalue(&p->k[g]);
+		          what = "global";
+		        }
+		        break;
+		      }
+		      case OP_MOVE: {
+		        if (reg == a) {
+		          int b = GETARG_B(i);  /* move from 'b' to 'a' */
+		          if (b < a)
+		            what = getobjname(L, ci, b, name);  /* get name for 'b' */
+		          else what = NULL;
+		        }
+		        break;
+		      }
+		      case OP_GETTABLE: {
+		        if (reg == a) {
+		          int k = GETARG_C(i);  /* key index */
+		          *name = kname(p, k);
+		          what = "field";
+		        }
+		        break;
+		      }
+		      case OP_GETUPVAL: {
+		        if (reg == a) {
+		          int u = GETARG_B(i);  /* upvalue index */
+		          *name = p->upvalues ? getstr(p->upvalues[u]) : "?";
+		          what = "upvalue";
+		        }
+		        break;
+		      }
+		      case OP_LOADNIL: {
+		        int b = GETARG_B(i);  /* move from 'b' to 'a' */
+		        if (a <= reg && reg <= b)  /* set registers from 'a' to 'b' */
+		          what = NULL;
+		        break;
+		      }
+		      case OP_SELF: {
+		        if (reg == a) {
+		          int k = GETARG_C(i);  /* key index */
+		          *name = kname(p, k);
+		          what = "method";
+		        }
+		        break;
+		      }
+		      case OP_TFORCALL: {
+		        if (reg >= a + 2) what = NULL;  /* affect all regs above its base */
+		        break;
+		      }
+		      case OP_CALL:
+		      case OP_TAILCALL: {
+		        if (reg >= a) what = NULL;  /* affect all registers above base */
+		        break;
+		      }
+		      case OP_JMP: {
+		        int b = GETARG_sBx(i);
+		        int dest = pc + 1 + b;
+		        /* jump is forward and do not skip `lastpc'? */
+		        if (pc < dest && dest <= lastpc)
+		          pc += b;  /* do the jump */
+		        break;
+		      }
+		      case OP_CLOSURE: {
+		        int nup = p->p[GETARG_Bx(i)]->nups;
+		        pc += nup;  /* do not 'execute' pseudo-instructions */
+		        lua_assert(pc <= lastpc);
+		        break;
+		      }
+		      default:
+		        if (testAMode(op) && reg == a) what = NULL;
+		        break;
+		    }
 		  }
-		  return null;  /* no useful name found */
+		  return what;
 		}
 
 
 		private static CharPtr getfuncname (lua_State L, CallInfo ci, ref CharPtr name) {
           TMS tm = 0;
 		  Instruction i;
-		  if ((isLua(ci) != 0 && ci.tailcalls > 0) || isLua(ci - 1) == 0)
+		  if ((isLua(ci) != 0 && ci.u.l.tailcalls > 0) || isLua(ci.previous) == 0)
 			return null;  /* calling function is not Lua (or is unknown) */
-		  CallInfo.dec(ref ci);  /* calling function */
-		  i = ci_func(ci).l.p.code[currentpc(L, ci)];
+		  ci = ci.previous;  /* calling function */
+		  i = ci_func(ci).l.p.code[currentpc(ci)];
 		  switch (GET_OPCODE(i)) {
 		    case OpCode.OP_CALL:
 		    case OpCode.OP_TAILCALL:
@@ -559,21 +399,25 @@ namespace KopiLua
 		  return "metamethod";
 		}
 
+		/* }====================================================== */
+
+
 
 		/* only ANSI way to check whether a pointer points to an array */
 		private static int isinstack (CallInfo ci, TValue o) {
 		  StkId p;
-		  for (p = ci.base_; p < ci.top; StkId.inc(ref p))
+		  for (p = ci.u.l.base_; p < ci.top; StkId.inc(ref p))
 			if (o == p) return 1;
 		  return 0;
 		}
 
 
 		public static void luaG_typeerror (lua_State L, TValue o, CharPtr op) {
+          CallInfo ci = L.ci;
 		  CharPtr name = null;
 		  CharPtr t = luaT_typenames[ttype(o)];
-		  CharPtr kind = (isinstack(L.ci, o)) != 0 ?
-								 getobjname(L, L.ci, cast_int(o - L.base_), ref name) :
+		  CharPtr kind = (isLua(ci) != 0 && isinstack(ci, o) != 0) ?
+								 getobjname(L, ci, cast_int(o - ci.u.l.base_), ref name) :
 								 null;
 		  if (kind != null)
 			luaG_runerror(L, "attempt to %s %s " + LUA_QS + " (a %s value)",
@@ -613,8 +457,8 @@ namespace KopiLua
 		  CallInfo ci = L.ci;
 		  if (isLua(ci) != 0) {  /* is Lua code? */
 			CharPtr buff = new CharPtr(new char[LUA_IDSIZE]);  /* add file:line information */
-			int line = currentline(L, ci);
-			luaO_chunkid(buff, getstr(getluaproto(ci).source), LUA_IDSIZE);
+			int line = currentline(ci);
+			luaO_chunkid(buff, getstr(ci_func(ci).l.p.source), LUA_IDSIZE);
 			luaO_pushfstring(L, "%s:%d: %s", buff, line, msg);
 		  }
 		}
@@ -627,7 +471,7 @@ namespace KopiLua
 			setobjs2s(L, L.top, L.top - 1);  /* move argument */
 			setobjs2s(L, L.top - 1, errfunc);  /* push function */
 			incr_top(L);
-			luaD_call(L, L.top - 2, 1);  /* call it */
+			luaD_call(L, L.top - 2, 1, 0);  /* call it */
 		  }
 		  luaD_throw(L, LUA_ERRRUN);
 		}

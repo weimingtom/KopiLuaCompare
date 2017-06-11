@@ -9,9 +9,7 @@ namespace KopiLua
 				luaD_growstack(L, n);
 			else
 			{
-				#if HARDSTACKTESTS
-				luaD_reallocstack(L, L.stacksize - EXTRA_STACK - 1);
-				#endif
+				condmovestack(L);
 			}
 		}
 
@@ -26,8 +24,7 @@ namespace KopiLua
 		// isn't that straightforward in managed languages, so i implement these by index instead.
 		public static int savestack(lua_State L, StkId p)		{return p;}
 		public static StkId restorestack(lua_State L, int n)	{return L.stack[n];}
-		public static int saveci(lua_State L, CallInfo p)		{return p - L.base_ci;}
-		public static CallInfo restoreci(lua_State L, int n)	{ return L.base_ci[n]; }
+
 
 
 
