@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.108 2008/01/18 17:14:47 roberto Exp roberto $
+** $Id: ldblib.c,v 1.109 2008/01/21 13:37:08 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -309,7 +309,7 @@ namespace KopiLua
 		}
 
 
-		private static int db_errorfb (lua_State L) {
+		private static int db_traceback (lua_State L) {
 		  int arg;
 		  lua_State L1 = getthread(L, out arg);
 		  CharPtr msg = lua_tostring(L, arg + 1);
@@ -337,7 +337,7 @@ namespace KopiLua
 		  new luaL_Reg("setlocal", db_setlocal),
 		  new luaL_Reg("setmetatable", db_setmetatable),
 		  new luaL_Reg("setupvalue", db_setupvalue),
-		  new luaL_Reg("traceback", db_errorfb),
+		  new luaL_Reg("traceback", db_traceback),
 		  new luaL_Reg(null, null)
 		};
 

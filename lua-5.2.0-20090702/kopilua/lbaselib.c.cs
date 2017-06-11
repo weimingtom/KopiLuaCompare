@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.207 2008/07/03 14:23:35 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.214 2009/03/23 14:26:12 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -14,30 +14,26 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		/*
-		** If your system does not support `stdout', you can just remove this function.
-		** If you need, you can define your own `print' function, following this
-		** model but changing `fputs' to put the strings at a proper place
-		** (a console window or a log file, for instance).
-		*/
+
 		private static int luaB_print (lua_State L) {
 		  int n = lua_gettop(L);  /* number of arguments */
 		  int i;
 		  lua_getglobal(L, "tostring");
 		  for (i=1; i<=n; i++) {
 			CharPtr s;
+            uint l;
 			lua_pushvalue(L, -1);  /* function to be called */
 			lua_pushvalue(L, i);   /* value to print */
 			lua_call(L, 1, 1);
-			s = lua_tostring(L, -1);  /* get result */
+			s = lua_tolstring(L, -1, ref l);  /* get result */
 			if (s == null)
 			  return luaL_error(L, LUA_QL("tostring") + " must return a string to " +
 								   LUA_QL("print"));
-			if (i > 1) fputs("\t", stdout);
-			fputs(s, stdout);
+			if (i > 1) luai_writestring("\t", 1);
+			luai_writestring(s, l);
 			lua_pop(L, 1);  /* pop result */
 		  }
-		  Console.Write("\n", stdout);
+		  luai_writestring("\n", 1);
 		  return 0;
 		}
 
@@ -291,8 +287,20 @@ namespace KopiLua
 		** stack top. Instead, it keeps its resulting string in a
 		** reserved slot inside the stack.
 		*/
+
+
+		private static CharPtr checkrights (lua_State L, CharPtr mode, CharPtr s) {
+		  if (strchr(mode, 'b') == null && s[0] == LUA_SIGNATURE[0])
+		    return lua_pushstring(L, "attempt to load a binary chunk");
+		  if (strchr(mode, 't') == null && s[0] != LUA_SIGNATURE[0])
+		    return lua_pushstring(L, "attempt to load a text chunk");
+		  return NULL;  /* chunk in allowed format */
+		}
+
+
 		private static CharPtr generic_reader (lua_State L, object ud, out uint size) {
-		  //(void)ud;  /* to avoid warnings */
+		  const char *s;
+		  const char **mode = (const char **)ud;
 		  luaL_checkstack(L, 2, "too many nested functions");
 		  lua_pushvalue(L, 1);  /* get function */
 		  lua_call(L, 0, 1);  /* call it */
@@ -300,10 +308,14 @@ namespace KopiLua
 			size = 0;
 			return null;
 		  }
-		  else if (lua_isstring(L, -1) != 0)
-		  {
-			  lua_replace(L, 3);  /* save string in a reserved stack slot */
-			  return lua_tolstring(L, 3, out size);
+		  else if ((s = lua_tostring(L, -1)) != NULL) {
+		    if (*mode != null) {  /* first time? */
+		      s = checkrights(L, *mode, s);  /* check whether chunk format is allowed */
+		      *mode = NULL;  /* to avoid further checks */
+		      if (s) luaL_error(L, s);
+		  	}
+			lua_replace(L, 3);  /* save string in a reserved stack slot */
+			return lua_tolstring(L, 3, out size);
 		  }
 		  else {
 			  luaL_error(L, "reader function must return a string");
@@ -315,11 +327,32 @@ namespace KopiLua
 
 		private static int luaB_load (lua_State L) {
 		  int status;
-		  CharPtr cname = luaL_optstring(L, 2, "=(load)");
-		  luaL_checktype(L, 1, LUA_TFUNCTION);
-		  lua_settop(L, 3);  /* function, eventual name, plus one reserved slot */
-		  status = lua_load(L, generic_reader, null, cname);
+		  const char *s = lua_tostring(L, 1);
+		  const char *mode = luaL_optstring(L, 3, "bt");
+		  if (s != null) {  /* loading a string? */
+		    const char *chunkname = luaL_optstring(L, 2, s);
+		    status = (checkrights(L, mode, s) != NULL)
+		           || luaL_loadbuffer(L, s, lua_objlen(L, 1), chunkname);
+		  }
+		  else {  /* loading from a reader function */
+			  CharPtr chunkname = luaL_optstring(L, 2, "=(load)");
+			  luaL_checktype(L, 1, LUA_TFUNCTION);
+			  lua_settop(L, 3);  /* function, eventual name, plus one reserved slot */
+			  status = lua_load(L, generic_reader, ref mode, chunkname);
+		  }
 		  return load_aux(L, status);
+		}
+
+
+		private static int luaB_loadstring (lua_State *L) {
+		  lua_settop(L, 2);
+		  lua_pushliteral(L, "tb");
+		  return luaB_load(L);  /* dostring(s, n) == load(s, n, "tb") */
+		}
+
+
+		private static int dofilecont (lua_State *L) {
+		  return lua_gettop(L) - 1;
 		}
 
 
@@ -327,13 +360,12 @@ namespace KopiLua
 		  CharPtr fname = luaL_optstring(L, 1, null);
 		  lua_settop(L, 1);
 		  if (luaL_loadfile(L, fname) != LUA_OK) lua_error(L);
-		  lua_call(L, 0, LUA_MULTRET);
-		  return lua_gettop(L) - 1;
+		  lua_callk(L, 0, LUA_MULTRET, 0, dofilecont);
+		  return dofilecont(L);
 		}
 
 
 		private static int luaB_assert (lua_State L) {
-		  luaL_checkany(L, 1);
 		  if (lua_toboolean(L, 1)==0)
 			return luaL_error(L, "%s", luaL_optstring(L, 2, "assertion failed!"));
 		  return lua_gettop(L);
@@ -373,10 +405,23 @@ namespace KopiLua
 		}
 
 
+		private static int pcallcont (lua_State *L) {
+		  int errfunc;  /* call has an error function in bottom of the stack */
+		  int status = lua_getctx(L, &errfunc);
+		  lua_assert(status != LUA_OK);
+		  lua_pushboolean(L, (status == LUA_YIELD));
+		  if (errfunc)  /* came from xpcall? */
+		    lua_replace(L, 1);  /* put result in place of error function */
+		  else  /* came from pcall */
+		    lua_insert(L, 1);  /* open space for result */
+		  return lua_gettop(L);
+		}
+
+
 		private static int luaB_pcall (lua_State L) {
 		  int status;
 		  luaL_checkany(L, 1);
-		  status = lua_pcall(L, lua_gettop(L) - 1, LUA_MULTRET, 0);
+		  status = lua_pcallk(L, lua_gettop(L) - 1, LUA_MULTRET, 0, 0, pcallcont);
 		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
 		  lua_insert(L, 1);
 		  return lua_gettop(L);  /* return status + all results */
@@ -391,7 +436,7 @@ namespace KopiLua
 		  lua_pushvalue(L, 2);  /* ...and error handler */
 		  lua_replace(L, 1);
 		  lua_replace(L, 2);
-		  status = lua_pcall(L, n - 2, LUA_MULTRET, 1);
+		  status = lua_pcallk(L, n - 2, LUA_MULTRET, 1, 1, pcallcont);
 		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
 		  lua_replace(L, 1);
 		  return lua_gettop(L);  /* return status + all results */
