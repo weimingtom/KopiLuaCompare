@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.10 2007/11/09 18:55:07 roberto Exp roberto $
+** $Id: lstring.c,v 2.12 2009/04/17 14:40:13 roberto Exp roberto $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -19,41 +19,32 @@ namespace KopiLua
 
 
 		public static void luaS_resize (lua_State L, int newsize) {
-		  GCObject[] newhash;
-		  stringtable tb;
 		  int i;
+		  stringtable tb = &G(L).strt;
 		  if (G(L).gcstate == GCSsweepstring)
-			return;  /* cannot resize during GC traverse */		  
-
-		  // todo: fix this up
-		  // I'm treating newhash as a regular C# array, but I need to allocate a dummy array
-		  // so that the garbage collector behaves identical to the C version.
-		  //newhash = luaM_newvector<GCObjectRef>(L, newsize);
-		  newhash = new GCObject[newsize];
-		  AddTotalBytes(L, newsize * GetUnmanagedSize(typeof(GCObjectRef)));
-
-		  tb = G(L).strt;
-		  for (i=0; i<newsize; i++) newhash[i] = null;
-
+		    return;  /* cannot resize during GC traverse */
+		  if (newsize > tb.size) {
+		    luaM_reallocvector(L, tb.hash, tb.size, newsize, GCObject *);
+		    for (i = tb.size; i < newsize; i++) tb->hash[i] = NULL;
+		  }
 		  /* rehash */
 		  for (i=0; i<tb.size; i++) {
-			GCObject p = tb.hash[i];
-			while (p != null) {  /* for each node in the list */
-			  GCObject next = gch(p).next;  /* save next */
-			  uint h = gco2ts(p).hash;
-			  int h1 = (int)lmod(h, newsize);  /* new position */
-			  lua_assert((int)(h%newsize) == lmod(h, newsize));
-			  gch(p).next = newhash[h1];  /* chain it */
-			  newhash[h1] = p;
-			  p = next;
-			}
+		    GCObject p = tb.hash[i];
+		    tb->hash[i] = null;
+		    while (p) {  /* for each node in the list */
+		      GCObject next = gch(p).next;  /* save next */
+		      unsigned int h = lmod(gco2ts(p).hash, newsize);  /* new position */
+		      gch(p).next = tb.hash[h];  /* chain it */
+		      tb.hash[h] = p;
+		      p = next;
+		    }
 		  }
-		  //FIXME:here changed
-		  //luaM_freearray(L, tb.hash);
-		  if (tb.hash != null)
-			  SubtractTotalBytes(L, tb.hash.Length * GetUnmanagedSize(typeof(GCObjectRef)));
+		  if (newsize < tb.size) {
+		    /* shrinking slice must be empty */
+		    lua_assert(tb.hash[newsize] == null && tb.hash[tb.size - 1] == null);
+		    luaM_reallocvector(L, tb.hash, tb.size, newsize, GCObject *);
+		  }
 		  tb.size = newsize;
-		  tb.hash = newhash;
 		}
 
 
@@ -95,15 +86,13 @@ namespace KopiLua
 			TString ts = rawgco2ts(o);			
 			if (h == ts.tsv.hash && ts.tsv.len == l &&
 									(memcmp(str, getstr(ts), l) == 0)) {
-			  /* string may be dead */
-			  if (isdead(G(L), o)) changewhite(o);
+			  if (isdead(G(L), o)) /* string is dead (but was not collected yet)? */
+                changewhite(o);  /* resurrect it */
 			  return ts;
 			}
 		  }
-		  //return newlstr(L, str, l, h);  /* not found */
-		  TString res = newlstr(L, str, l, h);
-		  return res;
-		}
+		  return newlstr(L, str, l, h);  /* not found; create a new string */
+        }
 
 		//FIXME:here changed
 		public static Udata luaS_newudata(lua_State L, uint s, Table e)

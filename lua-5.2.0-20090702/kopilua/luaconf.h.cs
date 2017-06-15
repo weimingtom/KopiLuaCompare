@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.99 2008/07/11 17:50:31 roberto Exp roberto $
+** $Id: luaconf.h,v 1.105 2009/06/18 18:19:36 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -103,20 +103,20 @@ namespace KopiLua
 		public const string LUA_LDIR = "!\\lua\\";
 		public const string LUA_CDIR = "!\\";
 		public const string LUA_PATH_DEFAULT =
-				".\\?.lua;"  + LUA_LDIR + "?.lua;"  + LUA_LDIR + "?\\init.lua;"
-							 + LUA_CDIR + "?.lua;"  + LUA_CDIR + "?\\init.lua";
+							LUA_LDIR + "?.lua;"  + LUA_LDIR + "?\\init.lua;"
+							 + LUA_CDIR + "?.lua;"  + LUA_CDIR + "?\\init.lua;" + ".\\?.lua";
 		public const string LUA_CPATH_DEFAULT =
-			".\\?.dll;"  + LUA_CDIR + "?.dll;" + LUA_CDIR + "loadall.dll";
+							LUA_CDIR + "?.dll;" + LUA_CDIR + "loadall.dll;" + ".\\?.dll";
 
 		#else
 		public const string LUA_ROOT	= "/usr/local/";
 		public const string LUA_LDIR	= LUA_ROOT + "share/lua/5.1/";
 		public const string LUA_CDIR	= LUA_ROOT + "lib/lua/5.1/";
 		public const string LUA_PATH_DEFAULT  =
-				"./?.lua;"  + LUA_LDIR + "?.lua;"  + LUA_LDIR + "?/init.lua;" +
-							LUA_CDIR + "?.lua;"  + LUA_CDIR + "?/init.lua";
+							LUA_LDIR + "?.lua;"  + LUA_LDIR + "?/init.lua;" +
+							LUA_CDIR + "?.lua;"  + LUA_CDIR + "?/init.lua;" + "./?.lua";
 		public const string LUA_CPATH_DEFAULT =
-			"./?.so;"  + LUA_CDIR + "?.so;" + LUA_CDIR + "loadall.so";
+							LUA_CDIR + "?.so;" + LUA_CDIR + "loadall.so;" + "./?.so";
 #endif
 
 
@@ -230,6 +230,13 @@ namespace KopiLua
 
 
 		/*
+		@@ luai_writestring defines how 'print' prints its results.
+		** CHANGE it if your system does not have a useful stdout.
+		*/
+		public static void luai_writestring(s,l) { fwrite((s), sizeof(char), (l), stdout); }
+
+
+		/*
 		** {==================================================================
 		** Stand-alone configuration
 		** ===================================================================
@@ -336,20 +343,24 @@ namespace KopiLua
 
 
 		/*
+		** {==================================================================
+		** Compatibility with previous versions
+		** ===================================================================
+		*/
+
+		/*
+		@@ LUA_COMPAT_LOG10 defines the function 'log10' in the math library.
+		** CHANGE it (undefine it) if as soon as you rewrite all calls 'log10(x)'
+		** as 'log(x, 10)'
+		*/
+		//#define LUA_COMPAT_LOG10 //FIXME:???
+
+		/*
 		@@ LUA_COMPAT_API includes some macros and functions that supply some
 		@* compatibility with previous versions.
 		** CHANGE it (undefine it) if you do not need these compatibility facilities.
 		*/
-		//#define LUA_COMPAT_API
-		
-		
-		/*
-		@@ LUA_COMPAT_VARARG controls compatibility with old vararg feature.
-		** CHANGE it to undefined as soon as your programs use only '...' to
-		** access vararg parameters (instead of the old 'arg' table).
-		*/
-		//#define LUA_COMPAT_VARARG /* defined higher up */
-
+		//#define LUA_COMPAT_API		
 
 
 		/*
@@ -366,6 +377,9 @@ namespace KopiLua
 		** you need the debug library.
 		*/
 		//#define LUA_COMPAT_DEBUGLIB /* defined higher up */
+
+		/* }================================================================== */
+
 
 
 
@@ -402,24 +416,22 @@ namespace KopiLua
 
 
 		/*
-		@@ LUAI_UINT32 is an unsigned integer with at least 32 bits.
-		@@ LUAI_INT32 is an signed integer with at least 32 bits.
+		@@ LUA_INT32 is an signed integer with exactly 32 bits.
 		@@ LUAI_UMEM is an unsigned integer big enough to count the total
 		@* memory used by Lua.
 		@@ LUAI_MEM is a signed integer big enough to count the total memory
 		@* used by Lua.
 		** CHANGE here if for some weird reason the default definitions are not
-		** good enough for your machine. (The definitions in the 'else'
-		** part always works, but may waste space on machines with 64-bit
-		** longs.) Probably you do not need to change this.
+		** good enough for your machine.  Probably you do not need to change
+		** this.
 		*/
 		//#if LUAI_BITSINT >= 32
-		//#define LUAI_UINT32	unsigned int
+		//#define LUA_INT32	int
 		//#define LUAI_UMEM	uint
 		//#define LUAI_MEM	ptrdiff_t
 		//#else
 		///* 16-bit ints */
-		//#define LUAI_UINT32	unsigned long
+		//#define LUA_INT32	long
 		//#define LUAI_UMEM	unsigned long
 		//#define LUAI_MEM	long
 		//#endif
@@ -583,10 +595,21 @@ namespace KopiLua
 		public static bool luai_numisnan(lua_State L, lua_Number a) { return lua_Number.IsNaN(a); }
 		#endif
 
+		/*
+		@@ LUA_INTEGER is the integral type used by lua_pushinteger/lua_tointeger.
+		** CHANGE that if ptrdiff_t is not adequate on your machine. (On most
+		** machines, ptrdiff_t gives a good choice between int or long.)
+		*/
+		//#define LUA_INTEGER	ptrdiff_t
+
 
 		/*
 		@@ lua_number2int is a macro to convert lua_Number to int.
-		@@ lua_number2integer is a macro to convert lua_Number to lua_Integer.
+		@@ lua_number2integer is a macro to convert lua_Number to lUA_INTEGER.
+		@@ lua_number2uint is a macro to convert a lua_Number to an unsigned
+		@* LUA_INT32.
+		@@ lua_uint2number is a macro to convert an unsigned LUA_INT32
+		@* to a lua_Number.
 		** CHANGE them if you know a faster way to convert a lua_Number to
 		** int (with any rounding method and without throwing errors) in your
 		** system. In Pentium machines, a naive typecast from double to int
@@ -603,24 +626,32 @@ namespace KopiLua
 		//#define lua_number2int(i,d)   __asm fld d   __asm fistp i
 		//#define lua_number2integer(i,n)		lua_number2int(i, n)
 
+        //#else
 		/* the next trick should work on any Pentium, but sometimes clashes
 		   with a DirectX idiosyncrasy */
-		//#else
 
 		//union luai_Cast { double l_d; long l_l; };
 		//#define lua_number2int(i,d) \
 		//  { volatile union luai_Cast u; u.l_d = (d) + 6755399441055744.0; (i) = u.l_l; }
 		//#define lua_number2integer(i,n)		lua_number2int(i, n)
+        //#define lua_number2uint(i,n)		lua_number2int(i, n)
 
 		//#endif
 
 
-		/* this option always works, but may be slow */
 		//#else
+		/* this option always works, but may be slow */
 		//#define lua_number2int(i,d)	((i)=(int)(d))
-		//#define lua_number2integer(i,d)	((i)=(lua_Integer)(d))
+		//#define lua_number2integer(i,d)	((i)=(LUA_INTEGER)(d))
+        //#define lua_number2uint(i,d)	((i)=(unsigned LUA_INT32)(d))
 
 		//#endif
+
+
+		/* on several machines, coercion from unsigned to double is too slow,
+		   so avoid that if possible */
+		public static void lua_uint2number(u) {
+			return ((LUA_INT32)(u) < 0 ? (lua_Number)(u) : (lua_Number)(LUA_INT32)(u)); }
 
 		private static void lua_number2int(out int i,lua_Number d)   {i = (int)d;}
 		private static void lua_number2integer(out int i, lua_Number n) { i = (int)n; }
@@ -732,17 +763,17 @@ namespace KopiLua
 		//#if LUA_USE_POPEN
 
 		//#define lua_popen(L,c,m)	((void)L, fflush(NULL), popen(c,m))
-		//#define lua_pclose(L,file)	((void)L, (pclose(file) != -1))
+		//#define lua_pclose(L,file)	((void)L, pclose(file))
 
 		//#elif LUA_WIN
 
 		//#define lua_popen(L,c,m)	((void)L, _popen(c,m))
-		//#define lua_pclose(L,file)	((void)L, (_pclose(file) != -1))
+		//#define lua_pclose(L,file)	((void)L, _pclose(file))
 
 		//#else
 
 		public static Stream lua_popen(lua_State L, CharPtr c, CharPtr m) { luaL_error(L, LUA_QL("popen") + " not supported"); return null; }
-		public static int lua_pclose(lua_State L, Stream file) { return 0; }
+		public static int lua_pclose(lua_State L, Stream file) { return -1; }
 	
 		//#endif
 

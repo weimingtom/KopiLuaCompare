@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.141 2008/06/12 14:21:18 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.142 2009/02/03 19:39:19 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -831,18 +831,16 @@ namespace KopiLua
 						  }
 					  case 'd':
 					  case 'i':
-						  {
-							  addintlen(form);
-							  sprintf(buff, form, (LUA_INTFRM_T)luaL_checknumber(L, arg));
-							  break;
-						  }
 					  case 'o':
 					  case 'u':
 					  case 'x':
 					  case 'X':
 						  {
+					          lua_Number n = luaL_checknumber(L, arg);
+					          LUA_INTFRM_T r = (n < 0) ? (LUA_INTFRM_T)n :
+					                                     (LUA_INTFRM_T)(unsigned LUA_INTFRM_T)n;
 							  addintlen(form);
-							  sprintf(buff, form, (UNSIGNED_LUA_INTFRM_T)luaL_checknumber(L, arg));
+							  sprintf(buff, form, r);
 							  break;
 						  }
 					  case 'e':

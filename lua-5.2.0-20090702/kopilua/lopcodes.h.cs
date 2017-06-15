@@ -297,22 +297,27 @@ namespace KopiLua
 
 		/*===========================================================================
 		  Notes:
-		  (*) In OP_CALL, if (B == 0) then B = top. C is the number of returns - 1,
-			  and can be 0: OP_CALL then sets `top' to last_result+1, so
-			  next open instruction (OP_CALL, OP_RETURN, OP_SETLIST) may use `top'.
+		  (*) In OP_CALL, if (B == 0) then B = top. If (C == 0), then `top' is
+		  set to last_result+1, so next open instruction (OP_CALL, OP_RETURN,
+		  OP_SETLIST) may use `top'.
 
 		  (*) In OP_VARARG, if (B == 0) then use actual number of varargs and
-			  set top (like in OP_CALL with C == 0).
+		  set top (like in OP_CALL with C == 0).
 
-		  (*) In OP_RETURN, if (B == 0) then return up to `top'
+		  (*) In OP_RETURN, if (B == 0) then return up to `top'.
 
-		  (*) In OP_SETLIST, if (B == 0) then B = `top';
-			  if (C == 0) then next `instruction' is EXTRAARG(real C)
+		  (*) In OP_SETLIST, if (B == 0) then B = `top'; if (C == 0) then next
+		  `instruction' is EXTRAARG(real C).
 
 		  (*) For comparisons, A specifies what condition the test should accept
-			  (true or false).
+		  (true or false).
 
-		  (*) All `skips' (pc++) assume that next instruction is a jump
+		  (*) All `skips' (pc++) assume that next instruction is a jump.
+
+		  (*) The OP_CLOSURE instruction is followed by a sequence of
+		  instructions coding the upvalues: OP_MOVE A B if upvalue is local B,
+		  or OP_GETUPVAL A B if upvalue is enclosing upvalue B.
+
 		===========================================================================*/
 
 

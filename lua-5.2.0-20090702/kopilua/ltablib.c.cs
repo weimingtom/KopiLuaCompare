@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.43 2008/02/14 16:03:27 roberto Exp roberto $
+** $Id: ltablib.c,v 1.46 2009/03/23 14:26:12 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -17,14 +17,16 @@ namespace KopiLua
 		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_objlen(L, n);}
 
 		private static int foreachi (lua_State L) {
-		  int i;
 		  int n = aux_getn(L, 1);
+		  int i;
+          if (lua_getctx(L, &i) == LUA_YIELD) goto poscall;
 		  luaL_checktype(L, 2, LUA_TFUNCTION);
-		  for (i=1; i <= n; i++) {
+		  for (i = 1; i <= n; i++) {
 			lua_pushvalue(L, 2);  /* function */
 			lua_pushinteger(L, i);  /* 1st argument */
 			lua_rawgeti(L, 1, i);  /* 2nd argument */
-			lua_call(L, 2, 1);
+			lua_callk(L, 2, 1, i, foreachi);
+            poscall:
 			if (!lua_isnil(L, -1))
 			  return 1;
 			lua_pop(L, 1);  /* remove nil result */
@@ -33,20 +35,28 @@ namespace KopiLua
 		}
 
 
+		private static int foreachcont (lua_State L) {
+		  for (;;) {
+		    if (!lua_isnil(L, -1))
+		      return 1;
+		    lua_pop(L, 2);  /* remove value and result */
+		    if (lua_next(L, 1) == 0)  /* no more elements? */
+		      return 0;
+		    lua_pushvalue(L, 2);  /* function */
+		    lua_pushvalue(L, -3);  /* key */
+		    lua_pushvalue(L, -3);  /* value */
+		    lua_callk(L, 2, 1, 0, foreachcont);
+		  }
+		}
+
+
 		private static int _foreach (lua_State L) {
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  luaL_checktype(L, 2, LUA_TFUNCTION);
 		  lua_pushnil(L);  /* first key */
-		  while (lua_next(L, 1) != 0) {
-			lua_pushvalue(L, 2);  /* function */
-			lua_pushvalue(L, -3);  /* key */
-			lua_pushvalue(L, -3);  /* value */
-			lua_call(L, 2, 1);
-			if (!lua_isnil(L, -1))
-			  return 1;
-			lua_pop(L, 2);  /* remove value and result */
-		  }
-		  return 0;
+		  lua_pushnil(L);  /* first value */
+		  lua_pushnil(L);  /* first "return" */
+		  return foreachcont(L);
 		}
 
 
@@ -175,7 +185,7 @@ namespace KopiLua
 			return res;
 		  }
 		  else  /* a < b? */
-			return lua_lessthan(L, a, b);
+			return lua_compare(L, a, b, LUA_OPLT);
 		}
 
 		private static int auxsort_loop1(lua_State L, ref int i)

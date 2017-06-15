@@ -45,3 +45,38 @@ lmathlib.c
 lmem.h
 21:34 2017-06-14
 loadlib.c
+
+04:13 2017-06-16
+lobject.c
+04:16 2017-06-16
+lobject.h
+04:17 2017-06-16
+lopcodes.h
+04:19 2017-06-16
+loslib.c
+04:26 2017-06-16
+lparser.c
+04:36 2017-06-16
+lstate.c
+04:42 2017-06-16
+lstate.h
+04:47 2017-06-16
+lstring.c
+04:49 2017-06-16
+lstrlib.c
+04:51 2017-06-16
+ltable.c
+04:55 2017-06-16
+ltablib.c
+04:58 2017-06-16
+lua.c
+05:08 2017-06-16
+lua.h
+05:22 2017-06-16
+luaconf.h
+	#define LUA_COMPAT_LOG10 //FIXME:???
+05:23 2017-06-16
+lualib.h
+05:24 2017-06-16
+lundump.c
+

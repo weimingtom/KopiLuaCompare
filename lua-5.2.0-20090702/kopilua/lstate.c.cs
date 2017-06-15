@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.46 2008/08/13 17:01:33 roberto Exp roberto $
+** $Id: lstate.c,v 2.55 2009/06/01 19:09:26 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -48,29 +48,62 @@ namespace KopiLua
 		
 
 
+		/*
+		** maximum number of nested calls made by error-handling function
+		*/
+		public const int LUAI_EXTRACALLS = 10;
+
+
+		public static CallInfo luaE_extendCI (lua_State L) {
+		  CallInfo ci = luaM_new(L, CallInfo);
+		  lua_assert(L.ci.next == null);
+		  L.ci.next = ci;
+		  ci.previous = L.ci;
+		  ci.next = null;
+		  if (++L.nci >= LUAI_MAXCALLS) {
+		    if (L.nci == LUAI_MAXCALLS)  /* overflow? */
+		      luaG_runerror(L, "stack overflow");
+		    if (L.nci >= LUAI_MAXCALLS + LUAI_EXTRACALLS)  /* again? */
+		      luaD_throw(L, LUA_ERRERR);  /* error while handling overflow */
+		  }
+		  return ci;
+		}
+
+
+		public static void luaE_freeCI (lua_State L) {
+		  CallInfo ci = L.ci;
+		  CallInfo next = ci.next;
+		  ci.next = NULL;
+		  while ((ci = next) != null) {
+		    next = ci.next;
+		    luaM_free(L, ci);
+		    L.nci--;
+		  }
+		}
+
+
 		private static void stack_init (lua_State L1, lua_State L) {
-		  /* initialize CallInfo array */
-		  L1.base_ci = luaM_newvector<CallInfo>(L, BASIC_CI_SIZE);
-		  L1.ci = L1.base_ci[0];
-		  L1.size_ci = BASIC_CI_SIZE;
-		  L1.end_ci = L1.base_ci[L1.size_ci - 1];
+		  int i;
 		  /* initialize stack array */
 		  L1.stack = luaM_newvector<TValue>(L, BASIC_STACK_SIZE + EXTRA_STACK);
 		  L1.stacksize = BASIC_STACK_SIZE + EXTRA_STACK;
+		  for (i = 0; i < BASIC_STACK_SIZE + EXTRA_STACK; i++)
+		    setnilvalue(L1.stack + i);  /* erase new stack */
 		  L1.top = L1.stack[0];
 		  L1.stack_last = L1.stack[L1.stacksize - EXTRA_STACK - 1];
 		  /* initialize first ci */
 		  L1.ci.func = L1.top;
-		  setnilvalue(StkId.inc(ref L1.top));  /* `function' entry for this `ci' */
-		  L1.base_ = L1.ci.base_ = L1.top;
+		  setnilvalue(StkId.inc(ref L1.top));  /* 'function' entry for this 'ci' */
 		  L1.ci.top = L1.top + LUA_MINSTACK;
           L1.ci.callstatus = 0;
 		}
 
 
-		private static void freestack (lua_State L, lua_State L1) {
-		  luaM_freearray(L, L1.base_ci);
-		  luaM_freearray(L, L1.stack);
+		private static void freestack (lua_State L) {
+		  L.ci = &L->base_ci;  /* reset 'ci' list */
+		  luaE_freeCI(L);
+		  lua_assert(L.nci == 0);
+		  luaM_freearray(L, L.stack);
 		}
 
 
@@ -102,12 +135,11 @@ namespace KopiLua
 		  L.allowhook = 1;
 		  resethookcount(L);
 		  L.openupval = null;
-		  L.size_ci = 0;
-		  L.baseCcalls = 0;
+		  L.nny = 1;
 		  L.status = LUA_OK;
-		  L.base_ci = null;
-		  L.ci = null;
-		  L.savedpc = new InstructionPtr();
+		  L.base_ci.next = L.base_ci.previous = null;
+		  L.ci = &L->base_ci;
+		  L.nci = 0;
 		  L.errfunc = 0;
 		  setnilvalue(gt(L));
 		}
@@ -119,7 +151,7 @@ namespace KopiLua
 		  luaC_freeall(L);  /* collect all objects */
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
-		  freestack(L, L);
+		  freestack(L);
 		  lua_assert(g.totalbytes == GetUnmanagedSize(typeof(LG)));
 		  //g.frealloc(g.ud, fromstate(L), (uint)state_size(typeof(LG)), 0);
 		}
@@ -152,7 +184,7 @@ namespace KopiLua
 		  luaF_close(L1, L1.stack[0]);  /* close all upvalues for this thread */
 		  lua_assert(L1.openupval == null);
 		  luai_userstatefree(L1);
-		  freestack(L, L1);
+		  freestack(L1);
 		  //luaM_freemem(L, fromstate(L1));
 		}
 
@@ -188,6 +220,7 @@ namespace KopiLua
 		  setnilvalue(registry(L));
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
+          g.version = lua_version(null);
 		  g.gcstate = GCSpause;
 		  g.rootgc = obj2gco(L);
 		  g.sweepstrgc = 0;
@@ -212,25 +245,13 @@ namespace KopiLua
 		}
 
 
-		private static void callallgcTM (lua_State L, object ud) {
-		  //UNUSED(ud);
-		  luaC_callAllGCTM(L);  /* call GC metamethods for all udata */
-		}
-
-
 		public static void lua_close (lua_State L) {
 		  L = G(L).mainthread;  /* only the main thread can be closed */
 		  lua_lock(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_separateudata(L, 1);  /* separate all udata with GC metamethods */
           lua_assert(L.next == null);
-		  L.errfunc = 0;  /* no error function during GC metamethods */
-		  do {  /* repeat until no more errors */
-			L.ci = L.base_ci[0];
-			L.base_ = L.top = L.ci.base_;
-			G(L).nCcalls = 0;
-		  } while (luaD_rawrunprotected(L, callallgcTM, null) != LUA_OK);
-		  lua_assert(G(L).tobefnz == null);
+		  luaC_callAllGCTM(L);  /* call GC metamethods for all udata */
 		  luai_userstateclose(L);
 		  close_state(L);
 		}
