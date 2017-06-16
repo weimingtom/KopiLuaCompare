@@ -22,7 +22,7 @@ namespace KopiLua
 		  new luaL_Reg(LUA_IOLIBNAME, luaopen_io),
 		  new luaL_Reg(LUA_OSLIBNAME, luaopen_os),
 		  new luaL_Reg(LUA_STRLIBNAME, luaopen_string),
-          new luaL_Reg(LUA_BITLIBNAME, luaopen_bit},
+		  new luaL_Reg(LUA_BITLIBNAME, luaopen_bit),
 		  new luaL_Reg(LUA_MATHLIBNAME, luaopen_math),
 		  new luaL_Reg(null, null)
 		};

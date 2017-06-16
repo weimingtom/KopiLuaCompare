@@ -295,7 +295,7 @@ namespace KopiLua
 		    case LUA_OPEQ: i = equalobj(L, o1, o2); break;
 		    case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
 		    case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
-		    default: api_check(L, 0); i = 0;
+		    default: api_check(L, 0); i = 0; break; //FIXME:break added
 		  }
 		  lua_unlock(L);
 		  return i;
@@ -773,10 +773,11 @@ namespace KopiLua
 		}
 			
 
-		public static int lua_getctx (lua_State L, int[] ctx) {
+		public static int lua_getctx (lua_State L, ref int ctx) {
 		  if ((L.ci.callstatus & CIST_YIELDED) != 0) {
-		    if (ctx != 0) ctx[0] = L->ci->u.c.ctx;
-		    return L.ci.u.c.status;
+			//if (ctx != null) ctx[0] = L.ci.u.c.ctx; //FIXME:???
+		    ctx = L.ci.u.c.ctx;
+			return L.ci.u.c.status;
 		  }
 		  else return LUA_OK;
 		}
@@ -836,9 +837,9 @@ namespace KopiLua
 			func = savestack(L, o);
 		  }
 		  c.func = L.top - (nargs+1);  /* function to be called */
-		  if (k == NULL || L->nny > 0) {  /* no continuation or no yieldable? */
+		  if (k == null || L.nny > 0) {  /* no continuation or no yieldable? */
 		    c.nresults = nresults;  /* do a 'conventional' protected call */
-		    status = luaD_pcall(L, f_call, &c, savestack(L, c.func), func);
+		    status = luaD_pcall(L, f_call, c, savestack(L, c.func), func);
 		  }
 		  else {  /* prepare continuation (call is already protected by 'resume') */
 		    CallInfo ci = L.ci;
@@ -846,13 +847,13 @@ namespace KopiLua
 		    ci.u.c.ctx = ctx;  /* save context */
 		    /* save information for error recovery */
 		    ci.u.c.oldtop = savestack(L, c.func);
-		    ci.u.c.old_allowhook = L->allowhook;
-		    ci.u.c.old_errfunc = L->errfunc;
+		    ci.u.c.old_allowhook = L.allowhook;
+		    ci.u.c.old_errfunc = L.errfunc;
 		    L.errfunc = func;
 		    /* mark that function may do error recovery */
 		    ci.callstatus |= CIST_YPCALL;
 		    luaD_call(L, c.func, nresults, 1);  /* do the call */
-		    ci.callstatus &= ~CIST_YPCALL;
+		    ci.callstatus &= (byte)((~CIST_YPCALL) & 0xff);
 		    L.errfunc = ci.u.c.old_errfunc;
 		    status = LUA_OK;  /* if it is here, there were no errors */
 		  }

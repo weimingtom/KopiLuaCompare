@@ -8,6 +8,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
+	using lua_Number = System.Double;
 	
 	/*
 
@@ -153,21 +154,24 @@ namespace KopiLua
 			public CallInfo previous, next;  /* dynamic call link */
 			public short nresults;  /* expected number of results from a call */
 			public lu_byte callstatus;
-			  union {
-			    struct {  /* only for Lua functions */
-			      StkId base;  /* base for this function */
-			      const Instruction *savedpc;
-			      int tailcalls;  /* number of tail calls lost under this entry */
-			    } l;
-			    struct {  /* only for C functions */
-			      int ctx;  /* context info. in case of yields */
-			      lua_CFunction k;  /* continuation in case of yields */
-			      ptrdiff_t old_errfunc;
-			      ptrdiff_t oldtop;
-			      lu_byte old_allowhook;
-			      lu_byte status;
-			    } c;
-			  } u;
+			public class _u {
+			    public class _l {  /* only for Lua functions */
+			      public StkId base_;  /* base for this function */
+			      public InstructionPtr savedpc;
+			      public int tailcalls;  /* number of tail calls lost under this entry */
+			    };
+				public _l l;
+			    public class _c {  /* only for C functions */
+			      public int ctx;  /* context info. in case of yields */
+			      public lua_CFunction k;  /* continuation in case of yields */
+			      public ptrdiff_t old_errfunc;
+			      public ptrdiff_t oldtop;
+			      public lu_byte old_allowhook;
+			      public lu_byte status;
+			    };
+				public _c c;
+			};
+			public _u u;
 		};
 
 		/*
@@ -250,7 +254,7 @@ namespace KopiLua
 		  public GCObject gclist;
 		  public lua_longjmp errorJmp;  /* current error recover point */
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
-          public CallInfo base_ci = new CallInfo;  /* CallInfo for first level (C calling Lua) */
+		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
 		};
 
 

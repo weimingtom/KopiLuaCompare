@@ -267,14 +267,6 @@ namespace KopiLua
 		}
 
 
-		private static int luaB_loadstring (lua_State L) {
-		  uint l;
-		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  CharPtr chunkname = luaL_optstring(L, 2, s);
-		  return load_aux(L, luaL_loadbuffer(L, s, l, chunkname));
-		}
-
-
 		private static int luaB_loadfile (lua_State L) {
 		  CharPtr fname = luaL_optstring(L, 1, null);
 		  return load_aux(L, luaL_loadfile(L, fname));
@@ -294,7 +286,7 @@ namespace KopiLua
 		    return lua_pushstring(L, "attempt to load a binary chunk");
 		  if (strchr(mode, 't') == null && s[0] != LUA_SIGNATURE[0])
 		    return lua_pushstring(L, "attempt to load a text chunk");
-		  return NULL;  /* chunk in allowed format */
+		  return null;  /* chunk in allowed format */
 		}
 
 
@@ -327,31 +319,31 @@ namespace KopiLua
 
 		private static int luaB_load (lua_State L) {
 		  int status;
-		  const char *s = lua_tostring(L, 1);
-		  const char *mode = luaL_optstring(L, 3, "bt");
+		  CharPtr s = lua_tostring(L, 1);
+		  CharPtr mode = luaL_optstring(L, 3, "bt");
 		  if (s != null) {  /* loading a string? */
-		    const char *chunkname = luaL_optstring(L, 2, s);
-		    status = (checkrights(L, mode, s) != NULL)
-		           || luaL_loadbuffer(L, s, lua_objlen(L, 1), chunkname);
+		    CharPtr chunkname = luaL_optstring(L, 2, s);
+		    status = ((checkrights(L, mode, s) != null)
+		              || luaL_loadbuffer(L, s, lua_objlen(L, 1), chunkname) != 0) ? 1 : 0;
 		  }
 		  else {  /* loading from a reader function */
 			  CharPtr chunkname = luaL_optstring(L, 2, "=(load)");
 			  luaL_checktype(L, 1, LUA_TFUNCTION);
 			  lua_settop(L, 3);  /* function, eventual name, plus one reserved slot */
-			  status = lua_load(L, generic_reader, ref mode, chunkname);
+			  status = lua_load(L, generic_reader, new CharPtr[]{ mode}, chunkname); //FIXME:???
 		  }
 		  return load_aux(L, status);
 		}
 
 
-		private static int luaB_loadstring (lua_State *L) {
+		private static int luaB_loadstring (lua_State L) {
 		  lua_settop(L, 2);
 		  lua_pushliteral(L, "tb");
 		  return luaB_load(L);  /* dostring(s, n) == load(s, n, "tb") */
 		}
 
 
-		private static int dofilecont (lua_State *L) {
+		private static int dofilecont (lua_State L) {
 		  return lua_gettop(L) - 1;
 		}
 
@@ -405,12 +397,12 @@ namespace KopiLua
 		}
 
 
-		private static int pcallcont (lua_State *L) {
-		  int errfunc;  /* call has an error function in bottom of the stack */
-		  int status = lua_getctx(L, &errfunc);
+		private static int pcallcont (lua_State L) {
+		  int[] errfunc = new int[1];  /* call has an error function in bottom of the stack */
+		  int status = lua_getctx(L, errfunc);
 		  lua_assert(status != LUA_OK);
 		  lua_pushboolean(L, (status == LUA_YIELD));
-		  if (errfunc)  /* came from xpcall? */
+		  if (errfunc != 0)  /* came from xpcall? */
 		    lua_replace(L, 1);  /* put result in place of error function */
 		  else  /* came from pcall */
 		    lua_insert(L, 1);  /* open space for result */

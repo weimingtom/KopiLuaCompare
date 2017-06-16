@@ -263,10 +263,10 @@ namespace KopiLua
 			obj.tt = LUA_TNUMBER;
 		}
 
-		public static void changenvalue(TValue obj, lua_Number x) ( 
+		public static void changenvalue(TValue obj, lua_Number x) {
 			lua_assert(obj.tt==LUA_TNUMBER);
 			obj.value.n=x; 
-		)
+		}
   
 
 		public static void setpvalue( TValue obj, object x) {

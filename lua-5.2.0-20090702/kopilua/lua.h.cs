@@ -115,9 +115,9 @@ namespace KopiLua
 		public const int LUA_OPLE = 2;
 
 
-		public static void lua_call(L,n,r) { return lua_callk(L, (n), (r), 0, null); }
+		public static void lua_call(lua_State L, int n, int r) { lua_callk(L, n, r, 0, null); }
 
-        public static void lua_pcall(L,n,r,f) { return lua_pcallk(L, (n), (r), (f), 0, null); }
+        public static int lua_pcall(lua_State L, int n, int r, int f) { return lua_pcallk(L, n, r, f, 0, null); }
 		
 		/*
 		** garbage-collection function and options
@@ -258,8 +258,8 @@ namespace KopiLua
 		//#define lua_Chunkreader		lua_Reader
 		//#define lua_Chunkwriter		lua_Writer
 
-		public static void lua_equal(L,idx1,idx2)	{ return lua_compare(L,(idx1),(idx2),LUA_OPEQ); }
-		public static void lua_lessthan(L,idx1,idx2)	{ return lua_compare(L,(idx1),(idx2),LUA_OPLT); }
+		public static int lua_equal(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPEQ); }
+		public static int lua_lessthan(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPLT); }
 		//#endif
 
 		/*
@@ -303,7 +303,7 @@ namespace KopiLua
 		  public int lastlinedefined;	/* (S) */
 		  public CharPtr short_src = new char[LUA_IDSIZE]; /* (S) */
 		  /* private part */
-		  public struct CallInfo i_ci;  /* active function */
+		  public CallInfo i_ci = new CallInfo();  /* active function */
 		};
 
 		/* }====================================================================== */

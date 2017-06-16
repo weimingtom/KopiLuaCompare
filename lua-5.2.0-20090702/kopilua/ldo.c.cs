@@ -67,18 +67,18 @@ namespace KopiLua
 
 
 		public static void luaD_throw (lua_State L, int errcode) {
-		  if (L.errorJmp) {  /* thread has an error handler? */
+		  if (L.errorJmp != null) {  /* thread has an error handler? */
 		    L.errorJmp.status = errcode;  /* set status */
 		    LUAI_THROW(L, L.errorJmp);  /* jump to it */
 		  }
 		  else {  /* thread has no error handler */
 		    L.status = cast_byte(errcode);  /* mark it as dead */
-		    if (G(L).mainthread.errorJmp) {  /* main thread has a handler? */
-		      setobjs2s(L, G(L).mainthread->top++, L.top - 1);  /* copy error obj. */
+		    if (G(L).mainthread.errorJmp != null) {  /* main thread has a handler? */
+		      setobjs2s(L, G(L).mainthread.top++, L.top - 1);  /* copy error obj. */
 		      luaD_throw(G(L).mainthread, errcode);  /* re-throw in main thread */
 		    }
 		    else {  /* no handler at all; abort */
-		      if (G(L).panic) {  /* panic function? */
+		      if (G(L).panic != null) {  /* panic function? */
 		        lua_unlock(L);
 		        G(L).panic(L);  /* call it (last chance to jump out) */
 		      }
@@ -192,16 +192,16 @@ namespace KopiLua
 		private static StkId adjust_varargs (lua_State L, Proto p, int actual) {
 		  int i;
 		  int nfixargs = p.numparams;
-		  StkId base, fixed;
+		  StkId base_, fixed_;
 		  lua_assert(actual >= nfixargs);
 		  /* move fixed parameters to final position */
-		  fixed = L.top - actual;  /* first fixed argument */
-		  base = L.top;  /* final position of first argument */
+		  fixed_ = L.top - actual;  /* first fixed argument */
+		  base_ = L.top;  /* final position of first argument */
 		  for (i=0; i<nfixargs; i++) {
-		    setobjs2s(L, L.top++, fixed + i);
-		    setnilvalue(fixed + i);
+		    setobjs2s(L, L.top++, fixed_ + i);
+		    setnilvalue(fixed_ + i);
 		  }
-		  return base;
+		  return base_;
 		}
 
 
@@ -221,9 +221,10 @@ namespace KopiLua
 
 
 
-		public static void next_ci(lua_State L)
+		public static CallInfo next_ci(lua_State L)
 		{
-			L.ci = (L.ci.next ? L.ci.next : luaE_extendCI(L));
+			L.ci = (L.ci.next != null ? L.ci.next : luaE_extendCI(L));
+			return L.ci;
 		}
 
 
@@ -237,7 +238,7 @@ namespace KopiLua
 			func = tryfuncTM(L, func);  /* check the `function' tag method */
 		  funcr = savestack(L, func);
 		  cl = clvalue(func).l;
-		  L.ci.nresults = nresults;
+		  L.ci.nresults = (short)nresults; //FIXME:???
 		  if (cl.isC==0) {  /* Lua function? prepare its call */
 			CallInfo ci;
             int nparams, nargs;
@@ -359,12 +360,12 @@ namespace KopiLua
 		  /* finish 'lua_callk' */
 		  adjustresults(L, ci.nresults);
 		  /* call continuation function */
-		  if (!(ci.callstatus & CIST_STAT))  /* no call status? */
+		  if ((ci.callstatus & CIST_STAT) == 0)  /* no call status? */
 		    ci.u.c.status = LUA_YIELD;  /* 'default' status */
 		  lua_assert(ci.u.c.status != LUA_OK);
-		  ci->callstatus = (ci.callstatus & ~(CIST_YPCALL | CIST_STAT)) | CIST_YIELDED;
+		  ci.callstatus = (ci.callstatus & ~(CIST_YPCALL | CIST_STAT)) | CIST_YIELDED;
 		  lua_unlock(L);
-		  n = (*ci.u.c.k)(L);
+		  n = ((ci.u.c.k)[0])(L);
 		  lua_lock(L);
 		  /* finish 'luaD_precall' */
 		  luaD_poscall(L, L.top - n);
@@ -372,11 +373,11 @@ namespace KopiLua
 
 
 		private static void unroll (lua_State L) {
-          UNUSED(ud);
+          //UNUSED(ud);
 		  for (;;) {
 		    if (L.ci == L.base_ci[0])  /* stack is empty? */
 		      return;  /* coroutine finished normally */
-		    if (!isLua(L.ci))  /* C function? */
+		    if (isLua(L.ci)==0)  /* C function? */
 		      finishCcall(L);
 		    else {  /* Lua function */
 		      luaV_finishOp(L);  /* finish interrupted instruction */
@@ -386,17 +387,17 @@ namespace KopiLua
 		}
 
 		private static void resume (lua_State L, object ud) {
-		  StkId firstArg = cast(StkId, ud);
+		  StkId firstArg = (StkId)(ud); //FIXME:???
 		  CallInfo ci = L.ci;
 		  if (L.status == LUA_OK) {  /* start coroutine? */
 		    lua_assert(ci == L.base_ci[0]);
-		    if (!luaD_precall(L, firstArg - 1, LUA_MULTRET))  /* Lua function? */
+		    if (luaD_precall(L, firstArg - 1, LUA_MULTRET)==0)  /* Lua function? */
 		      luaV_execute(L);  /* call it */
 		  }
 		  else {  /* resuming from previous yield */
 		    lua_assert(L.status == LUA_YIELD);
 		    L.status = LUA_OK;
-		    if (isLua(ci))  /* yielded inside a hook? */
+		    if (isLua(ci)!=0)  /* yielded inside a hook? */
 		      luaV_execute(L);
 		    else {  /* 'common' yield */
 		      G(L).nCcalls--;  /* finish 'luaD_call' */
@@ -464,10 +465,10 @@ namespace KopiLua
 		  L.nny = 0;  /* allow yields */
 		  status = luaD_rawrunprotected(L, resume, L.top - nargs);
 		  while (status != LUA_OK && status != LUA_YIELD) {  /* error? */
-		    if (recover(L, status))  /* recover point? */
-		      status = luaD_rawrunprotected(L, unroll, NULL);  /* run continuation */
+		    if (recover(L, status) != 0)  /* recover point? */
+		      status = luaD_rawrunprotected(L, unroll, null);  /* run continuation */
 		    else {  /* unrecoverable error */
-		      L->status = cast_byte(status);  /* mark thread as `dead' */
+		      L.status = cast_byte(status);  /* mark thread as `dead' */
 		      luaD_seterrorobj(L, status, L.top);
 		      L.ci.top = L.top;
 		      break;
@@ -487,7 +488,7 @@ namespace KopiLua
 		  if (L.nny > 0)
 		    luaG_runerror(L, "attempt to yield across metamethod/C-call boundary");
 		  L.status = LUA_YIELD;
-		  if (!isLua(L.ci)) {  /* not inside a hook? */
+		  if (isLua(L.ci)==0) {  /* not inside a hook? */
 		    L.ci.func = L.top - nresults - 1;  /* protect stack slots below ??? */
 		    luaD_throw(L, LUA_YIELD);
 		  }

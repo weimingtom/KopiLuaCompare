@@ -76,7 +76,7 @@ namespace KopiLua
 			if (isLua(ci) != 0)  /* Lua function? */
 			  level -= ci.u.l.tailcalls;  /* skip lost tail calls */
 		  }
-		  if (level == 0 && ci != L->base_ci[0]) {  /* level found? */
+		  if (level == 0 && ci != L.base_ci[0]) {  /* level found? */
 			status = 1;
 			ar.i_ci = ci;
 		  }
@@ -259,8 +259,8 @@ namespace KopiLua
 		*/
 
 		private static CharPtr kname (Proto p, int c) {
-		  if (ISK(c) && ttisstring(&p->k[INDEXK(c)]))
-		    return svalue(&p->k[INDEXK(c)]);
+		  if (ISK(c) && ttisstring(p.k[INDEXK(c)]))
+		    return svalue(p.k[INDEXK(c)]);
 		  else
 		    return "?";
 		}
@@ -268,79 +268,79 @@ namespace KopiLua
 
 		private static CharPtr getobjname (lua_State L, CallInfo ci, int reg,
 		                               ref CharPtr name) {
-		  Proto *p;
+		  Proto p;
 		  int lastpc, pc;
-		  const char *what = NULL;
+		  CharPtr what = null;
 		  lua_assert(isLua(ci));
-		  p = ci_func(ci)->l.p;
+		  p = ci_func(ci).l.p;
 		  lastpc = currentpc(ci);
-		  *name = luaF_getlocalname(p, reg + 1, lastpc);
-		  if (*name)  /* is a local? */
+		  name = luaF_getlocalname(p, reg + 1, lastpc);
+		  if (name != null)  /* is a local? */
 		    return "local";
 		  /* else try symbolic execution */
 		  for (pc = 0; pc < lastpc; pc++) {
-		    Instruction i = p->code[pc];
+		    Instruction i = p.code[pc];
 		    OpCode op = GET_OPCODE(i);
 		    int a = GETARG_A(i);
 		    switch (op) {
-		      case OP_GETGLOBAL: {
+		      case OpCode.OP_GETGLOBAL: {
 		        if (reg == a) {
 		          int g = GETARG_Bx(i);  /* global index */
-		          lua_assert(ttisstring(&p->k[g]));
-		          *name = svalue(&p->k[g]);
+		          lua_assert(ttisstring(&p.k[g]));
+		          name = svalue(p.k[g]);
 		          what = "global";
 		        }
 		        break;
 		      }
-		      case OP_MOVE: {
+		      case OpCode.OP_MOVE: {
 		        if (reg == a) {
 		          int b = GETARG_B(i);  /* move from 'b' to 'a' */
 		          if (b < a)
-		            what = getobjname(L, ci, b, name);  /* get name for 'b' */
-		          else what = NULL;
+		            what = getobjname(L, ci, b, ref name);  /* get name for 'b' */
+		          else what = null;
 		        }
 		        break;
 		      }
-		      case OP_GETTABLE: {
+		      case OpCode.OP_GETTABLE: {
 		        if (reg == a) {
 		          int k = GETARG_C(i);  /* key index */
-		          *name = kname(p, k);
+		          name = kname(p, k);
 		          what = "field";
 		        }
 		        break;
 		      }
-		      case OP_GETUPVAL: {
+		      case OpCode.OP_GETUPVAL: {
 		        if (reg == a) {
 		          int u = GETARG_B(i);  /* upvalue index */
-		          *name = p->upvalues ? getstr(p->upvalues[u]) : "?";
+		          name = p.upvalues ? getstr(p.upvalues[u]) : "?";
 		          what = "upvalue";
 		        }
 		        break;
 		      }
-		      case OP_LOADNIL: {
+		      case OpCode.OP_LOADNIL: {
 		        int b = GETARG_B(i);  /* move from 'b' to 'a' */
 		        if (a <= reg && reg <= b)  /* set registers from 'a' to 'b' */
-		          what = NULL;
+		          what = null;
 		        break;
 		      }
-		      case OP_SELF: {
+		      case OpCode.OP_SELF: {
 		        if (reg == a) {
 		          int k = GETARG_C(i);  /* key index */
-		          *name = kname(p, k);
+		          name = kname(p, k);
 		          what = "method";
 		        }
 		        break;
 		      }
-		      case OP_TFORCALL: {
-		        if (reg >= a + 2) what = NULL;  /* affect all regs above its base */
+		      case OpCode.OP_TFORCALL: {
+		        if (reg >= a + 2) what = null;  /* affect all regs above its base */
 		        break;
 		      }
-		      case OP_CALL:
-		      case OP_TAILCALL: {
-		        if (reg >= a) what = NULL;  /* affect all registers above base */
+		      case OpCode.OP_CALL:
+		      case OpCode.OP_TAILCALL: {
+		        if (reg >= a) what = null;  /* affect all registers above base */
 		        break;
 		      }
-		      case OP_JMP: {
+		      case OpCode.OP_JMP: {
 		        int b = GETARG_sBx(i);
 		        int dest = pc + 1 + b;
 		        /* jump is forward and do not skip `lastpc'? */
@@ -348,14 +348,14 @@ namespace KopiLua
 		          pc += b;  /* do the jump */
 		        break;
 		      }
-		      case OP_CLOSURE: {
-		        int nup = p->p[GETARG_Bx(i)]->nups;
+		      case OpCode.OP_CLOSURE: {
+		        int nup = p.p[GETARG_Bx(i)].nups;
 		        pc += nup;  /* do not 'execute' pseudo-instructions */
 		        lua_assert(pc <= lastpc);
 		        break;
 		      }
 		      default:
-		        if (testAMode(op) && reg == a) what = NULL;
+		        if (testAMode(op) && reg == a) what = null;
 		        break;
 		    }
 		  }

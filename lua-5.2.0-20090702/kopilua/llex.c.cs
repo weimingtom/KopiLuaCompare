@@ -20,7 +20,7 @@ namespace KopiLua
 	{
 
 
-		public static void next(LexState ls) { ls.current = zgetc(ls.z); }
+		public static int next(LexState ls) { ls.current = zgetc(ls.z); return ls.current; }
 
 
 
@@ -273,11 +273,11 @@ namespace KopiLua
 		private static int readhexaesc (LexState ls) {
 		  int c1, c2 = EOZ;
 		  if (!lisxdigit(c1 = next(ls)) || !lisxdigit(c2 = next(ls))) {
-		    luaZ_resetbuffer(ls->buff);  /* prepare error message */
+		    luaZ_resetbuffer(ls.buff);  /* prepare error message */
 		    save(ls, '\\'); save(ls, 'x');
 		    if (c1 != EOZ) save(ls, c1);
 		    if (c2 != EOZ) save(ls, c2);
-		    lexerror(ls, "hexadecimal digit expected", TK_STRING);
+		    lexerror(ls, "hexadecimal digit expected", (int)RESERVED.TK_STRING);
 		  }
 		  return (hexavalue(c1) << 4) + hexavalue(c2);
 		}
@@ -294,7 +294,7 @@ namespace KopiLua
 		        luaZ_resetbuffer(ls.buff);  /* prepare error message */
 		        save(ls, '\\');
 		        save(ls, c1); save(ls, c2); save(ls, c3);
-		        lexerror(ls, "decimal escape too large", TK_STRING);
+		        lexerror(ls, "decimal escape too large", (int)RESERVED.TK_STRING);
 		      }
 		      return c;
 		    }

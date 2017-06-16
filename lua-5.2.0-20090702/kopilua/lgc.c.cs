@@ -569,13 +569,13 @@ namespace KopiLua
 
 		private static void sweepthread (lua_State L, lua_State L1, int alive) {
 		  if (L1.stack == null) return;  /* stack not completely built yet */
-		  sweepwholelist(L, &L1.openupval);  /* sweep open upvalues */
-		  if (L1->nci < LUAI_MAXCALLS)  /* not handling stack overflow? */
+		  sweepwholelist(L, L1.openupval);  /* sweep open upvalues */
+		  if (L1.nci < LUAI_MAXCALLS)  /* not handling stack overflow? */
 		    luaE_freeCI(L1);  /* free extra CallInfo slots */
 		  /* should not change the stack during an emergency gc cycle */
-		  if (alive && G(L).gckind != KGC_EMERGENCY) {
+		  if (alive != 0 && G(L).gckind != KGC_EMERGENCY) {
 		    int goodsize = 5 * stackinuse(L1) / 4 + LUA_MINSTACK;
-		    if ((L1->stacksize - EXTRA_STACK) > goodsize)
+		    if ((L1.stacksize - EXTRA_STACK) > goodsize)
 		      luaD_reallocstack(L1, goodsize);
 		    else 
 		      condmovestack(L1);
@@ -616,9 +616,9 @@ namespace KopiLua
 
 		private static void checkSizes (lua_State L) {
 		  global_State g = G(L);
-		  if (g.strt.nuse < cast(lu_int32, g.strt.size)) {
+		  if (g.strt.nuse < (lu_int32)(g.strt.size)) {
 		    /* size could be the smaller power of 2 larger than 'nuse' */
-		    int size = 1 << luaO_ceillog2(g.strt.nuse);
+		    int size = 1 << luaO_ceillog2((uint)(g.strt.nuse)); //FIXME:???
 		    if (size < g.strt.size)  /* current table too large? */
 		      luaS_resize(L, size);  /* shrink it */
 		  }
@@ -638,7 +638,7 @@ namespace KopiLua
 
 
 		private static void dothecall (lua_State L, object ud) {
-		  UNUSED(ud);
+		  //UNUSED(ud);
 		  luaD_call(L, L.top - 2, 0, 0);
 		}
 
@@ -656,7 +656,7 @@ namespace KopiLua
 			setobj2s(L, L.top, tm);
 			setuvalue(L, L.top+1, udata);
 			L.top += 2;
-		    status = luaD_pcall(L, dothecall, NULL, savestack(L, L.top - 2), 0);
+		    status = luaD_pcall(L, dothecall, null, savestack(L, L.top - 2), 0);
 		    if (status != LUA_OK && propagateerrors) {  /* error while running __gc? */
 		      if (status == LUA_ERRRUN) {  /* is there an error msg.? */
 		        luaO_pushfstring(L, "error in __gc tag method (%s)",

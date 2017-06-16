@@ -639,9 +639,9 @@ namespace KopiLua
 		private static int constfolding (OpCode op, expdesc e1, expdesc e2) {
 		  lua_Number r;
 		  if ((isnumeral(e1)==0) || (isnumeral(e2)==0)) return 0;
-		  if ((op == OP_DIV || op == OP_MOD) && e2.u.nval == 0)
+		  if ((op == OpCode.OP_DIV || op == OpCode.OP_MOD) && e2.u.nval == 0)
 		    return 0;  /* do not attempt to divide by 0 */
-		  r = luaO_arith(op - OP_ADD + LUA_OPADD, e1.u.nval, e2.u.nval);
+		  r = luaO_arith(op - OpCode.OP_ADD + LUA_OPADD, e1.u.nval, e2.u.nval);
 		  if (luai_numisnan(null, r)) return 0;  /* do not attempt to produce NaN */
 		  e1.u.nval = r;
 		  return 1;
@@ -767,15 +767,15 @@ namespace KopiLua
 			}
 		    case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
 		    case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
-		      codearith(fs, op - OPR_ADD + OP_ADD, e1, e2);
+		      codearith(fs, op - BinOpr.OPR_ADD + OpCode.OP_ADD, e1, e2);
 		      break;
 		    }
 		    case BinOpr.OPR_EQ: case BinOpr.OPR_LT: case BinOpr.OPR_LE: {
-		      codecomp(fs, op - OPR_EQ + OP_EQ, 1, e1, e2);
+		      codecomp(fs, op - BinOpr.OPR_EQ + OpCode.OP_EQ, 1, e1, e2);
 		      break;
 		    }
 		    case BinOpr.OPR_NE: case BinOpr.OPR_GT: case BinOpr.OPR_GE: {
-		      codecomp(fs, op - OPR_NE + OP_EQ, 0, e1, e2);
+		      codecomp(fs, op - BinOpr.OPR_NE + OpCode.OP_EQ, 0, e1, e2);
 		      break;
 		    }
 			default: lua_assert(0); break;
@@ -828,7 +828,7 @@ namespace KopiLua
 
 
 		private static void luaK_codek (FuncState fs, int reg, int k) {
-		    luaK_codeABx(fs, OP_LOADK, reg, k);
+		    luaK_codeABx(fs, OpCode.OP_LOADK, reg, k);
 		}
 
 

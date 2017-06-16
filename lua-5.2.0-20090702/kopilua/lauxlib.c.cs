@@ -144,24 +144,24 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		LUALIB_API int luaL_argerror (lua_State *L, int narg, const char *extramsg) {
-		  lua_Debug ar;
-		  if (!lua_getstack(L, 0, &ar))  /* no stack frame? */
+		public static int luaL_argerror (lua_State L, int narg, CharPtr extramsg) {
+		  lua_Debug ar = new lua_Debug();
+		  if (lua_getstack(L, 0, ar)==0)  /* no stack frame? */
 		    return luaL_error(L, "bad argument #%d (%s)", narg, extramsg);
-		  lua_getinfo(L, "n", &ar);
+		  lua_getinfo(L, "n", ar);
 		  if (strcmp(ar.namewhat, "method") == 0) {
 		    narg--;  /* do not count `self' */
 		    if (narg == 0)  /* error is in the self argument itself? */
-		      return luaL_error(L, "calling " LUA_QS " on bad self", ar.name);
+		      return luaL_error(L, "calling " + LUA_QS + " on bad self", ar.name);
 		  }
-		  if (ar.name == NULL)
-		    ar.name = (pushglobalfuncname(L, &ar)) ? lua_tostring(L, -1) : "?";
-		  return luaL_error(L, "bad argument #%d to " LUA_QS " (%s)",
+		  if (ar.name == null)
+		    ar.name = (pushglobalfuncname(L, ar) != 0) ? lua_tostring(L, -1) : "?";
+		  return luaL_error(L, "bad argument #%d to " + LUA_QS + " (%s)",
 		                        narg, ar.name, extramsg);
 		}
 
 
-		public int luaL_typeerror (lua_State L, int narg, CharPtr tname) {
+		public static int luaL_typeerror (lua_State L, int narg, CharPtr tname) {
 		  CharPtr msg = lua_pushfstring(L, "%s expected, got %s",
 		                                    tname, luaL_typename(L, narg));
 		  return luaL_argerror(L, narg, msg);
@@ -173,9 +173,9 @@ namespace KopiLua
 		}
 
 
-		public void luaL_where (lua_State L, int level) {
+		public static void luaL_where (lua_State L, int level) {
 		  lua_Debug ar = new lua_Debug();
-		  if (lua_getstack(L, level, ar)) {  /* check function at level */
+		  if (lua_getstack(L, level, ar) != 0) {  /* check function at level */
 		    lua_getinfo(L, "Sl", ar);  /* get info about it */
 		    if (ar.currentline > 0) {  /* is there info? */
 		      lua_pushfstring(L, "%s:%d: ", ar.short_src, ar.currentline);
@@ -186,7 +186,7 @@ namespace KopiLua
 		}
 
 
-		public int luaL_error (lua_State *L, CharPtr fmt, params object[] argp) {
+		public static int luaL_error (lua_State L, CharPtr fmt, params object[] argp) {
 		  //va_list argp;
 		  //va_start(argp, fmt);
 		  luaL_where(L, 1);

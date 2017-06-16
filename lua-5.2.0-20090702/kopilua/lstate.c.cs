@@ -73,7 +73,7 @@ namespace KopiLua
 		public static void luaE_freeCI (lua_State L) {
 		  CallInfo ci = L.ci;
 		  CallInfo next = ci.next;
-		  ci.next = NULL;
+		  ci.next = null;
 		  while ((ci = next) != null) {
 		    next = ci.next;
 		    luaM_free(L, ci);
@@ -100,7 +100,7 @@ namespace KopiLua
 
 
 		private static void freestack (lua_State L) {
-		  L.ci = &L->base_ci;  /* reset 'ci' list */
+		  L.ci = L.base_ci;  /* reset 'ci' list */
 		  luaE_freeCI(L);
 		  lua_assert(L.nci == 0);
 		  luaM_freearray(L, L.stack);
@@ -138,7 +138,7 @@ namespace KopiLua
 		  L.nny = 1;
 		  L.status = LUA_OK;
 		  L.base_ci.next = L.base_ci.previous = null;
-		  L.ci = &L->base_ci;
+		  L.ci = L.base_ci;
 		  L.nci = 0;
 		  L.errfunc = 0;
 		  setnilvalue(gt(L));

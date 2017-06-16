@@ -122,7 +122,7 @@ namespace KopiLua
 		}
 
 		private static int math_log10 (lua_State L) {
-#if !defined(LUA_COMPAT_LOG10)
+#if LUA_COMPAT_LOG10
 		  luaL_error(L, "function " + LUA_QL("log10") + 
 		                " is deprecated; use log(x, 10) instead");
 #endif

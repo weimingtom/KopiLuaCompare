@@ -17,6 +17,7 @@ namespace KopiLua
 	using lua_Integer = System.Int32;
 	using LUA_INTFRM_T = System.Int64;
 	using UNSIGNED_LUA_INTFRM_T = System.UInt64;
+	using lua_Number = System.Double;
 
 	public partial class Lua
 	{
@@ -838,7 +839,7 @@ namespace KopiLua
 						  {
 					          lua_Number n = luaL_checknumber(L, arg);
 					          LUA_INTFRM_T r = (n < 0) ? (LUA_INTFRM_T)n :
-					                                     (LUA_INTFRM_T)(unsigned LUA_INTFRM_T)n;
+					                                     (LUA_INTFRM_T)(UInt64)n;
 							  addintlen(form);
 							  sprintf(buff, form, r);
 							  break;

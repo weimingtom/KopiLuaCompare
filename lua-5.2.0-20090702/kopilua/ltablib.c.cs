@@ -18,8 +18,8 @@ namespace KopiLua
 
 		private static int foreachi (lua_State L) {
 		  int n = aux_getn(L, 1);
-		  int i;
-          if (lua_getctx(L, &i) == LUA_YIELD) goto poscall;
+		  int i = 0; //FIXME:???not init with 0
+          if (lua_getctx(L, ref i) == LUA_YIELD) goto poscall;
 		  luaL_checktype(L, 2, LUA_TFUNCTION);
 		  for (i = 1; i <= n; i++) {
 			lua_pushvalue(L, 2);  /* function */

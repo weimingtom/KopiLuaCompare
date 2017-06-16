@@ -364,7 +364,7 @@ namespace KopiLua
 		public static void luaH_free (lua_State L, Table t) {
 		  if (t.node[0] != dummynode)
 			luaM_freearray(L, t.node, sizenode(t));
-		  luaM_freearray(L, t.array, t->sizearray);
+		  luaM_freearray(L, t.array, t.sizearray);
 		  luaM_free(L, t);
 		}
 

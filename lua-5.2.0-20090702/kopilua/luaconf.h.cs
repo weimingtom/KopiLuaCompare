@@ -233,7 +233,7 @@ namespace KopiLua
 		@@ luai_writestring defines how 'print' prints its results.
 		** CHANGE it if your system does not have a useful stdout.
 		*/
-		public static void luai_writestring(s,l) { fwrite((s), sizeof(char), (l), stdout); }
+		public static void luai_writestring(CharPtr s, int l) { fwrite(s, 1/*sizeof(char)*/, l, stdout); }
 
 
 		/*
@@ -650,7 +650,7 @@ namespace KopiLua
 
 		/* on several machines, coercion from unsigned to double is too slow,
 		   so avoid that if possible */
-		public static void lua_uint2number(u) {
+		public static lua_Number lua_uint2number(uint u) {
 			return ((LUA_INT32)(u) < 0 ? (lua_Number)(u) : (lua_Number)(LUA_INT32)(u)); }
 
 		private static void lua_number2int(out int i,lua_Number d)   {i = (int)d;}

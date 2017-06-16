@@ -86,7 +86,7 @@ namespace KopiLua
 		}
 
 
-		public lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
+		public static lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
 		  switch (op) {
 		    case LUA_OPADD: return luai_numadd(null, v1, v2);
 		    case LUA_OPSUB: return luai_numsub(null, v1, v2);
