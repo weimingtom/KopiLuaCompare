@@ -80,3 +80,12 @@ lualib.h
 05:24 2017-06-16
 lundump.c
 
+22:08 2017-06-16
+lvm.c
+		public static void dojump(int i) { InstructionPtr.inc(ref ci->u.l.savedpc, i); luai_threadyield(L); } //FIXME:
+		//#define Protect(x)	{ {x;}; base = ci->u.l.base_; } //FIXME:
+		->
+		#define dojump(i)	{ ci->u.l.savedpc += (i); luai_threadyield(L);}
+		#define Protect(x)	{ {x;}; base = ci->u.l.base; }
+22:11 2017-06-16
+lzio.h
