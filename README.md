@@ -21,3 +21,13 @@
 * https://github.com/lua/lua  
 * https://github.com/gerich-home/kopilua  
 * https://github.com/jintiao/cclua  
+
+## Related Projects  
+* https://github.com/weimingtom/Kuuko  
+CSharp/Java port (done)    
+
+* https://github.com/weimingtom/kurumi    
+Java/Golang port (WIP)    
+
+* https://github.com/weimingtom/KuukoBack      
+Java port for KopiLuaCompare (WIP)    
