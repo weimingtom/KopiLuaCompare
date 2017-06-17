@@ -106,8 +106,9 @@ namespace KopiLua
 			  f(L, ud);
 		  }
 #if CATCH_EXCEPTIONS
-		  catch
+          catch (Exception e)
 		  {
+          	  Debug.WriteLine(e); //FIXME:added for debug
 		      if (lj.status == 0)
 		          lj.status = -1;
 		  }

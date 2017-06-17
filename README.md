@@ -8,12 +8,13 @@
 	——《孙子兵法始计篇》  
 
 ## Status    
-* lua-5.1.4 (done)  
-* lua-5.1.5 (done)  
-* lua-5.2.0-2007 (done)  
-* lua-5.2.0-20071029 (done) 
-* lua-5.2.0-2008 (done)  
-* lua-5.2.0-2009 (done)  
+* lua-5.1.4 (done, 2017-03-04 update)  
+* lua-5.1.5 (done, 2017-05-12 update)  
+* lua-5.2.0-2007 (done, 2017-05-21 update)  
+* lua-5.2.0-20071029 (done, 2017-05-26 update)  
+* lua-5.2.0-2008 (done, 2017-05-28 update)  
+* lua-5.2.0-2009 (done, 2017-05-30 update)  
+* lua-5.2.0-20090702 (done, 2017-06-17 update)  
 * lua-5.3.4 (pending)    
 
 ## Ref  

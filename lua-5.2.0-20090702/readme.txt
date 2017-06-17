@@ -95,3 +95,13 @@ lzio.h
 UCHAR_MAX
 ->
 System.Byte.MaxValue
+
+
+
+!!!NOTICE!!!
+
+public static object luaM_realloc_<T>(lua_State L, T[] old_block, int new_size)
+	mod logic
+
+!!!NOTICE!!!
+

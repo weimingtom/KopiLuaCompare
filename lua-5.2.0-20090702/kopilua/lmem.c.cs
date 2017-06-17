@@ -115,14 +115,24 @@ namespace KopiLua
 				new_block[i] = old_block[i];
 			for (int i = old_size; i < new_size; i++)
 				new_block[i] = (T)System.Activator.CreateInstance(typeof(T));
-			if (CanIndex(typeof(T)))
-				for (int i = 0; i < new_size; i++)
+			if (CanIndex(typeof(T))) 
+			{
+				//FIXME:added
+				T test = (T)System.Activator.CreateInstance(typeof(T));
+			    Debug.Assert(test is ArrayElement, String.Format("Need to derive type {0} from ArrayElement", typeof(T).ToString()));
+				
+			    for (int i = 0; i < new_size; i++)
 				{
 					ArrayElement elem = new_block[i] as ArrayElement;
-					Debug.Assert(elem != null, String.Format("Need to derive type {0} from ArrayElement", typeof(T).ToString()));
-					elem.set_index(i);
-					elem.set_array(new_block);
+					//FIXME:???
+					//Debug.Assert(elem != null, String.Format("Need to derive type {0} from ArrayElement", typeof(T).ToString()));
+					if (elem != null)
+					{
+						elem.set_index(i);
+						elem.set_array(new_block);
+					}
 				}
+			}
 			SubtractTotalBytes(L, osize);
 			AddTotalBytes(L, nsize);
 			return new_block;

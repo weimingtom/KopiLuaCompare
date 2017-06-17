@@ -160,7 +160,7 @@ namespace KopiLua
 			      public InstructionPtr savedpc;
 			      public int tailcalls;  /* number of tail calls lost under this entry */
 			    };
-				public _l l;
+				public _l l = new _l();
 			    public class _c {  /* only for C functions */
 			      public int ctx;  /* context info. in case of yields */
 			      public lua_CFunction k;  /* continuation in case of yields */
@@ -169,9 +169,9 @@ namespace KopiLua
 			      public lu_byte old_allowhook;
 			      public lu_byte status;
 			    };
-				public _c c;
+				public _c c = new _c();
 			};
-			public _u u;
+			public _u u = new _u();
 		};
 
 		/*
