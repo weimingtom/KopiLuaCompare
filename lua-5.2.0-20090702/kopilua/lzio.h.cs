@@ -21,7 +21,7 @@ namespace KopiLua
 		}
 
 
-        public static void zungetc(ZIO z) { z.n++; z.p--;} //FIXME:
+		public static void zungetc(ZIO z) { z.n++; z.p.dec();} //FIXME: CharPtr::-- => CharPtr::dec()
 		
 		public class Mbuffer {
 		  public CharPtr buffer = new CharPtr();

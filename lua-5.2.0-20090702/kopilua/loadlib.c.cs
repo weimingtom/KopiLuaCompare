@@ -240,7 +240,7 @@ namespace KopiLua
 		}
 
 
-		public static object ll_load (lua_State L, CharPtr path) {
+		public static object ll_load (lua_State L, CharPtr path, int seeglb) { //FIXME:added seeglb
 		  //UNUSED(path);  /* to avoid warnings */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
@@ -294,7 +294,7 @@ namespace KopiLua
 
 		private static int ll_loadfunc (lua_State L, CharPtr path, CharPtr sym) {
 		  object reg = ll_register(L, path);
-		  if (reg == null) reg = ll_load(L, path, sym[0] == '*');
+		  if (reg == null) reg = ll_load(L, path, (sym[0] == '*') ? 1 : 0);
 		  if (reg == null)
 			return ERRLIB;  /* unable to load library */
 		  else if (sym[0] == '*') {  /* loading only library (no function)? */

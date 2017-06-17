@@ -74,7 +74,8 @@ namespace KopiLua
 
 		public static void luaC_checkGC(lua_State L)
 		{
-			condmovestack(L); if (G(L).totalbytes >= G(L).GCthreshold) luaC_step(L);
+			/*condmovestack(L);*/ //FIXME:???
+			if (G(L).totalbytes >= G(L).GCthreshold) luaC_step(L);
 		}
 
 

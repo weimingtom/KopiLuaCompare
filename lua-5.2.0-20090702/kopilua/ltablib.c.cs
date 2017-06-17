@@ -19,14 +19,38 @@ namespace KopiLua
 		private static int foreachi (lua_State L) {
 		  int n = aux_getn(L, 1);
 		  int i = 0; //FIXME:???not init with 0
-          if (lua_getctx(L, ref i) == LUA_YIELD) goto poscall;
-		  luaL_checktype(L, 2, LUA_TFUNCTION);
+          //if (lua_getctx(L, ref i) == LUA_YIELD) goto poscall;
+		  //FIXME:start========================================
+		  if (lua_getctx(L, ref i) == LUA_YIELD)
+		  {
+		  	 bool firsttime = true;
+			  for (; i <= n; i++) {
+		  	 	if (firsttime)
+		  	 	{
+		  	 		firsttime = false;
+		  	 	}
+		  	 	else
+		  	 	{
+					lua_pushvalue(L, 2);  /* function */
+					lua_pushinteger(L, i);  /* 1st argument */
+					lua_rawgeti(L, 1, i);  /* 2nd argument */
+					lua_callk(L, 2, 1, i, foreachi);
+		  	 	}
+		  	 	//poscall:
+				if (!lua_isnil(L, -1))
+				  return 1;
+				lua_pop(L, 1);  /* remove nil result */
+			  }
+			  return 0;		  	
+		  }
+		  //FIXME:end========================================
+          luaL_checktype(L, 2, LUA_TFUNCTION);
 		  for (i = 1; i <= n; i++) {
 			lua_pushvalue(L, 2);  /* function */
 			lua_pushinteger(L, i);  /* 1st argument */
 			lua_rawgeti(L, 1, i);  /* 2nd argument */
 			lua_callk(L, 2, 1, i, foreachi);
-            poscall:
+            //poscall:
 			if (!lua_isnil(L, -1))
 			  return 1;
 			lua_pop(L, 1);  /* remove nil result */

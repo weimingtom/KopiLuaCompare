@@ -74,7 +74,7 @@ namespace KopiLua
 		  else {  /* thread has no error handler */
 		    L.status = cast_byte(errcode);  /* mark it as dead */
 		    if (G(L).mainthread.errorJmp != null) {  /* main thread has a handler? */
-		      setobjs2s(L, G(L).mainthread.top++, L.top - 1);  /* copy error obj. */
+		      setobjs2s(L, G(L).mainthread.top, L.top - 1); lua_TValue.inc(ref G(L).mainthread.top);  /* copy error obj. */ //FXIME:++
 		      luaD_throw(G(L).mainthread, errcode);  /* re-throw in main thread */
 		    }
 		    else {  /* no handler at all; abort */
@@ -144,7 +144,7 @@ namespace KopiLua
 		  lua_assert(L.stack_last == L.stacksize - EXTRA_STACK - 1);
 		  luaM_reallocvector(L, ref L.stack, L.stacksize, realsize/*, TValue*/);
 		  for (; lim < realsize; lim++)
-		    setnilvalue(L.stack + lim); /* erase new segment */
+		  	setnilvalue(L.stack[lim]); /* erase new segment */
 		  L.stacksize = realsize;
 		  L.stack_last = L.stack[newsize];
 		  correctstack(L, oldstack);
@@ -198,7 +198,7 @@ namespace KopiLua
 		  fixed_ = L.top - actual;  /* first fixed argument */
 		  base_ = L.top;  /* final position of first argument */
 		  for (i=0; i<nfixargs; i++) {
-		    setobjs2s(L, L.top++, fixed_ + i);
+		  	setobjs2s(L, lua_TValue.inc(ref L.top), fixed_ + i);
 		    setnilvalue(fixed_ + i);
 		  }
 		  return base_;
@@ -249,7 +249,7 @@ namespace KopiLua
 		    nargs = cast_int(L.top - func) - 1;  /* number of real arguments */
 		    nparams = p.numparams;  /* number of expected parameters */
 		    for (; nargs < nparams; nargs++)
-		      setnilvalue(L.top++);  /* complete missing arguments */
+		      setnilvalue(lua_TValue.inc(ref L.top));  /* complete missing arguments */
 			if (p.is_vararg == 0)  /* no varargs? */
 			  base_ = L.stack[func + 1];
 			else  /* vararg function */
@@ -259,7 +259,7 @@ namespace KopiLua
 			ci.u.l.base_ = base_;
 			ci.top = base_ + p.maxstacksize;
 			lua_assert(ci.top <= L.stack_last);
-		    ci.u.l.savedpc = p.code;  /* starting point */
+			ci.u.l.savedpc = new InstructionPtr(p.code, 0);  /* starting point */ //FIXME:??? //FIXME:???
 		    ci.u.l.tailcalls = 0;
             ci.callstatus = CIST_LUA;
 			L.top = ci.top;
@@ -341,10 +341,10 @@ namespace KopiLua
 			else if (g.nCcalls >= (LUAI_MAXCCALLS + (LUAI_MAXCCALLS>>3)))
 			  luaD_throw(L, LUA_ERRERR);  /* error while handing stack error */
 		  }
-          if (!allowyield) L.nny++;
+          if (allowyield==0) L.nny++;
 		  if (luaD_precall(L, func, nResults) == 0)  /* is a Lua function? */
 			luaV_execute(L);  /* call it */
-          if (!allowyield) L.nny--;
+          if (allowyield==0) L.nny--;
 		  g.nCcalls--;
 		  luaC_checkGC(L);
 		}
@@ -363,16 +363,16 @@ namespace KopiLua
 		  if ((ci.callstatus & CIST_STAT) == 0)  /* no call status? */
 		    ci.u.c.status = LUA_YIELD;  /* 'default' status */
 		  lua_assert(ci.u.c.status != LUA_OK);
-		  ci.callstatus = (ci.callstatus & ~(CIST_YPCALL | CIST_STAT)) | CIST_YIELDED;
+		  ci.callstatus = (byte)((((byte)(ci.callstatus & (byte)((~(CIST_YPCALL | CIST_STAT)) & 0xff) & 0xff)) | CIST_YIELDED) & 0xff); //FIXME:???
 		  lua_unlock(L);
-		  n = ((ci.u.c.k)[0])(L);
+		  n = ci.u.c.k(L);
 		  lua_lock(L);
 		  /* finish 'luaD_precall' */
 		  luaD_poscall(L, L.top - n);
 		}
 
 
-		private static void unroll (lua_State L) {
+		private static void unroll (lua_State L, object ud) {
           //UNUSED(ud);
 		  for (;;) {
 		    if (L.ci == L.base_ci[0])  /* stack is empty? */
@@ -421,9 +421,9 @@ namespace KopiLua
 		** check whether thread has a suspended protected call
 		*/
 		private static CallInfo findpcall (lua_State L) {
-		  CallInfo *ci;
+		  CallInfo ci;
 		  for (ci = L.ci; ci != null; ci = ci.previous) {  /* search for a pcall */
-		    if (ci.callstatus & CIST_YPCALL)
+		  	if ((ci.callstatus & CIST_YPCALL)!=0)
 		      return ci;
 		  }
 		  return null;  /* no pending pcall */
@@ -444,7 +444,7 @@ namespace KopiLua
 		  restore_stack_limit(L);
 		  L.errfunc = ci.u.c.old_errfunc;
 		  ci.callstatus |= CIST_STAT;  /* call has error status */
-		  ci.u.c.status = status;  /* (here it is) */
+		  ci.u.c.status = (byte)(status & 0xff);  /* (here it is) */ //FIXME:
 		  return 1;  /* continue running the coroutine */
 		}
 

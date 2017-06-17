@@ -844,5 +844,25 @@ namespace KopiLua
 		{
 			Environment.Exit(exitCode);
 		}
+		
+		public static void abort()
+		{
+			Environment.Exit(-1); //FIXME:???
+		}
+		
+		public static lua_Number floor(lua_Number a)
+		{
+			return Math.Floor(a);
+		}
+		
+		public static double log(double d)
+		{
+			return Math.Log(d);
+		}
+
+		public static double log10(double d)
+		{
+			return Math.Log10(d);
+		}		
 	}
 }

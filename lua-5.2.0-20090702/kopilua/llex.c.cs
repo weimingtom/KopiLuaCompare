@@ -53,7 +53,7 @@ namespace KopiLua
 			newsize = luaZ_sizebuffer(b) * 2;
 			luaZ_resizebuffer(ls.L, b, (int)newsize);
 		  }
-		  b.buffer[luaZ_bufflen(b)++] = (char)c;
+		  b.buffer[luaZ_bufflen(b)] = (char)c; b.n++;//FXIME:???luaZ_bufflen(b)++
 		}
 
 		
@@ -72,7 +72,7 @@ namespace KopiLua
 		public static CharPtr luaX_token2str (LexState ls, int token) {
 		  if (token < FIRST_RESERVED) {
 			lua_assert(token == (byte)token);
-			return (lisprint((byte)token)) ? luaO_pushfstring(ls.L, LUA_QL("%c"), token) :
+			return (lisprint((byte)token) != 0) ? luaO_pushfstring(ls.L, LUA_QL("%c"), token) :
 									  luaO_pushfstring(ls.L, "char(%d)", token);
 		  }
 		  else {
@@ -201,10 +201,10 @@ namespace KopiLua
 		  lua_assert(lisdigit(ls.current));
 		  do {
 			save_and_next(ls);
-		  } while (lisdigit(ls.current) || ls.current == '.');
+		  } while (lisdigit(ls.current) != 0 || ls.current == '.');
 		  if (check_next(ls, "Ee") != 0)  /* `E'? */
 			check_next(ls, "+-");  /* optional exponent sign */
-		  while (lislalnum(ls.current))
+		  while (lislalnum(ls.current) != 0)
 			save_and_next(ls);
 		  save(ls, '\0');
 		  buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
@@ -264,15 +264,15 @@ namespace KopiLua
 		}
 
 		private static int hexavalue (int c) {
-		  if (lisdigit(c)) return c - '0';
-		  else if (lisupper(c)) return c - 'A' + 10;
+		  if (lisdigit(c) != 0) return c - '0';
+		  else if (lisupper(c) != 0) return c - 'A' + 10;
 		  else return c - 'a' + 10;
 		}
 
 
 		private static int readhexaesc (LexState ls) {
 		  int c1, c2 = EOZ;
-		  if (!lisxdigit(c1 = next(ls)) || !lisxdigit(c2 = next(ls))) {
+		  if (lisxdigit(c1 = next(ls))==0 || lisxdigit(c2 = next(ls))==0) {
 		    luaZ_resetbuffer(ls.buff);  /* prepare error message */
 		    save(ls, '\\'); save(ls, 'x');
 		    if (c1 != EOZ) save(ls, c1);
@@ -286,11 +286,11 @@ namespace KopiLua
 		private static int readdecesc (LexState ls) {
 		  int c1 = ls.current, c2, c3;
 		  int c = c1 - '0';
-		  if (lisdigit(c2 = next(ls))) {
+		  if (lisdigit(c2 = next(ls)) != 0) {
 		    c = 10*c + c2 - '0';
-		    if (lisdigit(c3 = next(ls))) {
+		    if (lisdigit(c3 = next(ls)) != 0) {
 		      c = 10*c + c3 - '0';
-		      if (c > UCHAR_MAX) {
+		      if (c > System.Byte.MaxValue) {
 		        luaZ_resetbuffer(ls.buff);  /* prepare error message */
 		        save(ls, '\\');
 		        save(ls, c1); save(ls, c2); save(ls, c3);
@@ -332,7 +332,7 @@ namespace KopiLua
 				  case '\r': save(ls, '\n'); inclinenumber(ls); continue;
 				  case EOZ: continue;  /* will raise an error next loop */
 				  default: {
-			            if (!lisdigit(ls.current))
+			            if (lisdigit(ls.current)==0)
 			              c = ls.current;  /* handles \\, \", \', and \? */
 			            else  /* digital escape \ddd */
 			              c = readdecesc(ls);
@@ -424,7 +424,7 @@ namespace KopiLua
 					  return (int)RESERVED.TK_DOTS;   /* ... */
 				  else return (int)RESERVED.TK_CONCAT;   /* .. */
 				}
-				else if (!lisdigit(ls.current)) return '.';
+				else if (lisdigit(ls.current)==0) return '.';
 				else {
 				  read_numeral(ls, seminfo);
 				  return (int)RESERVED.TK_NUMBER;
@@ -434,21 +434,21 @@ namespace KopiLua
 				  return (int)RESERVED.TK_EOS;
 			  }
 			  default: {
-				if (lisspace(ls.current)) {
+				if (lisspace(ls.current) != 0) {
 				  lua_assert(!currIsNewline(ls));
 				  next(ls);
 				  continue;
 				}
-				else if (lisdigit(ls.current)) {
+				else if (lisdigit(ls.current) != 0) {
 				  read_numeral(ls, seminfo);
 				  return (int)RESERVED.TK_NUMBER;
 				}
-				else if (lislalpha(ls.current)) {
+				else if (lislalpha(ls.current) != 0) {
 				  /* identifier or reserved word */
 				  TString ts;
 				  do {
 					save_and_next(ls);
-				  } while (lislalnum(ls.current));
+				  } while (lislalnum(ls.current) != 0);
 				  ts = luaX_newstring(ls, luaZ_buffer(ls.buff),
 										  luaZ_bufflen(ls.buff));
 				  if (ts.tsv.reserved > 0)  /* reserved word? */

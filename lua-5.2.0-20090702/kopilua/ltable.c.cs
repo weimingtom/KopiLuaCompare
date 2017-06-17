@@ -314,7 +314,7 @@ namespace KopiLua
 			  setobjt2t(L, luaH_set(L, t, key2tval(old)), gval(old));
 		  }
 		  if (nold[0] != dummynode)
-			luaM_freearray(L, nold, twoto(oldhsize));  /* free old array */
+			luaM_freearray(L, nold/*, twoto(oldhsize)*/);  /* free old array */ //FIXME:???
 		}
 
 
@@ -363,14 +363,14 @@ namespace KopiLua
 
 		public static void luaH_free (lua_State L, Table t) {
 		  if (t.node[0] != dummynode)
-			luaM_freearray(L, t.node, sizenode(t));
-		  luaM_freearray(L, t.array, t.sizearray);
+			luaM_freearray(L, t.node/*, sizenode(t)*/); //FIXME:
+		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:
 		  luaM_free(L, t);
 		}
 
 
 		private static Node getfreepos (Table t) {
-		  while (t.lastfree > t.node) {
+		  while (t.lastfree > 0) { //FIXME:t.lastfree > t.node, notice lastfree point to t.node[0...]
             t.lastfree--;
 			if (ttisnil(gkey(t.node[t.lastfree])))
 			  return t.node[t.lastfree];

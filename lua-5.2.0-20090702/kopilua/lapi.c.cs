@@ -277,8 +277,8 @@ namespace KopiLua
 		    changenvalue(L.top - 2,
 		                 luaO_arith(op, nvalue(L.top - 2), nvalue(L.top - 1)));
 		  else
-		    luaV_arith(L, L.top - 2, L.top - 2, L.top - 1, op - LUA_OPADD + TM_ADD);
-		  L.top--;
+		    luaV_arith(L, L.top - 2, L.top - 2, L.top - 1, op - LUA_OPADD + TMS.TM_ADD);
+		  lua_TValue.dec(ref L.top);
 		  lua_unlock(L);
 		}
 

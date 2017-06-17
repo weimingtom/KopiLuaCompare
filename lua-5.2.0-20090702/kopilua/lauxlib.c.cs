@@ -47,13 +47,13 @@ namespace KopiLua
 		  if (level == 0 || !lua_istable(L, -1))
 		    return 0;  /* not found */
 		  lua_pushnil(L);  /* start 'next' loop */
-		  while (!found && lua_next(L, -2)) {  /* for each pair in table */
+		  while (found==0 && lua_next(L, -2) != 0) {  /* for each pair in table */
 		    if (lua_type(L, -2) == LUA_TSTRING) {  /* ignore non-string keys */
-		      if (lua_rawequal(L, objidx, -1)) {  /* found object? */
+		      if (lua_rawequal(L, objidx, -1) != 0) {  /* found object? */
 		        lua_pop(L, 1);  /* remove value (but keep name) */
 		        return 1;
 		      }
-		      else if (findfield(L, objidx, level - 1)) {  /* try recursively */
+		      else if (findfield(L, objidx, level - 1) != 0) {  /* try recursively */
 		        lua_remove(L, -2);  /* remove table (but keep name) */
 		        lua_pushliteral(L, ".");
 		        lua_insert(L, -2);  /* place '.' between the two names */
@@ -71,7 +71,7 @@ namespace KopiLua
 		  int top = lua_gettop(L);
 		  lua_getinfo(L, "f", ar);  /* push function */
 		  lua_pushvalue(L, LUA_GLOBALSINDEX);  /* push global table */
-		  if (findfield(L, top + 1, 2)) {
+		  if (findfield(L, top + 1, 2) != 0) {
 		    lua_replace(L, top + 1);  /* move name to proper place */
 		    lua_pop(L, 1);  /* remove other pushed value */
 		    return 1;
@@ -89,8 +89,8 @@ namespace KopiLua
 		  else if (ar.what[0] == 'm')  /* main? */
 		      lua_pushfstring(L, "main chunk");
 		  else if (ar.what[0] == 'C' || ar.what[0] == 't') {
-		    if (pushglobalfuncname(L, ar)) {
-		      lua_pushfstring(L, "function " LUA_QS, lua_tostring(L, -1));
+		    if (pushglobalfuncname(L, ar) != 0) {
+		      lua_pushfstring(L, "function " + LUA_QS, lua_tostring(L, -1));
 		      lua_remove(L, -2);  /* remove name */
 		    }
 		    else
@@ -745,7 +745,7 @@ namespace KopiLua
 		  return L;
 		}
 
-		public void luaL_checkversion_ (lua_State L, lua_Number ver) {
+		public static void luaL_checkversion_ (lua_State L, lua_Number ver) {
 		  lua_Number[] v = lua_version(L);
 		  if (v != lua_version(null))
 		    luaL_error(L, "multiple Lua VMs detected");

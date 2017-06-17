@@ -394,15 +394,15 @@ namespace KopiLua
 		}
 
 
-		private static void traversestack (global_State g, lua_State l) {
+		private static void traversestack (global_State g, lua_State L) {
 		  StkId o;
 		  if (L.stack == null)
 		    return;  /* stack not completely built yet */
 		  markvalue(g, gt(L));  /* mark global table */
-		  for (o = L.stack; o < L.top; o++)
+		  for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
 		    markvalue(g, o);
 		  if (g.gcstate == GCSatomic) {  /* final traversal? */
-		    for (; o <= L.stack_last; o++)  /* clear not-marked stack slice */
+		  	for (; o <= L.stack_last; StkId.inc(ref o))  /* clear not-marked stack slice */
 		      setnilvalue(o);
 		  }
 		}
@@ -569,7 +569,7 @@ namespace KopiLua
 
 		private static void sweepthread (lua_State L, lua_State L1, int alive) {
 		  if (L1.stack == null) return;  /* stack not completely built yet */
-		  sweepwholelist(L, L1.openupval);  /* sweep open upvalues */
+		  sweepwholelist(L, new PtrRef(L1.openupval));  /* sweep open upvalues */ //FIXME:???
 		  if (L1.nci < LUAI_MAXCALLS)  /* not handling stack overflow? */
 		    luaE_freeCI(L1);  /* free extra CallInfo slots */
 		  /* should not change the stack during an emergency gc cycle */
@@ -578,7 +578,7 @@ namespace KopiLua
 		    if ((L1.stacksize - EXTRA_STACK) > goodsize)
 		      luaD_reallocstack(L1, goodsize);
 		    else 
-		      condmovestack(L1);
+		    {;}//condmovestack(L1); //FIXME:
 		  }
 		}
 
@@ -657,7 +657,7 @@ namespace KopiLua
 			setuvalue(L, L.top+1, udata);
 			L.top += 2;
 		    status = luaD_pcall(L, dothecall, null, savestack(L, L.top - 2), 0);
-		    if (status != LUA_OK && propagateerrors) {  /* error while running __gc? */
+		    if (status != LUA_OK && propagateerrors != 0) {  /* error while running __gc? */
 		      if (status == LUA_ERRRUN) {  /* is there an error msg.? */
 		        luaO_pushfstring(L, "error in __gc tag method (%s)",
 		                                        lua_tostring(L, -1));

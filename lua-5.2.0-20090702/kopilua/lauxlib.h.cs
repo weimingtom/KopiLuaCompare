@@ -21,7 +21,7 @@ namespace KopiLua
 		  public CharPtr name;
 		  public lua_CFunction func;
 		};
-		private static void luaL_checkversion(lua_State L) { return luaL_checkversion_(L, LUA_VERSION_NUM);}
+		public static void luaL_checkversion(lua_State L) { luaL_checkversion_(L, LUA_VERSION_NUM);}
 
 
 		/*
@@ -107,7 +107,7 @@ namespace KopiLua
 
 
 		/* compatibility with previous wrong spelling */
-		private static void luaL_typerror() { return luaL_typeerror(); }
+		private static int luaL_typerror(lua_State L, int narg, CharPtr tname) { return luaL_typeerror(L, narg, tname); } //FIXME:???
 	}
 }
 

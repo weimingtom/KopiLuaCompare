@@ -665,7 +665,7 @@ namespace KopiLua
 		  public Table metatable;
 		  public TValue[] array;  /* array part */
 		  public Node[] node;
-		  public int lastfree;  /* any free position is before this position */
+		  public int lastfree;  /* any free position is before this position */ //FIXME: this is differente from original code, use t.node[t.lastfree] to get Node value
 		  public GCObject gclist;
 		  public int sizearray;  /* size of `array' array */
 		};

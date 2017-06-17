@@ -9,7 +9,7 @@ namespace KopiLua
 				luaD_growstack(L, n);
 			else
 			{
-				condmovestack(L);
+				//condmovestack(L); //FIXME:???
 			}
 		}
 

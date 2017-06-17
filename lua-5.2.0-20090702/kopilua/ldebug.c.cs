@@ -93,27 +93,27 @@ namespace KopiLua
 		private static CharPtr findlocal (lua_State L, CallInfo ci, int n,
 		                              ref StkId pos) {
 		  CharPtr name = null;
-		  StkId base;
-		  if (isLua(ci)) {
-		    base = ci.u.l.base;
+		  StkId base_;
+		  if (isLua(ci) != 0) {
+		    base_ = ci.u.l.base_;
 		    name = luaF_getlocalname(ci_func(ci).l.p, n, currentpc(ci));
 		  }
 		  else
-		    base = ci.func + 1;
+		    base_ = ci.func + 1;
 		  if (name == null) {  /* no 'standard' name? */
 		    StkId limit = (ci == L.ci) ? L.top : ci.next.func;
-		    if (limit - base >= n && n > 0)  /* is 'n' inside 'ci' stack? */
+		    if (limit - base_ >= n && n > 0)  /* is 'n' inside 'ci' stack? */
 		      name = "(*temporary)";  /* generic name for any valid slot */
 		    else return null;  /* no name */
 		  }
-		  pos[0] = base + (n - 1);
+		  pos = base_ + (n - 1);
 		  return name;
 		}
 
 
 		public static CharPtr lua_getlocal (lua_State L, lua_Debug ar, int n) {
 		  CallInfo ci = ar.i_ci;
-          StkId pos;
+		  StkId pos = new StkId();
 		  CharPtr name = findlocal(L, ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null) {
@@ -127,7 +127,7 @@ namespace KopiLua
 
 		public static CharPtr lua_setlocal (lua_State L, lua_Debug ar, int n) {
 		  CallInfo ci = ar.i_ci;
-          StkId pos;
+		  StkId pos = new StkId();
 		  CharPtr name = findlocal(L, ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null)
@@ -259,7 +259,7 @@ namespace KopiLua
 		*/
 
 		private static CharPtr kname (Proto p, int c) {
-		  if (ISK(c) && ttisstring(p.k[INDEXK(c)]))
+		  if (ISK(c) != 0 && ttisstring(p.k[INDEXK(c)]))
 		    return svalue(p.k[INDEXK(c)]);
 		  else
 		    return "?";
@@ -286,7 +286,7 @@ namespace KopiLua
 		      case OpCode.OP_GETGLOBAL: {
 		        if (reg == a) {
 		          int g = GETARG_Bx(i);  /* global index */
-		          lua_assert(ttisstring(&p.k[g]));
+		          lua_assert(ttisstring(p.k[g]));
 		          name = svalue(p.k[g]);
 		          what = "global";
 		        }
@@ -312,7 +312,7 @@ namespace KopiLua
 		      case OpCode.OP_GETUPVAL: {
 		        if (reg == a) {
 		          int u = GETARG_B(i);  /* upvalue index */
-		          name = p.upvalues ? getstr(p.upvalues[u]) : "?";
+		          name = (p.upvalues != null) ? getstr(p.upvalues[u]) : "?";
 		          what = "upvalue";
 		        }
 		        break;
@@ -355,7 +355,7 @@ namespace KopiLua
 		        break;
 		      }
 		      default:
-		        if (testAMode(op) && reg == a) what = null;
+		        if (testAMode(op) != 0 && reg == a) what = null;
 		        break;
 		    }
 		  }

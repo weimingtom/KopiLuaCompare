@@ -18,6 +18,7 @@ namespace KopiLua
 	using LUA_INTFRM_T		= System.Int64;
 	using TValue = Lua.lua_TValue;
 	using lua_Number = System.Double;
+	using LUA_INT32 = System.Int32;
 
 	public partial class Lua
 	{
@@ -233,7 +234,7 @@ namespace KopiLua
 		@@ luai_writestring defines how 'print' prints its results.
 		** CHANGE it if your system does not have a useful stdout.
 		*/
-		public static void luai_writestring(CharPtr s, int l) { fwrite(s, 1/*sizeof(char)*/, l, stdout); }
+		public static void luai_writestring(CharPtr s, uint l) { fwrite(s, 1/*sizeof(char)*/, (int)l, stdout); }
 
 
 		/*

@@ -20,20 +20,20 @@ namespace KopiLua
 
 		public static void luaS_resize (lua_State L, int newsize) {
 		  int i;
-		  stringtable tb = &G(L).strt;
+		  stringtable tb = G(L).strt;
 		  if (G(L).gcstate == GCSsweepstring)
 		    return;  /* cannot resize during GC traverse */
 		  if (newsize > tb.size) {
-		    luaM_reallocvector(L, tb.hash, tb.size, newsize, GCObject *);
-		    for (i = tb.size; i < newsize; i++) tb->hash[i] = NULL;
+		    luaM_reallocvector(L, ref tb.hash, tb.size, newsize/*, GCObject * */);
+		    for (i = tb.size; i < newsize; i++) tb.hash[i] = null;
 		  }
 		  /* rehash */
 		  for (i=0; i<tb.size; i++) {
 		    GCObject p = tb.hash[i];
-		    tb->hash[i] = null;
-		    while (p) {  /* for each node in the list */
+		    tb.hash[i] = null;
+		    while (p != null) {  /* for each node in the list */
 		      GCObject next = gch(p).next;  /* save next */
-		      unsigned int h = lmod(gco2ts(p).hash, newsize);  /* new position */
+		      uint h = (uint)lmod(gco2ts(p).hash, newsize);  /* new position */ //FIXME:(uint)lmod()
 		      gch(p).next = tb.hash[h];  /* chain it */
 		      tb.hash[h] = p;
 		      p = next;
@@ -42,7 +42,7 @@ namespace KopiLua
 		  if (newsize < tb.size) {
 		    /* shrinking slice must be empty */
 		    lua_assert(tb.hash[newsize] == null && tb.hash[tb.size - 1] == null);
-		    luaM_reallocvector(L, tb.hash, tb.size, newsize, GCObject *);
+		    luaM_reallocvector(L, ref tb.hash, tb.size, newsize/*, GCObject * */);
 		  }
 		  tb.size = newsize;
 		}

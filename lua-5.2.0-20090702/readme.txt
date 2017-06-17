@@ -89,3 +89,9 @@ lvm.c
 		#define Protect(x)	{ {x;}; base = ci->u.l.base; }
 22:11 2017-06-16
 lzio.h
+
+
+
+UCHAR_MAX
+->
+System.Byte.MaxValue

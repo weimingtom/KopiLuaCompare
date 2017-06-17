@@ -234,7 +234,7 @@ namespace KopiLua
 				}
 			}
 			Lua.lua_settop(L, 0);  /* clear stack */
-			luai_writestring("\n", 1);
+			Lua.luai_writestring("\n", 1);
 			Lua.fflush(Lua.stdout);
 			progname = oldprogname;
 		}
@@ -359,7 +359,7 @@ namespace KopiLua
 			Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
 			Lua.luaL_openlibs(L);  /* open libraries */
 			Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
-            luaL_checkversion(L);
+            Lua.luaL_checkversion(L);
 			s.ok = (handle_luainit(L) == Lua.LUA_OK) ? 1 : 0;
 			if (s.ok == 0) return 0;
 			script = collectargs(argv, ref has_i, ref has_v, ref has_e);

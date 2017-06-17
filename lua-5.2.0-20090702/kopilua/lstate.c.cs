@@ -55,7 +55,7 @@ namespace KopiLua
 
 
 		public static CallInfo luaE_extendCI (lua_State L) {
-		  CallInfo ci = luaM_new(L, CallInfo);
+		  CallInfo ci = luaM_new<CallInfo>(L); //FIXME:???
 		  lua_assert(L.ci.next == null);
 		  L.ci.next = ci;
 		  ci.previous = L.ci;
@@ -88,7 +88,7 @@ namespace KopiLua
 		  L1.stack = luaM_newvector<TValue>(L, BASIC_STACK_SIZE + EXTRA_STACK);
 		  L1.stacksize = BASIC_STACK_SIZE + EXTRA_STACK;
 		  for (i = 0; i < BASIC_STACK_SIZE + EXTRA_STACK; i++)
-		    setnilvalue(L1.stack + i);  /* erase new stack */
+		  	setnilvalue(L1.stack[i]);  /* erase new stack */
 		  L1.top = L1.stack[0];
 		  L1.stack_last = L1.stack[L1.stacksize - EXTRA_STACK - 1];
 		  /* initialize first ci */

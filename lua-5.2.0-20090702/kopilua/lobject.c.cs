@@ -94,7 +94,7 @@ namespace KopiLua
 		    case LUA_OPDIV: return luai_numdiv(null, v1, v2);
 		    case LUA_OPMOD: return luai_nummod(null, v1, v2);
 		    case LUA_OPPOW: return luai_numpow(null, v1, v2);
-		    case LUA_OPUNM: return luai_numunm(N, v1);
+		    case LUA_OPUNM: return luai_numunm(null, v1); //FIXME:N->NULL
 		    default: lua_assert(0); return 0;
 		  }
 		}
@@ -107,7 +107,7 @@ namespace KopiLua
 		  if (endptr[0] == 'x' || endptr[0] == 'X')  /* maybe an hexadecimal constant? */
 			result = cast_num(strtoul(s, out endptr, 16));
 		  if (endptr[0] == '\0') return 1;  /* most common case */
-		  while (lisspace(endptr[0])) endptr = endptr.next();
+		  while (lisspace(endptr[0]) != 0) endptr = endptr.next();
 		  if (endptr[0] != '\0') return 0;  /* invalid trailing characters? */
 		  return 1;
 		}

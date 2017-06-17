@@ -25,7 +25,7 @@ namespace KopiLua
 			lua_pushvalue(L, -1);  /* function to be called */
 			lua_pushvalue(L, i);   /* value to print */
 			lua_call(L, 1, 1);
-			s = lua_tolstring(L, -1, ref l);  /* get result */
+			s = lua_tolstring(L, -1, out l);  /* get result */
 			if (s == null)
 			  return luaL_error(L, LUA_QL("tostring") + " must return a string to " +
 								   LUA_QL("print"));
@@ -291,8 +291,8 @@ namespace KopiLua
 
 
 		private static CharPtr generic_reader (lua_State L, object ud, out uint size) {
-		  const char *s;
-		  const char **mode = (const char **)ud;
+		  CharPtr s;
+		  CharPtr[] mode = (CharPtr[])ud; //FIXME:
 		  luaL_checkstack(L, 2, "too many nested functions");
 		  lua_pushvalue(L, 1);  /* get function */
 		  lua_call(L, 0, 1);  /* call it */
@@ -300,11 +300,11 @@ namespace KopiLua
 			size = 0;
 			return null;
 		  }
-		  else if ((s = lua_tostring(L, -1)) != NULL) {
-		    if (*mode != null) {  /* first time? */
-		      s = checkrights(L, *mode, s);  /* check whether chunk format is allowed */
-		      *mode = NULL;  /* to avoid further checks */
-		      if (s) luaL_error(L, s);
+		  else if ((s = lua_tostring(L, -1)) != null) {
+		  	if (mode[0] != null) {  /* first time? */
+		  	  s = checkrights(L, mode[0], s);  /* check whether chunk format is allowed */
+		  	  mode[0] = null;  /* to avoid further checks */
+		      if (s != null) luaL_error(L, s);
 		  	}
 			lua_replace(L, 3);  /* save string in a reserved stack slot */
 			return lua_tolstring(L, 3, out size);
@@ -398,10 +398,10 @@ namespace KopiLua
 
 
 		private static int pcallcont (lua_State L) {
-		  int[] errfunc = new int[1];  /* call has an error function in bottom of the stack */
-		  int status = lua_getctx(L, errfunc);
+		  int errfunc = 0;  /* call has an error function in bottom of the stack */ //FIXME:???not init with 0
+		  int status = lua_getctx(L, ref errfunc);
 		  lua_assert(status != LUA_OK);
-		  lua_pushboolean(L, (status == LUA_YIELD));
+		  lua_pushboolean(L, (status == LUA_YIELD) ? 1 : 0);
 		  if (errfunc != 0)  /* came from xpcall? */
 		    lua_replace(L, 1);  /* put result in place of error function */
 		  else  /* came from pcall */

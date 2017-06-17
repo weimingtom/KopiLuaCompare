@@ -113,19 +113,19 @@ namespace KopiLua
 		  if (lua_isnoneornil(L, 2))
 		    res = log(x);
 		  else {
-		    lua_Number base = luaL_checknumber(L, 2);
-		    if (base == 10.0) res = log10(x);
-		    else res = log(x)/log(base);
+		    lua_Number base_ = luaL_checknumber(L, 2);
+		    if (base_ == 10.0) res = log10(x);
+		    else res = log(x)/log(base_);
 		  }
 		  lua_pushnumber(L, res);
 		  return 1;
 		}
 
 		private static int math_log10 (lua_State L) {
-#if LUA_COMPAT_LOG10
+//#if LUA_COMPAT_LOG10
 		  luaL_error(L, "function " + LUA_QL("log10") + 
 		                " is deprecated; use log(x, 10) instead");
-#endif
+//#endif
 		  lua_pushnumber(L, Math.Log10(luaL_checknumber(L, 1)));
 		  return 1;
 		}
