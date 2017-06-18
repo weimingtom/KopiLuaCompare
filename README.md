@@ -30,4 +30,4 @@ CSharp/Java port (done)
 Java/Golang port (WIP)    
 
 * https://github.com/weimingtom/KuukoBack      
-Java port for KopiLuaCompare (WIP)    
+Kuuko Csharp/Java port for KopiLuaCompare (WIP)    
