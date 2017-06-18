@@ -45,7 +45,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Platform)' == 'AnyCPU' ">
     <BaseAddress>4194304</BaseAddress>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x86</PlatformTarget>
     <RegisterForComInterop>False</RegisterForComInterop>
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
   </PropertyGroup>
@@ -58,9 +58,12 @@
     <Compile Include="lauxlib.c.cs" />
     <Compile Include="lauxlib.h.cs" />
     <Compile Include="lbaselib.c.cs" />
+    <Compile Include="lbitlib.c.cs" />
     <Compile Include="lcode.c.cs" />
     <Compile Include="lcode.h.cs" />
     <Compile Include="lcode_ex.h.cs" />
+    <Compile Include="lctype.c.cs" />
+    <Compile Include="lctype.h.cs" />
     <Compile Include="ldblib.c.cs" />
     <Compile Include="ldebug.c.cs" />
     <Compile Include="ldebug.h.cs" />

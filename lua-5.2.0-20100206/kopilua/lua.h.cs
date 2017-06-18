@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.230 2008/07/18 19:58:10 roberto Exp roberto $
+** $Id: lua.h,v 1.239 2009/06/17 17:49:44 roberto Exp roberto $
 ** Lua - An Extensible Extension Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -47,7 +47,8 @@ namespace KopiLua
 		public const int LUA_ERRRUN = 2;
 		public const int LUA_ERRSYNTAX	= 3;
 		public const int LUA_ERRMEM	= 4;
-		public const int LUA_ERRERR	= 5;
+		public const int LUA_ERRGCMM = 5;
+		public const int LUA_ERRERR = 6;
 
 
 		public delegate int lua_CFunction(lua_State L);
@@ -96,6 +97,28 @@ namespace KopiLua
 		/* type for integer functions */
 		//typedef LUA_INTEGER lua_Integer;
 
+		/*
+		** Comparison and arithmetic functions
+		*/
+
+		public const int LUA_OPADD = 0;	/* ORDER TM */
+		public const int LUA_OPSUB = 1;
+		public const int LUA_OPMUL = 2;
+		public const int LUA_OPDIV = 3;
+		public const int LUA_OPMOD = 4;
+		public const int LUA_OPPOW = 5;
+		public const int LUA_OPUNM = 6;
+
+
+		public const int LUA_OPEQ = 0;
+		public const int LUA_OPLT = 1;
+		public const int LUA_OPLE = 2;
+
+
+		public static void lua_call(lua_State L, int n, int r) { lua_callk(L, n, r, 0, null); }
+
+        public static int lua_pcall(lua_State L, int n, int r, int f) { return lua_pcallk(L, n, r, f, 0, null); }
+		
 		/*
 		** garbage-collection function and options
 		*/
@@ -235,6 +258,8 @@ namespace KopiLua
 		//#define lua_Chunkreader		lua_Reader
 		//#define lua_Chunkwriter		lua_Writer
 
+		public static int lua_equal(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPEQ); }
+		public static int lua_lessthan(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPLT); }
 		//#endif
 
 		/*
@@ -278,7 +303,7 @@ namespace KopiLua
 		  public int lastlinedefined;	/* (S) */
 		  public CharPtr short_src = new char[LUA_IDSIZE]; /* (S) */
 		  /* private part */
-		  public int i_ci;  /* active function */
+		  public CallInfo i_ci = new CallInfo();  /* active function */
 		};
 
 		/* }====================================================================== */

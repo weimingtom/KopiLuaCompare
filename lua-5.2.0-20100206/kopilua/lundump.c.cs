@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.8 2006/09/11 14:07:24 roberto Exp roberto $
+** $Id: lundump.c,v 2.9 2008/04/07 18:44:23 roberto Exp roberto $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -192,7 +192,6 @@ namespace KopiLua
 		 LoadCode(S,f);
 		 LoadConstants(S,f);
 		 LoadDebug(S,f);
-		 IF (luaG_checkcode(f)==0 ? 1 : 0, "bad code");
 		 StkId.dec(ref S.L.top);
          G(S.L).nCcalls--;
 		 return f;

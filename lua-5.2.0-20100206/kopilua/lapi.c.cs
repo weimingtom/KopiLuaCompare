@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.67 2008/07/04 18:27:11 roberto Exp roberto $
+** $Id: lapi.c,v 2.83 2009/06/18 18:59:18 roberto Exp roberto $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -27,7 +27,7 @@ namespace KopiLua
 
 		public static void api_checknelems(lua_State L, int n)
 		{
-			api_check(L, n <= L.top - L.base_);
+			api_check(L, n < L.top - L.ci.func);
 		}
 
 		public static void api_checkvalidindex(lua_State L, StkId i)
@@ -38,14 +38,15 @@ namespace KopiLua
 
 
 		static TValue index2adr (lua_State L, int idx) {
+          CallInfo ci = L.ci;
 		  if (idx > 0) {
-			TValue o = L.base_ + (idx - 1);
-			api_check(L, idx <= L.ci.top - L.base_);
+			TValue o = ci.func + idx;
+			api_check(L, idx <= ci.top - (ci.func + 1));
 			if (o >= L.top) return luaO_nilobject;
 			else return o;
 		  }
 		  else if (idx > LUA_REGISTRYINDEX) {
-			api_check(L, idx != 0 && -idx <= L.top - L.base_);
+			api_check(L, idx != 0 && -idx <= L.top - (ci.func + 1));
 			return L.top + idx;
 		  }
 		  else switch (idx) {  /* pseudo-indices */
@@ -69,7 +70,7 @@ namespace KopiLua
 
 
 		private static Table getcurrenv (lua_State L) {
-		  if (L.ci == L.base_ci[0])  /* no enclosing function? */
+		  if (L.ci.previous == null)  /* no enclosing function? */
 			return hvalue(gt(L));  /* use global table as environment */
 		  else {
 			Closure func = curr_func(L);
@@ -81,16 +82,23 @@ namespace KopiLua
 
 		public static int lua_checkstack (lua_State L, int size) {
 		  int res = 1;
+          CallInfo ci = L.ci;
 		  lua_lock(L);
-		  if (size > LUAI_MAXCSTACK || (L.top - L.base_ + size) > LUAI_MAXCSTACK)
+		  if (size > LUAI_MAXCSTACK || 
+		      (L.top - (ci.func + 1) + size) > LUAI_MAXCSTACK)
 			res = 0;  /* stack overflow */
 		  else if (size > 0) {
 			luaD_checkstack(L, size);
-			if (L.ci.top < L.top + size)
-			  L.ci.top = L.top + size;
+			if (ci.top < L.top + size)
+			  ci.top = L.top + size;
 		  }
 		  lua_unlock(L);
 		  return res;
+		}
+
+
+		public static lua_State lua_mainthread (lua_State L) {
+		  return G(L).mainthread;
 		}
 
 
@@ -119,6 +127,13 @@ namespace KopiLua
 		  return old;
 		}
 
+        private static double[] version = new double[]{LUA_VERSION_NUM};
+		public static double[] lua_version (lua_State L) {
+		  if (L == null) return version;
+		  else return G(L).version;
+		}
+
+
 
 		/*
 		** basic stack manipulation
@@ -126,20 +141,21 @@ namespace KopiLua
 
 
 		public static int lua_gettop (lua_State L) {
-		  return cast_int(L.top - L.base_);
+		  return cast_int(L.top - (L.ci.func + 1));
 		}
 
 
 		public static void lua_settop (lua_State L, int idx) {
+          StkId func = L.ci.func;
 		  lua_lock(L);
 		  if (idx >= 0) {
-			api_check(L, idx <= L.stack_last - L.base_);
-			while (L.top < L.base_ + idx)
-			  setnilvalue(StkId.inc(ref L.top));
-			L.top = L.base_ + idx;
+			api_check(L, idx <= L.stack_last - (func + 1));
+			while (L.top < (func + 1) + idx)
+			  setnilvalue(StkId.inc(ref L.top)); //FIXME:???
+			L.top = (func + 1) + idx;
 		  }
 		  else {
-			api_check(L, -(idx+1) <= (L.top - L.base_));
+			api_check(L, -(idx+1) <= (L.top - (func + 1)));
 			L.top += idx+1;  /* `subtract' index (index is negative) */
 		  }
 		  lua_unlock(L);
@@ -173,7 +189,7 @@ namespace KopiLua
 		  StkId o;
 		  lua_lock(L);
 		  /* explicit test for incompatible code */
-		  if (idx == LUA_ENVIRONINDEX && L.ci == L.base_ci[0])
+		  if (idx == LUA_ENVIRONINDEX && L.ci.previous == null)
 			luaG_runerror(L, "no calling environment");
 		  api_checknelems(L, 1);
 		  o = index2adr(L, idx);
@@ -254,30 +270,36 @@ namespace KopiLua
 		}
 
 
-		public static int lua_equal (lua_State L, int index1, int index2) {
+		public static void lua_arith (lua_State L, int op) {
+		  lua_lock(L);
+		  api_checknelems(L, 2);
+		  if (ttisnumber(L.top - 2) && ttisnumber(L.top - 1))
+		    changenvalue(L.top - 2,
+		                 luaO_arith(op, nvalue(L.top - 2), nvalue(L.top - 1)));
+		  else
+		    luaV_arith(L, L.top - 2, L.top - 2, L.top - 1, op - LUA_OPADD + TMS.TM_ADD);
+		  lua_TValue.dec(ref L.top);
+		  lua_unlock(L);
+		}
+
+
+		public static int lua_compare (lua_State L, int index1, int index2, int op) {
 		  StkId o1, o2;
 		  int i;
 		  lua_lock(L);  /* may call tag method */
 		  o1 = index2adr(L, index1);
 		  o2 = index2adr(L, index2);
-		  i = (o1 == luaO_nilobject || o2 == luaO_nilobject) ? 0 : equalobj(L, o1, o2);
+		  if (o1 == luaO_nilobject || o2 == luaO_nilobject)
+		    i = 0;
+		  else switch (op) {
+		    case LUA_OPEQ: i = equalobj(L, o1, o2); break;
+		    case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
+		    case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
+		    default: api_check(L, 0); i = 0; break; //FIXME:break added
+		  }
 		  lua_unlock(L);
 		  return i;
 		}
-
-
-		public static int lua_lessthan (lua_State L, int index1, int index2) {
-		  StkId o1, o2;
-		  int i;
-		  lua_lock(L);  /* may call tag method */
-		  o1 = index2adr(L, index1);
-		  o2 = index2adr(L, index2);
-		  i = (o1 == luaO_nilobject || o2 == luaO_nilobject) ? 0
-			   : luaV_lessthan(L, o1, o2);
-		  lua_unlock(L);
-		  return i;
-		}
-
 
 
 		public static lua_Number lua_tonumber (lua_State L, int idx) {
@@ -333,13 +355,6 @@ namespace KopiLua
 			case LUA_TSTRING: return tsvalue(o).len;
 			case LUA_TUSERDATA: return uvalue(o).len;
 			case LUA_TTABLE: return (uint)luaH_getn(hvalue(o));
-			case LUA_TNUMBER: {
-			  uint l;
-			  lua_lock(L);  /* `luaV_tostring' may create a new string */
-			  l = (luaV_tostring(L, o) != 0 ? tsvalue(o).len : 0);
-			  lua_unlock(L);
-			  return l;
-			}
 			default: return 0;
 		  }
 		}
@@ -751,10 +766,6 @@ namespace KopiLua
 		*/
 
 
-		public static void adjustresults(lua_State L, int nres) {
-			if (nres == LUA_MULTRET && L.top >= L.ci.top)
-				L.ci.top = L.top;
-		}
 
 
 		public static void checkresults(lua_State L, int na, int nr) {
@@ -762,13 +773,32 @@ namespace KopiLua
 		}
 			
 
-		public static void lua_call (lua_State L, int nargs, int nresults) {
+		public static int lua_getctx (lua_State L, ref int ctx) {
+		  if ((L.ci.callstatus & CIST_YIELDED) != 0) {
+			//if (ctx != null) ctx[0] = L.ci.u.c.ctx; //FIXME:???
+		    ctx = L.ci.u.c.ctx;
+			return L.ci.u.c.status;
+		  }
+		  else return LUA_OK;
+		}
+
+		public static void lua_callk (lua_State L, int nargs, int nresults, int ctx,
+                        lua_CFunction k) {
 		  StkId func;
 		  lua_lock(L);
+		  /* cannot use continuations inside hooks */
+		  api_check(L, k == null || isLua(L.ci)==0);
 		  api_checknelems(L, nargs+1);
 		  checkresults(L, nargs, nresults);
 		  func = L.top - (nargs+1);
-		  luaD_call(L, func, nresults);
+		  if (k != null && L.nny == 0) {  /* need to prepare continuation? */
+		    L.ci.u.c.k = k;  /* save continuation */
+		    L.ci.u.c.ctx = ctx;  /* save context */
+		    luaD_call(L, func, nresults, 1);  /* do the call */
+		  }
+		  else  /* no continuation or no yieldable */
+		    luaD_call(L, func, nresults, 0);  /* just do the call */
+
 		  adjustresults(L, nresults);
 		  lua_unlock(L);
 		}
@@ -786,12 +816,13 @@ namespace KopiLua
 
 		static void f_call (lua_State L, object ud) {
 		  CallS c = ud as CallS;
-		  luaD_call(L, c.func, c.nresults);
+		  luaD_call(L, c.func, c.nresults, 0);
 		}
 
 
 
-		public static int lua_pcall (lua_State L, int nargs, int nresults, int errfunc) {
+		public static int lua_pcallk (lua_State L, int nargs, int nresults, int errfunc,
+                        int ctx, lua_CFunction k) {
 		  CallS c = new CallS();
 		  int status;
 		  ptrdiff_t func;
@@ -806,8 +837,27 @@ namespace KopiLua
 			func = savestack(L, o);
 		  }
 		  c.func = L.top - (nargs+1);  /* function to be called */
-		  c.nresults = nresults;
-		  status = luaD_pcall(L, f_call, c, savestack(L, c.func), func);
+		  if (k == null || L.nny > 0) {  /* no continuation or no yieldable? */
+		    c.nresults = nresults;  /* do a 'conventional' protected call */
+		    status = luaD_pcall(L, f_call, c, savestack(L, c.func), func);
+		  }
+		  else {  /* prepare continuation (call is already protected by 'resume') */
+		    CallInfo ci = L.ci;
+		    ci.u.c.k = k;  /* save continuation */
+		    ci.u.c.ctx = ctx;  /* save context */
+		    /* save information for error recovery */
+		    ci.u.c.oldtop = savestack(L, c.func);
+		    ci.u.c.old_allowhook = L.allowhook;
+		    ci.u.c.old_errfunc = L.errfunc;
+		    L.errfunc = func;
+		    /* mark that function may do error recovery */
+		    ci.callstatus |= CIST_YPCALL;
+		    luaD_call(L, c.func, nresults, 1);  /* do the call */
+		    ci.callstatus &= (byte)((~CIST_YPCALL) & 0xff);
+		    L.errfunc = ci.u.c.old_errfunc;
+		    status = LUA_OK;  /* if it is here, there were no errors */
+		  }
+
 		  adjustresults(L, nresults);
 		  lua_unlock(L);
 		  return status;
@@ -832,7 +882,7 @@ namespace KopiLua
 		  api_incr_top(L);
 		  setpvalue(L.top, c.ud);  /* push only argument */
 		  api_incr_top(L);
-		  luaD_call(L, L.top - 2, 0);
+		  luaD_call(L, L.top - 2, 0, 0);
 		}
 
 
@@ -983,8 +1033,7 @@ namespace KopiLua
 		  api_checknelems(L, n);
 		  if (n >= 2) {
 			luaC_checkGC(L);
-			luaV_concat(L, n, cast_int(L.top - L.base_) - 1);
-			L.top -= (n-1);
+			luaV_concat(L, n);
 		  }
 		  else if (n == 0) {  /* push empty string */
 			setsvalue2s(L, L.top, luaS_newlstr(L, "", 0));

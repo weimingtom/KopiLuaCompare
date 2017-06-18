@@ -20,6 +20,9 @@ namespace KopiLua
 				return luaZ_fill(z);
 		}
 
+
+		public static void zungetc(ZIO z) { z.n++; z.p.dec();} //FIXME: CharPtr::-- => CharPtr::dec()
+		
 		public class Mbuffer {
 		  public CharPtr buffer = new CharPtr();
 		  public uint n;

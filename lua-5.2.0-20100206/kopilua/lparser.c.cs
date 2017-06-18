@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.59 2008/10/28 12:55:00 roberto Exp roberto $
+** $Id: lparser.c,v 2.63 2009/06/10 16:52:03 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -370,7 +370,6 @@ namespace KopiLua
 		  f.sizelocvars = fs.nlocvars;
 		  luaM_reallocvector(L, ref f.upvalues, f.sizeupvalues, f.nups/*, TString*/);
 		  f.sizeupvalues = f.nups;
-		  lua_assert(luaG_checkcode(f));
 		  lua_assert(fs.bl == null);
 		  ls.fs = fs.prev;
           L.top -= 2;  /* remove table and prototype from the stack */
@@ -388,7 +387,7 @@ namespace KopiLua
 		  lexstate.buff = buff;
 		  luaX_setinput(L, lexstate, z, tname);
 		  open_func(lexstate, funcstate);
-		  funcstate.f.is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
+		  funcstate.f.is_vararg = 1;  /* main func. is always vararg */
 		  luaX_next(lexstate);  /* read first token */
 		  chunk(lexstate);
 		  check(lexstate, (int)RESERVED.TK_EOS);
@@ -557,12 +556,7 @@ namespace KopiLua
 				}
 				case (int)RESERVED.TK_DOTS: {  /* param . `...' */
 				  luaX_next(ls);
-		#if LUA_COMPAT_VARARG
-		          /* use `arg' as default name */
-		          new_localvarliteral(ls, "arg", nparams++);
-		          f.is_vararg = VARARG_HASARG | VARARG_NEEDSARG;
-		#endif
-				  f.is_vararg |= VARARG_ISVARARG;
+				  f.is_vararg = 1;
 				  break;
 				}
 				default: luaX_syntaxerror(ls, "<name> or " + LUA_QL("...") + " expected"); break;
@@ -570,7 +564,7 @@ namespace KopiLua
 			} while ((f.is_vararg==0) && (testnext(ls, ',')!=0));
 		  }
 		  adjustlocalvars(ls, nparams);
-		  f.numparams = cast_byte(fs.nactvar - (f.is_vararg & VARARG_HASARG));
+		  f.numparams = cast_byte(fs.nactvar);
 		  luaK_reserveregs(fs, fs.nactvar);  /* reserve register for parameters */
 		}
 
@@ -754,7 +748,6 @@ namespace KopiLua
 			  FuncState fs = ls.fs;
 			  check_condition(ls, fs.f.is_vararg!=0,
 							  "cannot use " + LUA_QL("...") + " outside a vararg function");
-			  fs.f.is_vararg &= unchecked((lu_byte)(~VARARG_NEEDSARG));  /* don't need 'arg' */
 			  init_exp(v, expkind.VVARARG, luaK_codeABC(fs, OpCode.OP_VARARG, 0, 1, 0));
 			  break;
 			}
@@ -828,18 +821,18 @@ namespace KopiLua
 			new priority_(7, 7),				/* `+' `-' `*' `/' `%' */
 
 			new priority_(10, 9),
-			new priority_(5, 4),				/* power and concat (right associative) */
+			new priority_(5, 4),				/* ^, .. (right associative) */
 
 			new priority_(3, 3),
-			new priority_(3, 3),				/* equality and inequality */
-
+			new priority_(3, 3),				
+            new priority_(3, 3),                /* ==, <, <= */
+												
 			new priority_(3, 3),
 			new priority_(3, 3),
-			new priority_(3, 3),
-			new priority_(3, 3),				/* order */
+			new priority_(3, 3),                /* ~=, >, >= */
 
 			new priority_(2, 2),
-			new priority_(1, 1)					/* logical (and/or) */
+			new priority_(1, 1)					/* and, or */
 		};
 
 		public const int UNARY_PRIORITY	= 8;  /* priority for unary operators */
@@ -1109,7 +1102,7 @@ namespace KopiLua
 		  if (testnext(ls, ',') != 0)
 			exp1(ls);  /* optional step */
 		  else {  /* default step = 1 */
-			luaK_codeABx(fs, OpCode.OP_LOADK, fs.freereg, luaK_numberK(fs, 1));
+			luaK_codek(fs, fs.freereg, luaK_numberK(fs, 1));
 			luaK_reserveregs(fs, 1);
 		  }
 		  forbody(ls, base_, line, 1, 1);

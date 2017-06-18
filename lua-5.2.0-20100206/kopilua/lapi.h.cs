@@ -9,5 +9,12 @@
 			StkId.inc(ref L.top);
 			api_check(L, L.top <= L.ci.top);
 		}
+
+		private static void adjustresults(lua_State L, int nres)
+    	{ 
+			if (nres == LUA_MULTRET && L.ci.top < L.top) 
+				L.ci.top = L.top; 
+		}
+	
 	}
 }

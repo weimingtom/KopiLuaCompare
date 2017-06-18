@@ -263,6 +263,12 @@ namespace KopiLua
 			obj.tt = LUA_TNUMBER;
 		}
 
+		public static void changenvalue(TValue obj, lua_Number x) {
+			lua_assert(obj.tt==LUA_TNUMBER);
+			obj.value.n=x; 
+		}
+  
+
 		public static void setpvalue( TValue obj, object x) {
 			obj.value.p = x;
 			obj.tt = LUA_TLIGHTUSERDATA;
@@ -443,11 +449,6 @@ namespace KopiLua
 		  public lu_byte maxstacksize;
 		};
 
-
-		/* masks for new-style vararg */
-		public const int VARARG_HASARG			= 1;
-		public const int VARARG_ISVARARG		= 2;
-		public const int VARARG_NEEDSARG		= 4;
 
 		public class LocVar {
 		  public TString varname;
@@ -664,7 +665,7 @@ namespace KopiLua
 		  public Table metatable;
 		  public TValue[] array;  /* array part */
 		  public Node[] node;
-		  public int lastfree;  /* any free position is before this position */
+		  public int lastfree;  /* any free position is before this position */ //FIXME: this is differente from original code, use t.node[t.lastfree] to get Node value
 		  public GCObject gclist;
 		  public int sizearray;  /* size of `array' array */
 		};

@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.27 2007/12/19 17:24:38 roberto Exp roberto $
+** $Id: lobject.c,v 2.30 2009/05/27 17:11:27 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -85,6 +85,21 @@ namespace KopiLua
 		  }
 		}
 
+
+		public static lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
+		  switch (op) {
+		    case LUA_OPADD: return luai_numadd(null, v1, v2);
+		    case LUA_OPSUB: return luai_numsub(null, v1, v2);
+		    case LUA_OPMUL: return luai_nummul(null, v1, v2);
+		    case LUA_OPDIV: return luai_numdiv(null, v1, v2);
+		    case LUA_OPMOD: return luai_nummod(null, v1, v2);
+		    case LUA_OPPOW: return luai_numpow(null, v1, v2);
+		    case LUA_OPUNM: return luai_numunm(null, v1); //FIXME:N->NULL
+		    default: lua_assert(0); return 0;
+		  }
+		}
+
+
 		public static int luaO_str2d (CharPtr s, out lua_Number result) {
 		  CharPtr endptr;
 		  result = lua_str2number(s, out endptr);
@@ -92,7 +107,7 @@ namespace KopiLua
 		  if (endptr[0] == 'x' || endptr[0] == 'X')  /* maybe an hexadecimal constant? */
 			result = cast_num(strtoul(s, out endptr, 16));
 		  if (endptr[0] == '\0') return 1;  /* most common case */
-		  while (isspace(endptr[0])) endptr = endptr.next();
+		  while (lisspace(endptr[0]) != 0) endptr = endptr.next();
 		  if (endptr[0] != '\0') return 0;  /* invalid trailing characters? */
 		  return 1;
 		}
@@ -165,8 +180,7 @@ namespace KopiLua
 		    fmt = e+2;
 		  }
 		  pushstr(L, fmt);
-		  luaV_concat(L, n+1, cast_int(L.top - L.base_) - 1);
-		  L.top -= n;
+		  luaV_concat(L, n+1);
 		  return svalue(L.top - 1);
 		}
 

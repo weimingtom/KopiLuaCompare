@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.60 2008/08/05 19:25:42 roberto Exp roberto $
+** $Id: loadlib.c,v 1.62 2009/03/26 22:25:05 roberto Exp roberto $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -64,8 +64,8 @@ namespace KopiLua
 		}
 
 
-		static void *ll_load (lua_State L, readonly CharPtr path) {
-		  void *lib = dlopen(path, RTLD_NOW);
+		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
+		  void *lib = dlopen(path, RTLD_NOW | (seeglb ? RTLD_GLOBAL : 0));
 		  if (lib == null) lua_pushstring(L, dlerror());
 		  return lib;
 		}
@@ -120,8 +120,9 @@ namespace KopiLua
 		}
 
 
-		static void *ll_load (lua_State L, readonly CharPtr path) {
+		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
 		  HINSTANCE lib = LoadLibrary(path);
+          UNUSED(seeglb);  /* symbols are 'global' by default? */
 		  if (lib == null) pusherror(L);
 		  return lib;
 		}
@@ -184,7 +185,7 @@ namespace KopiLua
 		}
 
 
-		static void *ll_load (lua_State L, readonly CharPtr path) {
+		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
 		  NSObjectFileImage img;
 		  NSObjectFileImageReturnCode ret;
 		  /* this would be a rare case, but prevents crashing if it happens */
@@ -194,8 +195,10 @@ namespace KopiLua
 		  }
 		  ret = NSCreateObjectFileImageFromFile(path, img);
 		  if (ret == NSObjectFileImageSuccess) {
-			NSModule mod = NSLinkModule(img, path, NSLINKMODULE_OPTION_PRIVATE |
-							   NSLINKMODULE_OPTION_RETURN_ON_ERROR);
+			NSModule mod = NSLinkModule(img, 
+			                            path, 
+										NSLINKMODULE_OPTION_RETURN_ON_ERROR |
+                                  (seeglb ? 0 : NSLINKMODULE_OPTION_PRIVATE));
 			NSDestroyObjectFileImage(img);
 			if (mod == null) pusherror(L);
 			return mod;
@@ -233,19 +236,19 @@ namespace KopiLua
 
 
 		public static void ll_unloadlib (object lib) {
-		  //(void)lib;  /* to avoid warnings */
+		  //UNUSED(lib);  /* to avoid warnings */
 		}
 
 
-		public static object ll_load (lua_State L, CharPtr path) {
-		  //(void)path;  /* to avoid warnings */
+		public static object ll_load (lua_State L, CharPtr path, int seeglb) { //FIXME:added seeglb
+		  //UNUSED(path);  /* to avoid warnings */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
 		}
 
 
 		public static lua_CFunction ll_sym (lua_State L, object lib, CharPtr sym) {
-		  //(void)lib; (void)sym;  /* to avoid warnings */
+		  //UNUSED(lib); UNUSED(sym);  /* to avoid warnings */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
 		}
@@ -291,9 +294,13 @@ namespace KopiLua
 
 		private static int ll_loadfunc (lua_State L, CharPtr path, CharPtr sym) {
 		  object reg = ll_register(L, path);
-		  if (reg == null) reg = ll_load(L, path);
+		  if (reg == null) reg = ll_load(L, path, (sym[0] == '*') ? 1 : 0);
 		  if (reg == null)
 			return ERRLIB;  /* unable to load library */
+		  else if (sym[0] == '*') {  /* loading only library (no function)? */
+		    lua_pushboolean(L, 1);  /* return 'true' */
+		    return 0;
+		  }
 		  else {
 			lua_CFunction f = ll_sym(L, reg, sym);
 			if (f == null)
@@ -660,7 +667,7 @@ namespace KopiLua
 		  setpath(L, "cpath", LUA_CPATH, LUA_CPATH_DEFAULT); /* set field `cpath' */
 		  /* store config information */
 		  lua_pushliteral(L, LUA_DIRSEP + "\n" + LUA_PATHSEP + "\n" + LUA_PATH_MARK + "\n" +
-							 LUA_EXECDIR + "\n" + LUA_IGMARK);
+							 LUA_EXECDIR + "\n" + LUA_IGMARK + "\n");
 		  lua_setfield(L, -2, "config");
 		  /* set field `loaded' */
 		  luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 2);

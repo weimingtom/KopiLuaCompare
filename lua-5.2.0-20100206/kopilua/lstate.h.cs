@@ -8,6 +8,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
+	using lua_Number = System.Double;
 	
 	/*
 
@@ -147,22 +148,42 @@ namespace KopiLua
 				return value[1];
 			}
 
-			public StkId base_;  /* base for this function */
+
 			public StkId func;  /* function index in the stack */
 			public StkId top;  /* top for this function */
-			public InstructionPtr savedpc;
-			public short nresults;  /* expected number of results from this function */
+			public CallInfo previous, next;  /* dynamic call link */
+			public short nresults;  /* expected number of results from a call */
 			public lu_byte callstatus;
-			public int tailcalls;  /* number of tail calls lost under this entry */
+			public class _u {
+			    public class _l {  /* only for Lua functions */
+			      public StkId base_;  /* base for this function */
+			      public InstructionPtr savedpc;
+			      public int tailcalls;  /* number of tail calls lost under this entry */
+			    };
+				public _l l = new _l();
+			    public class _c {  /* only for C functions */
+			      public int ctx;  /* context info. in case of yields */
+			      public lua_CFunction k;  /* continuation in case of yields */
+			      public ptrdiff_t old_errfunc;
+			      public ptrdiff_t oldtop;
+			      public lu_byte old_allowhook;
+			      public lu_byte status;
+			    };
+				public _c c = new _c();
+			};
+			public _u u = new _u();
 		};
 
 		/*
 		** Bits in CallInfo status
 		*/
-		public const int CIST_LUA = 1;	/* call is running a Lua function */
-		public const int CIST_HOOKED = 2;	/* call is running a debug hook */
-		public const int CIST_REENTRY = 4;	/* call is running on same invocation of
+		public const int CIST_LUA = (1<<0);	/* call is running a Lua function */
+		public const int CIST_HOOKED = (1<<1);	/* call is running a debug hook */
+		public const int CIST_REENTRY = (1<<2);	/* call is running on same invocation of
 		                                   luaV_execute of previous call */
+		public const int CIST_YIELDED =	(1<<3);	/* call reentered after suspension */
+		public const int CIST_YPCALL = 	(1<<4);	/* call is a yieldable protected call */
+		public const int CIST_STAT = 	(1<<5);	/* call has an error status (pcall) */
 
 
 		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
@@ -201,6 +222,7 @@ namespace KopiLua
 		  public TValue l_registry = new TValue();
 		  public lua_State mainthread;
 		  public UpVal uvhead = new UpVal();  /* head of double-linked list of all open upvalues */
+          public /*const*/ lua_Number[] version;  /* pointer to version number */
 		  public Table[] mt = new Table[NUM_TAGS];  /* metatables for basic types */
 		  public TString[] tmname = new TString[(int)TMS.TM_N];  /* array with tag-method names */
 		};
@@ -213,18 +235,14 @@ namespace KopiLua
 
 		  public lu_byte status;
 		  public StkId top;  /* first free slot in the stack */
-		  public StkId base_;  /* base of current function */
 		  public global_State l_G;
 		  public CallInfo ci;  /* call info for current function */
-		  public InstructionPtr savedpc = new InstructionPtr();  /* `savedpc' of current function */
+		  public int nci;  /* number of total CallInfo structures linked */
           public /*const*/ InstructionPtr oldpc;  /* last pc traced */
 		  public StkId stack_last;  /* last free slot in the stack */
 		  public StkId[] stack;  /* stack base */
-		  public CallInfo end_ci;  /* points after end of ci array*/
-		  public CallInfo[] base_ci;  /* array of CallInfo's */
 		  public int stacksize;
-		  public int size_ci;  /* size of array `base_ci' */
-		  public ushort baseCcalls;  /* number of nested C calls when resuming */
+		  public ushort nny;  /* number of non-yieldable calls in stack */
 		  public lu_byte hookmask;
 		  public lu_byte allowhook;
 		  public int basehookcount;
@@ -236,6 +254,7 @@ namespace KopiLua
 		  public GCObject gclist;
 		  public lua_longjmp errorJmp;  /* current error recover point */
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
+		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
 		};
 
 

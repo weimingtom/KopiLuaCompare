@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.35 2008/04/02 16:16:06 roberto Exp roberto $
+** $Id: lcode.c,v 2.39 2009/06/17 17:49:09 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -345,11 +345,11 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VK: {
-			  luaK_codeABx(fs, OpCode.OP_LOADK, reg, e.u.s.info);
+			  luaK_codek(fs, reg, e.u.s.info);
 			  break;
 			}
 			case expkind.VKNUM: {
-			  luaK_codeABx(fs, OpCode.OP_LOADK, reg, luaK_numberK(fs, e.u.nval));
+			  luaK_codek(fs, reg, luaK_numberK(fs, e.u.nval));
 			  break;
 			}
 			case expkind.VRELOCABLE: {
@@ -540,15 +540,19 @@ namespace KopiLua
 			  pc = NO_JUMP;  /* always true; do nothing */
 			  break;
 			}
-		    case expkind.VFALSE: {
-		      pc = luaK_jump(fs);  /* always jump */
-		      break;
-		    }
 			case expkind.VJMP: {
 			  invertjump(fs, e);
 			  pc = e.u.s.info;
 			  break;
 			}
+		    case expkind.VFALSE: {
+			  if (!hasjumps(e)) {
+			      pc = luaK_jump(fs);  /* always jump */
+			      break;
+			  }
+			  /* else go through */
+			  goto default; //FIXME:added
+		    }
 			default: {
 			  pc = jumponcond(fs, e, 0);
 			  break;
@@ -568,14 +572,18 @@ namespace KopiLua
 			  pc = NO_JUMP;  /* always false; do nothing */
 			  break;
 			}
-			case expkind.VTRUE: {
-			      pc = luaK_jump(fs);  /* always jump */
-			      break;
-			    }
 			case expkind.VJMP: {
 			  pc = e.u.s.info;
 			  break;
 			}
+			case expkind.VTRUE: {
+                if (!hasjumps(e)) {
+			      pc = luaK_jump(fs);  /* always jump */
+			      break;
+		      }
+		      /* else go through */
+			  goto default;//FIXME:added
+		    }
 			default: {
 			  pc = jumponcond(fs, e, 1);
 			  break;
@@ -629,23 +637,11 @@ namespace KopiLua
 
 
 		private static int constfolding (OpCode op, expdesc e1, expdesc e2) {
-		  lua_Number v1, v2, r;
+		  lua_Number r;
 		  if ((isnumeral(e1)==0) || (isnumeral(e2)==0)) return 0;
-		  v1 = e1.u.nval;
-		  v2 = e2.u.nval;
-		  switch (op) {
-			case OpCode.OP_ADD: r = luai_numadd(null, v1, v2); break;
-			case OpCode.OP_SUB: r = luai_numsub(null, v1, v2); break;
-			case OpCode.OP_MUL: r = luai_nummul(null, v1, v2); break;
-			case OpCode.OP_DIV:
-			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
-			  r = luai_numdiv(null, v1, v2); break;
-			case OpCode.OP_MOD:
-			  if (v2 == 0) return 0;  /* do not attempt to divide by 0 */
-			  r = luai_nummod(null, v1, v2); break;
-			case OpCode.OP_POW: r = luai_numpow(null, v1, v2); break;
-			default: lua_assert(0); r = 0; break;
-		  }
+		  if ((op == OpCode.OP_DIV || op == OpCode.OP_MOD) && e2.u.nval == 0)
+		    return 0;  /* do not attempt to divide by 0 */
+		  r = luaO_arith(op - OpCode.OP_ADD + LUA_OPADD, e1.u.nval, e2.u.nval);
 		  if (luai_numisnan(null, r)) return 0;  /* do not attempt to produce NaN */
 		  e1.u.nval = r;
 		  return 1;
@@ -769,18 +765,19 @@ namespace KopiLua
 			  }
 			  break;
 			}
-			case BinOpr.OPR_ADD: codearith(fs, OpCode.OP_ADD, e1, e2); break;
-			case BinOpr.OPR_SUB: codearith(fs, OpCode.OP_SUB, e1, e2); break;
-			case BinOpr.OPR_MUL: codearith(fs, OpCode.OP_MUL, e1, e2); break;
-			case BinOpr.OPR_DIV: codearith(fs, OpCode.OP_DIV, e1, e2); break;
-			case BinOpr.OPR_MOD: codearith(fs, OpCode.OP_MOD, e1, e2); break;
-			case BinOpr.OPR_POW: codearith(fs, OpCode.OP_POW, e1, e2); break;
-			case BinOpr.OPR_EQ: codecomp(fs, OpCode.OP_EQ, 1, e1, e2); break;
-			case BinOpr.OPR_NE: codecomp(fs, OpCode.OP_EQ, 0, e1, e2); break;
-			case BinOpr.OPR_LT: codecomp(fs, OpCode.OP_LT, 1, e1, e2); break;
-			case BinOpr.OPR_LE: codecomp(fs, OpCode.OP_LE, 1, e1, e2); break;
-			case BinOpr.OPR_GT: codecomp(fs, OpCode.OP_LT, 0, e1, e2); break;
-			case BinOpr.OPR_GE: codecomp(fs, OpCode.OP_LE, 0, e1, e2); break;
+		    case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
+		    case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
+		      codearith(fs, op - BinOpr.OPR_ADD + OpCode.OP_ADD, e1, e2);
+		      break;
+		    }
+		    case BinOpr.OPR_EQ: case BinOpr.OPR_LT: case BinOpr.OPR_LE: {
+		      codecomp(fs, op - BinOpr.OPR_EQ + OpCode.OP_EQ, 1, e1, e2);
+		      break;
+		    }
+		    case BinOpr.OPR_NE: case BinOpr.OPR_GT: case BinOpr.OPR_GE: {
+		      codecomp(fs, op - BinOpr.OPR_NE + OpCode.OP_EQ, 0, e1, e2);
+		      break;
+		    }
 			default: lua_assert(0); break;
 		  }
 		}
@@ -810,6 +807,7 @@ namespace KopiLua
 		  lua_assert(getOpMode(o) == OpMode.iABC);
 		  lua_assert(getBMode(o) != OpArgMask.OpArgN || b == 0);
 		  lua_assert(getCMode(o) != OpArgMask.OpArgN || c == 0);
+          lua_assert(a <= MAXARG_A && b <= MAXARG_B && c <= MAXARG_C);
 		  return luaK_code(fs, CREATE_ABC(o, a, b, c));
 		}
 
@@ -817,13 +815,20 @@ namespace KopiLua
 		public static int luaK_codeABx (FuncState fs, OpCode o, int a, int bc) {			
 		  lua_assert(getOpMode(o) == OpMode.iABx || getOpMode(o) == OpMode.iAsBx);
 		  lua_assert(getCMode(o) == OpArgMask.OpArgN);
+          lua_assert(a <= MAXARG_A && bc <= MAXARG_Bx);
 		  return luaK_code(fs, CREATE_ABx(o, a, bc));
 		}
 
 
 		private static int luaK_codeAx (FuncState fs, OpCode o, int a) {
 		  lua_assert(getOpMode(o) == OpMode.iAx);
+          lua_assert(a <= MAXARG_Ax);
 		  return luaK_code(fs, CREATE_Ax(o, a));
+		}
+
+
+		private static void luaK_codek (FuncState fs, int reg, int k) {
+		    luaK_codeABx(fs, OpCode.OP_LOADK, reg, k);
 		}
 
 

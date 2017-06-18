@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.170 2008/06/26 19:47:51 roberto Exp roberto $
+** $Id: lua.c,v 1.172 2009/02/19 17:15:35 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -234,7 +234,7 @@ namespace KopiLua
 				}
 			}
 			Lua.lua_settop(L, 0);  /* clear stack */
-			Lua.fputs("\n", Lua.stdout);
+			Lua.luai_writestring("\n", 1);
 			Lua.fflush(Lua.stdout);
 			progname = oldprogname;
 		}
@@ -359,6 +359,7 @@ namespace KopiLua
 			Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
 			Lua.luaL_openlibs(L);  /* open libraries */
 			Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
+            Lua.luaL_checkversion(L);
 			s.ok = (handle_luainit(L) == Lua.LUA_OK) ? 1 : 0;
 			if (s.ok == 0) return 0;
 			script = collectargs(argv, ref has_i, ref has_v, ref has_e);

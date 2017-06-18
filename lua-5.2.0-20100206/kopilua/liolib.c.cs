@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.78 2008/02/12 16:51:03 roberto Exp roberto $
+** $Id: liolib.c,v 2.79 2008/02/12 17:05:36 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -108,9 +108,14 @@ namespace KopiLua
 		*/
 		private static int io_pclose (lua_State L) {
 		  FilePtr p = tofilep(L);
-		  int ok = (lua_pclose(L, p.file) == 0) ? 1 : 0;
+		  int stat = lua_pclose(L, p.file);
 		  p.file = null;
-		  return pushresult(L, ok, null);
+		  if (stat == -1)  /* error? */
+		    return pushresult(L, 0, null);
+		  else {
+		    lua_pushinteger(L, stat);
+		    return 1;  /* return status */
+		  }
 		}
 
 

@@ -10,9 +10,10 @@ namespace KopiLua
 		*/
 		public const int GCSpause		= 0;
 		public const int GCSpropagate	= 1;
-		public const int GCSsweepstring	= 2;
-		public const int GCSsweep		= 3;
-		public const int GCSfinalize	= 4;
+		public const int GCSatomic	    = 2;
+		public const int GCSsweepstring	= 3;
+		public const int GCSsweep		= 4;
+		public const int GCSfinalize	= 5;
 
 
 		public static bool issweep(global_State g) { return (GCSsweepstring <= g.gcstate && g.gcstate <= GCSsweep); }
@@ -73,10 +74,8 @@ namespace KopiLua
 
 		public static void luaC_checkGC(lua_State L)
 		{
-			//condhardstacktests(luaD_reallocstack(L, L.stacksize - EXTRA_STACK - 1));
-			//luaD_reallocstack(L, L.stacksize - EXTRA_STACK - 1);
-			if (G(L).totalbytes >= G(L).GCthreshold)
-				luaC_step(L);
+			/*condmovestack(L);*/ //FIXME:???
+			if (G(L).totalbytes >= G(L).GCthreshold) luaC_step(L);
 		}
 
 
