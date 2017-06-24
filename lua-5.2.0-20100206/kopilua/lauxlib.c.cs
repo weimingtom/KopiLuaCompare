@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.187 2009/06/18 18:59:58 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.196 2009/12/22 15:32:50 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -70,10 +70,10 @@ namespace KopiLua
 		private static int pushglobalfuncname (lua_State L, lua_Debug ar) {
 		  int top = lua_gettop(L);
 		  lua_getinfo(L, "f", ar);  /* push function */
-		  lua_pushvalue(L, LUA_GLOBALSINDEX);  /* push global table */
+		  lua_pushglobaltable(L);
 		  if (findfield(L, top + 1, 2) != 0) {
-		    lua_replace(L, top + 1);  /* move name to proper place */
-		    lua_pop(L, 1);  /* remove other pushed value */
+		    lua_copy(L, -1, top + 1);  /* move name to proper place */
+		    lua_pop(L, 2);  /* remove pushed values */
 		    return 1;
 		  }
 		  else {
@@ -94,7 +94,7 @@ namespace KopiLua
 		      lua_remove(L, -2);  /* remove name */
 		    }
 		    else
-		    	lua_pushliteral(L, "?");  /* C function or tail call */
+		    	lua_pushliteral(L, "?");
           }
 		  else
 		    lua_pushfstring(L, "function <%s:%d>", ar.short_src, ar.linedefined);
@@ -103,9 +103,16 @@ namespace KopiLua
 
 		static int countlevels (lua_State L) {
 		  lua_Debug ar = new lua_Debug();
-		  int level = 1;
-		  while (lua_getstack(L, level, ar) != 0) level++;
-		  return level;
+		  int li = 1, le = 1;
+		  /* find an upper bound */
+		  while (lua_getstack(L, le, &ar)) { li = le; le *= 2; }
+		  /* do a binary search */
+		  while (li < le) {
+		    int m = (li + le)/2;
+		    if (lua_getstack(L, m, &ar)) li = m + 1;
+		    else le = m;
+		  }
+		  return le - 1;
 		}
 
 
@@ -123,12 +130,14 @@ namespace KopiLua
 		      level = numlevels - LEVELS2;  /* and skip to last ones */
 		    }
 		    else {
-		      lua_getinfo(L1, "Sln", ar);
+		      lua_getinfo(L1, "Slnt", ar);
 		      lua_pushfstring(L, "\n\t%s:", ar.short_src);
 		      if (ar.currentline > 0)
 		        lua_pushfstring(L, "%d:", ar.currentline);
 		      lua_pushliteral(L, " in ");
 		      pushfuncname(L, ar);
+		      if (ar.istailcall)
+		        lua_pushliteral(L, "\n\t(...tail calls...)");
 		      lua_concat(L, lua_gettop(L) - top);
 		    }
 		  }
@@ -233,6 +242,7 @@ namespace KopiLua
 		  return null;  /* value is not a userdata with a metatable */
 		}
 
+
 		public static object luaL_checkudata (lua_State L, int ud, CharPtr tname) {
 		  object p = luaL_testudata(L, ud, tname);
 		  if (p == null) luaL_typeerror(L, ud, tname);
@@ -259,9 +269,15 @@ namespace KopiLua
 		  return luaL_argerror(L, narg,
 							   lua_pushfstring(L, "invalid option " + LUA_QS, name));
 		}
-		public static void luaL_checkstack (lua_State L, int space, CharPtr mes) {
-		  if (lua_checkstack(L, space) == 0)
-			luaL_error(L, "stack overflow (%s)", mes);
+
+
+		public static void luaL_checkstack (lua_State L, int space, CharPtr msg) {
+		  if (lua_checkstack(L, space)==0) {
+		    if (msg != null)
+		      luaL_error(L, "stack overflow (%s)", msg);
+		    else
+		      luaL_error(L, "stack overflow");
+		  }
 		}
 
 
@@ -354,9 +370,9 @@ namespace KopiLua
 		  if (B.lvl > 1) {
 			lua_State L = B.L;
 			int toget = 1;  /* number of levels to concat */
-			uint toplen = lua_objlen(L, -1);
+			uint toplen = lua_rawlen(L, -1);
 			do {
-			  uint l = lua_objlen(L, -(toget+1));
+			  uint l = lua_rawlen(L, -(toget+1));
 			  if (B.lvl - toget + 1 >= LIMIT || toplen > l) {
 				toplen += l;
 				toget++;
@@ -428,6 +444,7 @@ namespace KopiLua
 
 		/* }====================================================== */
 
+
 		/*
 		** {======================================================
 		** Reference system
@@ -435,9 +452,7 @@ namespace KopiLua
 		*/
 
 		/* number of prereserved references (for internal use) */
-		private const int RESERVED_REFS = 1;	/* only FREELIST_REF is reserved */
-
-		private const int FREELIST_REF = 1;	/* free list of references */
+		private const int FREELIST_REF = (LUA_RIDX_LAST + 1);	/* free list of references */
 
 
 		public static int luaL_ref (lua_State L, int t) {
@@ -455,10 +470,12 @@ namespace KopiLua
 			lua_rawseti(L, t, FREELIST_REF);  /* (t[FREELIST_REF] = t[ref]) */
 		  }
 		  else {  /* no free elements */
-			ref_ = (int)lua_objlen(L, t);
-		    if (ref_ < RESERVED_REFS)
-		      ref_ = RESERVED_REFS;  /* skip reserved references */
-			ref_++;  /* create new reference */
+		    ref_ = (int)lua_rawlen(L, t) + 1;  /* get a new reference */
+		    if (ref_ == FREELIST_REF) {  /* FREELIST_REF not initialized? */
+		      lua_pushinteger(L, 0);
+		      lua_rawseti(L, t, FREELIST_REF);
+		      ref_ = FREELIST_REF + 1;
+		    }
 		  }
 		  lua_rawseti(L, t, ref_);
 		  return ref_;
@@ -618,12 +635,21 @@ namespace KopiLua
 		}
 
 
+		public static int luaL_len (lua_State L, int idx) {
+		  int l;
+		  lua_len(L, idx);
+		  l = lua_tointeger(L, -1);
+		  if (l == 0 && !lua_isnumber(L, -1))
+		    luaL_error(L, "object length is not a number");
+		  lua_pop(L, 1);  /* remove object */
+		  return l;
+		}
+
+
 		public static CharPtr luaL_tolstring (lua_State L, int idx, uint[] len) { //FIXME: size_t * -> uint[]
 		  if (luaL_callmeta(L, idx, "__tostring") == 0) {  /* no metafield? */
 		    switch (lua_type(L, idx)) {
 		      case LUA_TNUMBER:
-		        lua_pushstring(L, lua_tostring(L, idx));
-                break;
 		      case LUA_TSTRING:
 		        lua_pushvalue(L, idx);
 		        break;
@@ -639,8 +665,7 @@ namespace KopiLua
                 break;
 		    }
 		  }
-          if (len != null) len[0] = lua_objlen(L, -1);
-		  return lua_tostring(L, -1);
+		  return lua_tolstring(L, -1, len);
 		}
 
 
@@ -663,15 +688,17 @@ namespace KopiLua
 			if (!lua_istable(L, -1)) {  /* not found? */
 			  lua_pop(L, 1);  /* remove previous result */
 			  /* try global variable (and create one if it does not exist) */
-			  if (luaL_findtable(L, LUA_GLOBALSINDEX, libname, libsize(l)) != null)
+              lua_pushglobaltable(L);
+			  if (luaL_findtable(L, 0, libname, libsize(l)) != null)
 				luaL_error(L, "name conflict for module " + LUA_QS, libname);
 			  lua_pushvalue(L, -1);
 			  lua_setfield(L, -3, libname);  /* _LOADED[libname] = new table */
 			}
 			lua_remove(L, -2);  /* remove _LOADED table */
 		  }
+		  if (l == null) return;  /* nothing to register? */
 		  int reg_num = 0;
-		  for (; l[reg_num].name!=null; reg_num++) {
+		  for (; l[reg_num].name!=null; reg_num++) {  /* else fill the table with given functions */
 		    lua_pushcfunction(L, l[reg_num].func);
 		    lua_setfield(L, -2, l[reg_num].name);
 		  }
@@ -699,7 +726,7 @@ namespace KopiLua
 		public static CharPtr luaL_findtable (lua_State L, int idx,
 											   CharPtr fname, int szhint) {
 		  CharPtr e;
-		  lua_pushvalue(L, idx);
+		  if (idx != 0) lua_pushvalue(L, idx);
 		  do {
 			e = strchr(fname, '.');
 			if (e == null) e = fname + strlen(fname);
@@ -745,6 +772,7 @@ namespace KopiLua
 		  return L;
 		}
 
+
 		public static void luaL_checkversion_ (lua_State L, lua_Number ver) {
 		  lua_Number[] v = lua_version(L);
 		  if (v != lua_version(null))
@@ -755,5 +783,14 @@ namespace KopiLua
 		}
 
 
+		public static int luaL_cpcall (lua_State L, lua_CFunction f, int nargs,
+		                            int nresults) {
+		  nargs++;  /* to include function itself */
+		  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_CPCALL);
+		  lua_insert(L, -nargs);
+		  lua_pushlightuserdata(L, &f);
+		  lua_insert(L, -nargs);
+		  return lua_pcall(L, nargs, nresults, 0);
+		}
 	}
 }

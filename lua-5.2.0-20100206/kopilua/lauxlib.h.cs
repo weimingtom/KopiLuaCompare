@@ -81,8 +81,6 @@ namespace KopiLua
 			B.buffer[B.p++] = c;
 		}
 
-		///* compatibility only */
-		public static void luaL_putchar(luaL_Buffer B, char c)	{luaL_addchar(B,c);}
 
 		public static void luaL_addsize(luaL_Buffer B, int n)	{B.p += n;}
 
@@ -106,8 +104,6 @@ namespace KopiLua
 		//#define luaL_reg	luaL_Reg
 
 
-		/* compatibility with previous wrong spelling */
-		private static int luaL_typerror(lua_State L, int narg, CharPtr tname) { return luaL_typeerror(L, narg, tname); } //FIXME:???
 	}
 }
 
