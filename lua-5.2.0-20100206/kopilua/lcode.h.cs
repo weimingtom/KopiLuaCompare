@@ -32,5 +32,7 @@ namespace KopiLua
 		public static void luaK_setmultret(FuncState fs, expdesc e)	{luaK_setreturns(fs, e, LUA_MULTRET);}
 		
 		public static void luaK_jumpto(FuncState fs, int t)	{luaK_patchlist(fs, luaK_jump(fs), t);}
+		
+		public static void luaK_codek(fs,reg,k) { return luaK_codeABxX(fs, OP_LOADK, reg, k);}
 	}
 }

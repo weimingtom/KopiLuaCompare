@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.51 2009/06/01 19:09:26 roberto Exp roberto $
+** $Id: ldebug.c,v 2.62 2010/01/11 17:37:59 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -21,17 +21,13 @@ namespace KopiLua
 
 
 		private static int currentpc (CallInfo ci) {
-		  if (isLua(ci) == 0) return -1;  /* function is not a Lua function? */
+		  lua_assert(isLua(ci))
 		  return pcRel(ci.u.l.savedpc, ci_func(ci).l.p);
 		}
 
 
 		private static int currentline (CallInfo ci) {
-		  int pc = currentpc(ci);
-		  if (pc < 0)
-			return -1;  /* only active lua functions have current-line information */
-		  else
-			return getfuncline(ci_func(ci).l.p, pc);
+		  return getfuncline(ci_func(ci).l.p, currentpc(ci));
 		}
 
 
@@ -43,7 +39,8 @@ namespace KopiLua
 			mask = 0;
 			func = null;
 		  }
-          L.oldpc = null;
+		  if (isLua(L.ci))
+		    L.oldpc = L.ci.u.l.savedpc;
 		  L.hook = func;
 		  L.basehookcount = count;
 		  resethookcount(L);
@@ -70,19 +67,13 @@ namespace KopiLua
 		public static int lua_getstack (lua_State L, int level, lua_Debug ar) {
 		  int status;
 		  CallInfo ci;
+          if (level < 0) return 0;  /* invalid (negative) level */
 		  lua_lock(L);
-		  for (ci = L.ci; level > 0 && ci != L.base_ci[0]; ci = ci.previous) {
+		  for (ci = L.ci; level > 0 && ci != L.base_ci[0]; ci = ci.previous)
 			level--;
-			if (isLua(ci) != 0)  /* Lua function? */
-			  level -= ci.u.l.tailcalls;  /* skip lost tail calls */
-		  }
 		  if (level == 0 && ci != L.base_ci[0]) {  /* level found? */
 			status = 1;
 			ar.i_ci = ci;
-		  }
-		  else if (level < 0) {  /* level is of a lost tail call? */
-			status = 1;
-			ar.i_ci = null;
 		  }
 		  else status = 0;  /* no such level */
 		  lua_unlock(L);
@@ -104,7 +95,10 @@ namespace KopiLua
 		    StkId limit = (ci == L.ci) ? L.top : ci.next.func;
 		    if (limit - base_ >= n && n > 0)  /* is 'n' inside 'ci' stack? */
 		      name = "(*temporary)";  /* generic name for any valid slot */
-		    else return null;  /* no name */
+		    else {
+		      pos = base_;  /* to avoid warnings */
+		      return null;  /* no name */
+		    }
 		  }
 		  pos = base_ + (n - 1);
 		  return name;
@@ -112,9 +106,8 @@ namespace KopiLua
 
 
 		public static CharPtr lua_getlocal (lua_State L, lua_Debug ar, int n) {
-		  CallInfo ci = ar.i_ci;
 		  StkId pos = new StkId();
-		  CharPtr name = findlocal(L, ci, n, ref pos);
+		  CharPtr name = findlocal(L, ar.i_ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null) {
 			  setobj2s(L, L.top, pos);
@@ -126,9 +119,8 @@ namespace KopiLua
 
 
 		public static CharPtr lua_setlocal (lua_State L, lua_Debug ar, int n) {
-		  CallInfo ci = ar.i_ci;
 		  StkId pos = new StkId();
-		  CharPtr name = findlocal(L, ci, n, ref pos);
+		  CharPtr name = findlocal(L, ar.i_ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null)
 			  setobjs2s(L, pos, L.top-1);
@@ -155,17 +147,6 @@ namespace KopiLua
 		}
 
 
-		private static void info_tailcall (lua_Debug ar) {
-		  ar.name = null;
-		  ar.namewhat = "";
-		  ar.what = "tail";
-		  ar.lastlinedefined = ar.linedefined = ar.currentline = -1;
-		  ar.source = "=(tail call)";
-		  luaO_chunkid(ar.short_src, ar.source, LUA_IDSIZE);
-		  ar.nups = 0;
-		}
-
-
 		private static void collectvalidlines (lua_State L, Closure f) {
 		  if (f == null || (f.c.isC!=0)) {
 			setnilvalue(L.top);
@@ -178,7 +159,7 @@ namespace KopiLua
 		    sethvalue(L, L.top, t);
 		    incr_top(L);
 			for (i=0; i<f.l.p.sizelineinfo; i++)
-			  setbvalue(luaH_setnum(L, t, lineinfo[i]), 1);
+			  setbvalue(luaH_setint(L, t, lineinfo[i]), 1);
 		  }
 		}
 
@@ -186,10 +167,6 @@ namespace KopiLua
 		private static int auxgetinfo (lua_State L, CharPtr what, lua_Debug ar,
 							Closure f, CallInfo ci) {
 		  int status = 1;
-		  if (f == null) {
-			info_tailcall(ar);
-			return status;
-		  }
 		  for (; what[0] != 0; what = what.next()) {
 			switch (what[0]) {
 			  case 'S': {
@@ -197,11 +174,23 @@ namespace KopiLua
 				break;
 			  }
 			  case 'l': {
-				ar.currentline = (ci != null) ? currentline(ci) : -1;
+				ar.currentline = (ci != null && isLua(ci)) ? currentline(ci) : -1;
 				break;
 			  }
 			  case 'u': {
 				ar.nups = f.c.nupvalues;
+		        if (f.c.isC) {
+		          ar.isvararg = 1;
+		          ar.nparams = 0;
+		        }
+		        else {
+		          ar.isvararg = f.l.p.is_vararg;
+		          ar.nparams = f.l.p->numparams;
+		        }
+		        break;
+		      }
+		      case 't': {
+		        ar.istailcall = (ci) ? ci.callstatus & CIST_TAIL : 0;
 				break;
 			  }
 			  case 'n': {
@@ -234,15 +223,14 @@ namespace KopiLua
 			f = clvalue(func);
 			StkId.dec(ref L.top);  /* pop function */
 		  }
-		  else if (ar.i_ci != null) {  /* no tail call? */
+		  else {
 			ci = ar.i_ci;
 			lua_assert(ttisfunction(ci.func));
 			f = clvalue(ci.func);
 		  }
 		  status = auxgetinfo(L, what, ar, f, ci);
 		  if (strchr(what, 'f') != null) {
-			if (f == null) setnilvalue(L.top);
-			else setclvalue(L, L.top, f);
+			setclvalue(L, L.top, f);
 			incr_top(L);
 		  }
 		  if (strchr(what, 'L') != null)
@@ -285,7 +273,9 @@ namespace KopiLua
 		    switch (op) {
 		      case OpCode.OP_GETGLOBAL: {
 		        if (reg == a) {
-		          int g = GETARG_Bx(i);  /* global index */
+		          int g = GETARG_Bx(i);
+		          if (g != 0) g--;
+		          else g = GETARG_Ax(p->code[++pc]);
 		          lua_assert(ttisstring(p.k[g]));
 		          name = svalue(p.k[g]);
 		          what = "global";
@@ -312,7 +302,8 @@ namespace KopiLua
 		      case OpCode.OP_GETUPVAL: {
 		        if (reg == a) {
 		          int u = GETARG_B(i);  /* upvalue index */
-		          name = (p.upvalues != null) ? getstr(p.upvalues[u]) : "?";
+		          TString tn = p.upvalues[u].name;
+		          name = tn ? getstr(tn) : "?";
 		          what = "upvalue";
 		        }
 		        break;
@@ -348,12 +339,6 @@ namespace KopiLua
 		          pc += b;  /* do the jump */
 		        break;
 		      }
-		      case OpCode.OP_CLOSURE: {
-		        int nup = p.p[GETARG_Bx(i)].nups;
-		        pc += nup;  /* do not 'execute' pseudo-instructions */
-		        lua_assert(pc <= lastpc);
-		        break;
-		      }
 		      default:
 		        if (testAMode(op) != 0 && reg == a) what = null;
 		        break;
@@ -366,10 +351,12 @@ namespace KopiLua
 		private static CharPtr getfuncname (lua_State L, CallInfo ci, ref CharPtr name) {
           TMS tm = 0;
 		  Instruction i;
-		  if ((isLua(ci) != 0 && ci.u.l.tailcalls > 0) || isLua(ci.previous) == 0)
+		  if ((ci.callstatus & CIST_TAIL)!=0 || isLua(ci.previous)==0)
 			return null;  /* calling function is not Lua (or is unknown) */
 		  ci = ci.previous;  /* calling function */
 		  i = ci_func(ci).l.p.code[currentpc(ci)];
+		  if (GET_OPCODE(i) == OP_EXTRAARG)  /* extra argument? */
+		    i = ci_func(ci).l.p.code[currentpc(ci) - 1];  /* get 'real' instruction */
 		  switch (GET_OPCODE(i)) {
 		    case OpCode.OP_CALL:
 		    case OpCode.OP_TAILCALL:
@@ -415,7 +402,7 @@ namespace KopiLua
 		public static void luaG_typeerror (lua_State L, TValue o, CharPtr op) {
           CallInfo ci = L.ci;
 		  CharPtr name = null;
-		  CharPtr t = luaT_typenames[ttype(o)];
+		  CharPtr t = typename(ttype(o));
 		  CharPtr kind = (isLua(ci) != 0 && isinstack(ci, o) != 0) ?
 								 getobjname(L, ci, cast_int(o - ci.u.l.base_), ref name) :
 								 null;
@@ -443,9 +430,9 @@ namespace KopiLua
 
 
 		public static int luaG_ordererror (lua_State L, TValue p1, TValue p2) {
-		  CharPtr t1 = luaT_typenames[ttype(p1)];
-		  CharPtr t2 = luaT_typenames[ttype(p2)];
-		  if (t1[2] == t2[2])
+		  CharPtr t1 = typename(ttype(p1));
+		  CharPtr t2 = typename(ttype(p2));
+		  if (t1 == t2) //FIXME:???
 			luaG_runerror(L, "attempt to compare two %s values", t1);
 		  else
 			luaG_runerror(L, "attempt to compare %s with %s", t1, t2);

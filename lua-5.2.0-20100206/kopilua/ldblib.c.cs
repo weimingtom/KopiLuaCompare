@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.109 2008/01/21 13:37:08 roberto Exp roberto $
+** $Id: ldblib.c,v 1.118 2009/11/25 15:27:51 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -38,6 +38,7 @@ namespace KopiLua
 
 
 		private static int db_getfenv (lua_State L) {
+          luaL_checkany(L, 1);
 		  lua_getfenv(L, 1);
 		  return 1;
 		}
@@ -61,6 +62,12 @@ namespace KopiLua
 
 		private static void settabsi (lua_State L, CharPtr i, int v) {
 		  lua_pushinteger(L, v);
+		  lua_setfield(L, -2, i);
+		}
+
+
+		private static void settabsb (lua_State L, CharPtr i, int v) {
+		  lua_pushboolean(L, v);
 		  lua_setfield(L, -2, i);
 		}
 
@@ -92,7 +99,7 @@ namespace KopiLua
 		  lua_Debug ar = new lua_Debug();
 		  int arg;
 		  lua_State L1 = getthread(L, out arg);
-		  CharPtr options = luaL_optstring(L, arg+2, "flnSu");
+		  CharPtr options = luaL_optstring(L, arg+2, "flnStu");
 		  if (lua_isnumber(L, arg+1) != 0) {
 			if (lua_getstack(L1, (int)lua_tointeger(L, arg+1), ar)==0) {
 			  lua_pushnil(L);  /* level out of range */
@@ -119,15 +126,20 @@ namespace KopiLua
 		  }
 		  if (strchr(options, 'l') != null)
 			settabsi(L, "currentline", ar.currentline);
-		  if (strchr(options, 'u')  != null)
+		  if (strchr(options, 'u') != null) {
 			settabsi(L, "nups", ar.nups);
-		  if (strchr(options, 'n')  != null) {
+		    settabsi(L, "nparams", ar.nparams);
+		    settabsb(L, "isvararg", ar.isvararg);
+          }
+		  if (strchr(options, 'n') != null) {
 			settabss(L, "name", ar.name);
 			settabss(L, "namewhat", ar.namewhat);
 		  }
+		  if (strchr(options, 't') != null)
+		    settabsb(L, "istailcall", ar.istailcall);
 		  if (strchr(options, 'L') != null)
 			treatstackoption(L, L1, "activelines");
-		  if (strchr(options, 'f')  != null)
+		  if (strchr(options, 'f') != null)
 			treatstackoption(L, L1, "func");
 		  return 1;  /* return table */
 		}
@@ -172,7 +184,6 @@ namespace KopiLua
 		  CharPtr name;
 		  int n = luaL_checkint(L, 2);
 		  luaL_checktype(L, 1, LUA_TFUNCTION);
-		  if (lua_iscfunction(L, 1)) return 0;  /* cannot touch C upvalues from Lua */
 		  name = (get!=0) ? lua_getupvalue(L, 1, n) : lua_setupvalue(L, 1, n);
 		  if (name == null) return 0;
 		  lua_pushstring(L, name);
@@ -192,12 +203,40 @@ namespace KopiLua
 		}
 
 
+		private static int checkupval (lua_State L, int argf, int argnup) {
+		  lua_Debug ar;
+		  int nup = luaL_checkint(L, argnup);
+		  luaL_checktype(L, argf, LUA_TFUNCTION);
+		  lua_pushvalue(L, argf);
+		  lua_getinfo(L, ">u", &ar);
+		  luaL_argcheck(L, 1 <= nup && nup <= ar.nups, argnup, "invalid upvalue index");
+		  return nup;
+		}
+
+
+		private static int db_upvalueid (lua_State L) {
+		  int n = checkupval(L, 1, 2);
+		  lua_pushlightuserdata(L, lua_upvalueid(L, 1, n));
+		  return 1;
+		}
+
+
+		private static int db_upvaluejoin (lua_State L) {
+		  int n1 = checkupval(L, 1, 2);
+		  int n2 = checkupval(L, 3, 4);
+		  luaL_argcheck(L, !lua_iscfunction(L, 1), 1, "Lua function expected");
+		  luaL_argcheck(L, !lua_iscfunction(L, 3), 3, "Lua function expected");
+		  lua_upvaluejoin(L, 1, n1, 3, n2);
+		  return 0;
+		}
+
 
 		private const string KEY_HOOK = "h";
 
 
+
 		private static readonly string[] hooknames =
-			{"call", "return", "line", "count", "tail return"};
+			{"call", "return", "line", "count", "tail call"};
 
 		private static void hookf (lua_State L, lua_Debug ar) {
 		  lua_pushlightuserdata(L, KEY_HOOK);
@@ -332,6 +371,8 @@ namespace KopiLua
 		  new luaL_Reg("getregistry", db_getregistry),
 		  new luaL_Reg("getmetatable", db_getmetatable),
 		  new luaL_Reg("getupvalue", db_getupvalue),
+		  new luaL_Reg("upvaluejoin", db_upvaluejoin),
+		  new luaL_Reg("upvalueid", db_upvalueid),
 		  new luaL_Reg("setfenv", db_setfenv),
 		  new luaL_Reg("sethook", db_sethook),
 		  new luaL_Reg("setlocal", db_setlocal),
