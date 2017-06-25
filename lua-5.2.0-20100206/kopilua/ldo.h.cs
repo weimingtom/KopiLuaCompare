@@ -5,7 +5,7 @@ namespace KopiLua
 	public partial class Lua
 	{
 		public static void luaD_checkstack(lua_State L, int n) {
-			if ((L.stack_last - L.top) <= n)
+			if (L.stack_last - L.top <= n)
 				luaD_growstack(L, n);
 			else
 			{

@@ -1,5 +1,5 @@
 /*
-** $Id: lfunc.c,v 2.13 2007/02/07 17:48:52 roberto Exp roberto $
+** $Id: lfunc.c,v 2.18 2009/12/11 13:39:34 roberto Exp roberto $
 ** Auxiliary functions to manipulate prototypes and closures
 ** See Copyright Notice in lua.h
 */
@@ -19,40 +19,33 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		public static Closure luaF_newCclosure (lua_State L, int nelems, Table e) {
-		  //Closure c = (Closure)luaM_malloc(L, sizeCclosure(nelems));	
-		  Closure c = luaM_new<Closure>(L);
-		  AddTotalBytes(L, sizeCclosure(nelems));
-		  luaC_link(L, obj2gco(c), LUA_TFUNCTION);
+		public static Closure luaF_newCclosure (lua_State L, int n, Table e) {
+		  Closure c = luaC_newobj(L, LUA_TFUNCTION, sizeCclosure(n), null, 0).cl;
 		  c.c.isC = 1;
 		  c.c.env = e;
-		  c.c.nupvalues = cast_byte(nelems);
-		  c.c.upvalue = new TValue[nelems];
-		  for (int i = 0; i < nelems; i++)
-			  c.c.upvalue[i] = new lua_TValue();
+		  c.c.nupvalues = cast_byte(n);
+		  c.c.upvalue = new TValue[n];
+		  for (int i = 0; i < n; i++)
+			  c.c.upvalue[i] = new lua_TValue(); //FIXME:???
 		  return c;
 		}
 
 
-		public static Closure luaF_newLclosure (lua_State L, int nelems, Table e) {
-		  //Closure c = (Closure)luaM_malloc(L, sizeLclosure(nelems));
-		  Closure c = luaM_new<Closure>(L);
-		  AddTotalBytes(L, sizeLclosure(nelems));
-		  luaC_link(L, obj2gco(c), LUA_TFUNCTION);
+		public static Closure luaF_newLclosure (lua_State L, int n, Table e) {
+		  Closure c = luaC_newobj(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
 		  c.l.isC = 0;
 		  c.l.env = e;
-		  c.l.nupvalues = cast_byte(nelems);
-		  c.l.upvals = new UpVal[nelems];
-		  for (int i = 0; i < nelems; i++)
-			  c.l.upvals[i] = new UpVal();
-		  while (nelems-- > 0) c.l.upvals[nelems] = null;
+		  c.l.nupvalues = cast_byte(n);
+		  c.l.upvals = new UpVal[n];
+		  for (int i = 0; i < n; i++)
+			  c.l.upvals[i] = new UpVal(); //FIXME:???
+		  while (n > 0) c.l.upvals[n] = null;
 		  return c;
 		}
 
 
 		public static UpVal luaF_newupval (lua_State L) {
-		  UpVal uv = luaM_new<UpVal>(L);
-		  luaC_link(L, obj2gco(uv), LUA_TUPVAL);
+		  UpVal uv = luaC_newobj(L, LUA_TUPVAL, sizeof(UpVal), null, 0).uv;
 		  uv.v = uv.u.value;
 		  setnilvalue(uv.v);
 		  return uv;
@@ -63,21 +56,18 @@ namespace KopiLua
 		  GCObjectRef pp = new OpenValRef(L);
 		  UpVal p;
 		  UpVal uv;
-		  while (pp.get() != null && (p = ngcotouv(pp.get())).v >= level) {
+		  while (pp.get() != null && (p = gco2uv(pp.get())).v >= level) {
 			lua_assert(p.v != p.u.value);
 			if (p.v == level) {  /* found a corresponding upvalue? */
 			  if (isdead(g, obj2gco(p)))  /* is it dead? */
-				changewhite(obj2gco(p));  /* ressurect it */
+				changewhite(obj2gco(p));  /* ressurrect it */
 			  return p;
 			}
 			pp = new NextRef(p);
 		  }
-		  uv = luaM_new<UpVal>(L);  /* not found: create a new one */
-		  uv.tt = LUA_TUPVAL;
-		  uv.marked = luaC_white(g);
+		  /* not found: create a new one */
+		  uv = luaC_newobj(L, LUA_TUPVAL, sizeof(UpVal), pp, 0).uv;
 		  uv.v = level;  /* current value lives in the stack */
-		  uv.next = pp.get();  /* chain it in the proper position */
-		  pp.set( obj2gco(uv) );
 		  uv.u.l.prev = g.uvhead;  /* double link it in `uvhead' list */
 		  uv.u.l.next = g.uvhead.u.l.next;
 		  uv.u.l.next.u.l.prev = uv;
@@ -104,7 +94,7 @@ namespace KopiLua
 		public static void luaF_close (lua_State L, StkId level) {
 		  UpVal uv;
 		  global_State g = G(L);
-		  while (L.openupval != null && (uv = ngcotouv(L.openupval)).v >= level) {
+		  while (L.openupval != null && (uv = gco2uv(L.openupval)).v >= level) {
 			GCObject o = obj2gco(uv);
 			lua_assert(!isblack(o) && uv.v != uv.u.value);
 			L.openupval = uv.next;  /* remove from `open' list */
@@ -121,29 +111,29 @@ namespace KopiLua
 
 
 		public static Proto luaF_newproto (lua_State L) {
-		  Proto f = luaM_new<Proto>(L);
-		  luaC_link(L, obj2gco(f), LUA_TPROTO);
+		  Proto f = luaC_newobj(L, LUA_TPROTO, sizeof(Proto), NULL, 0).p;
 		  f.k = null;
 		  f.sizek = 0;
 		  f.p = null;
 		  f.sizep = 0;
 		  f.code = null;
 		  f.sizecode = 0;
+          f.lineinfo = null;
 		  f.sizelineinfo = 0;
-		  f.sizeupvalues = 0;
-		  f.nups = 0;
 		  f.upvalues = null;
+          f.sizeupvalues = 0;
 		  f.numparams = 0;
 		  f.is_vararg = 0;
 		  f.maxstacksize = 0;
-		  f.lineinfo = null;
-		  f.sizelocvars = 0;
 		  f.locvars = null;
+		  f.sizelocvars = 0;
 		  f.linedefined = 0;
 		  f.lastlinedefined = 0;
 		  f.source = null;
+          f.envreg = NO_REG;
 		  return f;
 		}
+
 
 		public static void luaF_freeproto (lua_State L, Proto f) {
 		  luaM_freearray<Instruction>(L, f.code);

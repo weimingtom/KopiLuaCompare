@@ -1,5 +1,5 @@
 /*
-** $Id: ldump.c,v 2.9 2006/09/11 14:07:24 roberto Exp roberto $
+** $Id: ldump.c,v 2.11 2009/09/28 16:32:50 roberto Exp roberto $
 ** save precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -140,6 +140,17 @@ namespace KopiLua
 		 for (i=0; i<n; i++) DumpFunction(f.p[i],f.source,D);
 		}
 
+		private static void DumpUpvalues(Proto f, DumpState D)
+		{
+		 int i,n=f.sizeupvalues;
+		 DumpInt(n,D);
+		 for (i=0; i<n; i++)
+		 {
+		  DumpChar(f.upvalues[i].instack, D);
+		  DumpChar(f.upvalues[i].idx, D);
+		 }
+		}
+
 		private static void DumpDebug(Proto f, DumpState D)
 		{
 		 int i,n;
@@ -155,7 +166,7 @@ namespace KopiLua
 		 }
 		 n= (D.strip != 0) ? 0 : f.sizeupvalues;
 		 DumpInt(n,D);
-		 for (i=0; i<n; i++) DumpString(f.upvalues[i],D);
+		 for (i=0; i<n; i++) DumpString(f.upvalues[i].name,D);
 		}
 
 		private static void DumpFunction(Proto f, TString p, DumpState D)
@@ -163,12 +174,13 @@ namespace KopiLua
 		 DumpString( ((f.source==p) || (D.strip!=0)) ? null : f.source, D);
 		 DumpInt(f.linedefined,D);
 		 DumpInt(f.lastlinedefined,D);
-		 DumpChar(f.nups,D);
 		 DumpChar(f.numparams,D);
 		 DumpChar(f.is_vararg,D);
 		 DumpChar(f.maxstacksize,D);
+		 DumpChar(f.envreg,D);
 		 DumpCode(f,D);
 		 DumpConstants(f,D);
+         DumpUpvalues(f,D);
 		 DumpDebug(f,D);
 		}
 
