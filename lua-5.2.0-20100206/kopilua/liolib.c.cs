@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.79 2008/02/12 17:05:36 roberto Exp roberto $
+** $Id: liolib.c,v 2.84 2009/12/17 13:08:51 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -22,6 +22,35 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+
+		/*
+		** lua_popen spawns a new process connected to the current one through
+		** the file streams.
+		*/
+		#if !defined(lua_popen)
+
+		#if defined(LUA_USE_POPEN)
+
+		#define lua_popen(L,c,m)        ((void)L, fflush(NULL), popen(c,m))
+		#define lua_pclose(L,file)      ((void)L, pclose(file))
+
+		#elif defined(LUA_WIN)
+
+		#define lua_popen(L,c,m)        ((void)L, _popen(c,m))
+		#define lua_pclose(L,file)      ((void)L, _pclose(file))
+
+		#else
+
+		#define lua_popen(L,c,m)        ((void)((void)c, m),  \
+		                luaL_error(L, LUA_QL("popen") " not supported"), (FILE*)0)
+		#define lua_pclose(L,file)              ((void)((void)L, file), -1)
+
+		#endif
+
+		#endif
+
+
+
 		public const int IO_INPUT	= 1;
 		public const int IO_OUTPUT	= 2;
 
@@ -167,7 +196,16 @@ namespace KopiLua
 		private static int io_open (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
 		  CharPtr mode = luaL_optstring(L, 2, "r");
-		  FilePtr pf = newfile(L);
+		  FilePtr pf;
+		  int i = 0;
+		  /* check whether 'mode' matches '[rwa]%+?b?' */
+		  if (!(mode[i] != '\0' && strchr("rwa", mode[i++]) != NULL &&
+		       (mode[i] != '+' || ++i) &&    /* skip if char is '+' */
+		       (mode[i] != 'b' || ++i) &&    /* skip if char is 'b' */
+		       (mode[i] == '\0')))
+		    luaL_error(L, "invalid mode " LUA_QL("%s")
+		                  " (should match " LUA_QL("[rwa]%%+?b?") ")", mode);
+		  pf = newfile(L);
 		  pf.file = fopen(filename, mode);
 		  return (pf.file == null) ? pushresult(L, 0, filename) : 1;
 		}
@@ -300,7 +338,7 @@ namespace KopiLua
 			CharPtr p = luaL_prepbuffer(b);
 			if (fgets(p, f) == null) {  /* eof? */
 			  luaL_pushresult(b);  /* close buffer */
-				return (lua_objlen(L, -1) > 0) ? 1 : 0;  /* check whether read something */
+				return (lua_rawlen(L, -1) > 0) ? 1 : 0;  /* check whether read something */
 			}
 			l = (uint)strlen(p);
 			if (l == 0 || p[l-1] != '\n')
@@ -413,7 +451,7 @@ namespace KopiLua
 
 
 		private static int g_write (lua_State L, Stream f, int arg) {
-		  int nargs = lua_gettop(L) - 1;
+		  int nargs = lua_gettop(L) - arg;
 		  int status = 1;
 		  for (; (nargs--) != 0; arg++) {
 			if (lua_type(L, arg) == LUA_TNUMBER) {
@@ -427,7 +465,8 @@ namespace KopiLua
 			  status = ((status!=0) && (fwrite(s, GetUnmanagedSize(typeof(char)), (int)l, f) == l)) ? 1 : 0;
 			}
 		  }
-		  return pushresult(L, status, null);
+		  if (status) return 1;  /* file handle already on stack top */
+		  else return pushresult(L, status, null);
 		}
 
 
@@ -437,9 +476,10 @@ namespace KopiLua
 
 
 		private static int f_write (lua_State L) {
-		  return g_write(L, tofile(L), 2);
+		  FilePtr f = tofile(L); 
+		  lua_pushvalue(L, 1);  /* push file at the stack top (to be returned) */
+		  return g_write(L, f, 2);
 		}
-
 		
 
 		private static int f_seek (lua_State L) {

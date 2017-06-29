@@ -1,8 +1,16 @@
 /*
-** $Id: linit.c,v 1.18 2009/05/01 13:46:35 roberto Exp roberto $
-** Initialization of libraries for lua.c
+** $Id: linit.c,v 1.22 2009/12/17 12:26:09 roberto Exp roberto $
+** Initialization of libraries for lua.c and other clients        
 ** See Copyright Notice in lua.h
 */
+
+
+/*                                                           
+** If you embed Lua in your program and need to open the standard
+** libraries, call luaL_openlibs in your program. If you need a
+** different set of libraries, copy this file to your project and edit
+** it to suit your needs.
+*/                                                              
 
 using System;
 using System.Collections.Generic;
@@ -13,7 +21,8 @@ namespace KopiLua
 	public partial class Lua
 	{
 		/*
-		** these libs are loaded by lua.c and are readily available to any program
+		** these libs are loaded by lua.c and are readily available to any Lua
+		** program
 		*/
 		private readonly static luaL_Reg[] loadedlibs = {
 		  new luaL_Reg("_G", luaopen_base),
@@ -47,8 +56,8 @@ namespace KopiLua
 			lua_call(L, 1, 0);
 		  }
 		  /* add open functions from 'preloadedlibs' into 'package.preload' table */
-          //lib = preloadedlibs;
-		  luaL_findtable(L, LUA_GLOBALSINDEX, "package.preload", 0);
+          lua_pushglobaltable(L);
+		  luaL_findtable(L, 0, "package.preload", 0);
 		  for (int i=0; i<preloadedlibs.Length-1; i++) {
 		    luaL_Reg lib = preloadedlibs[i];
 		    lua_pushcfunction(L, lib.func);
@@ -56,9 +65,11 @@ namespace KopiLua
 		  }
 		  lua_pop(L, 1);  /* remove package.preload table */
 #if LUA_COMPAT_DEBUGLIB
-		  lua_getglobal(L, "require");
+          lua_pushglobaltable(L);
+		  lua_getfield(L, -1, "require");
 		  lua_pushliteral(L, LUA_DBLIBNAME);
 		  lua_call(L, 1, 0);  /* call 'require"debug"' */
+          lua_pop(L, 1);  /* remove global table */
 #endif
 		}
 

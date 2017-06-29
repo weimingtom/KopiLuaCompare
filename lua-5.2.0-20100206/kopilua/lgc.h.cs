@@ -16,11 +16,9 @@ namespace KopiLua
 		public const int GCSfinalize	= 5;
 
 
-		public static bool issweep(global_State g) { return (GCSsweepstring <= g.gcstate && g.gcstate <= GCSsweep); }
-
 
 		/*
-		** some userful bit tricks
+		** some useful bit tricks
 		*/
 		public static int resetbits(ref lu_byte x, int m) { x &= (lu_byte)~m; return x; }
 		public static int setbits(ref lu_byte x, int m) { x |= (lu_byte)m; return x; }
@@ -74,7 +72,7 @@ namespace KopiLua
 
 		public static void luaC_checkGC(lua_State L)
 		{
-			/*condmovestack(L);*/ //FIXME:???
+			condchangemem(L); //FIXME:???
 			if (G(L).totalbytes >= G(L).GCthreshold) luaC_step(L);
 		}
 

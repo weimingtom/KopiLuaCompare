@@ -36,6 +36,17 @@ ldump.c
 lfunc.c
 lfunc.h
 
+05:44 2017-06-30
+lgc.c
+05:46 2017-06-30
+lgc.h
+05:50 2017-06-30
+linit.c
+05:56 2017-06-30
+liolib.c
+	LUALIB_API->LUAMOD_API ???
+	#if !defined(lua_popen) ?????
+
 
 
 
