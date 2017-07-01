@@ -37,11 +37,6 @@ namespace KopiLua
 	*/
 	public partial class Lua
 	{
-		/* table of globals */
-		public static TValue gt(lua_State L)	{return L.l_gt;}
-
-		/* registry */
-		public static TValue registry(lua_State L)	{return G(L).l_registry;}
 
 
 		/* extra stack space to handle TM calls and some other extras */
@@ -158,7 +153,6 @@ namespace KopiLua
 			    public class _l {  /* only for Lua functions */
 			      public StkId base_;  /* base for this function */
 			      public InstructionPtr savedpc;
-			      public int tailcalls;  /* number of tail calls lost under this entry */
 			    };
 				public _l l = new _l();
 			    public class _c {  /* only for C functions */
@@ -184,6 +178,7 @@ namespace KopiLua
 		public const int CIST_YIELDED =	(1<<3);	/* call reentered after suspension */
 		public const int CIST_YPCALL = 	(1<<4);	/* call is a yieldable protected call */
 		public const int CIST_STAT = 	(1<<5);	/* call has an error status (pcall) */
+		public const int CIST_TAIL = (1<<6)	/* call was tail called */
 
 
 		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
@@ -211,15 +206,14 @@ namespace KopiLua
 		  public GCObject ephemeron;  /* list of ephemeron tables (weak keys) */
 		  public GCObject allweak;  /* list of all-weak tables */
 		  public GCObject tobefnz;  /* list of userdata to be GC */
-		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatentation */
-		  public lu_mem GCthreshold;
+		  pulbic Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatenation */
+		  pulbic lu_mem GCthreshold;  /* when totalbytes > GCthreshold, run GC step */
 		  public lu_mem totalbytes;  /* number of bytes currently allocated */
-		  public lu_mem estimate;  /* an estimate of number of bytes actually in use */
-		  public lu_mem gcdept;  /* how much GC is `behind schedule' */
 		  public int gcpause;  /* size of pause between successive GCs */
 		  public int gcstepmul;  /* GC `granularity' */
 		  public lua_CFunction panic;  /* to be called in unprotected errors */
 		  public TValue l_registry = new TValue();
+  		  public Table l_gt;  /* table of globals */
 		  public lua_State mainthread;
 		  public UpVal uvhead = new UpVal();  /* head of double-linked list of all open upvalues */
           public /*const*/ lua_Number[] version;  /* pointer to version number */
@@ -237,7 +231,6 @@ namespace KopiLua
 		  public StkId top;  /* first free slot in the stack */
 		  public global_State l_G;
 		  public CallInfo ci;  /* call info for current function */
-		  public int nci;  /* number of total CallInfo structures linked */
           public /*const*/ InstructionPtr oldpc;  /* last pc traced */
 		  public StkId stack_last;  /* last free slot in the stack */
 		  public StkId[] stack;  /* stack base */
@@ -248,7 +241,6 @@ namespace KopiLua
 		  public int basehookcount;
 		  public int hookcount;
 		  public lua_Hook hook;
-		  public TValue l_gt = new TValue();  /* table of globals */
 		  public TValue env = new TValue();  /* temporary place for environments */
 		  public GCObject openupval;  /* list of open upvalues in this stack */
 		  public GCObject gclist;
@@ -400,7 +392,6 @@ namespace KopiLua
 		public static Table gco2t(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
 		public static Proto gco2p(GCObject o) { return (Proto)check_exp(o.gch.tt == LUA_TPROTO, o.p); }
 		public static UpVal gco2uv(GCObject o) { return (UpVal)check_exp(o.gch.tt == LUA_TUPVAL, o.uv); }
-		public static UpVal ngcotouv(GCObject o) {return (UpVal)check_exp((o.gch.tt == LUA_TUPVAL), o.uv); }
 		public static lua_State gco2th(GCObject o) { return (lua_State)check_exp(o.gch.tt == LUA_TTHREAD, o.th); }
 
 		/* macro to convert any Lua object into a GCObject */

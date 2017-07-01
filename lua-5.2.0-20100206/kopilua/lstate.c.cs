@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.55 2009/06/01 19:09:26 roberto Exp roberto $
+** $Id: lstate.c,v 2.67 2009/12/17 12:26:09 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -22,30 +22,38 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+		#if !defined(LUAI_GCPAUSE)
+		#define LUAI_GCPAUSE	162  /* 162% (wait memory to double before next GC) */
+		#endif
+
+		#if !defined(LUAI_GCMUL)
+		#define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
+		#endif
 
 
-		public static int state_size(object x) { return Marshal.SizeOf(x) + LUAI_EXTRASPACE; }
 		/*
-		public static lu_byte fromstate(object l)
-		{
-			return (lu_byte)(l - LUAI_EXTRASPACE);
-		}
+		** thread state + extra space
 		*/
-		public static lua_State tostate(object l)
-		{
-			Debug.Assert(LUAI_EXTRASPACE == 0, "LUAI_EXTRASPACE not supported");
-			return (lua_State)l;
-		}
+		typedef struct LX {
+		#if defined(LUAI_EXTRASPACE)
+		  char buff[LUAI_EXTRASPACE];
+		#endif
+		  lua_State l;
+		} LX;
 
 
 		/*
 		** Main thread combines a thread state and the global state
 		*/
 		public class LG : lua_State {
-		  public lua_State l {get {return this;}}
+		  public LX l {get {return this;}}
 		  public global_State g = new global_State();
 		};
 		
+
+
+		#define fromstate(L)	(cast(LX *, cast(lu_byte *, (L)) - offsetof(LX, l)))
+
 
 
 		/*
@@ -60,12 +68,6 @@ namespace KopiLua
 		  L.ci.next = ci;
 		  ci.previous = L.ci;
 		  ci.next = null;
-		  if (++L.nci >= LUAI_MAXCALLS) {
-		    if (L.nci == LUAI_MAXCALLS)  /* overflow? */
-		      luaG_runerror(L, "stack overflow");
-		    if (L.nci >= LUAI_MAXCALLS + LUAI_EXTRACALLS)  /* again? */
-		      luaD_throw(L, LUA_ERRERR);  /* error while handling overflow */
-		  }
 		  return ci;
 		}
 
@@ -77,7 +79,6 @@ namespace KopiLua
 		  while ((ci = next) != null) {
 		    next = ci.next;
 		    luaM_free(L, ci);
-		    L.nci--;
 		  }
 		}
 
@@ -85,12 +86,12 @@ namespace KopiLua
 		private static void stack_init (lua_State L1, lua_State L) {
 		  int i;
 		  /* initialize stack array */
-		  L1.stack = luaM_newvector<TValue>(L, BASIC_STACK_SIZE + EXTRA_STACK);
-		  L1.stacksize = BASIC_STACK_SIZE + EXTRA_STACK;
-		  for (i = 0; i < BASIC_STACK_SIZE + EXTRA_STACK; i++)
+		  L1.stack = luaM_newvector<TValue>(L, BASIC_STACK_SIZE);
+		  L1.stacksize = BASIC_STACK_SIZE;
+		  for (i = 0; i < BASIC_STACK_SIZE; i++)
 		  	setnilvalue(L1.stack[i]);  /* erase new stack */
 		  L1.top = L1.stack[0];
-		  L1.stack_last = L1.stack[L1.stacksize - EXTRA_STACK - 1];
+		  L1.stack_last = L1.stack[L1.stacksize - EXTRA_STACK];
 		  /* initialize first ci */
 		  L1.ci.func = L1.top;
 		  setnilvalue(StkId.inc(ref L1.top));  /* 'function' entry for this 'ci' */
@@ -102,20 +103,58 @@ namespace KopiLua
 		private static void freestack (lua_State L) {
 		  L.ci = L.base_ci;  /* reset 'ci' list */
 		  luaE_freeCI(L);
-		  lua_assert(L.nci == 0);
 		  luaM_freearray(L, L.stack);
 		}
 
 
 		/*
-		** open parts that may cause memory-allocation errors
+		** Calls the function in variable pointed to by userdata in first argument
+		** (Userdata cannot point directly to the function because pointer to
+		** function is not compatible with void*.)
+		*/
+		private static int cpcall (lua_State L) {
+		  lua_CFunction f = *(lua_CFunction *)lua_touserdata(L, 1);
+		  lua_remove(L, 1);  /* remove f from stack */
+		  /* restore original environment for 'cpcall' */
+		  lua_pushglobaltable(L);
+		  lua_replace(L, LUA_ENVIRONINDEX);
+		  return f(L);
+		}
+
+
+		/*
+		** Create registry table and its predefined values
+		*/
+		private static void init_registry (lua_State *L, global_State *g) {
+		  Closure *cp;
+		  TValue mt;
+		  /* create registry */
+		  Table *registry = luaH_new(L);
+		  sethvalue(L, &g->l_registry, registry);
+		  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
+		  /* registry[LUA_RIDX_MAINTHREAD] = L */
+		  setthvalue(L, &mt, L);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), &mt);
+		  /* registry[LUA_RIDX_CPCALL] = cpcall */
+		  cp = luaF_newCclosure(L, 0, g->l_gt);
+		  cp->c.f = cpcall;
+		  setclvalue(L, &mt, cp);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_CPCALL), &mt);
+		  /* registry[LUA_RIDX_GLOBALS] = l_gt */
+		  sethvalue(L, &mt, g->l_gt);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), &mt);
+		}
+
+
+		/*
+		** open parts of the state that may cause memory-allocation errors
 		*/
 		private static void f_luaopen (lua_State L, object ud) {
 		  global_State g = G(L);
 		  //UNUSED(ud);
 		  stack_init(L, L);  /* init stack */
-		  sethvalue(L, gt(L), luaH_new(L));  /* table of globals */
-		  sethvalue(L, registry(L), luaH_new(L));  /* registry */
+		  g.l_gt = luaH_new(L);  /* table of globals */
+		  init_registry(L, g);
 		  luaS_resize(L, MINSTRTABSIZE);  /* initial size of string table */
 		  luaT_init(L);
 		  luaX_init(L);
@@ -124,6 +163,10 @@ namespace KopiLua
 		}
 
 
+		/*
+		** preinitialize a state with consistent values without allocating
+		** any memory (to avoid errors)
+		*/
 		private static void preinit_state (lua_State L, global_State g) {
 		  G_set(L, g);
 		  L.stack = null;
@@ -139,21 +182,19 @@ namespace KopiLua
 		  L.status = LUA_OK;
 		  L.base_ci.next = L.base_ci.previous = null;
 		  L.ci = L.base_ci;
-		  L.nci = 0;
 		  L.errfunc = 0;
-		  setnilvalue(gt(L));
 		}
 
 
 		private static void close_state (lua_State L) {
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
-		  luaC_freeall(L);  /* collect all objects */
+		  luaC_freeallobjects(L);  /* collect all objects */
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);
 		  lua_assert(g.totalbytes == GetUnmanagedSize(typeof(LG)));
-		  //g.frealloc(g.ud, fromstate(L), (uint)state_size(typeof(LG)), 0);
+		  //g.frealloc(g.ud, fromstate(L), (uint)GetUnmanagedSize(typeof(LG)), 0); //FIXME:???deleted
 		}
 
 
@@ -161,14 +202,11 @@ namespace KopiLua
 		  lua_State L1;
 		  lua_lock(L);
 		  luaC_checkGC(L);
-		  //lua_State L1 = tostate(luaM_malloc(L, state_size(typeof(lua_State))));
-		  L1 = luaM_new<lua_State>(L);
-		  luaC_link(L, obj2gco(L1), LUA_TTHREAD);
+		  L1 = &luaC_newobj(L, LUA_TTHREAD, sizeof(LX), NULL, offsetof(LX, l))->th;
 		  setthvalue(L, L.top, L1);
 		  api_incr_top(L);
 		  preinit_state(L1, G(L));
 		  stack_init(L1, L);  /* init stack */
-		  setobj2n(L, gt(L1), gt(L));  /* share table of globals */
 		  L1.hookmask = L.hookmask;
 		  L1.basehookcount = L.basehookcount;
 		  L1.hook = L.hook;
@@ -181,11 +219,12 @@ namespace KopiLua
 
 
 		private static void luaE_freethread (lua_State L, lua_State L1) {
+          LX *l = fromstate(L1);
 		  luaF_close(L1, L1.stack[0]);  /* close all upvalues for this thread */
 		  lua_assert(L1.openupval == null);
 		  luai_userstatefree(L1);
 		  freestack(L1);
-		  //luaM_freemem(L, fromstate(L1));
+		  //luaM_free(L, l); //FIXME:added
 		}
 
 
@@ -193,11 +232,10 @@ namespace KopiLua
 		  int i;
 		  lua_State L;
 		  global_State g;
-		  //object l = f(ud, null, 0, (uint)state_size(typeof(LG)));
-		  object l = f(typeof(LG));
+		  LG *l = cast(LG *, (*f)(ud, NULL, 0, sizeof(LG)));
 		  if (l == null) return null;
-		  L = tostate(l);
-		  g = (L as LG).g;
+		  L = &l->l.l;
+		  g = &l->g;
 		  L.next = null;
 		  L.tt = LUA_TTHREAD;
 		  g.currentwhite = (lu_byte)bit2mask(WHITE0BIT, FIXEDBIT);
@@ -217,22 +255,17 @@ namespace KopiLua
 		  g.strt.size = 0;
 		  g.strt.nuse = 0;
 		  g.strt.hash = null;
-		  setnilvalue(registry(L));
+		  setnilvalue(&g->l_registry);
+		  g->l_gt = NULL;
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
           g.version = lua_version(null);
 		  g.gcstate = GCSpause;
 		  g.rootgc = obj2gco(L);
-		  g.sweepstrgc = 0;
-		  g.sweepgc = new RootGCRef(g);
-		  g.gray = null;
-		  g.grayagain = null;
-		  g.weak = g.ephemeron = g.allweak = null;
 		  g.tobefnz = null;
 		  g.totalbytes = (uint)GetUnmanagedSize(typeof(LG));
 		  g.gcpause = LUAI_GCPAUSE;
 		  g.gcstepmul = LUAI_GCMUL;
-		  g.gcdept = 0;
 		  for (i=0; i<NUM_TAGS; i++) g.mt[i] = null;
 		  if (luaD_rawrunprotected(L, f_luaopen, null) != LUA_OK) {
 			/* memory allocation error: free partial state */
@@ -251,7 +284,6 @@ namespace KopiLua
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_separateudata(L, 1);  /* separate all udata with GC metamethods */
           lua_assert(L.next == null);
-		  luaC_callAllGCTM(L);  /* call GC metamethods for all udata */
 		  luai_userstateclose(L);
 		  close_state(L);
 		}

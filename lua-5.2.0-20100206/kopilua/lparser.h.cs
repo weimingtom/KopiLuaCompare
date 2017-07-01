@@ -67,14 +67,23 @@ namespace KopiLua
 		};
 
 
-		public class upvaldesc {
-		  public lu_byte k;
-		  public lu_byte info;
-		};
 
 		public struct vardesc {
 		  public ushort idx;
 		};
+
+
+
+		/* list of all active local variables */
+		public struct Varlist {
+		  public vardesc actvar;
+		  public int nactvar;
+		  public int actvarsize;
+		};
+
+
+
+
 
 		/* state needed to generate code for a given function */
 		public class FuncState {
@@ -96,10 +105,11 @@ namespace KopiLua
 		  public int freereg;  /* first free register */
 		  public int nk;  /* number of elements in `k' */
 		  public int np;  /* number of elements in `p' */
+          public int firstlocal;  /* index of first local var of this function */
 		  public short nlocvars;  /* number of elements in `locvars' */
 		  public lu_byte nactvar;  /* number of active local variables */
-		  public upvaldesc[] upvalues = new upvaldesc[LUAI_MAXUPVALUES];  /* upvalues */
-		  public vardesc[] actvar = new vardesc[LUAI_MAXVARS];  /* declared-variable stack */
+		  public lu_byte nups;  /* number of upvalues */
+		  public lu_byte envreg;  /* register holding current lexical environment */
 		};
 	}
 }
