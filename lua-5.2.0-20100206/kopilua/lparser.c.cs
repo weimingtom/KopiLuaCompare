@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.63 2009/06/10 16:52:03 roberto Exp roberto $
+** $Id: lparser.c,v 2.74 2010/01/05 18:46:58 roberto Exp roberto $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -19,12 +19,13 @@ namespace KopiLua
 	public partial class Lua
 	{
 
+		/* maximum number of local variables per function (must be smaller
+		   than 250, due to the bytecode format) */
+		private const int MAXVARS = 200;
+
 
 		public static int hasmultret(expkind k)		{return ((k) == expkind.VCALL || (k) == expkind.VVARARG) ? 1 : 0;}
 
-		public static LocVar getlocvar(FuncState fs, int i)	{return fs.f.locvars[fs.actvar[i].idx];}
-
-		public static void luaY_checklimit(FuncState fs, int v, int l, CharPtr m) { if ((v) > (l)) errorlimit(fs, l, m); }
 
 
 		/*
@@ -41,6 +42,8 @@ namespace KopiLua
 
 
 		private static void anchor_token (LexState ls) {
+		  /* last token from outer function must be EOS */
+		  lua_assert(ls.fs != null || ls.t.token == TK_EOS);
 		  if (ls.t.token == (int)RESERVED.TK_NAME || ls.t.token == (int)RESERVED.TK_STRING) {
 			TString ts = ls.t.seminfo.ts;
 			luaX_newstring(ls, getstr(ts), ts.tsv.len);
@@ -62,6 +65,11 @@ namespace KopiLua
 		  msg = luaO_pushfstring(fs.L, "too many %s (limit is %d) in %s",
 		                                what, limit, where);
 		  luaX_syntaxerror(fs.ls, msg);
+		}
+
+
+		private static void checklimit (FuncState fs, int v, int l, CharPtr what) {
+		  if (v > l) errorlimit(fs, l, what);
 		}
 
 
@@ -122,7 +130,7 @@ namespace KopiLua
 		}
 
 
-		private static void checkname(LexState ls, expdesc e) {
+		private static void checkname (LexState ls, expdesc e) {
 		  codestring(ls, e, str_checkname(ls));
 		}
 
@@ -140,16 +148,30 @@ namespace KopiLua
 		}
 
 
-		public static void new_localvarliteral(LexState ls, CharPtr v, int n) {
-			new_localvar(ls, luaX_newstring(ls, "" + v, (uint)(v.chars.Length - 1)), n);
+		private static void new_localvar (LexState ls, TString name, int n) {
+		  FuncState *fs = ls->fs;
+		  Varlist *vl = ls->varl;
+		  int reg = registerlocalvar(ls, name);
+		  checklimit(fs, vl->nactvar + 1 - fs->firstlocal,
+		                  MAXVARS, "local variables");
+		  luaM_growvector(ls->L, vl->actvar, vl->nactvar + 1,
+		                  vl->actvarsize, vardesc, MAX_INT, "local variables");
+		  vl->actvar[vl->nactvar++].idx = cast(unsigned short, reg);
 		}
 
 
-		private static void new_localvar (LexState ls, TString name, int n) {
-		  FuncState fs = ls.fs;
-          int reg = registerlocalvar(ls, name);
-		  luaY_checklimit(fs, fs.nactvar+n+1, LUAI_MAXVARS, "local variables");
-		  fs.actvar[fs.nactvar+n].idx = (ushort)reg;
+		private static void new_localvarliteral_ (LexState ls, CharPtr name, size_t sz) {
+		  new_localvar(ls, luaX_newstring(ls, name, sz));
+		}
+
+		private static void new_localvarliteral(LexState ls, CharPtr v) {
+			new_localvarliteral_(ls, "" + v, (sizeof(v)/sizeof(char))-1); }
+
+
+		private static LocVar getlocvar (FuncState fs, int i) {
+		  int idx = fs.ls.varl.actvar[fs.firstlocal + i].idx;
+		  lua_assert(idx < fs.nlocvars);
+		  return &fs.f.locvars[idx];
 		}
 
 
@@ -163,6 +185,7 @@ namespace KopiLua
 
 
 		private static void removevars (FuncState fs, int tolevel) {
+          fs.ls.varl.nactvar -= (fs.nactvar - tolevel);
 		  while (fs.nactvar > tolevel)
 			getlocvar(fs, --fs.nactvar).endpc = fs.pc;
 		}
@@ -172,23 +195,24 @@ namespace KopiLua
 		  int i;
 		  Proto f = fs.f;
 		  int oldsize = f.sizeupvalues;
-		  for (i=0; i<f.nups; i++) {
-			if ((int)fs.upvalues[i].k == (int)v.k && fs.upvalues[i].info == v.u.s.info) {
-			  lua_assert(f.upvalues[i] == name);
+		  int instk = (v.k == VLOCAL);
+		  lua_assert(instk || v.k == VUPVAL);
+		  for (i=0; i<fs.nups; i++) {
+			if (f.upvalues[i].instack == instk && f.upvalues[i].idx == v.u.s.info) {
+			  lua_assert(f.upvalues[i].name == name);
 			  return i;
 			}
 		  }
 		  /* new one */
-		  luaY_checklimit(fs, f.nups + 1, LUAI_MAXUPVALUES, "upvalues");
-		  luaM_growvector(fs.L, ref f.upvalues, f.nups, ref f.sizeupvalues, 
-		                        MAX_INT, "upvalues");
-		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++] = null;
-		  f.upvalues[f.nups] = name;
+		  checklimit(fs, fs.nups + 1, UCHAR_MAX, "upvalues");
+		  luaM_growvector(fs.L, f.upvalues, fs.nups, f.sizeupvalues,
+		                  Upvaldesc, UCHAR_MAX, "upvalues");
+		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = NULL;
+		  f.upvalues[fs.nups].name = name;
 		  luaC_objbarrier(fs.L, f, name);
-		  lua_assert(v.k == expkind.VLOCAL || v.k == expkind.VUPVAL);
-		  fs.upvalues[f.nups].k = cast_byte(v.k);
-		  fs.upvalues[f.nups].info = cast_byte(v.u.s.info);
-		  return f.nups++;
+		  f.upvalues[fs.nups].instack = cast_byte(instk);
+		  f.upvalues[fs.nups].idx = cast_byte(v.u.s.info);
+		  return fs.nups++;
 		}
 
 
@@ -211,10 +235,8 @@ namespace KopiLua
 
 		private static expkind singlevaraux(FuncState fs, TString n, expdesc var, int base_)
 		{
-		  if (fs == null) {  /* no more levels? */
-			init_exp(var, expkind.VGLOBAL, NO_REG);  /* default is global variable */
-			return expkind.VGLOBAL;
-		  }
+		  if (fs == null)  /* no more levels? */
+			return expkind.VGLOBAL;  /* default is global variable */
 		  else {
 			int v = searchvar(fs, n);  /* look up at current level */
 			if (v >= 0) {
@@ -237,8 +259,16 @@ namespace KopiLua
 		private static void singlevar (LexState ls, expdesc var) {
 		  TString varname = str_checkname(ls);
 		  FuncState fs = ls.fs;
-		  if (singlevaraux(fs, varname, var, 1) == expkind.VGLOBAL)
-			var.u.s.info = luaK_stringK(fs, varname);  /* info points to global name */
+		  if (singlevaraux(fs, varname, var, 1) == VGLOBAL) {
+		    if (fs.envreg == NO_REG)  /* regular global? */
+		      init_exp(var, VGLOBAL, luaK_stringK(fs, varname));
+		    else {  /* "globals" are in current lexical environment */
+		      expdesc key;
+		      init_exp(var, VLOCAL, fs.envreg);  /* current environment */
+		      codestring(ls, &key, varname);  /* key is variable name */
+		      luaK_indexed(fs, var, &key);  /* env[varname] */
+		    }
+		  }
 		}
 
 
@@ -265,7 +295,7 @@ namespace KopiLua
 		private static void enterlevel (LexState ls) {
 		  global_State g = G(ls.L);
 		  ++g.nCcalls;
-		  luaY_checklimit(ls.fs, g.nCcalls, LUAI_MAXCCALLS, "syntax levels");
+		  checklimit(ls.fs, g.nCcalls, LUAI_MAXCCALLS, "syntax levels");
 		}
 
 
@@ -297,21 +327,18 @@ namespace KopiLua
 		}
 
 
-		private static void pushclosure (LexState ls, FuncState func, expdesc v) {
+		private static void pushclosure (LexState ls, Proto clp, expdesc v) {
 		  FuncState fs = ls.fs.prev;
-		  Proto f = fs.f;
+		  Proto f = fs.f;  /* prototype of function creating new closure */
 		  int oldsize = f.sizep;
-		  int i;
-		  luaM_growvector(ls.L, ref f.p, fs.np, ref f.sizep, 
-						  MAXARG_Bx, "functions");
-		  while (oldsize < f.sizep) f.p[oldsize++] = null;
-		  f.p[fs.np++] = func.f;
-		  luaC_objbarrier(ls.L, f, func.f);
-		  init_exp(v, expkind.VRELOCABLE, luaK_codeABx(fs, OpCode.OP_CLOSURE, 0, fs.np - 1));
-		  for (i=0; i<func.f.nups; i++) {
-			OpCode o = ((int)func.upvalues[i].k == (int)expkind.VLOCAL) ? OpCode.OP_MOVE : OpCode.OP_GETUPVAL;
-			luaK_codeABC(fs, o, 0, func.upvalues[i].info, 0);
-		  }
+		  luaM_growvector(ls.L, f.p, fs.np, f.sizep, Proto *,
+		                  MAXARG_Bx, "functions");
+		  while (oldsize < f->sizep) f->p[oldsize++] = NULL;
+		  f->p[fs->np++] = clp;
+		  /* initial environment for new function is current lexical environment */
+		  clp->envreg = fs->envreg;
+		  luaC_objbarrier(ls->L, f, clp);
+		  init_exp(v, VRELOCABLE, luaK_codeABx(fs, OP_CLOSURE, 0, fs->np-1));
 		}
 
 
@@ -328,19 +355,22 @@ namespace KopiLua
 		  fs.freereg = 0;
 		  fs.nk = 0;
 		  fs.np = 0;
+  		  fs.nups = 0;
 		  fs.nlocvars = 0;
 		  fs.nactvar = 0;
+		  fs.firstlocal = ls->varl->nactvar;
+		  fs.envreg = NO_REG;
 		  fs.bl = null;
-		  fs.h = luaH_new(L);
-		  /* anchor table of constants and prototype (to avoid being collected) */
-		  sethvalue2s(L, L.top, fs.h);
-		  incr_top(L);
 		  f = luaF_newproto(L);
 		  fs.f = f;
 		  f.source = ls.source;
 		  f.maxstacksize = 2;  /* registers 0/1 are always valid */
 		  /* anchor prototype (to avoid being collected) */
 		  setptvalue2s(L, L.top, f);
+		  incr_top(L);
+		  fs.h = luaH_new(L);
+		  /* anchor table of constants (to avoid being collected) */
+		  sethvalue2s(L, L.top, fs.h);
 		  incr_top(L);
 		}
 
@@ -368,33 +398,37 @@ namespace KopiLua
 		  }
 		  luaM_reallocvector(L, ref f.locvars, f.sizelocvars, fs.nlocvars/*, LocVar*/);
 		  f.sizelocvars = fs.nlocvars;
-		  luaM_reallocvector(L, ref f.upvalues, f.sizeupvalues, f.nups/*, TString*/);
-		  f.sizeupvalues = f.nups;
+		  luaM_reallocvector(L, ref f.upvalues, f.sizeupvalues, fs.nups/*, Upvaldesc*/);
+		  f.sizeupvalues = fs.nups;
 		  lua_assert(fs.bl == null);
 		  ls.fs = fs.prev;
-          L.top -= 2;  /* remove table and prototype from the stack */
-		  /* last token read was anchored in defunct function; must reanchor it */
-		  if (fs!=null) anchor_token(ls);
+		  /* last token read was anchored in defunct function; must re-anchor it */
+		  anchor_token(ls);
+		  L->top--;  /* pop table of constants */
+		  luaC_checkGC(L);
+		  L->top--;  /* pop prototype (after possible collection) */
 		}
 
 
-		public static Proto luaY_parser (lua_State L, ZIO z, Mbuffer buff, CharPtr name) {
+		public static Proto luaY_parser (lua_State L, ZIO z, Mbuffer buff, Varlist varl, 
+										 CharPtr name) {
 		  LexState lexstate = new LexState();
 		  FuncState funcstate = new FuncState();
 		  TString tname = luaS_new(L, name);
-		  setsvalue2s(L, L.top, tname);  /* protect name */
+		  setsvalue2s(L, L.top, tname);  /* push name to protect it */
 		  incr_top(L);
 		  lexstate.buff = buff;
+          lexstate.varl = varl;
 		  luaX_setinput(L, lexstate, z, tname);
 		  open_func(lexstate, funcstate);
-		  funcstate.f.is_vararg = 1;  /* main func. is always vararg */
+		  funcstate.f.is_vararg = 1;  /* main function is always vararg */
 		  luaX_next(lexstate);  /* read first token */
 		  chunk(lexstate);
 		  check(lexstate, (int)RESERVED.TK_EOS);
 		  close_func(lexstate);
-		  StkId.dec(ref L.top);
+		  StkId.dec(ref L.top);  /* pop name */
 		  lua_assert(funcstate.prev == null);
-		  lua_assert(funcstate.f.nups == 0);
+		  lua_assert(funcstate.nups == 0);
 		  lua_assert(lexstate.fs == null);
 		  return funcstate.f;
 		}
@@ -406,8 +440,8 @@ namespace KopiLua
 		/*============================================================*/
 
 
-		private static void field (LexState ls, expdesc v) {
-		  /* field . ['.' | ':'] NAME */
+		private static void fieldsel (LexState ls, expdesc v) {
+		  /* fieldsel . ['.' | ':'] NAME */
 		  FuncState fs = ls.fs;
 		  expdesc key = new expdesc();
 		  luaK_exp2anyreg(fs, v);
@@ -449,7 +483,7 @@ namespace KopiLua
 		  expdesc key = new expdesc(), val = new expdesc();
 		  int rkkey;
 		  if (ls.t.token == (int)RESERVED.TK_NAME) {
-			luaY_checklimit(fs, cc.nh, MAX_INT, "items in a constructor");
+			checklimit(fs, cc.nh, MAX_INT, "items in a constructor");
 			checkname(ls, key);
 		  }
 		  else  /* ls.t.token == '[' */
@@ -490,15 +524,39 @@ namespace KopiLua
 
 
 		private static void listfield (LexState ls, ConsControl cc) {
+          /* listfield -> exp */
 		  expr(ls, cc.v);
-		  luaY_checklimit(ls.fs, cc.na, MAX_INT, "items in a constructor");
+		  checklimit(ls.fs, cc.na, MAX_INT, "items in a constructor");
 		  cc.na++;
 		  cc.tostore++;
 		}
 
 
+		private static void field (LexState ls, ConsControl cc) {
+		  /* field -> listfield | recfield */
+		  switch(ls.t.token) {
+		    case TK_NAME: {  /* may be 'listfield' or 'recfield' */
+		      if (luaX_lookahead(ls) != '=')  /* expression? */
+		        listfield(ls, cc);
+		      else
+		        recfield(ls, cc);
+		      break;
+		    }
+		    case '[': {
+		      recfield(ls, cc);
+		      break;
+		    }
+		    default: {
+		      listfield(ls, cc);
+		      break;
+		    }
+		  }
+		}
+
+
 		private static void constructor (LexState ls, expdesc t) {
-		  /* constructor . ?? */
+		  /* constructor -> '{' [ field { sep field } [sep] ] '}' 
+		     sep -> ',' | ';' */
 		  FuncState fs = ls.fs;
 		  int line = ls.linenumber;
 		  int pc = luaK_codeABC(fs, OpCode.OP_NEWTABLE, 0, 0, 0);
@@ -513,23 +571,7 @@ namespace KopiLua
 			lua_assert(cc.v.k == expkind.VVOID || cc.tostore > 0);
 			if (ls.t.token == '}') break;
 			closelistfield(fs, cc);
-			switch(ls.t.token) {
-			  case (int)RESERVED.TK_NAME: {  /* may be listfields or recfields */
-				if (luaX_lookahead(ls) != '=')  /* expression? */
-				  listfield(ls, cc);
-				else
-				  recfield(ls, cc);
-				break;
-			  }
-			  case '[': {  /* constructor_item . recfield */
-				recfield(ls, cc);
-				break;
-			  }
-			  default: {  /* constructor_part . listfield */
-				listfield(ls, cc);
-				break;
-			  }
-			}
+			field(ls, cc);
 		  } while ((testnext(ls, ',')!=0) || (testnext(ls, ';')!=0));
 		  check_match(ls, '}', '{', line);
 		  lastlistfield(fs, cc);
@@ -551,7 +593,8 @@ namespace KopiLua
 			do {
 			  switch (ls.t.token) {
 				case (int)RESERVED.TK_NAME: {  /* param . NAME */
-				  new_localvar(ls, str_checkname(ls), nparams++);
+				  new_localvar(ls, str_checkname(ls));
+                  nparams++;
 				  break;
 				}
 				case (int)RESERVED.TK_DOTS: {  /* param . `...' */
@@ -576,7 +619,7 @@ namespace KopiLua
 		  new_fs.f.linedefined = line;
 		  checknext(ls, '(');
 		  if (needself != 0) {
-			new_localvarliteral(ls, "self", 0);
+			new_localvarliteral(ls, "self");
 			adjustlocalvars(ls, 1);
 		  }
 		  parlist(ls);
@@ -584,7 +627,7 @@ namespace KopiLua
 		  chunk(ls);
 		  new_fs.f.lastlinedefined = ls.linenumber;
 		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_FUNCTION, line);
-		  pushclosure(ls, new_fs, e);
+		  pushclosure(ls, new_fs.f, e);
 		  close_func(ls);
 		}
 
@@ -682,6 +725,7 @@ namespace KopiLua
 		  }
 		}
 
+
 		private static void primaryexp (LexState ls, expdesc v) {
 		  /* primaryexp .
 				prefixexp { `.' NAME | `[' exp `]' | `:' NAME funcargs | funcargs } */
@@ -689,8 +733,8 @@ namespace KopiLua
 		  prefixexp(ls, v);
 		  for (;;) {
 			switch (ls.t.token) {
-			  case '.': {  /* field */
-				field(ls, v);
+			  case '.': {  /* fieldsel */
+				fieldsel(ls, v);
 				break;
 			  }
 			  case '[': {  /* `[' exp1 `]' */
@@ -956,7 +1000,7 @@ namespace KopiLua
 			primaryexp(ls, nv.v);
 			if (nv.v.k == expkind.VLOCAL)
 			  check_conflict(ls, lh, nv.v);
-		    luaY_checklimit(ls.fs, nvars, LUAI_MAXCCALLS - G(ls.L).nCcalls,
+		    checklimit(ls.fs, nvars, LUAI_MAXCCALLS - G(ls.L).nCcalls,
 		                    "variable names");
 			assignment(ls, nv, nvars+1);
 		  }
@@ -1053,11 +1097,12 @@ namespace KopiLua
 
 		private static int exp1 (LexState ls) {
 		  expdesc e = new expdesc();
-		  int k;
+		  int reg;
 		  expr(ls, e);
-		  k = (int)e.k;
 		  luaK_exp2nextreg(ls.fs, e);
-		  return k;
+		  lua_assert(e.k == VNONRELOC);
+		  reg = e.u.s.info;
+		  return reg;
 		}
 
 
@@ -1091,10 +1136,10 @@ namespace KopiLua
 		  /* fornum . NAME = exp1,exp1[,exp1] forbody */
 		  FuncState fs = ls.fs;
 		  int base_ = fs.freereg;
-		  new_localvarliteral(ls, "(for index)", 0);
-		  new_localvarliteral(ls, "(for limit)", 1);
-		  new_localvarliteral(ls, "(for step)", 2);
-		  new_localvar(ls, varname, 3);
+		  new_localvarliteral(ls, "(for index)");
+		  new_localvarliteral(ls, "(for limit)");
+		  new_localvarliteral(ls, "(for step)");
+		  new_localvar(ls, varname);
 		  checknext(ls, '=');
 		  exp1(ls);  /* initial value */
 		  checknext(ls, ',');
@@ -1113,17 +1158,19 @@ namespace KopiLua
 		  /* forlist . NAME {,NAME} IN explist1 forbody */
 		  FuncState fs = ls.fs;
 		  expdesc e = new expdesc();
-		  int nvars = 0;
+		  int nvars = 4;  /* gen, state, control, plus at least one declared var */
 		  int line;
 		  int base_ = fs.freereg;
 		  /* create control variables */
-		  new_localvarliteral(ls, "(for generator)", nvars++);
-		  new_localvarliteral(ls, "(for state)", nvars++);
-		  new_localvarliteral(ls, "(for control)", nvars++);
+		  new_localvarliteral(ls, "(for generator)");
+		  new_localvarliteral(ls, "(for state)");
+		  new_localvarliteral(ls, "(for control)");
 		  /* create declared variables */
-		  new_localvar(ls, indexname, nvars++);
-		  while (testnext(ls, ',') != 0)
-			new_localvar(ls, str_checkname(ls), nvars++);
+		  new_localvar(ls, indexname);
+		  while (testnext(ls, ',') != 0) {
+			new_localvar(ls, str_checkname(ls));
+            nvars++;
+          }
 		  checknext(ls, (int)RESERVED.TK_IN);
 		  line = ls.linenumber;
 		  adjust_assign(ls, 3, explist1(ls, e), e);
@@ -1191,14 +1238,12 @@ namespace KopiLua
 		private static void localfunc (LexState ls) {
 		  expdesc v = new expdesc(), b = new expdesc();
 		  FuncState fs = ls.fs;
-		  new_localvar(ls, str_checkname(ls), 0);
+		  new_localvar(ls, str_checkname(ls));
 		  init_exp(v, expkind.VLOCAL, fs.freereg);
 		  luaK_reserveregs(fs, 1);
 		  adjustlocalvars(ls, 1);
 		  body(ls, b, 0, ls.linenumber);
 		  luaK_storevar(fs, v, b);
-		  /* debug information will only see the variable after this point! */
-		  getlocvar(fs, fs.nactvar - 1).startpc = fs.pc;
 		}
 
 
@@ -1208,7 +1253,8 @@ namespace KopiLua
 		  int nexps;
 		  expdesc e = new expdesc();
 		  do {
-			new_localvar(ls, str_checkname(ls), nvars++);
+		    new_localvar(ls, str_checkname(ls));
+		    nvars++;
 		  } while (testnext(ls, ',') != 0);
 		  if (testnext(ls, '=') != 0)
 			nexps = explist1(ls, e);
@@ -1222,14 +1268,14 @@ namespace KopiLua
 
 
 		private static int funcname (LexState ls, expdesc v) {
-		  /* funcname . NAME {field} [`:' NAME] */
+		  /* funcname -> NAME {fieldsel} [`:' NAME] */
 		  int needself = 0;
 		  singlevar(ls, v);
 		  while (ls.t.token == '.')
-			field(ls, v);
+			fieldsel(ls, v);
 		  if (ls.t.token == ':') {
 			needself = 1;
-			field(ls, v);
+			fieldsel(ls, v);
 		  }
 		  return needself;
 		}
@@ -1244,6 +1290,24 @@ namespace KopiLua
 		  body(ls, b, needself, line);
 		  luaK_storevar(ls.fs, v, b);
 		  luaK_fixline(ls.fs, line);  /* definition `happens' in the first line */
+		}
+
+
+		private static void instat (LexState ls, int line) {
+		  /* instat -> IN exp DO block END */
+		  FuncState *fs = ls->fs;
+		  int oldenv = fs->envreg;  /* save current environment */
+		  BlockCnt bl;
+		  luaX_next(ls);  /* skip IN */
+		  enterblock(fs, &bl, 0);  /* scope for environment variable */
+		  new_localvarliteral(ls, "(environment)");
+		  fs->envreg = exp1(ls);  /* new environment */
+		  adjustlocalvars(ls, 1);
+		  checknext(ls, TK_DO);
+		  block(ls);
+		  leaveblock(fs);
+		  check_match(ls, TK_END, TK_IN, line);
+		  fs->envreg = oldenv;  /* restore outer environment */
 		}
 
 
@@ -1311,6 +1375,10 @@ namespace KopiLua
 			  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_DO, line);
 			  return 0;
 			}
+		    case (int)RESERVED.TK_IN: {
+		      instat(ls, line);
+		      return 0;
+		    }
 			case (int)RESERVED.TK_FOR: {  /* stat . forstat */
 			  forstat(ls, line);
 			  return 0;

@@ -73,6 +73,16 @@ lobject.h
 	luaO_nilobject_ move to lobject.c
 	NILCONSTANT
 
+11:18 2017/7/1
+lopcodes.c
+11:22 2017/7/1
+lopcodes.h
+11:35 2017/7/1
+loslib.c
+	os_date not implemented
+12:07 2017/7/1
+lparser.c
+
 
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.23 2008/01/18 15:37:10 roberto Exp roberto $
+** $Id: loslib.c,v 1.28 2009/12/17 12:26:09 roberto Exp roberto $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -20,6 +20,46 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+
+		/*
+		** list of valid conversion specifiers @* for the 'strftime' function
+		*/
+		#if !defined(LUA_STRFTIMEOPTIONS)
+
+		#if !defined(LUA_USE_POSIX)
+		#define LUA_STRFTIMEOPTIONS     { "aAbBcdHIjmMpSUwWxXyYz%", "" }
+		#else
+		#define LUA_STRFTIMEOPTIONS     { "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
+		                                "E", "cCxXyY",  \
+		                                "O", "deHImMSuUVwWy" }
+		#endif
+
+		#endif
+
+
+
+		/*
+		** By default, Lua uses tmpnam except when POSIX is available, where it
+		** uses mkstemp.
+		*/
+		#if defined(LUA_USE_MKSTEMP)
+		#include <unistd.h>
+		#define LUA_TMPNAMBUFSIZE       32
+		#define lua_tmpnam(b,e) { \
+		        strcpy(b, "/tmp/lua_XXXXXX"); \
+		        e = mkstemp(b); \
+		        if (e != -1) close(e); \
+		        e = (e == -1); }
+
+		#elif !defined(lua_tmpnam)
+
+		#define LUA_TMPNAMBUFSIZE       L_tmpnam
+		#define lua_tmpnam(b,e)         { e = (tmpnam(b) == NULL); }
+
+		#endif
+
+
+
 		private static int os_pushresult (lua_State L, int i, CharPtr filename) {
 		  int en = errno();  /* calls to Lua API may change this value */
 		  if (i != 0) {
@@ -135,6 +175,30 @@ namespace KopiLua
 		}
 
 
+		private static CharPtr checkoption (lua_State L, CharPtr conv, CharPtr buff) {
+		  static const char *const options[] = LUA_STRFTIMEOPTIONS;
+		  unsigned int i;
+		  for (i = 0; i < sizeof(options)/sizeof(options[0]); i += 2) {
+		    if (*conv != '\0' && strchr(options[i], *conv) != NULL) {
+		      buff[1] = *conv;
+		      if (*options[i + 1] == '\0') {  /* one-char conversion specifier? */
+		        buff[2] = '\0';  /* end buffer */
+		        return conv + 1;
+		      }
+		      else if (*(conv + 1) != '\0' &&
+		               strchr(options[i + 1], *(conv + 1)) != NULL) {
+		        buff[2] = *(conv + 1);  /* valid two-char conversion specifier */
+		        buff[3] = '\0';  /* end buffer */
+		        return conv + 2;
+		      }
+		    }
+		  }
+		  luaL_argerror(L, 1,
+		    lua_pushfstring(L, "invalid conversion specifier '%%%s'", conv));
+		  return conv;  /* to avoid warnings */
+		}
+
+
 		private static int os_date (lua_State L) {
 		  CharPtr s = luaL_optstring(L, 1, "%c");
 		  DateTime stm;
@@ -160,30 +224,22 @@ namespace KopiLua
 			  luaL_error(L, "strftime not implemented yet"); // todo: implement this - mjf
 #if false
 			  //FIXME:not implemented ------------------>
-			CharPtr cc = new char[3];
-			luaL_Buffer b;
-			cc[0] = '%';
+		    char cc[4];
+		    luaL_Buffer b;
+		    cc[0] = '%';
 		    luaL_buffinit(L, &b);
-		    for (; *s; s++) {
+		    while (*s) {
 		      if (*s != '%')  /* no conversion specifier? */
-		        luaL_addchar(&b, *s);
+		        luaL_addchar(&b, *s++);
 		      else {
 		        size_t reslen;
-		        int i = 1;
 		        char buff[200];  /* should be big enough for any conversion result */
-		        if (*(++s) != '\0' && strchr(LUA_STRFTIMEPREFIX, *s))
-		          cc[i++] = *(s++);
-		        if (*s != '\0' && strchr(LUA_STRFTIMEOPTIONS, *s))
-		          cc[i++] = *s;
-		        else {
-		          const char *msg = lua_pushfstring(L,
-		                              "invalid conversion specifier '%%%c'", *s);
-		          return luaL_argerror(L, 1, msg);
-		        }
-		        cc[i] = '\0';
+		        s = checkoption(L, s + 1, cc);
 		        reslen = strftime(buff, sizeof(buff), cc, stm);
 		        luaL_addlstring(&b, buff, reslen);
 		      }
+		    }
+		    luaL_pushresult(&b);
 #endif // #if 0
 		  }
 			return 1;
@@ -238,7 +294,7 @@ namespace KopiLua
 
 		private static int os_exit (lua_State L) {
 		  int status = luaL_optint(L, 1, EXIT_SUCCESS);
-		  if (lua_toboolean(L, 2) == 0)
+		  if (lua_toboolean(L, 2) != 0)
 		    lua_close(L);
 		  exit(status);
 		  return 0;//FIXME:added
