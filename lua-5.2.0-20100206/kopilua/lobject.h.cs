@@ -51,7 +51,6 @@ namespace KopiLua
 
 
 
-
 		/*
 		** Union of all Lua values
 		*/
@@ -208,6 +207,10 @@ namespace KopiLua
 		};
 
 
+		/* macro defining a nil value to be used in definitions */
+		//#define NILCONSTANT    {NULL}, LUA_TNIL
+        //FIXME:???
+
 		/* Macros to test type */
 		public static bool ttisnil(TValue o)	{return (ttype(o) == LUA_TNIL);}
 		public static bool ttisnumber(TValue o)	{return (ttype(o) == LUA_TNUMBER);}
@@ -220,58 +223,62 @@ namespace KopiLua
 		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
 		public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
 		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
-
+        public static bool ttisdeadkey(o) { reeturn (ttype(o) == LUA_TDEADKEY);}
+		
 		/* Macros to access values */
-		public static int    ttype(TValue o) { return o.tt; }
-		public static int    ttype(CommonHeader o) { return o.tt; }
-		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), o.value.gc); }
-		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), o.value.p); }
-		public static lua_Number nvalue(TValue o) { return (lua_Number)check_exp(ttisnumber(o), o.value.n); }
-		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), o.value.gc.ts); }
+		public static int    ttype(TValue o) { return o.tt_; }
+		public static int    ttype(CommonHeader o) { return o.tt_; }
+		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), o.value_.gc); }
+		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), o.value_.p); }
+		public static lua_Number nvalue(TValue o) { return (lua_Number)check_exp(ttisnumber(o), o.value_.n); }
+		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), o.value_.gc.ts); }
 		public static TString_tsv tsvalue(TValue o) { return rawtsvalue(o).tsv; }
-		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), o.value.gc.u); }
+		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), o.value_.gc.u); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
-		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisfunction(o), o.value.gc.cl);}
-		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), o.value.gc.h);}
-		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), o.value.b);}
-		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), o.value.gc.th);}
+		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisfunction(o), o.value_.gc.cl);}
+		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), o.value_.gc.h);}
+		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), o.value_.b);}
+		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), o.value_.gc.th);}
 
 		public static int l_isfalse(TValue o) { return ((ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))) ? 1 : 0; }
 
 		/*
 		** for internal debug only
 		*/
+		public static bool iscollectable(TValue o)	{ return (ttype(o) >= LUA_TSTRING); }
+
+		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt) }		
+		
 		public static void checkconsistency(TValue obj)
 		{
-			lua_assert(!iscollectable(obj) || (ttype(obj) == (obj).value.gc.gch.tt));
+			lua_assert(!iscollectable(obj) || righttt(obj))
 		}
 
 		public static void checkliveness(global_State g, TValue obj)
 		{
-			lua_assert(!iscollectable(obj) ||
-			((ttype(obj) == obj.value.gc.gch.tt) && !isdead(g, obj.value.gc)));
+			lua_assert(!iscollectable(obj) || (righttt(obj) && !isdead(g, gcvalue(obj))));
 		}
 
 
 		/* Macros to set values */
 		public static void setnilvalue(TValue obj) {
-			obj.tt=LUA_TNIL;
+			obj.tt_=LUA_TNIL;
 		}
 
 		public static void setnvalue(TValue obj, lua_Number x) {
-			obj.value.n = x;
+			obj.value_.n = x;
 			obj.tt = LUA_TNUMBER;
 		}
 
 		public static void changenvalue(TValue obj, lua_Number x) {
-			lua_assert(obj.tt==LUA_TNUMBER);
-			obj.value.n=x; 
+			lua_assert(obj.tt_==LUA_TNUMBER);
+			obj.value_.n=x; 
 		}
   
 
 		public static void setpvalue( TValue obj, object x) {
-			obj.value.p = x;
-			obj.tt = LUA_TLIGHTUSERDATA;
+			obj.value_.p = x;
+			obj.tt_ = LUA_TLIGHTUSERDATA;
 		}
 
 		public static void setbvalue(TValue obj, int x) {
@@ -280,44 +287,47 @@ namespace KopiLua
 		}
 
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TSTRING;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TSTRING;
 			checkliveness(G(L), obj);
 		}
 
 		public static void setuvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TUSERDATA;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TUSERDATA;
 			checkliveness(G(L), obj);
 		}
 
 		public static void setthvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TTHREAD;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TTHREAD;
 			checkliveness(G(L), obj);
 		}
 
 		public static void setclvalue(lua_State L, TValue obj, Closure x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TFUNCTION;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TFUNCTION;
 			checkliveness(G(L), obj);
 		}
 
 		public static void sethvalue(lua_State L, TValue obj, Table x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TTABLE;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TTABLE;
 			checkliveness(G(L), obj);
 		}
 
 		public static void setptvalue(lua_State L, TValue obj, Proto x) {
-			obj.value.gc = x;
-			obj.tt = LUA_TPROTO;
+			obj.value_.gc = x;
+			obj.tt_ = LUA_TPROTO;
 			checkliveness(G(L), obj);
 		}
+		
+		public static void setdeadvalue(TValue obj) { (obj.tt_=LUA_TDEADKEY); }
+
 
 		public static void setobj(lua_State L, TValue obj1, TValue obj2) {
-			obj1.value = obj2.value;
-			obj1.tt = obj2.tt;
+			obj1.value_ = obj2.value_;
+			obj1.tt_ = obj2.tt_;
 			checkliveness(G(L), obj1);
 		}
 
@@ -357,11 +367,6 @@ namespace KopiLua
 
 		//#define setsvalue2n	setsvalue
 		public static void setsvalue2n(lua_State L, TValue obj, TString x) { setsvalue(L, obj, x); }
-
-		public static void setttype(TValue obj, int tt) {obj.tt = tt;}
-
-
-		public static bool iscollectable(TValue o) { return (ttype(o) >= LUA_TSTRING); }
 
 
 
@@ -415,6 +420,14 @@ namespace KopiLua
 			public object user_data;
 		};
 
+		/*
+		** Upvalues from a function prototype
+		*/
+		public class Upvaldesc {
+		  public TString name;  /* upvalue name (for debug information) */
+		  public lu_byte instack;
+		  public lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
+		};
 
 
 
@@ -432,9 +445,9 @@ namespace KopiLua
 		  public new Proto[] p;  /* functions defined inside the function */
 		  public int[] lineinfo;  /* map from opcodes to source lines */
 		  public LocVar[] locvars;  /* information about local variables */
-		  public TString[] upvalues;  /* upvalue names */
+		  public Upvaldesc[] upvalues;  /* upvalue information */
 		  public TString  source;
-		  public int sizeupvalues;
+		  public int sizeupvalues;  /* size of 'upvalues' */
 		  public int sizek;  /* size of `k' */
 		  public int sizecode;
 		  public int sizelineinfo;
@@ -443,10 +456,10 @@ namespace KopiLua
 		  public int linedefined;
 		  public int lastlinedefined;
 		  public GCObject gclist;
-		  public lu_byte nups;  /* number of upvalues */
 		  public lu_byte numparams;
 		  public lu_byte is_vararg;
 		  public lu_byte maxstacksize;
+          public lu_byte envreg;  /* register in outer function with initial environment */
 		};
 
 
@@ -529,9 +542,10 @@ namespace KopiLua
 		};
 
 
-		public static bool iscfunction(TValue o) { return ((ttype(o) == LUA_TFUNCTION) && (clvalue(o).c.isC != 0)); }
-		public static bool isLfunction(TValue o) { return ((ttype(o) == LUA_TFUNCTION) && (clvalue(o).c.isC==0)); }
+		public static bool iscfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC != 0)); }
+		public static bool isLfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC==0)); }
 
+        public satic void getproto(o) { return (clvalue(o).l.p); }
 
 		/*
 		** Tables
@@ -685,7 +699,8 @@ namespace KopiLua
 
 
 
-		public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL);
-		public static TValue luaO_nilobject = luaO_nilobject_;
+        //FIXME:??? move to lobject.c
+		//public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL);
+		//public static TValue luaO_nilobject = luaO_nilobject_;
 	}
 }

@@ -1,5 +1,5 @@
 /*
-** $Id: lmem.c,v 1.72 2006/09/14 12:59:06 roberto Exp roberto $
+** $Id: lmem.c,v 1.73 2006/09/14 18:42:28 roberto Exp roberto $
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -19,19 +19,18 @@ namespace KopiLua
 
 		/*
 		** About the realloc function:
-		** void * frealloc (void *ud, void *ptr, uint osize, uint nsize);
+		** void * frealloc (void *ud, void *ptr, size_t osize, size_t nsize);
 		** (`osize' is the old size, `nsize' is the new size)
 		**
-		** Lua ensures that (ptr == null) iff (osize == 0).
-		**
-		** * frealloc(ud, null, 0, x) creates a new block of size `x'
+		** * frealloc(ud, NULL, x, s) creates a new block of size `s' (no
+		** matter 'x').
 		**
 		** * frealloc(ud, p, x, 0) frees the block `p'
-		** (in this specific case, frealloc must return null).
-		** particularly, frealloc(ud, null, 0, 0) does nothing
-		** (which is equivalent to free(null) in ANSI C)
+		** (in this specific case, frealloc must return NULL);
+		** particularly, frealloc(ud, NULL, 0, 0) does nothing
+		** (which is equivalent to free(NULL) in ANSI C)
 		**
-		** frealloc returns null if it cannot create or reallocate the area
+		** frealloc returns NULL if it cannot create or reallocate the area
 		** (any reallocation to an equal or smaller size cannot fail!)
 		*/
 

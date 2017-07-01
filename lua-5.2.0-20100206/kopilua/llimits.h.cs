@@ -1,7 +1,7 @@
 //#define lua_assert
 
 /*
-** $Id: llimits.h,v 1.71 2009/06/08 19:35:59 roberto Exp roberto $
+** $Id: llimits.h,v 1.76 2009/12/17 12:26:09 roberto Exp roberto $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -53,6 +53,10 @@ namespace KopiLua
 
 
 		/* type to ensure maximum alignment */
+		#if !defined(LUAI_USER_ALIGNMENT_T)
+		#define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; }
+		#endif
+
 		//typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;
 
 
@@ -86,6 +90,10 @@ namespace KopiLua
 
 #endif
 
+		/*
+		** assertion for checking API calls
+		*/
+		//FIXME:???
 		[Conditional("DEBUG")]
 		public static void api_check(object o, bool e)		{lua_assert(e);}
 		public static void api_check(object o, int e) { lua_assert(e!=0); }
@@ -98,6 +106,14 @@ namespace KopiLua
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
 		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(object i) { return (lu_byte)(int)(i); }
+
+		/*
+		** maximum depth for nested C calls and syntactical nested non-terminals
+		** in a program. (Value must fit in an unsigned short int.)
+		*/
+		//#if !defined(LUAI_MAXCCALLS)
+		public static const int LUAI_MAXCCALLS = 200;
+		//#endif
 
 		public static int cast_int(int i) { return (int)i; }
 		public static int cast_int(long i) { return (int)(int)i; }
@@ -138,9 +154,43 @@ namespace KopiLua
 		#endif
 		
 
+
+
 		#if !luai_threadyield
 		public static void luai_threadyield(lua_State L)     {lua_unlock(L); lua_lock(L);}
 		#endif
+
+
+		/*
+		** these macros allow user-specific actions on threads when you defined
+		** LUAI_EXTRASPACE and need to do something extra when a thread is
+		** created/deleted/resumed/yielded.
+		*/
+		#if !luai_userstateopen
+		public static void luai_userstateopen(lua_State L)           { /*((void)L)*/ }
+		#endif
+
+		#if !luai_userstateclose
+		public static void luai_userstateclose(lua_State L)          { /*((void)L)*/ }
+		#endif
+
+		#if !luai_userstatethread
+		public static void luai_userstatethread(lua_State L, lua_State L1)      { /*((void)L)*/ }
+		#endif
+
+		#if !luai_userstatefree
+		public static void luai_userstatefree(lua_State L)           { /*((void)L)*/ }
+		#endif
+
+		#if !luai_userstateresume
+		public static void luai_userstateresume(lua_State L, int n)       { /*((void)L)*/ }
+		#endif
+
+		#if !luai_userstateyield
+		public static void luai_userstateyield(lua_State L, int n)        { /*((void)L)*/ }
+		#endif
+
+
 
 
 		/*
@@ -152,6 +202,6 @@ namespace KopiLua
 		//#define condmovestack(L) /* realloc stack keeping its size */ \
 		//	luaD_reallocstack((L), (L)->stacksize - EXTRA_STACK - 1)
 		//#endif
-
+        //------------------>FIXME:???
 	}
 }

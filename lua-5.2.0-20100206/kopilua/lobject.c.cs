@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.30 2009/05/27 17:11:27 roberto Exp roberto $
+** $Id: lobject.c,v 2.34 2009/11/26 11:39:20 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -24,6 +24,8 @@ namespace KopiLua
 	{
 
 	
+	    //FIXME:???
+        //LUAI_DDEF const TValue luaO_nilobject_ = {NILCONSTANT};
 
 		
 		/*
@@ -76,7 +78,7 @@ namespace KopiLua
 			case LUA_TNUMBER:
 			  return luai_numeq(nvalue(t1), nvalue(t2)) ? 1 : 0;
 			case LUA_TBOOLEAN:
-			  return bvalue(t1) == bvalue(t2) ? 1 : 0;  /* boolean true must be 1....but not in C# !! */
+			  return bvalue(t1) == bvalue(t2) ? 1 : 0;  /* boolean true must be 1 !! */
 			case LUA_TLIGHTUSERDATA:
 				return pvalue(t1) == pvalue(t2) ? 1 : 0;
 			default:
@@ -94,7 +96,7 @@ namespace KopiLua
 		    case LUA_OPDIV: return luai_numdiv(null, v1, v2);
 		    case LUA_OPMOD: return luai_nummod(null, v1, v2);
 		    case LUA_OPPOW: return luai_numpow(null, v1, v2);
-		    case LUA_OPUNM: return luai_numunm(null, v1); //FIXME:N->NULL
+		    case LUA_OPUNM: return luai_numunm(null, v1);
 		    default: lua_assert(0); return 0;
 		  }
 		}
@@ -218,7 +220,7 @@ namespace KopiLua
 		  else {  /* string; format as [string "source"] */
 		    CharPtr nl = strchr(source, '\n');  /* find first new line (if any) */
 		    addstr(out_, PRE, LL(PRE));  /* add prefix */
-		    bufflen -= LL(PRE + RETS + POS);  /* save space for prefix+sufix */
+		    bufflen -= LL(PRE + RETS + POS);  /* save space for prefix+suffix */
 		    if (l < bufflen && nl == null) {  /* small one-line source? */
 		      addstr(out_, source, l);  /* keep it */
 		    }

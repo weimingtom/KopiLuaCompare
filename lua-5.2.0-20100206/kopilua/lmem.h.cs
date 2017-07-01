@@ -27,6 +27,10 @@ namespace KopiLua
 			return luaM_reallocv<T>(L, null, n);
 		}
 
+		//FIXME:
+		public static T luaM_newobject(lua_State L)	{ return (T)luaM_realloc_<T>(L); }
+
+
 		public static void luaM_growvector<T>(lua_State L, ref T[] v, int nelems, ref int size, int limit, CharPtr e)
 		{
 			if (nelems + 1 > size)

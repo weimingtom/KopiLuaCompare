@@ -48,9 +48,30 @@ liolib.c
 	#if !defined(lua_popen) ?????
 
 
-
-
-
+10:01 2017/7/1
+llex.c
+10:09 2017/7/1
+llex.h
+10:19 2017/7/1
+llimits.h
+10:20 2017/7/1
+lmathlib.c
+10:24 2017/7/1
+lmem.c
+	luaM_realloc_ not modify
+10:27 2017/7/1
+lmem.h
+	luaM_newobject ???
+10:50 2017/7/1
+loadlib.c
+	LUA_DL_DLOPEN -> LUA_USE_DLOPEN
+10:52 2017/7/1
+lobject.c
+	luaO_nilobject_ ??? deleted
+11:11 2017/7/1
+lobject.h
+	luaO_nilobject_ move to lobject.c
+	NILCONSTANT
 
 
 

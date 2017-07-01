@@ -61,6 +61,7 @@ namespace KopiLua
 			public lua_State L;
 			public ZIO z;  /* input stream */
 			public Mbuffer buff;  /* buffer for tokens */
+            public Varlist varl;  /* list of all active local variables */
 			public TString source;  /* current source name */
 			public char decpoint;  /* locale decimal point */
 		};
