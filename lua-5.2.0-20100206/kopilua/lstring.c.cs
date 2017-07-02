@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.12 2009/04/17 14:40:13 roberto Exp roberto $
+** $Id: lstring.c,v 2.15 2009/12/11 21:31:14 roberto Exp roberto $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -21,8 +21,8 @@ namespace KopiLua
 		public static void luaS_resize (lua_State L, int newsize) {
 		  int i;
 		  stringtable tb = G(L).strt;
-		  if (G(L).gcstate == GCSsweepstring)
-		    return;  /* cannot resize during GC traverse */
+		  /* cannot resize while GC is traversing strings */
+		  luaC_runtilstate(L, ~bitmask(GCSsweepstring));
 		  if (newsize > tb.size) {
 		    luaM_reallocvector(L, ref tb.hash, tb.size, newsize/*, GCObject * */);
 		    for (i = tb.size; i < newsize; i++) tb.hash[i] = null;
@@ -50,25 +50,23 @@ namespace KopiLua
 
 		public static TString newlstr (lua_State L, CharPtr str, uint l,
 											   uint h) {
+		  size_t totalsize;  /* total size of TString object */
+		  GCObject **list;  /* (pointer to) list where it will be inserted */
 		  TString ts;
 		  stringtable tb = G(L).strt;
 		  if (l+1 > MAX_SIZET /GetUnmanagedSize(typeof(char)))
 		    luaM_toobig(L);
 		  if ((tb.nuse > (int)tb.size) && (tb.size <= MAX_INT/2))
 		    luaS_resize(L, tb.size*2);  /* too crowded */
-		  ts = new TString(new char[l+1]);
-		  AddTotalBytes(L, (int)(l + 1) * GetUnmanagedSize(typeof(char)) + GetUnmanagedSize(typeof(TString)));
+		  totalsize = sizeof(TString) + ((l + 1) * sizeof(char));
+		  list = &tb->hash[lmod(h, tb->size)];
+		  ts = &luaC_newobj(L, LUA_TSTRING, totalsize, list, 0)->ts;
 		  ts.tsv.len = l;
 		  ts.tsv.hash = h;
-		  ts.tsv.marked = luaC_white(G(L));
-		  ts.tsv.tt = LUA_TSTRING;
 		  ts.tsv.reserved = 0;
 		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char)));
 		  memcpy(ts.str.chars, str.chars, str.index, (int)l);
 		  ts.str[l] = '\0';  /* ending 0 */
-		  h = (uint)lmod(h, tb.size);
-		  ts.tsv.next = tb.hash[h];  /* chain new entry */
-		  tb.hash[h] = obj2gco(ts);
 		  tb.nuse++;
 		  return ts;
 		}
@@ -119,13 +117,12 @@ namespace KopiLua
 		    //if (s > MAX_SIZET - sizeof(Udata))
 			//  luaM_toobig(L);
 			//FXIME:here changed
-			u = new Udata();
-			luaC_link(L, obj2gco(u), LUA_TUSERDATA);
+			u = &luaC_newobj(L, LUA_TUSERDATA, sizeof(Udata) + s, NULL, 0)->u;
 			u.uv.len = 0;
 			u.uv.metatable = null;
 			u.uv.env = e;
-			u.user_data = luaM_realloc_(L, t);  //FIXME:???
-			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:???
+			u.user_data = luaM_realloc_(L, t);  //FIXME:??? added
+			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:??? added
 			return u;
 		}
 

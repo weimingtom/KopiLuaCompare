@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.46 2009/03/23 14:26:12 roberto Exp roberto $
+** $Id: ltablib.c,v 1.53 2009/12/28 16:30:31 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -14,7 +14,7 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_objlen(L, n);}
+		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_rawlen(L, n);}
 
 		private static int foreachi (lua_State L) {
 		  int n = aux_getn(L, 1);
@@ -84,6 +84,7 @@ namespace KopiLua
 		}
 
 
+#if defined(LUA_COMPAT_MAXN)
 		private static int maxn (lua_State L) {
 		  lua_Number max = 0;
 		  luaL_checktype(L, 1, LUA_TTABLE);
@@ -98,16 +99,16 @@ namespace KopiLua
 		  lua_pushnumber(L, max);
 		  return 1;
 		}
+#else
+		private static int maxn (lua_State L) {
+		  return luaL_error(L, "function 'maxn' is deprecated");
+		}
+#endif
 
 
 		private static int getn (lua_State L) {
 		  lua_pushinteger(L, aux_getn(L, 1));
 		  return 1;
-		}
-
-
-		private static int setn (lua_State L) {
-		  return luaL_error(L, LUA_QL("setn") + " is obsolete");
 		}
 
 
@@ -170,7 +171,7 @@ namespace KopiLua
 		  CharPtr sep = luaL_optlstring(L, 2, "", out lsep);
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  i = luaL_optint(L, 3, 1);
-		  last = luaL_opt_integer(L, luaL_checkint, 4, (int)lua_objlen(L, 1));
+		  last = luaL_opt_integer(L, luaL_checkint, 4, (int)lua_rawlen(L, 1));
 		  luaL_buffinit(L, b);
 		  for (; i < last; i++) {
 		    addfield(L, b, i);
@@ -183,12 +184,53 @@ namespace KopiLua
 		}
 
 
+		/*
+		** {======================================================
+		** Pack/unpack
+		** =======================================================
+		*/
+
+		private static int pack (lua_State L) {
+		  int top = lua_gettop(L);
+		  lua_createtable(L, top, 1);  /* create result table */
+		  /* use function environment as a temporary place to keep new table */
+		  lua_replace(L, LUA_ENVIRONINDEX);
+		  lua_pushinteger(L, top);  /* number of elements */
+		  lua_setfield(L, LUA_ENVIRONINDEX, "n");  /* t.n = number of elements */
+		  for (; top >= 1; top--)  /* assign elements */
+		    lua_rawseti(L, LUA_ENVIRONINDEX, top);
+		  lua_pushvalue(L, LUA_ENVIRONINDEX);  /* return new table */
+		  /* remove new table from environment to allow its later collection */
+		  lua_copy(L, LUA_REGISTRYINDEX, LUA_ENVIRONINDEX);
+		  return 1;
+		}
+
+
+		private static int unpack (lua_State L) {
+		  int i, e, n;
+		  luaL_checktype(L, 1, LUA_TTABLE);
+		  i = luaL_optint(L, 2, 1);
+		  e = luaL_opt(L, luaL_checkint, 3, (int)lua_rawlen(L, 1));
+		  if (i > e) return 0;  /* empty range */
+		  n = e - i + 1;  /* number of elements */
+		  if (n <= 0 || !lua_checkstack(L, n))  /* n <= 0 means arith. overflow */
+		    return luaL_error(L, "too many results to unpack");
+		  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
+		  while (i++ < e)  /* push arg[i + 1...e] */
+		    lua_rawgeti(L, 1, i);
+		  return n;
+		}
+
+		/* }====================================================== */
+
+
 
 		/*
 		** {======================================================
 		** Quicksort
 		** (based on `Algorithms in MODULA-3', Robert Sedgewick;
 		**  Addison-Wesley, 1993.)
+		** =======================================================
 		*/
 
 
@@ -307,8 +349,9 @@ namespace KopiLua
 		  new luaL_Reg("getn", getn),
 		  new luaL_Reg("maxn", maxn),
 		  new luaL_Reg("insert", tinsert),
+		  new luaL_Reg("pack", pack),
+		  new luaL_Reg("unpack", unpack),
 		  new luaL_Reg("remove", tremove),
-		  new luaL_Reg("setn", setn),
 		  new luaL_Reg("sort", sort),
 		  new luaL_Reg(null, null)
 		};
@@ -316,6 +359,11 @@ namespace KopiLua
 
 		public static int luaopen_table (lua_State L) {
 		  luaL_register(L, LUA_TABLIBNAME, tab_funcs);
+#if defined(LUA_COMPAT_UNPACK)
+		  /* _G.unpack = table.unpack */
+		  lua_getfield(L, -1, "unpack");
+		  lua_setfield(L, LUA_ENVIRONINDEX, "unpack");
+#endif
 		  return 1;
 		}
 

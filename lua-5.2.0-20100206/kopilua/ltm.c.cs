@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.c,v 2.8 2006/01/10 12:50:00 roberto Exp roberto $
+** $Id: ltm.c,v 2.10 2009/11/19 19:06:52 roberto Exp roberto $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -14,9 +14,12 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
+		private static CharPtr udatatypename = "userdata";
+
 		public readonly static CharPtr[] luaT_typenames = {
-		  "nil", "boolean", "userdata", "number",
-		  "string", "table", "function", "userdata", "thread",
+          "no value",
+		  "nil", "boolean", udatatypename, "number",
+		  "string", "table", "function", udatatypename, "thread",
 		  "proto", "upval"
 		};
 

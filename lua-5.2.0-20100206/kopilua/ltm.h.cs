@@ -29,6 +29,7 @@ namespace KopiLua
 		  TM_N		/* number of elements in the enum */
 		};
 
+
 		public static TValue gfasttm(global_State g, Table et, TMS e)
 		{
 			return (et == null) ? null : 
@@ -37,5 +38,9 @@ namespace KopiLua
 		}
 
 		public static TValue fasttm(lua_State l, Table et, TMS e)	{return gfasttm(G(l), et, e);}
+
+
+		public static void typename(x) { return luaT_typenames_[(x) + 1]; }
+
 	}
 }

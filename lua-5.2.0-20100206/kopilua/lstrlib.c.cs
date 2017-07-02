@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.142 2009/02/03 19:39:19 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.147 2009/12/17 12:50:20 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -21,6 +21,17 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+
+		/*
+		** maximum number of captures that a pattern can do during
+		** pattern-matching. This limit is arbitrary.
+		*/
+		#if !defined(LUA_MAXCAPTURES)
+		private const int LUA_MAXCAPTURES = 32;
+		#endif
+
+	
+	
 		private static char uchar(char c) {return c;}
 		
 		private static int str_len (lua_State L) {
@@ -401,7 +412,15 @@ namespace KopiLua
 			case ')': {  /* end capture */
 			  return end_capture(ms, s, p+1);
 			}
-			case L_ESC: {
+		    case '\0': {  /* end of pattern */
+		      return s;  /* match succeeded */
+		    }
+		    case '$': {
+		      if (*(p+1) == '\0')  /* is the `$' the last char in pattern? */
+		        return (s == ms->src_end) ? s : NULL;  /* check end of string */
+		      else goto dflt;
+		    }
+			case L_ESC: {  /* escaped sequences not in the format class[*+?-]? */
 			  switch (p[1]) {
 				case 'b': {  /* balanced string? */
 				  s = matchbalance(ms, s, p+2);
@@ -420,25 +439,17 @@ namespace KopiLua
 					 (matchbracketclass((byte)(s[0]), p, ep-1)==0)) return null;
 				  p=ep; goto init;  /* else return match(ms, s, ep); */
 				}
-				default: {
-				  if (isdigit((byte)(p[1]))) {  /* capture results (%0-%9)? */
+		        case '0': case '1': case '2': case '3':
+		        case '4': case '5': case '6': case '7':
+		        case '8': case '9': {  /* capture results (%0-%9)? */
 					s = match_capture(ms, s, (byte)(p[1]));
 					if (s == null) return null;
 					p+=2; goto init;  /* else return match(ms, s, p+2) */
 				  }
-				  goto dflt;  /* case default */
-				}
+				default: break;  /* go through to 'dflt' */
 			  }
 			}
-			case '\0': {  /* end of pattern */
-			  return s;  /* match succeeded */
-			}
-			case '$': {
-			  if (p[1] == '\0')  /* is the `$' the last char in pattern? */
-				return (s == ms.src_end) ? s : null;  /* check end of string */
-			  else goto dflt;
-			}
-			default: dflt: {  /* it is a pattern item */
+			default: dflt: {  /* pattern class plus optional sufix */
 			  CharPtr ep = classend(ms, p);  /* points to what is next */
 			  int m = (s<ms.src_end) && (singlematch((byte)(s[0]), p, ep)!=0) ? 1 : 0;
 			  switch (ep[0]) {
@@ -729,6 +740,24 @@ namespace KopiLua
 		/* }====================================================== */
 
 
+		/*
+		** length modifier for integer conversions ** in 'string.format' and
+		** integer type corresponding to the previous length
+		*/
+
+		#if defined(LUA_USELONGLONG)
+
+		#define LUA_INTFRMLEN           "ll"
+		#define LUA_INTFRM_T            long long
+
+		#else
+
+		#define LUA_INTFRMLEN           "l"
+		#define LUA_INTFRM_T            long
+
+		#endif
+
+
 		/* maximum size of each formatted item (> len(format('%99.99f', -1e308))) */
 		public const int MAX_ITEM	= 512;
 		/* valid flags in a format specification */
@@ -827,7 +856,7 @@ namespace KopiLua
 				  {
 					  case 'c':
 						  {
-							  sprintf(buff, form, (int)luaL_checknumber(L, arg));
+							  sprintf(buff, form, luaL_checkint(L, arg));
 							  break;
 						  }
 					  case 'd':
@@ -927,10 +956,6 @@ namespace KopiLua
 		*/
 		public static int luaopen_string (lua_State L) {
 		  luaL_register(L, LUA_STRLIBNAME, strlib);
-		#if LUA_COMPAT_GFIND
-		  lua_getfield(L, -1, "gmatch");
-		  lua_setfield(L, -2, "gfind");
-		#endif
 		  createmetatable(L);
 		  return 1;
 		}
