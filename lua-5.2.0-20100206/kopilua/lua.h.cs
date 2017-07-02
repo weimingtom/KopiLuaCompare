@@ -1,6 +1,6 @@
 /*
-** $Id: lua.h,v 1.239 2009/06/17 17:49:44 roberto Exp roberto $
-** Lua - An Extensible Extension Language
+** $Id: lua.h,v 1.260 2010/01/06 15:08:00 roberto Exp roberto $
+** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
 */
@@ -21,7 +21,7 @@ namespace KopiLua
 		public const string LUA_VERSION = "Lua 5.2";
 		public const string LUA_RELEASE = "Lua 5.2.0";
 		public const int LUA_VERSION_NUM	= 502;
-		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2008 Lua.org, PUC-Rio";
+		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2010 Lua.org, PUC-Rio";
 		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
 
 
@@ -35,10 +35,9 @@ namespace KopiLua
 		/*
 		** pseudo-indices
 		*/
-		public const int LUA_REGISTRYINDEX	= (-(LUAI_MCS_AUX) - 1);
+		public const int LUA_REGISTRYINDEX	= LUAI_FIRSTPSEUDOIDX;
 		public const int LUA_ENVIRONINDEX	= (LUA_REGISTRYINDEX - 1);
-		public const int LUA_GLOBALSINDEX	= (LUA_ENVIRONINDEX - 1);
-		public static int lua_upvalueindex(int i)	{return LUA_GLOBALSINDEX-i;}
+		public static int lua_upvalueindex(int i)	{return LUA_ENVIRONINDEX-i;}
 
 
 		/* thread status */
@@ -90,6 +89,13 @@ namespace KopiLua
 		public const int LUA_MINSTACK = 20;
 
 
+		/* predefined values in the registry */
+		public const int LUA_RIDX_MAINTHREAD = 1;
+		public const int LUA_RIDX_CPCALL = 2;
+		public const int LUA_RIDX_GLOBALS = 3;
+		public const int LUA_RIDX_LAST = LUA_RIDX_GLOBALS;
+
+
 		/* type of numbers in Lua */
 		//typedef LUA_NUMBER lua_Number;
 
@@ -97,6 +103,49 @@ namespace KopiLua
 		/* type for integer functions */
 		//typedef LUA_INTEGER lua_Integer;
 
+
+
+		/*
+		** generic extra include file
+		*/
+		//#if defined(LUA_USER_H)
+		//#include LUA_USER_H
+		//#endif
+
+        //<-----------------------------ignore
+
+
+/*
+** state manipulation
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+** basic stack manipulation
+*/
+
+
+
+
+/*
+** access functions (stack -> C)
+*/
+
+
+
+
+
+        //----------------------------->ignore
 		/*
 		** Comparison and arithmetic functions
 		*/
@@ -114,11 +163,39 @@ namespace KopiLua
 		public const int LUA_OPLT = 1;
 		public const int LUA_OPLE = 2;
 
-
+		//<-----------------------------ignore
 		public static void lua_call(lua_State L, int n, int r) { lua_callk(L, n, r, 0, null); }
 
         public static int lua_pcall(lua_State L, int n, int r, int f) { return lua_pcallk(L, n, r, f, 0, null); }
+		public static void lua_yield(lua_State L, int n) { return lua_yieldk(L, n, 0, null); }
 		
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		//----------------------------->ignore
 		/*
 		** garbage-collection function and options
 		*/
@@ -131,6 +208,26 @@ namespace KopiLua
 		public const int LUA_GCSTEP			= 5;
 		public const int LUA_GCSETPAUSE		= 6;
 		public const int LUA_GCSETSTEPMUL	= 7;
+        public const int LUA_GCISRUNNING	= 8;
+
+
+
+
+		/*
+		** miscellaneous functions
+		*/
+
+
+
+
+
+
+
+
+
+
+
+
 
 		/* 
 		** ===============================================================
@@ -148,10 +245,13 @@ namespace KopiLua
             lua_createtable(L, 0, 0);
         }
 
+		public static void lua_setglobal(L,s) { return lua_setfield(L, LUA_ENVIRONINDEX, (s)); }
+		public static void lua_getglobal(L,s) { return lua_getfield(L, LUA_ENVIRONINDEX, (s)); }
+
         public static void lua_register(lua_State L, CharPtr n, lua_CFunction f)
         {
             lua_pushcfunction(L, f);
-            lua_setglobal(L, n);
+            lua_setfield(L, LUA_ENVIRONINDEX, n);
         }
 
         public static void lua_pushcfunction(lua_State L, lua_CFunction f)
@@ -208,15 +308,11 @@ namespace KopiLua
             return lua_pushstring(L, s);
         }
 
-        public static void lua_setglobal(lua_State L, CharPtr s)
+        public static void lua_pushglobaltable(lua_State L)
         {
-            lua_setfield(L, LUA_GLOBALSINDEX, s);
+            lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS);
         }
 
-        public static void lua_getglobal(lua_State L, CharPtr s)
-        {
-            lua_getfield(L, LUA_GLOBALSINDEX, s);
-        }
 
 
 
@@ -226,41 +322,7 @@ namespace KopiLua
             return lua_tolstring(L, i, out blah);
         }
 
-		/*
-		** compatibility macros and functions
-		*/
-		//FIXME: changed here
-		//#if LUA_COMPAT_API
 
-        public static uint lua_strlen(lua_State L, int i)
-        {
-            return lua_objlen(L, i);
-        }
-
-		////#define lua_open()	luaL_newstate()
-		public static lua_State lua_open()
-        {
-            return luaL_newstate();
-        }
-
-        ////#define lua_getregistry(L)	lua_pushvalue(L, LUA_REGISTRYINDEX)
-        public static void lua_getregistry(lua_State L)
-        {
-            lua_pushvalue(L, LUA_REGISTRYINDEX);
-        }
-
-        ////#define lua_getgccount(L)	lua_gc(L, LUA_GCCOUNT, 0)
-        public static int lua_getgccount(lua_State L)
-        {
-            return lua_gc(L, LUA_GCCOUNT, 0);
-        }
-
-		//#define lua_Chunkreader		lua_Reader
-		//#define lua_Chunkwriter		lua_Writer
-
-		public static int lua_equal(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPEQ); }
-		public static int lua_lessthan(lua_State L, int idx1, int idx2)	{ return lua_compare(L,idx1,idx2,LUA_OPLT); }
-		//#endif
 
 		/*
 		** {======================================================================
@@ -276,7 +338,7 @@ namespace KopiLua
         public const int LUA_HOOKRET = 1;
         public const int LUA_HOOKLINE = 2;
         public const int LUA_HOOKCOUNT = 3;
-        public const int LUA_HOOKTAILRET = 4;
+        public const int LUA_HOOKTAILCALL = 4;
 
 
 		/*
@@ -298,9 +360,12 @@ namespace KopiLua
 		  public CharPtr what;	/* (S) 'Lua', 'C', 'main', 'tail' */
 		  public CharPtr source;	/* (S) */
 		  public int currentline;	/* (l) */
-		  public int nups;		/* (u) number of upvalues */
 		  public int linedefined;	/* (S) */
 		  public int lastlinedefined;	/* (S) */
+		  byte nups;	/* (u) number of upvalues */
+		  byte nparams;/* (u) number of parameters */
+		  char isvararg;        /* (u) */
+		  char istailcall;	/* (t) */
 		  public CharPtr short_src = new char[LUA_IDSIZE]; /* (S) */
 		  /* private part */
 		  public CallInfo i_ci = new CallInfo();  /* active function */
@@ -310,7 +375,7 @@ namespace KopiLua
 
 
 		/******************************************************************************
-        * Copyright (C) 1994-2008 Lua.org, PUC-Rio.  All rights reserved.
+        * Copyright (C) 1994-2010 Lua.org, PUC-Rio.  All rights reserved.
 		*
 		* Permission is hereby granted, free of charge, to any person obtaining
 		* a copy of this software and associated documentation files (the
