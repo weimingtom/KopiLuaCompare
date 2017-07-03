@@ -114,15 +114,34 @@ lua.c
 22:06 2017-07-02
 lua.h
 
+03:17 2017-07-04
+luaconf.h
+        //FIXME:??? not defined
+		#if defined(LUA_COMPAT_ALL)
+		//FIXME:???not defined
+		#if defined(lobject_c) || defined(lvm_c) || defined(luaall_c)
+		//???
+		public delegate lua_Number op_delegate(lua_State L, lua_Number a, lua_Number b); //FIXME:added
+		//???
+		#define luai_hashnum(i,d) { int e;  \
+03:19 2017-07-04
+lualib.h
+03:21 2017-07-04
+lundump.c
+lundump.h
 
+	//!!!!!!!!!changed!!!!!!!!!!!
+	check_exp(getBMode(GET_OPCODE(i)) == OpArgK, k+GETARG_Bx(i))
+	->
+	#define KBx(i) 
+		(k + (GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(*ci->u.l.savedpc++)))
 
-
-
-
-
-
-
-
+06:19 2017-07-04
+lvm.c
+06:21 2017-07-04
+lvm.h
+lzio.c
+lzio.h
 
 
 

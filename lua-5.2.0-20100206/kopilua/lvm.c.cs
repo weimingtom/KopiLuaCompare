@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.93 2009/06/17 17:50:09 roberto Exp roberto $
+** $Id: lvm.c,v 2.102 2009/12/17 16:20:01 roberto Exp roberto $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -56,7 +56,7 @@ namespace KopiLua
 		  lu_byte mask = L.hookmask;
 		  if (((mask & LUA_MASKCOUNT) != 0) && (L.hookcount == 0)) {
 			resethookcount(L);
-			luaD_callhook(L, LUA_HOOKCOUNT, -1);
+			luaD_hook(L, LUA_HOOKCOUNT, -1);
 		  }
 		  if ((mask & LUA_MASKLINE) != 0) {
 			Proto p = ci_func(ci).l.p;
@@ -65,7 +65,7 @@ namespace KopiLua
 		    if (npc == 0 ||  /* call linehook when enter a new function, */
 		        ci.u.l.savedpc <= L.oldpc ||  /* when jump back (loop), or when */
 		        newline != getfuncline(p, pcRel(L.oldpc, p)))  /* enter a new line */
-			  luaD_callhook(L, LUA_HOOKLINE, newline);
+			  luaD_hook(L, LUA_HOOKLINE, newline);
 		  }
           L.oldpc = ci.u.l.savedpc;
 		}
@@ -153,6 +153,7 @@ namespace KopiLua
 		  if (ttisnil(tm))
 			tm = luaT_gettmbyobj(L, p2, event_);  /* try second operand */
 		  if (ttisnil(tm)) return 0;
+          if (event_ == TM_UNM) p2 = luaO_nilobject;
 		  callTM(L, tm, p1, p2, res, 1);
 		  return 1;
 		}
@@ -307,8 +308,7 @@ namespace KopiLua
 		}
 
 
-
-		private static void objlen (lua_State L, StkId ra, /*const*/ TValue rb) {
+		private static void luaV_objlen (lua_State L, StkId ra, /*const*/ TValue rb) {
 		  TValue tm;
 		  switch (ttype(rb)) {
 		    case LUA_TTABLE: {
@@ -354,7 +354,12 @@ namespace KopiLua
 		  CallInfo ci = L.ci;
 		  StkId base_ = ci.u.l.base_;
 		  Instruction inst = ci.u.l.savedpc[-1];  /* interrupted instruction */
-		  switch (GET_OPCODE(inst)) {  /* finish its execution */
+		  OpCode op = GET_OPCODE(inst);
+		  if (op == OP_EXTRAARG) {  /* extra argument? */
+		    inst = *(ci->u.l.savedpc - 2);  /* get its 'main' instruction */
+		    op = GET_OPCODE(inst);
+		  }
+		  switch (op) {  /* finish its execution */
 		    case OpCode.OP_ADD: case OpCode.OP_SUB: case OpCode.OP_MUL: case OpCode.OP_DIV:
 		    case OpCode.OP_MOD: case OpCode.OP_POW: case OpCode.OP_UNM: case OpCode.OP_LEN:
 		    case OpCode.OP_GETGLOBAL: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
@@ -367,7 +372,7 @@ namespace KopiLua
 		  	  lua_TValue.dec(ref L.top);
 		      /* metamethod should not be called when operand is K */
 		      lua_assert(ISK(GETARG_B(inst))==0);
-		      if (GET_OPCODE(inst) == OpCode.OP_LE &&  /* "<=" using "<" instead? */
+		      if (op == OpCode.OP_LE &&  /* "<=" using "<" instead? */
 		          ttisnil(luaT_gettmbyobj(L, base_ + GETARG_B(inst), TMS.TM_LE)))
 		      	res = (res != 0 ? 0 : 1);  /* invert result */
 		      lua_assert(GET_OPCODE(ci.u.l.savedpc[0]) == OpCode.OP_JMP);
@@ -420,8 +425,9 @@ namespace KopiLua
 			//ISK(GETARG_B(i)) ? k+INDEXK(GETARG_B(i)) : base+GETARG_B(i))
 		//#define RKC(i)	check_exp(getCMode(GET_OPCODE(i)) == OpArgMask.OpArgK, \
 		//	ISK(GETARG_C(i)) ? k+INDEXK(GETARG_C(i)) : base+GETARG_C(i))
-		//#define KBx(i)	check_exp(getBMode(GET_OPCODE(i)) == OpArgMask.OpArgK, k+GETARG_Bx(i))
-
+		//#define KBx(i)  \
+		//	(k + (GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(*ci->u.l.savedpc++)))
+		
 		// todo: implement proper checks, as above
 		public static TValue RA(lua_State L, StkId base_, Instruction i) { return base_ + GETARG_A(i); }
 		public static TValue RB(lua_State L, StkId base_, Instruction i) { return base_ + GETARG_B(i); }
@@ -455,6 +461,7 @@ namespace KopiLua
 				}
 		      }
 
+        //FIXME:added for debug
 		internal static void Dump(int pc, Instruction i)
 		{
 			int A = GETARG_A(i);
@@ -550,7 +557,7 @@ namespace KopiLua
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
-			lua_assert(base_ <= L.top && ((L.top - L.stack) <= L.stacksize));
+			lua_assert(base_ <= L.top && L.top < L.stack + L.stacksize);
 			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
@@ -558,7 +565,8 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_LOADK: {
-				setobj2s(L, ra, KBx(L, i, k));
+		        TValue rb = KBx(i);
+		        setobj2s(L, ra, rb);
 				continue;
 			  }
 			  case OpCode.OP_LOADBOOL: {
@@ -602,11 +610,12 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETGLOBAL: {
 				TValue g = new TValue();
+                TValue rb = KBx(i);
 				sethvalue(L, g, cl.env);
-				lua_assert(ttisstring(KBx(L, i, k)));
+				lua_assert(ttisstring(rb));
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_settable(L, g, KBx(L, i, k), ra);
+				  luaV_settable(L, g, rb, ra)
 				  base_ = ci.u.l.base_;
 				  //);
 				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
@@ -701,7 +710,7 @@ namespace KopiLua
 			  case OpCode.OP_LEN: {
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  objlen(L, ra, RB(L, base_, i));
+				  luaV_objlen(L, ra, RB(L, base_, i));
 				  base_ = ci.u.l.base_; //FIXME:???
 				//)
 				continue;
@@ -797,18 +806,22 @@ namespace KopiLua
 			        /* tail call: put called frame (n) in place of caller one (o) */
 			        CallInfo nci = L.ci;  /* called frame */
 			        CallInfo oci = nci.previous;  /* caller frame */
-			        StkId nfunc = nci.func;  /* called function index */
-			        StkId ofunc = oci.func;
+			        StkId nfunc = nci.func;  /* called function */
+		            StkId ofunc = oci.func;  /* caller function */
+		            /* last stack slot filled by 'precall' */
+		            StkId lim = nci.u.l.base + getproto(nfunc).numparams;
 					int aux;
+                    /* close all upvalues from previous call */
 		            if (cl.p.sizep > 0) luaF_close(L, oci.u.l.base_);
-		            oci.u.l.base_ = ofunc + (nci.u.l.base_ - nfunc);
-		            for (aux = 0; nfunc+aux < L.top; aux++)  /* move frame down */
+		            /* move new frame into old one */
+					for (aux = 0; nfunc+aux < lim; aux++)
 		              setobjs2s(L, ofunc + aux, nfunc + aux);
-		            oci.top = L.top = ofunc + aux;  /* correct top */
-		            lua_assert(L.top == oci.u.l.base_ + clvalue(ofunc).l.p.maxstacksize);
+                    oci->u.l.base = ofunc + (nci->u.l.base - nfunc);  /* correct base */
+                    oci.top = L.top = ofunc + (L->top - nfunc);  /* correct top */
 		            oci.u.l.savedpc = nci.u.l.savedpc;
-		            oci.u.l.tailcalls++;  /* one more call lost */
+		            oci.callstatus |= CIST_TAIL;  /* function was tail called */
 		            ci = L.ci = oci;  /* remove new frame */
+                    lua_assert(L->top == oci.u.l.base + getproto(ofunc).maxstacksize);
 		            break;  /* restart luaV_execute over new Lua function */
 				}
 			  }
@@ -894,7 +907,7 @@ namespace KopiLua
 				  luaH_resizearray(L, h, last);  /* pre-alloc it at once */
 				for (; n > 0; n--) {
 				  TValue val = ra+n;
-				  setobj2t(L, luaH_setnum(L, h, last--), val);
+				  setobj2t(L, luaH_setint(L, h, last--), val);
 				  luaC_barriert(L, h, val);
 				}
                 L.top = ci.top;  /* correct top (in case of previous open call) */
@@ -905,23 +918,27 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_CLOSURE: {
-				Proto p;
-				Closure ncl;
-				int nup, j;
-				p = cl.p.p[GETARG_Bx(i)];
-				nup = p.nups;
-				ncl = luaF_newLclosure(L, nup, cl.env);
+				Proto p = cl.p.p[GETARG_Bx(i)];  /* prototype for new closure */
+				int nup = p.sizeupvalues;
+				Closure ncl = luaF_newLclosure(L, nup, cl.env);
+                Upvaldesc uv = p.upvalues;
+                int j;
 				ncl.l.p = p;
                 setclvalue(L, ra, ncl);
-				for (j=0; j<nup; j++) {
-                  Instruction u = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc);
-				  if (GET_OPCODE(u) == OpCode.OP_GETUPVAL)
-					ncl.l.upvals[j] = cl.upvals[GETARG_B(u)];
-				  else {
-					lua_assert(GET_OPCODE(u) == OpCode.OP_MOVE);
-					ncl.l.upvals[j] = luaF_findupval(L, base_ + GETARG_B(u));
-				  }
-				}
+		        if (p->envreg != NO_REG) {  /* lexical environment? */
+		          StkId env = base + p->envreg;
+		          if (!ttistable(env))
+		            luaG_runerror(L, "environment is not a table: "
+		                             "cannot create closure");
+		          else
+		            ncl->l.env = hvalue(env);
+		        }
+		        for (j = 0; j < nup; j++) {  /* fill in upvalues */
+		          if (uv[j].instack)  /* upvalue refers to local variable? */
+		            ncl->l.upvals[j] = luaF_findupval(L, base + uv[j].idx);
+		          else  /* get upvalue from enclosing function */
+		            ncl->l.upvals[j] = cl->upvals[uv[j].idx];
+		        }
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc);//FIXME:
 					luaC_checkGC(L);
@@ -933,14 +950,14 @@ namespace KopiLua
 				int b = GETARG_B(i) - 1;
 				int j;
 				int n = cast_int(base_ - ci.func) - cl.p.numparams - 1;
-				if (b == LUA_MULTRET) {
+		        if (b < 0) {  /* B == 0? */
+		          b = n;  /* get all var. arguments */
 				  //Protect(
 					//L.savedpc = InstructionPtr.Assign(pc);//FIXME:
 					  luaD_checkstack(L, n);
 					base_ = ci.u.l.base_;
 					//);
-				  ra = RA(L, base_, i);  /* previous call may change the stack */
-				  b = n;
+				  ra = RA(i);  /* previous call may change the stack */
 				  L.top = ra + n;
 				}
 				for (j = 0; j < b; j++) {

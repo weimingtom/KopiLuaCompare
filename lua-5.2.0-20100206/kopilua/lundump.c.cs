@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.9 2008/04/07 18:44:23 roberto Exp roberto $
+** $Id: lundump.c,v 2.11 2009/09/28 16:32:50 roberto Exp roberto $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -152,6 +152,20 @@ namespace KopiLua
 		 for (i=0; i<n; i++) f.p[i]=LoadFunction(S,f.source);
 		}
 
+		private static void LoadUpvalues(LoadState S, Proto f)
+		{
+		 int i,n;
+		 n=LoadInt(S);
+		 f->upvalues=luaM_newvector(S->L,n,Upvaldesc);
+		 f->sizeupvalues=n;
+		 for (i=0; i<n; i++) f->upvalues[i].name=NULL;
+		 for (i=0; i<n; i++)
+		 {
+		  f->upvalues[i].instack=LoadChar(S);
+		  f->upvalues[i].idx=LoadChar(S);
+		 }
+		}
+
 		private static void LoadDebug(LoadState S, Proto f)
 		{
 		 int i,n;
@@ -170,10 +184,7 @@ namespace KopiLua
 		  f.locvars[i].endpc=LoadInt(S);
 		 }
 		 n=LoadInt(S);
-		 f.upvalues=luaM_newvector<TString>(S.L, n);
-		 f.sizeupvalues=n;
-		 for (i=0; i<n; i++) f.upvalues[i]=null;
-		 for (i=0; i<n; i++) f.upvalues[i]=LoadString(S);
+		 for (i=0; i<n; i++) f.upvalues[i].name=LoadString(S);
 		}
 
 		private static Proto LoadFunction(LoadState S, TString p)
@@ -185,12 +196,13 @@ namespace KopiLua
 		 f.source=LoadString(S); if (f.source==null) f.source=p;
 		 f.linedefined=LoadInt(S);
 		 f.lastlinedefined=LoadInt(S);
-		 f.nups=LoadByte(S);
 		 f.numparams=LoadByte(S);
 		 f.is_vararg=LoadByte(S);
 		 f.maxstacksize=LoadByte(S);
+         f.envreg=LoadByte(S);
 		 LoadCode(S,f);
 		 LoadConstants(S,f);
+         LoadUpvalues(S,f);
 		 LoadDebug(S,f);
 		 StkId.dec(ref S.L.top);
          G(S.L).nCcalls--;
