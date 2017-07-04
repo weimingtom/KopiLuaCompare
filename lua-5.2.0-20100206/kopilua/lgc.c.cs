@@ -134,6 +134,11 @@ namespace KopiLua
 		                       int offset) {
 		  global_State g = G(L);
 		  GCObject o = obj2gco(luaM_newobject<T>(L/*, tt, sz*/)/* + offset*/); //FIXME:???no offset
+		  if (o is TString) //FIXME:added
+		  {
+		  	int len_plus_1 = (int)sz - GetUnmanagedSize(typeof(TString));
+		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
+		  }
 		  if (list == null)
 		  	list = new RootGCRef(g);  /* standard list for collectable objects */
 		  gch(o).marked = luaC_white(g);

@@ -36,9 +36,9 @@ namespace KopiLua
 		*/
 		public class LX {
 		#if LUAI_EXTRASPACE
-		  public char buff[LUAI_EXTRASPACE];
+		  public char[] buff = new char[LUAI_EXTRASPACE];
 		#endif
-		  public lua_State l;
+		  public lua_State l = new lua_State();
 		};
 
 
@@ -52,7 +52,10 @@ namespace KopiLua
 		
 
         //FIXME:???not implemented
-        private static LX fromstate(lua_State L) { return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; } //FIXME:???
+        private static LX fromstate(lua_State L) { 
+        	throw new Exception("not implemented"); //FIXME:???
+        	return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+        } 
 
 
 
@@ -113,7 +116,7 @@ namespace KopiLua
 		** function is not compatible with void*.)
 		*/
 		private static int cpcall (lua_State L) {
-		  lua_CFunction f = ((lua_CFunction[])lua_touserdata(L, 1))[0]; //FIXME:???
+		  lua_CFunction f = ((lua_CFunction)lua_touserdata(L, 1)); //FIXME:lua_CFunction[]???lua_CFunction???
 		  lua_remove(L, 1);  /* remove f from stack */
 		  /* restore original environment for 'cpcall' */
 		  lua_pushglobaltable(L);

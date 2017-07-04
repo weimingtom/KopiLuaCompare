@@ -387,10 +387,11 @@ namespace KopiLua
 
 			public TString()
 			{
+				
 			}
-			public TString(CharPtr str) { this.str = str; }
+			//public TString(CharPtr str) { this.str = str; } //FIXME:removed
 
-			public CharPtr str;
+			public CharPtr str; //FIXME:added = new CharPtr()???;
 
 			public override string ToString() { return str.ToString(); } // for debugging
 		};
@@ -423,7 +424,24 @@ namespace KopiLua
 		/*
 		** Upvalues from a function prototype
 		*/
-		public class Upvaldesc {
+		public class Upvaldesc : ArrayElement {
+			//-----------------------------------
+			//FIXME:ArrayElement added
+			private Upvaldesc[] values = null; 
+			private int index = -1;
+
+			public void set_index(int index)
+			{
+				this.index = index;
+			}
+
+			public void set_array(object array)
+			{
+				this.values = (Upvaldesc[])array;
+				Debug.Assert(this.values != null);
+			}
+			//------------------------------------------
+			
 		  public TString name;  /* upvalue name (for debug information) */
 		  public lu_byte instack;
 		  public lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
