@@ -26,9 +26,9 @@ namespace KopiLua
 		** maximum number of captures that a pattern can do during
 		** pattern-matching. This limit is arbitrary.
 		*/
-		#if !defined(LUA_MAXCAPTURES)
+		//#if !defined(LUA_MAXCAPTURES)
 		private const int LUA_MAXCAPTURES = 32;
-		#endif
+		//#endif
 
 	
 	
@@ -745,17 +745,17 @@ namespace KopiLua
 		** integer type corresponding to the previous length
 		*/
 
-		#if defined(LUA_USELONGLONG)
+		//#if defined(LUA_USELONGLONG)
 
-		#define LUA_INTFRMLEN           "ll"
-		#define LUA_INTFRM_T            long long
+		//#define LUA_INTFRMLEN           "ll"
+		//#define LUA_INTFRM_T            long long
 
-		#else
+		//#else
 
-		#define LUA_INTFRMLEN           "l"
-		#define LUA_INTFRM_T            long
+		private const string LUA_INTFRMLEN = "l";
+		//#define LUA_INTFRM_T            long
 
-		#endif
+		//#endif
 
 
 		/* maximum size of each formatted item (> len(format('%99.99f', -1e308))) */

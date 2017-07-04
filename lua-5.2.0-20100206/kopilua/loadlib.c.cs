@@ -24,13 +24,13 @@ namespace KopiLua
 		** LUA_PATH_VAR and LUA_CPATH_VAR are the names of the environment
 		** variables that Lua check to set its paths.
 		*/
-		#if !defined(LUA_PATH_VAR)
-		#define LUA_PATH_VAR	"LUA_PATH"
-		#endif
+		//#if !defined(LUA_PATH_VAR)
+		private const string LUA_PATH_VAR = "LUA_PATH";
+		//#endif
 
-		#if !defined(LUA_CPATH_VAR)
-		#define LUA_CPATH_VAR	"LUA_CPATH"
-		#endif
+		//#if !defined(LUA_CPATH_VAR)
+		private const string LUA_CPATH_VAR = "LUA_CPATH";
+		//#endif
 
 
 		/*
@@ -42,18 +42,18 @@ namespace KopiLua
 		** LUA_IGMARK is a mark to ignore all before it when building the
 		** luaopen_ function name.
 		*/
-		#if !defined (LUA_PATH_SEP)
-		#define LUA_PATH_SEP		";"
-		#endif
-		#if !defined (LUA_PATH_MARK)
-		#define LUA_PATH_MARK		"?"
-		#endif
-		#if !defined (LUA_EXEC_DIR)
-		#define LUA_EXEC_DIR		"!"
-		#endif
-		#if !defined (LUA_IGMARK)
-		#define LUA_IGMARK		"-"
-		#endif
+		//#if !defined (LUA_PATH_SEP)
+		private const string LUA_PATH_SEP = ";";
+		//#endif
+		//#if !defined (LUA_PATH_MARK)
+		private const string LUA_PATH_MARK = "?";
+		//#endif
+		//#if !defined (LUA_EXEC_DIR)
+		private const string LUA_EXEC_DIR = "!";
+		//#endif
+		//#if !defined (LUA_IGMARK)
+		private const string LUA_IGMARK = "-";
+		//#endif
 
 
 
@@ -138,9 +138,9 @@ namespace KopiLua
 		/*
 		** optional flags for LoadLibraryEx
 		*/
-		#if !defined(LUA_LLE_FLAGS)
-		#define LUA_LLE_FLAGS	0
-		#endif
+		//#if !defined(LUA_LLE_FLAGS)
+		private const int LUA_LLE_FLAGS	= 0;
+		//#endif
 
 		static void setprogdir (lua_State L) {
 		  char buff[MAX_PATH + 1];

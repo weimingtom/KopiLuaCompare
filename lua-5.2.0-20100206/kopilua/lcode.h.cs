@@ -33,6 +33,6 @@ namespace KopiLua
 		
 		public static void luaK_jumpto(FuncState fs, int t)	{luaK_patchlist(fs, luaK_jump(fs), t);}
 		
-		public static void luaK_codek(fs,reg,k) { return luaK_codeABxX(fs, OP_LOADK, reg, k);}
+		public static int luaK_codek(FuncState fs, int reg, int k) { return luaK_codeABxX(fs, OP_LOADK, reg, k);}
 	}
 }

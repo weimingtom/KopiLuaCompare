@@ -299,7 +299,7 @@ namespace KopiLua
 		** reserves a slot, above all arguments, to hold a copy of the returned
 		** string to avoid it being collected while parsed
 		*/
-		private static const int RESERVEDSLOT = 4;
+		private const int RESERVEDSLOT = 4;
 
 
 		/*

@@ -1127,7 +1127,7 @@ namespace KopiLua
 		}
 
 
-		private static UpVal **getupvalref (lua_State L, int fidx, int n, Closure **pf) {
+		private static UpValRef getupvalref (lua_State L, int fidx, int n, Closure[] pf) {
 		  Closure f;
 		  Proto p;
 		  StkId fi = index2addr(L, fidx);
@@ -1136,8 +1136,8 @@ namespace KopiLua
 		  api_check(L, !f.c.isC, "Lua function expected");
 		  p = f->l.p;
 		  api_check(L, (1 <= n && n <= p.sizeupvalues), "invalid upvalue index");
-		  if (pf) *pf = f;
-		  return &f->l.upvals[n - 1];  /* get its upvalue pointer */
+		  if (pf) pf[0] = f;
+		  return new UpValRef(f.l.upvals, n - 1);  /* get its upvalue pointer */
 		}
 
 

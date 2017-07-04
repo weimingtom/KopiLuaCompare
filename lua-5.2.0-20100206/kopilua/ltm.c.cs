@@ -16,7 +16,7 @@ namespace KopiLua
 	{
 		private static CharPtr udatatypename = "userdata";
 
-		public readonly static CharPtr[] luaT_typenames = {
+		public readonly static CharPtr[] luaT_typenames_ = {
           "no value",
 		  "nil", "boolean", udatatypename, "number",
 		  "string", "table", "function", udatatypename, "thread",

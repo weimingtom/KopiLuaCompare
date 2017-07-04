@@ -35,30 +35,30 @@ namespace KopiLua
 		** C++ code, with _longjmp/_setjmp when asked to use them, and with
 		** longjmp/setjmp otherwise.
 		*/
-		#if !defined(LUAI_THROW)
+		//#if !defined(LUAI_THROW)
 
-		#if defined(__cplusplus)
+		//#if defined(__cplusplus)
 		/* C++ exceptions */
-		#define LUAI_THROW(L,c)		throw(c)
-		#define LUAI_TRY(L,c,a) \
-			try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
-		#define luai_jmpbuf		int  /* dummy variable */
+		//#define LUAI_THROW(L,c)		throw(c)
+		//#define LUAI_TRY(L,c,a) \
+		//	try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
+		//#define luai_jmpbuf		int  /* dummy variable */
 
-		#elif defined(LUA_USE_ULONGJMP)
+		//#elif defined(LUA_USE_ULONGJMP)
 		/* in Unix, try _longjmp/_setjmp (more efficient) */
-		#define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
-		#define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
-		#define luai_jmpbuf		jmp_buf
+		//#define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
+		//#define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
+		//#define luai_jmpbuf		jmp_buf
 
-		#else
+		//#else
 		/* default handling with long jumps */
-		#define LUAI_THROW(L,c)		longjmp((c)->b, 1)
-		#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
-		#define luai_jmpbuf		jmp_buf
+		//#define LUAI_THROW(L,c)		longjmp((c)->b, 1)
+		//#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
+		//#define luai_jmpbuf		jmp_buf
 
-		#endif
+		//#endif
 
-		#endif
+		//#endif
 		
 		//FIXME:???
 		public delegate void luai_jmpbuf(lua_Integer b);

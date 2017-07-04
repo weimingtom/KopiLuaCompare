@@ -27,27 +27,27 @@ namespace KopiLua
 		** lua_popen spawns a new process connected to the current one through
 		** the file streams.
 		*/
-		#if !defined(lua_popen)
+		//#if !defined(lua_popen)
 
-		#if defined(LUA_USE_POPEN)
+		//#if defined(LUA_USE_POPEN)
 
-		#define lua_popen(L,c,m)        ((void)L, fflush(NULL), popen(c,m))
-		#define lua_pclose(L,file)      ((void)L, pclose(file))
+		//#define lua_popen(L,c,m)        ((void)L, fflush(NULL), popen(c,m))
+		//#define lua_pclose(L,file)      ((void)L, pclose(file))
 
-		#elif defined(LUA_WIN)
+		//#elif defined(LUA_WIN)
 
-		#define lua_popen(L,c,m)        ((void)L, _popen(c,m))
-		#define lua_pclose(L,file)      ((void)L, _pclose(file))
+		//#define lua_popen(L,c,m)        ((void)L, _popen(c,m))
+		//#define lua_pclose(L,file)      ((void)L, _pclose(file))
 
-		#else
+		//#else
 
-		#define lua_popen(L,c,m)        ((void)((void)c, m),  \
-		                luaL_error(L, LUA_QL("popen") " not supported"), (FILE*)0)
-		#define lua_pclose(L,file)              ((void)((void)L, file), -1)
+		//#define lua_popen(L,c,m)        ((void)((void)c, m),  \
+		//                luaL_error(L, LUA_QL("popen") " not supported"), (FILE*)0)
+		//#define lua_pclose(L,file)              ((void)((void)L, file), -1)
 
-		#endif
+		//#endif
 
-		#endif
+		//#endif
 
 
 

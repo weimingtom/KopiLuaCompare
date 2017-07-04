@@ -223,7 +223,7 @@ namespace KopiLua
 		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
 		public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
 		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
-        public static bool ttisdeadkey(o) { reeturn (ttype(o) == LUA_TDEADKEY);}
+        public static bool ttisdeadkey(TValue o) { reeturn (ttype(o) == LUA_TDEADKEY);}
 		
 		/* Macros to access values */
 		public static int    ttype(TValue o) { return o.tt_; }
@@ -490,6 +490,26 @@ namespace KopiLua
 		  }
 			public new _u u = new _u();
 		};
+		//added
+		public class UpValRef {
+			private UpVal[] _upVals;
+			private int _index;
+			public UpValRef(UpVal[] upVals, int index)
+			{
+				this._upVals = upVals;
+				this._index = index;
+			}
+			
+			public UpVal get()
+			{
+				return this._upVals[this._index];
+			}
+			
+			public void set(UpVal val)
+			{
+				this._upVals[this._index] = val;
+			}
+		}
 
 
 		/*
@@ -545,7 +565,7 @@ namespace KopiLua
 		public static bool iscfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC != 0)); }
 		public static bool isLfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC==0)); }
 
-        public satic void getproto(o) { return (clvalue(o).l.p); }
+        public static Proto getproto(TValue o) { return (clvalue(o).l.p); }
 
 		/*
 		** Tables

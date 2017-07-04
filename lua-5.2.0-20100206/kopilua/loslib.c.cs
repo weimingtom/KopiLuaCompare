@@ -24,17 +24,17 @@ namespace KopiLua
 		/*
 		** list of valid conversion specifiers @* for the 'strftime' function
 		*/
-		#if !defined(LUA_STRFTIMEOPTIONS)
+		//#if !defined(LUA_STRFTIMEOPTIONS)
 
-		#if !defined(LUA_USE_POSIX)
-		#define LUA_STRFTIMEOPTIONS     { "aAbBcdHIjmMpSUwWxXyYz%", "" }
-		#else
-		#define LUA_STRFTIMEOPTIONS     { "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
-		                                "E", "cCxXyY",  \
-		                                "O", "deHImMSuUVwWy" }
-		#endif
+		//#if !defined(LUA_USE_POSIX)
+		//#define LUA_STRFTIMEOPTIONS     { "aAbBcdHIjmMpSUwWxXyYz%", "" }
+		//#else
+		//#define LUA_STRFTIMEOPTIONS     { "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
+		//                                "E", "cCxXyY",  \
+		//                                "O", "deHImMSuUVwWy" }
+		//#endif
 
-		#endif
+		//#endif
 
 
 
@@ -42,21 +42,21 @@ namespace KopiLua
 		** By default, Lua uses tmpnam except when POSIX is available, where it
 		** uses mkstemp.
 		*/
-		#if defined(LUA_USE_MKSTEMP)
-		#include <unistd.h>
-		#define LUA_TMPNAMBUFSIZE       32
-		#define lua_tmpnam(b,e) { \
-		        strcpy(b, "/tmp/lua_XXXXXX"); \
-		        e = mkstemp(b); \
-		        if (e != -1) close(e); \
-		        e = (e == -1); }
+		//#if defined(LUA_USE_MKSTEMP)
+		//#include <unistd.h>
+		//#define LUA_TMPNAMBUFSIZE       32
+		//#define lua_tmpnam(b,e) { \
+		//        strcpy(b, "/tmp/lua_XXXXXX"); \
+		//        e = mkstemp(b); \
+		//        if (e != -1) close(e); \
+		//        e = (e == -1); }
 
-		#elif !defined(lua_tmpnam)
+		//#elif !defined(lua_tmpnam)
 
-		#define LUA_TMPNAMBUFSIZE       L_tmpnam
-		#define lua_tmpnam(b,e)         { e = (tmpnam(b) == NULL); }
+		//#define LUA_TMPNAMBUFSIZE       L_tmpnam
+		//#define lua_tmpnam(b,e)         { e = (tmpnam(b) == NULL); }
 
-		#endif
+		//#endif
 
 
 

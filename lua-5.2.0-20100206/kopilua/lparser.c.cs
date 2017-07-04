@@ -160,7 +160,7 @@ namespace KopiLua
 		}
 
 
-		private static void new_localvarliteral_ (LexState ls, CharPtr name, size_t sz) {
+		private static void new_localvarliteral_ (LexState ls, CharPtr name, uint sz) {
 		  new_localvar(ls, luaX_newstring(ls, name, sz));
 		}
 

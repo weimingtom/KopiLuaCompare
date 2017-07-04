@@ -84,7 +84,7 @@ namespace KopiLua
 		}
 
 
-#if defined(LUA_COMPAT_MAXN)
+#if LUA_COMPAT_MAXN
 		private static int maxn (lua_State L) {
 		  lua_Number max = 0;
 		  luaL_checktype(L, 1, LUA_TTABLE);
@@ -359,7 +359,7 @@ namespace KopiLua
 
 		public static int luaopen_table (lua_State L) {
 		  luaL_register(L, LUA_TABLIBNAME, tab_funcs);
-#if defined(LUA_COMPAT_UNPACK)
+#if LUA_COMPAT_UNPACK
 		  /* _G.unpack = table.unpack */
 		  lua_getfield(L, -1, "unpack");
 		  lua_setfield(L, LUA_ENVIRONINDEX, "unpack");

@@ -25,38 +25,38 @@ namespace KopiLua
 		//#include "lualib.h"
 
 
-		#if !defined(LUA_PROMPT)
-		#define LUA_PROMPT		"> "
-		#define LUA_PROMPT2		">> "
-		#endif
+		//#if !defined(LUA_PROMPT)
+		private const string LUA_PROMPT	= "> ";
+		private const string LUA_PROMPT2 = ">> ";
+		//#endif
 
-		#if !defined(LUA_PROGNAME)
-		#define LUA_PROGNAME		"lua"
-		#endif
+		//#if !defined(LUA_PROGNAME)
+		private const string LUA_PROGNAME = "lua";
+		//#endif
 
-		#if !defined(LUA_MAXINPUT)
-		#define LUA_MAXINPUT		512
-		#endif
+		//#if !defined(LUA_MAXINPUT)
+		private const int LUA_MAXINPUT = 512;
+		//#endif
 
-		#if !defined(LUA_INIT_VAR)
-		#define LUA_INIT_VAR		"LUA_INIT"
-		#endif
+		//#if !defined(LUA_INIT_VAR)
+		private const string LUA_INIT_VAR = "LUA_INIT";
+		//#endif
 
 
 		/*
 		** lua_stdin_is_tty detects whether the standard input is a 'tty' (that
 		** is, whether we're running lua interactively).
 		*/
-		#if defined(LUA_USE_ISATTY)
-		#include <unistd.h>
-		#define lua_stdin_is_tty()      isatty(0)
-		#elif defined(LUA_WIN)
-		#include <io.h>
-		#include <stdio.h>
-		#define lua_stdin_is_tty()      _isatty(_fileno(stdin))
-		#else
-		#define lua_stdin_is_tty()      1  /* assume stdin is a tty */
-		#endif
+		//#if defined(LUA_USE_ISATTY)
+		//#include <unistd.h>
+		//#define lua_stdin_is_tty()      isatty(0)
+		//#elif defined(LUA_WIN)
+		//#include <io.h>
+		//#include <stdio.h>
+		//#define lua_stdin_is_tty()      _isatty(_fileno(stdin))
+		//#else
+		//#define lua_stdin_is_tty()      1  /* assume stdin is a tty */
+		//#endif
 
 
 		/*
@@ -65,26 +65,26 @@ namespace KopiLua
 		** lua_saveline defines how to "save" a read line in a "history".
 		** lua_freeline defines how to free a line read by lua_readline.
 		*/
-		#if defined(LUA_USE_READLINE)
+		//#if defined(LUA_USE_READLINE)
 
-		#include <stdio.h>
-		#include <readline/readline.h>
-		#include <readline/history.h>
-		#define lua_readline(L,b,p)     ((void)L, ((b)=readline(p)) != NULL)
-		#define lua_saveline(L,idx) \
-		        if (lua_rawlen(L,idx) > 0)  /* non-empty line? */ \
-		          add_history(lua_tostring(L, idx));  /* add it to history */
-		#define lua_freeline(L,b)       ((void)L, free(b))
+		//#include <stdio.h>
+		//#include <readline/readline.h>
+		//#include <readline/history.h>
+		//#define lua_readline(L,b,p)     ((void)L, ((b)=readline(p)) != NULL)
+		//#define lua_saveline(L,idx) \
+		//        if (lua_rawlen(L,idx) > 0)  /* non-empty line? */ \
+		//          add_history(lua_tostring(L, idx));  /* add it to history */
+		//#define lua_freeline(L,b)       ((void)L, free(b))
 
-		#elif !defined(lua_readline)
+		//#elif !defined(lua_readline)
 
-		#define lua_readline(L,b,p)     \
-		        ((void)L, fputs(p, stdout), fflush(stdout),  /* show prompt */ \
-		        fgets(b, LUA_MAXINPUT, stdin) != NULL)  /* get line */
-		#define lua_saveline(L,idx)     { (void)L; (void)idx; }
-		#define lua_freeline(L,b)       { (void)L; (void)b; }
+		//#define lua_readline(L,b,p)     \
+		//        ((void)L, fputs(p, stdout), fflush(stdout),  /* show prompt */ \
+		//        fgets(b, LUA_MAXINPUT, stdin) != NULL)  /* get line */
+		//#define lua_saveline(L,idx)     { (void)L; (void)idx; }
+		//#define lua_freeline(L,b)       { (void)L; (void)b; }
 
-		#endif
+		//#endif
 
 
 
@@ -147,7 +147,7 @@ namespace KopiLua
 
 
 		/* the next function is called unprotected, so it must avoid errors */
-		private static void finalreport (lua_State L, int status) {
+		private static void finalreport (Lua.lua_State L, int status) {
 		  if (status != LUA_OK) {
 		    const char *msg = (lua_type(L, -1) == LUA_TSTRING) ? lua_tostring(L, -1)
 		                                                       : NULL;

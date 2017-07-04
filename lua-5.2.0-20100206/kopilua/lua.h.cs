@@ -245,8 +245,8 @@ namespace KopiLua
             lua_createtable(L, 0, 0);
         }
 
-		public static void lua_setglobal(L,s) { return lua_setfield(L, LUA_ENVIRONINDEX, (s)); }
-		public static void lua_getglobal(L,s) { return lua_getfield(L, LUA_ENVIRONINDEX, (s)); }
+		public static void lua_setglobal(lua_State L, CharPtr s) { lua_setfield(L, LUA_ENVIRONINDEX, (s)); }
+		public static void lua_getglobal(lua_State L, CharPtr s) { lua_getfield(L, LUA_ENVIRONINDEX, (s)); }
 
         public static void lua_register(lua_State L, CharPtr n, lua_CFunction f)
         {

@@ -22,24 +22,24 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		#if !defined(LUAI_GCPAUSE)
-		#define LUAI_GCPAUSE	162  /* 162% (wait memory to double before next GC) */
-		#endif
+		//#if !defined(LUAI_GCPAUSE)
+		private const int LUAI_GCPAUSE = 162;  /* 162% (wait memory to double before next GC) */
+		//#endif
 
-		#if !defined(LUAI_GCMUL)
-		#define LUAI_GCMUL	200 /* GC runs 'twice the speed' of memory allocation */
-		#endif
+		//#if !defined(LUAI_GCMUL)
+		private const int LUAI_GCMUL = 200; /* GC runs 'twice the speed' of memory allocation */
+		//#endif
 
 
 		/*
 		** thread state + extra space
 		*/
-		typedef struct LX {
-		#if defined(LUAI_EXTRASPACE)
+		public struct LX {
+		#if LUAI_EXTRASPACE
 		  char buff[LUAI_EXTRASPACE];
 		#endif
 		  lua_State l;
-		} LX;
+		};
 
 
 		/*
@@ -51,8 +51,8 @@ namespace KopiLua
 		};
 		
 
-
-		#define fromstate(L)	(cast(LX *, cast(lu_byte *, (L)) - offsetof(LX, l)))
+        //FIXME:???
+		//#define fromstate(L)	(cast(LX *, cast(lu_byte *, (L)) - offsetof(LX, l)))
 
 
 
@@ -125,24 +125,24 @@ namespace KopiLua
 		/*
 		** Create registry table and its predefined values
 		*/
-		private static void init_registry (lua_State *L, global_State *g) {
-		  Closure *cp;
-		  TValue mt;
+		private static void init_registry (lua_State L, global_State g) {
+		  Closure cp;
+		  TValue mt = new TValue();
 		  /* create registry */
-		  Table *registry = luaH_new(L);
-		  sethvalue(L, &g->l_registry, registry);
+		  Table registry = luaH_new(L);
+		  sethvalue(L, g.l_registry, registry);
 		  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
 		  /* registry[LUA_RIDX_MAINTHREAD] = L */
-		  setthvalue(L, &mt, L);
-		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), &mt);
+		  setthvalue(L, mt, L);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), mt);
 		  /* registry[LUA_RIDX_CPCALL] = cpcall */
-		  cp = luaF_newCclosure(L, 0, g->l_gt);
+		  cp = luaF_newCclosure(L, 0, g.l_gt);
 		  cp->c.f = cpcall;
-		  setclvalue(L, &mt, cp);
-		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_CPCALL), &mt);
+		  setclvalue(L, mt, cp);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_CPCALL), mt);
 		  /* registry[LUA_RIDX_GLOBALS] = l_gt */
-		  sethvalue(L, &mt, g->l_gt);
-		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), &mt);
+		  sethvalue(L, mt, g->l_gt);
+		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), mt);
 		}
 
 

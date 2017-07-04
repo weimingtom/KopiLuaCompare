@@ -44,7 +44,7 @@ namespace KopiLua
 		public static bool isfinalized(Udata_uv u) { return testbit(u.marked, FINALIZEDBIT); }
         public static bool isfinalized(GCheader u) { return testbit(u.marked, FINALIZEDBIT); } //FIXME:added
 
-		public static void checkdeadkey(n) { lua_assert(!ttisdeadkey(gkey(n)) || ttisnil(gval(n)));} 
+		public static void checkdeadkey(Node n) { lua_assert(!ttisdeadkey(gkey(n)) || ttisnil(gval(n)));} 
 
 		public static void markvalue(global_State g, TValue o) 
 		{
@@ -127,7 +127,7 @@ namespace KopiLua
 		/*
 		** create a new collectable object and link it to '*list'
 		*/
-		GCObject luaC_newobj (lua_State L, int tt, size_t sz, GCObject[] list,
+		GCObject luaC_newobj (lua_State L, int tt, uint sz, GCObject[] list,
 		                       int offset) {
 		  global_State g = G(L);
 		  GCObject o = obj2gco(cast(char *, luaM_newobject(L, tt, sz)) + offset);

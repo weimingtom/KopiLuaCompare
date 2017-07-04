@@ -214,13 +214,13 @@ namespace KopiLua
 		** Compatibility with previous versions
 		** ===================================================================
 		*/
-        //FIXME:??? not defined
+        //FIXME:TODO:LUA_COMPAT_ALL is defined, but all defines removed here
 		/*
 		@@ LUA_COMPAT_ALL controls all compatibility options.
 		** You can define it to get all options, or change specific options
 		** to fit your specific needs.
 		*/
-		#if defined(LUA_COMPAT_ALL)
+		#if LUA_COMPAT_ALL
 
 		/*
 		@@ LUA_COMPAT_UNPACK controls the presence of global 'unpack'.
@@ -232,8 +232,8 @@ namespace KopiLua
 		@@ LUA_COMPAT_CPCALL controls the presence of macro 'lua_cpcall'.
 		** You can replace it with the preregistered function 'cpcall'.
 		*/
-		#define lua_cpcall(L,f,u)  \
-			(lua_pushlightuserdata(L,(u)), luaL_cpcall(L,(f),1,0))
+		//#define lua_cpcall(L,f,u)  \
+		//	(lua_pushlightuserdata(L,(u)), luaL_cpcall(L,(f),1,0))
 
 		/*
 		@@ LUA_COMPAT_FENV controls the presence of functions 'setfenv/getfenv'.
@@ -533,7 +533,7 @@ namespace KopiLua
 		//#include <float.h>
 		//#include <math.h>
 
-		public static void luai_hashnum(ref int i,d) { int e;
+		public static void luai_hashnum(ref int i, lua_Number d) { int e;
 		  d = frexp(d, &e) * (lua_Number)(INT_MAX - DBL_MAX_EXP);
 		  lua_number2int(i, d); i += e; }
 

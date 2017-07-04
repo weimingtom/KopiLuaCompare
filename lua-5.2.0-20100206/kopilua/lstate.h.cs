@@ -178,7 +178,7 @@ namespace KopiLua
 		public const int CIST_YIELDED =	(1<<3);	/* call reentered after suspension */
 		public const int CIST_YPCALL = 	(1<<4);	/* call is a yieldable protected call */
 		public const int CIST_STAT = 	(1<<5);	/* call has an error status (pcall) */
-		public const int CIST_TAIL = (1<<6)	/* call was tail called */
+		public const int CIST_TAIL = (1<<6); /* call was tail called */
 
 
 		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
@@ -206,8 +206,8 @@ namespace KopiLua
 		  public GCObject ephemeron;  /* list of ephemeron tables (weak keys) */
 		  public GCObject allweak;  /* list of all-weak tables */
 		  public GCObject tobefnz;  /* list of userdata to be GC */
-		  pulbic Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatenation */
-		  pulbic lu_mem GCthreshold;  /* when totalbytes > GCthreshold, run GC step */
+		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatenation */
+		  public lu_mem GCthreshold;  /* when totalbytes > GCthreshold, run GC step */
 		  public lu_mem totalbytes;  /* number of bytes currently allocated */
 		  public int gcpause;  /* size of pause between successive GCs */
 		  public int gcstepmul;  /* GC `granularity' */

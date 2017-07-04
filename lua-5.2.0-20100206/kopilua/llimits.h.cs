@@ -53,9 +53,9 @@ namespace KopiLua
 
 
 		/* type to ensure maximum alignment */
-		#if !defined(LUAI_USER_ALIGNMENT_T)
-		#define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; }
-		#endif
+		//#if !defined(LUAI_USER_ALIGNMENT_T)
+		//#define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; }
+		//#endif
 
 		//typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;
 
@@ -67,12 +67,15 @@ namespace KopiLua
 		/* internal assertions for in-house debugging */
 
 #if lua_assert
-
 		[Conditional("DEBUG")]
 		public static void lua_assert(bool c) {Debug.Assert(c);}
+		[Conditional("DEBUG")]
+		public static void lua_assert(bool c, string msg) {Debug.Assert(c, msg);}
 
 		[Conditional("DEBUG")]
 		public static void lua_assert(int c) { Debug.Assert(c != 0); }
+		[Conditional("DEBUG")]
+		public static void lua_assert(int c, string msg) { Debug.Assert(c != 0, msg); }
 
 		public static object check_exp(bool c, object e)		{lua_assert(c); return e;}
 		public static object check_exp(int c, object e) { lua_assert(c != 0); return e; }
@@ -81,9 +84,13 @@ namespace KopiLua
 
 		[Conditional("DEBUG")]
 		public static void lua_assert(bool c) {}
+		[Conditional("DEBUG")]
+		public static void lua_assert(bool c, string msg) {}
 
 		[Conditional("DEBUG")]
 		public static void lua_assert(int c) {}
+		[Conditional("DEBUG")]
+		public static void lua_assert(int c, string msg) {}
 
 		public static object check_exp(bool c, object e) { return e; }
 		public static object check_exp(int c, object e) { return e; }
@@ -93,10 +100,19 @@ namespace KopiLua
 		/*
 		** assertion for checking API calls
 		*/
+		//#if defined(LUA_USE_APICHECK)
+		//#include <assert.h>
+		//#define luai_apicheck(L,e)	{ (void)L; assert(e); }
+		//#elif !defined(luai_apicheck)
+		//#define luai_apicheck(L,e)	lua_assert(e)
+		//#endif
 		//FIXME:???
 		[Conditional("DEBUG")]
-		public static void api_check(object o, bool e)		{lua_assert(e);}
-		public static void api_check(object o, int e) { lua_assert(e!=0); }
+		public static void luai_apicheck(object L, bool e, string msg) {lua_assert(e, msg);}
+		[Conditional("DEBUG")]
+		public static void api_check(object l, bool e, string msg)		{luai_apicheck(l,e,msg);}
+		[Conditional("DEBUG")]
+		public static void api_check(object l, int e, string msg) { luai_apicheck(l,e!=0,msg); }
 
 		//#define UNUSED(x)	((void)(x))	/* to avoid warnings */
 
@@ -112,7 +128,7 @@ namespace KopiLua
 		** in a program. (Value must fit in an unsigned short int.)
 		*/
 		//#if !defined(LUAI_MAXCCALLS)
-		public static const int LUAI_MAXCCALLS = 200;
+		public const int LUAI_MAXCCALLS = 200;
 		//#endif
 
 		public static int cast_int(int i) { return (int)i; }
