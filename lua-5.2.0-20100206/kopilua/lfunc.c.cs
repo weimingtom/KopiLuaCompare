@@ -111,7 +111,7 @@ namespace KopiLua
 
 
 		public static Proto luaF_newproto (lua_State L) {
-		  Proto f = luaC_newobj(L, LUA_TPROTO, sizeof(Proto), NULL, 0).p;
+		  Proto f = luaC_newobj(L, LUA_TPROTO, sizeof(Proto), null, 0).p;
 		  f.k = null;
 		  f.sizek = 0;
 		  f.p = null;

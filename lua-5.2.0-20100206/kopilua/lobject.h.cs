@@ -720,7 +720,7 @@ namespace KopiLua
 
 
         //FIXME:??? move to lobject.c
-		//public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL);
-		//public static TValue luaO_nilobject = luaO_nilobject_;
+		public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL); //FIXME:??? new Tvalue(null, LUA_TNIL);
+		public static TValue luaO_nilobject = luaO_nilobject_;
 	}
 }

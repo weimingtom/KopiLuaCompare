@@ -156,13 +156,13 @@ namespace KopiLua
 		{
 		 int i,n;
 		 n=LoadInt(S);
-		 f->upvalues=luaM_newvector(S->L,n,Upvaldesc);
-		 f->sizeupvalues=n;
-		 for (i=0; i<n; i++) f->upvalues[i].name=NULL;
+		 f.upvalues=luaM_newvector<Upvaldesc>(S.L,n);
+		 f.sizeupvalues=n;
+		 for (i=0; i<n; i++) f.upvalues[i].name=null;
 		 for (i=0; i<n; i++)
 		 {
-		  f->upvalues[i].instack=LoadChar(S);
-		  f->upvalues[i].idx=LoadChar(S);
+		  f.upvalues[i].instack=(byte)LoadChar(S); //FIXME:(byte)
+		  f.upvalues[i].idx=(byte)LoadChar(S); //FIXME:(byte)
 		 }
 		}
 

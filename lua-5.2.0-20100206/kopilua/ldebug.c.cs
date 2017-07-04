@@ -21,7 +21,7 @@ namespace KopiLua
 
 
 		private static int currentpc (CallInfo ci) {
-		  lua_assert(isLua(ci))
+		  lua_assert(isLua(ci));
 		  return pcRel(ci.u.l.savedpc, ci_func(ci).l.p);
 		}
 
@@ -39,7 +39,7 @@ namespace KopiLua
 			mask = 0;
 			func = null;
 		  }
-		  if (isLua(L.ci))
+		  if (isLua(L.ci) != 0)
 		    L.oldpc = L.ci.u.l.savedpc;
 		  L.hook = func;
 		  L.basehookcount = count;
@@ -174,23 +174,23 @@ namespace KopiLua
 				break;
 			  }
 			  case 'l': {
-				ar.currentline = (ci != null && isLua(ci)) ? currentline(ci) : -1;
+				ar.currentline = (ci != null && isLua(ci) != 0) ? currentline(ci) : -1;
 				break;
 			  }
 			  case 'u': {
 				ar.nups = f.c.nupvalues;
-		        if (f.c.isC) {
-		          ar.isvararg = 1;
+		        if (f.c.isC != 0) {
+				  ar.isvararg = (char)1;
 		          ar.nparams = 0;
 		        }
 		        else {
-		          ar.isvararg = f.l.p.is_vararg;
-		          ar.nparams = f.l.p->numparams;
+				  ar.isvararg = (char)(f.l.p.is_vararg); //FIXME: added (char)
+		          ar.nparams = f.l.p.numparams;
 		        }
 		        break;
 		      }
 		      case 't': {
-		        ar.istailcall = (ci) ? ci.callstatus & CIST_TAIL : 0;
+		  		ar.istailcall = (ci != null) ? (char)(ci.callstatus & CIST_TAIL) : (char)0; //FIXME: added (char)
 				break;
 			  }
 			  case 'n': {
@@ -275,7 +275,7 @@ namespace KopiLua
 		        if (reg == a) {
 		          int g = GETARG_Bx(i);
 		          if (g != 0) g--;
-		          else g = GETARG_Ax(p->code[++pc]);
+		          else g = GETARG_Ax(p.code[++pc]);
 		          lua_assert(ttisstring(p.k[g]));
 		          name = svalue(p.k[g]);
 		          what = "global";
@@ -303,7 +303,7 @@ namespace KopiLua
 		        if (reg == a) {
 		          int u = GETARG_B(i);  /* upvalue index */
 		          TString tn = p.upvalues[u].name;
-		          name = tn ? getstr(tn) : "?";
+		          name = tn != null ? getstr(tn) : "?";
 		          what = "upvalue";
 		        }
 		        break;
@@ -355,7 +355,7 @@ namespace KopiLua
 			return null;  /* calling function is not Lua (or is unknown) */
 		  ci = ci.previous;  /* calling function */
 		  i = ci_func(ci).l.p.code[currentpc(ci)];
-		  if (GET_OPCODE(i) == OP_EXTRAARG)  /* extra argument? */
+		  if (GET_OPCODE(i) == OpCode.OP_EXTRAARG)  /* extra argument? */
 		    i = ci_func(ci).l.p.code[currentpc(ci) - 1];  /* get 'real' instruction */
 		  switch (GET_OPCODE(i)) {
 		    case OpCode.OP_CALL:

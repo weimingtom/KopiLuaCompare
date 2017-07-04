@@ -90,10 +90,13 @@ namespace KopiLua
 		    int inuse = L.top - L.stack + EXTRA_STACK;
 		    if (inuse > LUAI_MAXSTACK - size)  /* can grow without overflow? */
 		      res = 0;  /* no */
-		    else  /* try to grow stack */
-		      res = (luaD_rawrunprotected(L, &growstack, &size) == LUA_OK);
+		    else  {/* try to grow stack */
+		      int[] sizep = new int[]{size}; //FIXME:added
+		      res = (luaD_rawrunprotected(L, growstack, sizep) == LUA_OK ? 1 : 0);
+		      size = sizep[0]; //FIXME:added
+		    }
 		  }
-		  if (res && ci.top < L.top + size)
+		  if (res != 0 && ci.top < L.top + size)
 		    ci.top = L.top + size;  /* adjust frame top */
 		  lua_unlock(L);
 		  return res;
@@ -209,7 +212,7 @@ namespace KopiLua
 		    luaG_runerror(L, "no calling environment");
 		  api_checknelems(L, 1);
 		  moveto(L, L.top - 1, idx);
-		  L.top--;
+		  StkId.dec(ref L.top);
 		  lua_unlock(L);
 		}
 
@@ -1133,10 +1136,10 @@ namespace KopiLua
 		  StkId fi = index2addr(L, fidx);
 		  api_check(L, ttisfunction(fi), "function expected");
 		  f = clvalue(fi);
-		  api_check(L, !f.c.isC, "Lua function expected");
-		  p = f->l.p;
+		  api_check(L, f.c.isC == 0, "Lua function expected");
+		  p = f.l.p;
 		  api_check(L, (1 <= n && n <= p.sizeupvalues), "invalid upvalue index");
-		  if (pf) pf[0] = f;
+		  if (pf != null) pf[0] = f;
 		  return new UpValRef(f.l.upvals, n - 1);  /* get its upvalue pointer */
 		}
 
@@ -1146,21 +1149,23 @@ namespace KopiLua
 		  StkId fi = index2addr(L, fidx);
 		  api_check(L, ttisfunction(fi), "function expected");
 		  f = clvalue(fi);
-		  if (f.c.isC) {
+		  if (f.c.isC != 0) {
 		    api_check(L, 1 <= n && n <= f.c.nupvalues, "invalid upvalue index");
 		    return f.c.upvalue[n - 1];
 		  }
-		  else return *getupvalref(L, fidx, n, null);
+		  else return getupvalref(L, fidx, n, null).get();
 		}
 
 
 		public static void lua_upvaluejoin (lua_State L, int fidx1, int n1,
 		                                            int fidx2, int n2) {
-		  Closure f1;
-		  UpVal **up1 = getupvalref(L, fidx1, n1, &f1);
-		  UpVal **up2 = getupvalref(L, fidx2, n2, NULL);
-		  *up1 = *up2;
-		  luaC_objbarrier(L, f1, *up2);
+		  Closure f1 = null;
+		  Closure[] f1Ref = new Closure[] {f1}; //FIXME:added
+		  UpValRef up1 = getupvalref(L, fidx1, n1, f1Ref);
+		  f1 = f1Ref[0]; //FIXME:added
+		  UpValRef up2 = getupvalref(L, fidx2, n2, null);
+		  up1.set(up2.get());
+		  luaC_objbarrier(L, f1, up2.get());
 		}
 
 	}

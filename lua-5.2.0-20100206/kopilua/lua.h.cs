@@ -167,7 +167,7 @@ namespace KopiLua
 		public static void lua_call(lua_State L, int n, int r) { lua_callk(L, n, r, 0, null); }
 
         public static int lua_pcall(lua_State L, int n, int r, int f) { return lua_pcallk(L, n, r, f, 0, null); }
-		public static void lua_yield(lua_State L, int n) { return lua_yieldk(L, n, 0, null); }
+		public static int lua_yield(lua_State L, int n) { return lua_yieldk(L, n, 0, null); }
 		
         
 
@@ -362,10 +362,10 @@ namespace KopiLua
 		  public int currentline;	/* (l) */
 		  public int linedefined;	/* (S) */
 		  public int lastlinedefined;	/* (S) */
-		  byte nups;	/* (u) number of upvalues */
-		  byte nparams;/* (u) number of parameters */
-		  char isvararg;        /* (u) */
-		  char istailcall;	/* (t) */
+		  public byte nups;	/* (u) number of upvalues */
+		  public byte nparams;/* (u) number of parameters */
+		  public char isvararg;        /* (u) */
+		  public char istailcall;	/* (t) */
 		  public CharPtr short_src = new char[LUA_IDSIZE]; /* (S) */
 		  /* private part */
 		  public CallInfo i_ci = new CallInfo();  /* active function */

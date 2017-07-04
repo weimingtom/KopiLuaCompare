@@ -172,21 +172,21 @@ namespace KopiLua
           int lim = L.stacksize;
 		  lua_assert(newsize <= LUAI_MAXSTACK || newsize == ERRORSTACKSIZE);
 		  lua_assert(L.stack_last == L.stacksize - EXTRA_STACK - 1);
-		  luaM_reallocvector(L, ref L.stack, L.stacksize, realsize/*, TValue*/);
+		  luaM_reallocvector(L, ref L.stack, L.stacksize, newsize/*, TValue*/);
 		  for (; lim < newsize; lim++)
 		  	setnilvalue(L.stack[lim]); /* erase new segment */
 		  L.stacksize = newsize;
-		  L.stack_last = L.stack + newsize - EXTRA_STACK;
+		  L.stack_last = L.stack[newsize - EXTRA_STACK]; //FIXME:???
 		  correctstack(L, oldstack);
 		}
 
 
 		public static void luaD_growstack (lua_State L, int n) {
-		  int size = L->stacksize;
+		  int size = L.stacksize;
 		  if (size > LUAI_MAXSTACK)  /* error after extra size? */
 		    luaD_throw(L, LUA_ERRERR);
 		  else {
-		    int needed = L->top - L->stack + n + EXTRA_STACK;
+		    int needed = L.top - L.stack + n + EXTRA_STACK;
 		    int newsize = 2 * size;
 		    if (newsize > LUAI_MAXSTACK) newsize = LUAI_MAXSTACK;
 		    if (newsize < needed) newsize = needed;
@@ -201,13 +201,13 @@ namespace KopiLua
 
 
 		private static int stackinuse (lua_State L) {
-		  CallInfo *ci;
-		  StkId lim = L->top;
-		  for (ci = L->ci; ci != NULL; ci = ci->previous) {
-		    lua_assert(ci->top <= L->stack_last);
-		    if (lim < ci->top) lim = ci->top;
+		  CallInfo ci;
+		  StkId lim = L.top;
+		  for (ci = L.ci; ci != null; ci = ci.previous) {
+		    lua_assert(ci.top <= L.stack_last);
+		    if (lim < ci.top) lim = ci.top;
 		  }
-		  return cast_int(lim - L->stack) + 1;  /* part of stack in use */
+		  return cast_int(lim - L.stack) + 1;  /* part of stack in use */
 		}
 
 
@@ -216,9 +216,9 @@ namespace KopiLua
 		  int goodsize = inuse + (inuse / 8) + 2*EXTRA_STACK;
 		  if (goodsize > LUAI_MAXSTACK) goodsize = LUAI_MAXSTACK;
 		  if (inuse > LUAI_MAXSTACK ||  /* handling stack overflow? */
-		      goodsize >= L->stacksize)  /* would grow instead of shrink? */
-		    condmovestack(L);  /* don't change stack (change only for debugging) */
-		  else
+		      goodsize >= L.stacksize) {  /* would grow instead of shrink? */
+		    ;//FIXME:???//condmovestack(L);  /* don't change stack (change only for debugging) */
+		  } else
 		    luaD_reallocstack(L, goodsize);  /* shrink it */
 		}
 
@@ -252,14 +252,14 @@ namespace KopiLua
 
 		private static void callhook (lua_State L, CallInfo ci) {
 		  int hook = LUA_HOOKCALL;
-		  ci->u.l.savedpc++;  /* hooks assume 'pc' is already incremented */
-		  if (isLua(ci->previous) &&
-		      GET_OPCODE(*(ci->previous->u.l.savedpc - 1)) == OP_TAILCALL) {
-		    ci->callstatus |= CIST_TAIL;
+		  InstructionPtr.inc(ref ci.u.l.savedpc);  /* hooks assume 'pc' is already incremented */
+		  if (isLua(ci.previous) != 0 &&
+		      GET_OPCODE(ci.previous.u.l.savedpc[- 1]) == OpCode.OP_TAILCALL) {
+		    ci.callstatus |= CIST_TAIL;
 		    hook = LUA_HOOKTAILCALL;
 		  }
 		  luaD_hook(L, hook, -1);
-		  ci->u.l.savedpc--;  /* correct 'pc' */
+		  InstructionPtr.dec(ref ci.u.l.savedpc);  /* correct 'pc' */
 		}
 
 
@@ -491,7 +491,7 @@ namespace KopiLua
 		*/
 		private static void resume_error (lua_State L, CharPtr msg, StkId firstArg) {
 		  L.top = firstArg;  /* remove args from the stack */
-		  setsvalue2s(L, L->top, luaS_new(L, msg));  /* push error message */
+		  setsvalue2s(L, L.top, luaS_new(L, msg));  /* push error message */
 		  incr_top(L);
 		  luaD_throw(L, -1);  /* jump back to 'lua_resume' */
 		}
@@ -505,25 +505,25 @@ namespace KopiLua
 		  CallInfo ci = L.ci;
 		  if (G(L).nCcalls >= LUAI_MAXCCALLS)
 		    resume_error(L, "C stack overflow", firstArg);
-		  if (L->status == LUA_OK) {  /* may be starting a coroutine */
-		    if (ci != &L->base_ci)  /* not in base level? */
+		  if (L.status == LUA_OK) {  /* may be starting a coroutine */
+		    if (ci != L.base_ci)  /* not in base level? */
 		      resume_error(L, "cannot resume non-suspended coroutine", firstArg);
 		    /* coroutine is in base level; start running it */
-		    if (!luaD_precall(L, firstArg - 1, LUA_MULTRET))  /* Lua function? */
+		    if (luaD_precall(L, firstArg - 1, LUA_MULTRET)==0)  /* Lua function? */
 		      luaV_execute(L);  /* call it */
 		  }
-		  else if (L->status != LUA_YIELD)
+		  else if (L.status != LUA_YIELD)
 		    resume_error(L, "cannot resume dead coroutine", firstArg);
 		  else {  /* resuming from previous yield */
-		    L->status = LUA_OK;
-		    if (isLua(ci))  /* yielded inside a hook? */
+		    L.status = LUA_OK;
+		    if (isLua(ci) != 0)  /* yielded inside a hook? */
 		      luaV_execute(L);  /* just continue running Lua code */
 		    else {  /* 'common' yield */
-		      if (ci.u.c.k != NULL) {  /* does it have a continuation? */
+		      if (ci.u.c.k != null) {  /* does it have a continuation? */
 		        int n;
 		        ci.u.c.status = LUA_YIELD;  /* 'default' status */
 		        ci.callstatus |= CIST_YIELDED;
-		        ci.func = restorestack(L, ci->u.c.oldtop);
+		        ci.func = restorestack(L, ci.u.c.oldtop);
 		        lua_unlock(L);
 		        n = ci.u.c.k(L);  /* call continuation */
 		        lua_lock(L);
@@ -533,7 +533,7 @@ namespace KopiLua
 		      G(L).nCcalls--;  /* finish 'luaD_call' */
 		      luaD_poscall(L, firstArg);  /* finish 'luaD_precall' */
 		    }
-		    unroll(L, NULL);
+		    unroll(L, null);
 		  }
 		}
 
@@ -568,29 +568,29 @@ namespace KopiLua
 
 
 		public static int lua_yieldk (lua_State L, int nresults, int ctx, lua_CFunction k) {
-		  CallInfo *ci = L->ci;
+		  CallInfo ci = L.ci;
 		  luai_userstateyield(L, nresults);
 		  lua_lock(L);
 		  api_checknelems(L, nresults);
-		  if (L->nny > 0) {
-		    if (L != G(L)->mainthread)
+		  if (L.nny > 0) {
+		    if (L != G(L).mainthread)
 		      luaG_runerror(L, "attempt to yield across metamethod/C-call boundary");
 		    else
 		      luaG_runerror(L, "attempt to yield from outside a coroutine");
 		  }
-		  L->status = LUA_YIELD;
-		  if (isLua(ci)) {  /* inside a hook? */
-		    api_check(L, k == NULL, "hooks cannot continue after yielding");
+		  L.status = LUA_YIELD;
+		  if (isLua(ci) != 0) {  /* inside a hook? */
+		    api_check(L, k == null, "hooks cannot continue after yielding");
 		  }
 		  else {
-		    if ((ci->u.c.k = k) != NULL) {  /* is there a continuation? */
-		      ci->u.c.ctx = ctx;  /* save context */
-		      ci->u.c.oldtop = savestack(L, ci->func);  /* save current 'func' */
+		    if ((ci.u.c.k = k) != null) {  /* is there a continuation? */
+		      ci.u.c.ctx = ctx;  /* save context */
+		      ci.u.c.oldtop = savestack(L, ci.func);  /* save current 'func' */
 		    }
-		    ci->func = L->top - nresults - 1;  /* protect stack slots below */
+		    ci.func = L.top - nresults - 1;  /* protect stack slots below */
 		    luaD_throw(L, LUA_YIELD);
 		  }
-		  lua_assert(ci->callstatus & CIST_HOOKED);  /* must be inside a hook */
+		  lua_assert(ci.callstatus & CIST_HOOKED);  /* must be inside a hook */
 		  lua_unlock(L);
 		  return 0;  /* return to 'luaD_hook' */
 		}
@@ -641,10 +641,10 @@ namespace KopiLua
 		        : luaY_parser(L, p.z, p.buff, p.varl, p.name);
 		  setptvalue2s(L, L.top, tf);
 		  incr_top(L);
-		  cl = luaF_newLclosure(L, tf->sizeupvalues, G(L)->l_gt);
+		  cl = luaF_newLclosure(L, tf.sizeupvalues, G(L).l_gt);
 		  cl.l.p = tf;
 		  setclvalue(L, L.top - 1, cl);
-		  for (i = 0; i < tf->sizeupvalues; i++)  /* initialize upvalues */
+		  for (i = 0; i < tf.sizeupvalues; i++)  /* initialize upvalues */
 			cl.l.upvals[i] = luaF_newupval(L);
 		}
 
@@ -652,14 +652,14 @@ namespace KopiLua
 		public static int luaD_protectedparser (lua_State L, ZIO z, CharPtr name) {
 		  SParser p = new SParser();
 		  int status;
-          L->nny++;  /* cannot yield during parsing */
+          L.nny++;  /* cannot yield during parsing */
 		  p.z = z; p.name = new CharPtr(name); //FIXME:
-          p.varl.actvar = NULL; p.varl.nactvar = p.varl.actvarsize = 0;
+          p.varl.actvar = null; p.varl.nactvar = p.varl.actvarsize = 0;
 		  luaZ_initbuffer(L, p.buff);
 		  status = luaD_pcall(L, f_parser, p, savestack(L, L.top), L.errfunc);
 		  luaZ_freebuffer(L, p.buff);
 		  luaM_freearray(L, p.varl.actvar, p.varl.actvarsize);
-		  L->nny--;
+		  L.nny--;
 		  return status;
 		}
 	}

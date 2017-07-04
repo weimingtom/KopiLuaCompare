@@ -10,7 +10,7 @@ namespace KopiLua
 		}
 
 		public static int tonumber(ref StkId o, TValue n) {
-			return (ttisnumber(o) || (((o) = luaV_tonumber(o, n)) != null))) ? 1 : 0;
+			return (ttisnumber(o) || ((o = luaV_tonumber(o, n)) != null)) ? 1 : 0;
 		}
 
 		public static int equalobj(lua_State L, TValue o1, TValue o2) {

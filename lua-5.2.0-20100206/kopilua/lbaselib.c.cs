@@ -343,8 +343,8 @@ namespace KopiLua
 		private static int luaB_load_aux (lua_State L, int farg) {
 		  int status;
 		  Readstat stat = new Readstat();
-		  size_t l;
-		  CharPtr s = lua_tolstring(L, farg, l);
+		  uint l;
+		  CharPtr s = lua_tolstring(L, farg, out l);
 		  CharPtr mode = luaL_optstring(L, farg + 2, "bt");
 		  if (s != null) {  /* loading a string? */
 		    CharPtr chunkname = luaL_optstring(L, farg + 1, s);
@@ -467,7 +467,8 @@ namespace KopiLua
 
 		private static int luaB_tostring (lua_State L) {
 		  luaL_checkany(L, 1);
-		  luaL_tolstring(L, 1, null);
+		  uint nullVal = 0; //FIXME: added
+		  luaL_tolstring(L, 1, out nullVal); //FIXME: ..., null)
 		  return 1;
 		}
 
@@ -550,7 +551,7 @@ namespace KopiLua
 		  status = lua_resume(co, narg);
 		  if (status == LUA_OK || status == LUA_YIELD) {
 			int nres = lua_gettop(co);
-		    if (!lua_checkstack(L, nres + 1)) {
+		    if (lua_checkstack(L, nres + 1)==0) {
 		      lua_pop(co, nres);  /* remove results anyway */
 		      lua_pushliteral(L, "too many results to resume");
 		      return -1;  /* error flag */

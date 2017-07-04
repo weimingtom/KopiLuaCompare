@@ -17,7 +17,7 @@
 				L.ci.top = L.top; 
 		}
 
-		private static void api_checknelems(lua_State L, int n) { api_check(L, (n) < (L->top - L.ci.func),
+		private static void api_checknelems(lua_State L, int n) { api_check(L, (n) < (L.top - L.ci.func),
 						  "not enough elements in the stack"); }
 	
 	}

@@ -105,11 +105,11 @@ namespace KopiLua
 		  lua_Debug ar = new lua_Debug();
 		  int li = 1, le = 1;
 		  /* find an upper bound */
-		  while (lua_getstack(L, le, &ar)) { li = le; le *= 2; }
+		  while (lua_getstack(L, le, ar) != 0) { li = le; le *= 2; }
 		  /* do a binary search */
 		  while (li < le) {
 		    int m = (li + le)/2;
-		    if (lua_getstack(L, m, &ar)) li = m + 1;
+		    if (lua_getstack(L, m, ar) != 0) li = m + 1;
 		    else le = m;
 		  }
 		  return le - 1;
@@ -136,7 +136,7 @@ namespace KopiLua
 		        lua_pushfstring(L, "%d:", ar.currentline);
 		      lua_pushliteral(L, " in ");
 		      pushfuncname(L, ar);
-		      if (ar.istailcall)
+		      if (ar.istailcall != 0)
 		        lua_pushliteral(L, "\n\t(...tail calls...)");
 		      lua_concat(L, lua_gettop(L) - top);
 		    }
@@ -639,14 +639,14 @@ namespace KopiLua
 		  int l;
 		  lua_len(L, idx);
 		  l = lua_tointeger(L, -1);
-		  if (l == 0 && !lua_isnumber(L, -1))
+		  if (l == 0 && lua_isnumber(L, -1)==0)
 		    luaL_error(L, "object length is not a number");
 		  lua_pop(L, 1);  /* remove object */
 		  return l;
 		}
 
 
-		public static CharPtr luaL_tolstring (lua_State L, int idx, uint[] len) { //FIXME: size_t * -> uint[]
+        public static CharPtr luaL_tolstring (lua_State L, int idx, out uint len) { //FIXME: size_t * -> out uint
 		  if (luaL_callmeta(L, idx, "__tostring") == 0) {  /* no metafield? */
 		    switch (lua_type(L, idx)) {
 		      case LUA_TNUMBER:
@@ -665,7 +665,7 @@ namespace KopiLua
                 break;
 		    }
 		  }
-		  return lua_tolstring(L, -1, len);
+		  return lua_tolstring(L, -1, out len);
 		}
 
 
@@ -788,7 +788,7 @@ namespace KopiLua
 		  nargs++;  /* to include function itself */
 		  lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_CPCALL);
 		  lua_insert(L, -nargs);
-		  lua_pushlightuserdata(L, &f);
+		  lua_pushlightuserdata(L, f);
 		  lua_insert(L, -nargs);
 		  return lua_pcall(L, nargs, nresults, 0);
 		}

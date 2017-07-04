@@ -43,7 +43,7 @@ namespace KopiLua
 
 		private static void anchor_token (LexState ls) {
 		  /* last token from outer function must be EOS */
-		  lua_assert(ls.fs != null || ls.t.token == TK_EOS);
+		  lua_assert(ls.fs != null || ls.t.token == (int)RESERVED.TK_EOS);
 		  if (ls.t.token == (int)RESERVED.TK_NAME || ls.t.token == (int)RESERVED.TK_STRING) {
 			TString ts = ls.t.seminfo.ts;
 			luaX_newstring(ls, getstr(ts), ts.tsv.len);
@@ -148,15 +148,15 @@ namespace KopiLua
 		}
 
 
-		private static void new_localvar (LexState ls, TString name, int n) {
-		  FuncState *fs = ls->fs;
-		  Varlist *vl = ls->varl;
+		private static void new_localvar (LexState ls, TString name) {
+		  FuncState fs = ls.fs;
+		  Varlist vl = ls.varl;
 		  int reg = registerlocalvar(ls, name);
-		  checklimit(fs, vl->nactvar + 1 - fs->firstlocal,
+		  checklimit(fs, vl.nactvar + 1 - fs.firstlocal,
 		                  MAXVARS, "local variables");
-		  luaM_growvector(ls->L, vl->actvar, vl->nactvar + 1,
-		                  vl->actvarsize, vardesc, MAX_INT, "local variables");
-		  vl->actvar[vl->nactvar++].idx = cast(unsigned short, reg);
+		  luaM_growvector(ls.L, vl.actvar, vl.nactvar + 1,
+		                  vl.actvarsize, vardesc, MAX_INT, "local variables");
+		  vl.actvar[vl.nactvar++].idx = (ushort)(reg);
 		}
 
 
@@ -207,7 +207,7 @@ namespace KopiLua
 		  checklimit(fs, fs.nups + 1, UCHAR_MAX, "upvalues");
 		  luaM_growvector(fs.L, f.upvalues, fs.nups, f.sizeupvalues,
 		                  Upvaldesc, UCHAR_MAX, "upvalues");
-		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = NULL;
+		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = null;
 		  f.upvalues[fs.nups].name = name;
 		  luaC_objbarrier(fs.L, f, name);
 		  f.upvalues[fs.nups].instack = cast_byte(instk);

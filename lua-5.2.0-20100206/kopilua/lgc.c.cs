@@ -832,7 +832,7 @@ namespace KopiLua
 		  global_State g = G(L);
 		  lua_assert(g.gckind == KGC_NORMAL);
 		  g.gckind = (byte)(isemergency != 0 ? KGC_EMERGENCY : KGC_FORCED);
-		  if (g->gcstate == GCSpropagate) {  /* marking phase? */
+		  if (g.gcstate == GCSpropagate) {  /* marking phase? */
 		    /* must sweep all objects to turn them back to white
 		       (as white does not change, nothing will be collected) */
 		    g.sweepstrgc = 0;
@@ -844,9 +844,9 @@ namespace KopiLua
 		  /* run collector up to finalizers */
 		  luaC_runtilstate(L, bitmask(GCSfinalize));
 		  g.gckind = KGC_NORMAL;
-		  if (!isemergency)   /* do not run finalizers during emergency GC */
+		  if (isemergency==0)   /* do not run finalizers during emergency GC */
 		   luaC_runtilstate(L, ~bitmask(GCSfinalize));
-		  g.GCthreshold = (g.totalbytes/100) * g.gcpause;
+		  g.GCthreshold = (uint)((g.totalbytes/100) * g.gcpause); //FIXME:(uint)
 		}
 
         /* }====================================================== */

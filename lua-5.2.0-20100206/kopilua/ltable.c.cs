@@ -370,7 +370,7 @@ namespace KopiLua
 
 
 		public static void luaH_free (lua_State L, Table t) {
-		  if (!isdummy(t->node))
+		  if (!isdummy(t.node))
 			luaM_freearray(L, t.node/*, sizenode(t)*/); //FIXME:
 		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:
 		  luaM_free(L, t);
@@ -580,7 +580,7 @@ namespace KopiLua
 			return (int)i;
 		  }
 		  /* else must find a boundary in hash part */
-		  else if (isdummy(t->node))  /* hash part is empty? */
+		  else if (isdummy(t.node))  /* hash part is empty? */
 			return (int)j;  /* that is easy... */
 		  else return unbound_search(t, j);
 		}

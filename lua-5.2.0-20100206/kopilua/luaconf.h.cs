@@ -533,9 +533,9 @@ namespace KopiLua
 		//#include <float.h>
 		//#include <math.h>
 
-		public static void luai_hashnum(ref int i, lua_Number d) { int e;
-		  d = frexp(d, &e) * (lua_Number)(INT_MAX - DBL_MAX_EXP);
-		  lua_number2int(i, d); i += e; }
+		public static void luai_hashnum(out int i, lua_Number d) { int e;
+		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???
+		  lua_number2int(out i, d); i += e; }
 
 		//#endif
 

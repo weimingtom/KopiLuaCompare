@@ -14,7 +14,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using lua_Number = System.Double;
 	using Instruction = System.UInt32;
-
+	using StkId = Lua.lua_TValue;
 
 
 	public partial class Lua
@@ -206,7 +206,7 @@ namespace KopiLua
 		  lua_assert(getBMode(o) != OpArgMask.OpArgN || b == 0);
 		  lua_assert(getCMode(o) != OpArgMask.OpArgN || c == 0);
           lua_assert(a <= MAXARG_A && b <= MAXARG_B && c <= MAXARG_C);
-		  return luaK_code(fs, CREATE_ABC(o, a, b, c));
+          return luaK_code(fs, (Instruction)CREATE_ABC(o, a, b, c)); //FIXME: added (Instruction)
 		}
 
 
@@ -214,19 +214,19 @@ namespace KopiLua
 		  lua_assert(getOpMode(o) == OpMode.iABx || getOpMode(o) == OpMode.iAsBx);
 		  lua_assert(getCMode(o) == OpArgMask.OpArgN);
           lua_assert(a <= MAXARG_A && bc <= MAXARG_Bx);
-		  return luaK_code(fs, CREATE_ABx(o, a, bc));
+          return luaK_code(fs, (Instruction)CREATE_ABx(o, a, (int)bc)); //FIXME: added (Instruction) added (int)
 		}
 
 
 		private static int codeextraarg (FuncState fs, int a) {
 		  lua_assert(a <= MAXARG_Ax);
-		  return luaK_code(fs, CREATE_Ax(OP_EXTRAARG, a));
+		  return luaK_code(fs, (Instruction)CREATE_Ax(OpCode.OP_EXTRAARG, a)); //FIXME: added (Instruction)
 		}
 
 
 		public static int luaK_codeABxX (FuncState fs, OpCode o, int reg, int k) {
 		  if (k < MAXARG_Bx)
-		    return luaK_codeABx(fs, o, reg, k + 1);
+		  	return luaK_codeABx(fs, o, reg, (uint)(k + 1)); //FIXME: added (uint)
 		  else {
 		    int p = luaK_codeABx(fs, o, reg, 0);
 		    codeextraarg(fs, k);
@@ -274,7 +274,7 @@ namespace KopiLua
 		  if (ttisnumber(idx)) {
 		    lua_Number n = nvalue(idx);
 		    lua_number2int(out k, n);
-			if (luaO_rawequalObj(f.k[k], v))
+			if (luaO_rawequalObj(f.k[k], v) != 0)
 		      return k;
 		    /* else may be a collision (e.g., between 0.0 and "\0\0\0\0\0\0\0\0");
 		       go through and create a new entry for this value */
@@ -306,10 +306,10 @@ namespace KopiLua
 		  setnvalue(o, r);
 		  if (r == 0 || luai_numisnan(null, r)) {  /* handle -0 and NaN */
 		    /* use raw representation as key to avoid numeric problems */
-		    setsvalue(L, L.top, luaS_newlstr(L, (char *)&r, sizeof(r)));
+		    setsvalue(L, L.top, luaS_newlstr(L, (CharPtr)r, sizeof(r))); //FIXME:???
 		     incr_top(L);
-		     n = addk(fs, L.top - 1, &o);
-		     L.top--;
+		     n = addk(fs, L.top - 1, o);
+		     StkId.dec(ref L.top);
 		  }
 		  else
 		    n = addk(fs, o, o);  /* regular case */

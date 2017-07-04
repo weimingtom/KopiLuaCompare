@@ -153,7 +153,7 @@ namespace KopiLua
 		  if (ttisnil(tm))
 			tm = luaT_gettmbyobj(L, p2, event_);  /* try second operand */
 		  if (ttisnil(tm)) return 0;
-          if (event_ == TM_UNM) p2 = luaO_nilobject;
+          if (event_ == TMS.TM_UNM) p2 = luaO_nilobject;
 		  callTM(L, tm, p1, p2, res, 1);
 		  return 1;
 		}
@@ -355,8 +355,8 @@ namespace KopiLua
 		  StkId base_ = ci.u.l.base_;
 		  Instruction inst = ci.u.l.savedpc[-1];  /* interrupted instruction */
 		  OpCode op = GET_OPCODE(inst);
-		  if (op == OP_EXTRAARG) {  /* extra argument? */
-		    inst = *(ci->u.l.savedpc - 2);  /* get its 'main' instruction */
+		  if (op == OpCode.OP_EXTRAARG) {  /* extra argument? */
+		  	inst = ci.u.l.savedpc[ - 2];  /* get its 'main' instruction */
 		    op = GET_OPCODE(inst);
 		  }
 		  switch (op) {  /* finish its execution */
@@ -557,7 +557,7 @@ namespace KopiLua
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
-			lua_assert(base_ <= L.top && L.top < L.stack + L.stacksize);
+			lua_assert(base_ <= L.top && L.top < L.stack[L.stacksize]); //FIXME:???
 			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
@@ -565,7 +565,7 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_LOADK: {
-		        TValue rb = KBx(i);
+		        TValue rb = KBx(L, i, k);
 		        setobj2s(L, ra, rb);
 				continue;
 			  }
@@ -610,12 +610,12 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETGLOBAL: {
 				TValue g = new TValue();
-                TValue rb = KBx(i);
+                TValue rb = KBx(L, i, k);
 				sethvalue(L, g, cl.env);
 				lua_assert(ttisstring(rb));
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_settable(L, g, rb, ra)
+				  luaV_settable(L, g, rb, ra);
 				  base_ = ci.u.l.base_;
 				  //);
 				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
@@ -809,19 +809,19 @@ namespace KopiLua
 			        StkId nfunc = nci.func;  /* called function */
 		            StkId ofunc = oci.func;  /* caller function */
 		            /* last stack slot filled by 'precall' */
-		            StkId lim = nci.u.l.base + getproto(nfunc).numparams;
+		            StkId lim = nci.u.l.base_ + getproto(nfunc).numparams;
 					int aux;
                     /* close all upvalues from previous call */
 		            if (cl.p.sizep > 0) luaF_close(L, oci.u.l.base_);
 		            /* move new frame into old one */
 					for (aux = 0; nfunc+aux < lim; aux++)
 		              setobjs2s(L, ofunc + aux, nfunc + aux);
-                    oci->u.l.base = ofunc + (nci->u.l.base - nfunc);  /* correct base */
-                    oci.top = L.top = ofunc + (L->top - nfunc);  /* correct top */
+                    oci.u.l.base_ = ofunc + (nci.u.l.base_ - nfunc);  /* correct base */
+                    oci.top = L.top = ofunc + (L.top - nfunc);  /* correct top */
 		            oci.u.l.savedpc = nci.u.l.savedpc;
 		            oci.callstatus |= CIST_TAIL;  /* function was tail called */
 		            ci = L.ci = oci;  /* remove new frame */
-                    lua_assert(L->top == oci.u.l.base + getproto(ofunc).maxstacksize);
+                    lua_assert(L.top == oci.u.l.base_ + getproto(ofunc).maxstacksize);
 		            break;  /* restart luaV_execute over new Lua function */
 				}
 			  }
@@ -921,23 +921,23 @@ namespace KopiLua
 				Proto p = cl.p.p[GETARG_Bx(i)];  /* prototype for new closure */
 				int nup = p.sizeupvalues;
 				Closure ncl = luaF_newLclosure(L, nup, cl.env);
-                Upvaldesc uv = p.upvalues;
+				Upvaldesc[] uv = p.upvalues;
                 int j;
 				ncl.l.p = p;
                 setclvalue(L, ra, ncl);
-		        if (p->envreg != NO_REG) {  /* lexical environment? */
-		          StkId env = base + p->envreg;
+		        if (p.envreg != NO_REG) {  /* lexical environment? */
+                  StkId env = base_ + p.envreg;
 		          if (!ttistable(env))
-		            luaG_runerror(L, "environment is not a table: "
+		            luaG_runerror(L, "environment is not a table: " +
 		                             "cannot create closure");
 		          else
-		            ncl->l.env = hvalue(env);
+		            ncl.l.env = hvalue(env);
 		        }
 		        for (j = 0; j < nup; j++) {  /* fill in upvalues */
-		          if (uv[j].instack)  /* upvalue refers to local variable? */
-		            ncl->l.upvals[j] = luaF_findupval(L, base + uv[j].idx);
+		          if (uv[j].instack != 0)  /* upvalue refers to local variable? */
+		            ncl.l.upvals[j] = luaF_findupval(L, base_ + uv[j].idx);
 		          else  /* get upvalue from enclosing function */
-		            ncl->l.upvals[j] = cl->upvals[uv[j].idx];
+		            ncl.l.upvals[j] = cl.upvals[uv[j].idx];
 		        }
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc);//FIXME:
@@ -957,7 +957,7 @@ namespace KopiLua
 					  luaD_checkstack(L, n);
 					base_ = ci.u.l.base_;
 					//);
-				  ra = RA(i);  /* previous call may change the stack */
+				  ra = RA(L, base_, i);  /* previous call may change the stack */
 				  L.top = ra + n;
 				}
 				for (j = 0; j < b; j++) {

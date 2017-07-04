@@ -806,8 +806,8 @@ namespace KopiLua
 				return 32;
 			else if (t == typeof(expdesc))
 				return 24;
-			else if (t == typeof(upvaldesc))
-				return 2;
+			else if (t == typeof(Upvaldesc)) //replace upvaldesc
+				return 6; //replace 2
 			else if (t == typeof(BlockCnt))
 				return 12;
 			else if (t == typeof(Zio))
@@ -863,6 +863,17 @@ namespace KopiLua
 		public static double log10(double d)
 		{
 			return Math.Log10(d);
+		}	
+
+		public static FilePtr _popen(CharPtr command, CharPtr type)
+		{
+			//FIXME:not implemented
+			return null;
+		}
+		
+		public static void _pclose(FilePtr stream)
+		{
+			//FIXME:not implemented
 		}		
 	}
 }

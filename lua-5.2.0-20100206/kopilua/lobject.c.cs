@@ -24,7 +24,7 @@ namespace KopiLua
 	{
 
 	
-	    //FIXME:???
+	    //FIXME:moved to lobject.h
         //LUAI_DDEF const TValue luaO_nilobject_ = {NILCONSTANT};
 
 		

@@ -108,7 +108,10 @@ namespace KopiLua
 		//#endif
 		//FIXME:???
 		[Conditional("DEBUG")]
+		public static void luai_apicheck(object L, bool e) {lua_assert(e);}
+		[Conditional("DEBUG")]
 		public static void luai_apicheck(object L, bool e, string msg) {lua_assert(e, msg);}
+		
 		[Conditional("DEBUG")]
 		public static void api_check(object l, bool e, string msg)		{luai_apicheck(l,e,msg);}
 		[Conditional("DEBUG")]

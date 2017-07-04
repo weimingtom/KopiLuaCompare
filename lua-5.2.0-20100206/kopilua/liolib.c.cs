@@ -36,8 +36,8 @@ namespace KopiLua
 
 		//#elif defined(LUA_WIN)
 
-		//#define lua_popen(L,c,m)        ((void)L, _popen(c,m))
-		//#define lua_pclose(L,file)      ((void)L, _pclose(file))
+		private static FilePtr lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
+		private static void lua_pclose(lua_State L, FilePtr file)  { /*(void)L,*/ _pclose(file); }
 
 		//#else
 
@@ -199,12 +199,12 @@ namespace KopiLua
 		  FilePtr pf;
 		  int i = 0;
 		  /* check whether 'mode' matches '[rwa]%+?b?' */
-		  if (!(mode[i] != '\0' && strchr("rwa", mode[i++]) != NULL &&
-		       (mode[i] != '+' || ++i) &&    /* skip if char is '+' */
-		       (mode[i] != 'b' || ++i) &&    /* skip if char is 'b' */
+		  if (!(mode[i] != '\0' && strchr("rwa", mode[i++]) != null &&
+		       (mode[i] != '+' || ++i != 0) &&    /* skip if char is '+' */
+		       (mode[i] != 'b' || ++i != 0) &&    /* skip if char is 'b' */
 		       (mode[i] == '\0')))
-		    luaL_error(L, "invalid mode " LUA_QL("%s")
-		                  " (should match " LUA_QL("[rwa]%%+?b?") ")", mode);
+		    luaL_error(L, "invalid mode " + LUA_QL("%s") +
+		                  " (should match " + LUA_QL("[rwa]%%+?b?") + ")", mode);
 		  pf = newfile(L);
 		  pf.file = fopen(filename, mode);
 		  return (pf.file == null) ? pushresult(L, 0, filename) : 1;

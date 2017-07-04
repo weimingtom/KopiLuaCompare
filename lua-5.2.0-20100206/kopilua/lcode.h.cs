@@ -27,12 +27,12 @@ namespace KopiLua
 
 		public static InstructionPtr getcode(FuncState fs, expdesc e)	{return new InstructionPtr(fs.f.code, e.u.s.info);}
 
-		public static int luaK_codeAsBx(FuncState fs, OpCode o, int A, int sBx)	{return luaK_codeABx(fs,o,A,sBx+MAXARG_sBx);}
+		public static int luaK_codeAsBx(FuncState fs, OpCode o, int A, int sBx)	{return luaK_codeABx(fs,o,A,(uint)(sBx+MAXARG_sBx));} //FIXME:added (uint)
 
 		public static void luaK_setmultret(FuncState fs, expdesc e)	{luaK_setreturns(fs, e, LUA_MULTRET);}
 		
 		public static void luaK_jumpto(FuncState fs, int t)	{luaK_patchlist(fs, luaK_jump(fs), t);}
 		
-		public static int luaK_codek(FuncState fs, int reg, int k) { return luaK_codeABxX(fs, OP_LOADK, reg, k);}
+		public static int luaK_codek(FuncState fs, int reg, int k) { return luaK_codeABxX(fs, OpCode.OP_LOADK, reg, k);}
 	}
 }
