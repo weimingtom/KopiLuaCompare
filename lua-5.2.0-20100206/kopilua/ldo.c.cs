@@ -40,8 +40,21 @@ namespace KopiLua
 		//#if defined(__cplusplus)
 		/* C++ exceptions */
 		//#define LUAI_THROW(L,c)		throw(c)
+		//FIXME:added:
+		public class LuaException : Exception
+		{
+			public lua_State L;
+			public lua_longjmp c;
+
+			public LuaException(lua_State L, lua_longjmp c) { this.L = L; this.c = c; }
+		}
+		public static void LUAI_THROW(lua_State L, lua_longjmp c)	{throw new LuaException(L, c);}
 		//#define LUAI_TRY(L,c,a) \
 		//	try { a } catch(...) { if ((c)->status == 0) (c)->status = -1; }
+		//FIXME:added:
+		public static void LUAI_TRY(lua_State L, lua_longjmp c, object a) {
+			if (c.status == 0) c.status = -1;
+		}
 		//#define luai_jmpbuf		int  /* dummy variable */
 
 		//#elif defined(LUA_USE_ULONGJMP)
@@ -658,7 +671,7 @@ namespace KopiLua
 		  luaZ_initbuffer(L, p.buff);
 		  status = luaD_pcall(L, f_parser, p, savestack(L, L.top), L.errfunc);
 		  luaZ_freebuffer(L, p.buff);
-		  luaM_freearray(L, p.varl.actvar, p.varl.actvarsize);
+		  luaM_freearray<vardesc>(L, p.varl.actvar/*, p.varl.actvarsize*/);
 		  L.nny--;
 		  return status;
 		}

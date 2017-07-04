@@ -466,16 +466,16 @@ namespace KopiLua
 		  CharPtr funcname;
 		  CharPtr mark;
 		  modname = luaL_gsub(L, modname, ".", LUA_OFSEP);
-		  CharPtr mark = strchr(modname, LUA_IGMARK[0]);
+		  mark = strchr(modname, LUA_IGMARK[0]);
 		  if (mark != null) {
 		    int stat;
-		    funcname = lua_pushlstring(L, modname, mark - modname);
-		    funcname = lua_pushfstring(L, POF"%s", funcname);
+		    funcname = lua_pushlstring(L, modname, (uint)(mark - modname)); //FIXME:(uint)
+		    funcname = lua_pushfstring(L, POF + "%s", funcname);
 		    stat = ll_loadfunc(L, filename, funcname);
 		    if (stat != ERRFUNC) return stat;
 		    modname = mark + 1;  /* else go ahead and try old-style name */
 		  }
-		  funcname = lua_pushfstring(L, POF"%s", modname);
+		  funcname = lua_pushfstring(L, POF + "%s", modname);
 		  return ll_loadfunc(L, filename, funcname);
 		}
 

@@ -154,8 +154,8 @@ namespace KopiLua
 		  int reg = registerlocalvar(ls, name);
 		  checklimit(fs, vl.nactvar + 1 - fs.firstlocal,
 		                  MAXVARS, "local variables");
-		  luaM_growvector(ls.L, vl.actvar, vl.nactvar + 1,
-		                  vl.actvarsize, vardesc, MAX_INT, "local variables");
+		  luaM_growvector<vardesc>(ls.L, ref vl.actvar, vl.nactvar + 1,
+		                  ref vl.actvarsize/*, vardesc*/, Int32.MaxValue, "local variables");
 		  vl.actvar[vl.nactvar++].idx = (ushort)(reg);
 		}
 
@@ -164,14 +164,14 @@ namespace KopiLua
 		  new_localvar(ls, luaX_newstring(ls, name, sz));
 		}
 
-		private static void new_localvarliteral(LexState ls, CharPtr v) {
-			new_localvarliteral_(ls, "" + v, (sizeof(v)/sizeof(char))-1); }
+		private static void new_localvarliteral(LexState ls, string v) {
+			new_localvarliteral_(ls, "" + v, /*(sizeof(v)/sizeof(char))-1)*/(uint)v.Length); }
 
 
 		private static LocVar getlocvar (FuncState fs, int i) {
 		  int idx = fs.ls.varl.actvar[fs.firstlocal + i].idx;
 		  lua_assert(idx < fs.nlocvars);
-		  return &fs.f.locvars[idx];
+		  return fs.f.locvars[idx];
 		}
 
 
@@ -195,8 +195,8 @@ namespace KopiLua
 		  int i;
 		  Proto f = fs.f;
 		  int oldsize = f.sizeupvalues;
-		  int instk = (v.k == VLOCAL);
-		  lua_assert(instk || v.k == VUPVAL);
+		  int instk = (v.k == expkind.VLOCAL ? 1 : 0);
+		  lua_assert(instk != 0 || v.k == expkind.VUPVAL);
 		  for (i=0; i<fs.nups; i++) {
 			if (f.upvalues[i].instack == instk && f.upvalues[i].idx == v.u.s.info) {
 			  lua_assert(f.upvalues[i].name == name);
@@ -204,9 +204,9 @@ namespace KopiLua
 			}
 		  }
 		  /* new one */
-		  checklimit(fs, fs.nups + 1, UCHAR_MAX, "upvalues");
-		  luaM_growvector(fs.L, f.upvalues, fs.nups, f.sizeupvalues,
-		                  Upvaldesc, UCHAR_MAX, "upvalues");
+		  checklimit(fs, fs.nups + 1, System.Byte.MaxValue, "upvalues");
+		  luaM_growvector<Upvaldesc>(fs.L, ref f.upvalues, fs.nups, ref f.sizeupvalues,
+		                  /*Upvaldesc,*/ System.Byte.MaxValue, "upvalues");
 		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = null;
 		  f.upvalues[fs.nups].name = name;
 		  luaC_objbarrier(fs.L, f, name);
@@ -259,14 +259,14 @@ namespace KopiLua
 		private static void singlevar (LexState ls, expdesc var) {
 		  TString varname = str_checkname(ls);
 		  FuncState fs = ls.fs;
-		  if (singlevaraux(fs, varname, var, 1) == VGLOBAL) {
+		  if (singlevaraux(fs, varname, var, 1) == expkind.VGLOBAL) {
 		    if (fs.envreg == NO_REG)  /* regular global? */
-		      init_exp(var, VGLOBAL, luaK_stringK(fs, varname));
+		      init_exp(var, expkind.VGLOBAL, luaK_stringK(fs, varname));
 		    else {  /* "globals" are in current lexical environment */
-		      expdesc key;
-		      init_exp(var, VLOCAL, fs.envreg);  /* current environment */
-		      codestring(ls, &key, varname);  /* key is variable name */
-		      luaK_indexed(fs, var, &key);  /* env[varname] */
+		      	expdesc key = new expdesc();
+		      init_exp(var, expkind.VLOCAL, fs.envreg);  /* current environment */
+		      codestring(ls, key, varname);  /* key is variable name */
+		      luaK_indexed(fs, var, key);  /* env[varname] */
 		    }
 		  }
 		}
@@ -331,14 +331,14 @@ namespace KopiLua
 		  FuncState fs = ls.fs.prev;
 		  Proto f = fs.f;  /* prototype of function creating new closure */
 		  int oldsize = f.sizep;
-		  luaM_growvector(ls.L, f.p, fs.np, f.sizep, Proto *,
+		  luaM_growvector<Proto>(ls.L, ref f.p, fs.np, ref f.sizep, /*Proto *,*/
 		                  MAXARG_Bx, "functions");
-		  while (oldsize < f->sizep) f->p[oldsize++] = NULL;
-		  f->p[fs->np++] = clp;
+		  while (oldsize < f.sizep) f.p[oldsize++] = null;
+		  f.p[fs.np++] = clp;
 		  /* initial environment for new function is current lexical environment */
-		  clp->envreg = fs->envreg;
-		  luaC_objbarrier(ls->L, f, clp);
-		  init_exp(v, VRELOCABLE, luaK_codeABx(fs, OP_CLOSURE, 0, fs->np-1));
+		  clp.envreg = fs.envreg;
+		  luaC_objbarrier(ls.L, f, clp);
+		  init_exp(v, expkind.VRELOCABLE, luaK_codeABx(fs, OpCode.OP_CLOSURE, 0, (uint)(fs.np-1)));
 		}
 
 
@@ -358,8 +358,8 @@ namespace KopiLua
   		  fs.nups = 0;
 		  fs.nlocvars = 0;
 		  fs.nactvar = 0;
-		  fs.firstlocal = ls->varl->nactvar;
-		  fs.envreg = NO_REG;
+		  fs.firstlocal = ls.varl.nactvar;
+		  fs.envreg = (byte)NO_REG; //FIXME:(byte)
 		  fs.bl = null;
 		  f = luaF_newproto(L);
 		  fs.f = f;
@@ -404,9 +404,9 @@ namespace KopiLua
 		  ls.fs = fs.prev;
 		  /* last token read was anchored in defunct function; must re-anchor it */
 		  anchor_token(ls);
-		  L->top--;  /* pop table of constants */
+		  StkId.dec(ref L.top);  /* pop table of constants */
 		  luaC_checkGC(L);
-		  L->top--;  /* pop prototype (after possible collection) */
+		  StkId.dec(ref L.top);  /* pop prototype (after possible collection) */
 		}
 
 
@@ -535,7 +535,7 @@ namespace KopiLua
 		private static void field (LexState ls, ConsControl cc) {
 		  /* field -> listfield | recfield */
 		  switch(ls.t.token) {
-		    case TK_NAME: {  /* may be 'listfield' or 'recfield' */
+		  	case (int)RESERVED.TK_NAME: {  /* may be 'listfield' or 'recfield' */
 		      if (luaX_lookahead(ls) != '=')  /* expression? */
 		        listfield(ls, cc);
 		      else
@@ -1100,7 +1100,7 @@ namespace KopiLua
 		  int reg;
 		  expr(ls, e);
 		  luaK_exp2nextreg(ls.fs, e);
-		  lua_assert(e.k == VNONRELOC);
+		  lua_assert(e.k == expkind.VNONRELOC);
 		  reg = e.u.s.info;
 		  return reg;
 		}
@@ -1295,19 +1295,19 @@ namespace KopiLua
 
 		private static void instat (LexState ls, int line) {
 		  /* instat -> IN exp DO block END */
-		  FuncState *fs = ls->fs;
-		  int oldenv = fs->envreg;  /* save current environment */
-		  BlockCnt bl;
+		  FuncState fs = ls.fs;
+		  int oldenv = fs.envreg;  /* save current environment */
+		  BlockCnt bl = new BlockCnt();
 		  luaX_next(ls);  /* skip IN */
-		  enterblock(fs, &bl, 0);  /* scope for environment variable */
+		  enterblock(fs, bl, 0);  /* scope for environment variable */
 		  new_localvarliteral(ls, "(environment)");
-		  fs->envreg = exp1(ls);  /* new environment */
+		  fs.envreg = (byte)exp1(ls);  /* new environment */ //FIXME:(byte)
 		  adjustlocalvars(ls, 1);
-		  checknext(ls, TK_DO);
+		  checknext(ls, (int)RESERVED.TK_DO);
 		  block(ls);
 		  leaveblock(fs);
-		  check_match(ls, TK_END, TK_IN, line);
-		  fs->envreg = oldenv;  /* restore outer environment */
+		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_IN, line);
+		  fs.envreg = (byte)oldenv;  /* restore outer environment */ //FIXME:(byte)
 		}
 
 

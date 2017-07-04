@@ -434,7 +434,8 @@ namespace KopiLua
 		public static TValue RC(lua_State L, StkId base_, Instruction i) { return base_ + GETARG_C(i); }
 		public static TValue RKB(lua_State L, StkId base_, Instruction i, TValue[] k) { return ISK(GETARG_B(i)) != 0 ? k[INDEXK(GETARG_B(i))] : base_ + GETARG_B(i); }
 		public static TValue RKC(lua_State L, StkId base_, Instruction i, TValue[] k) { return ISK(GETARG_C(i)) != 0 ? k[INDEXK(GETARG_C(i))] : base_ + GETARG_C(i); }
-		public static TValue KBx(lua_State L, Instruction i, TValue[] k) { return k[GETARG_Bx(i)]; }
+		public static TValue KBx(lua_State L, Instruction i, TValue[] k, CallInfo ci) { 
+			return k[(GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(InstructionPtr.inc(ref ci.u.l.savedpc)[0]))]; }
 
 
 		public static void dojump(int i, CallInfo ci, lua_State L) { InstructionPtr.inc(ref ci.u.l.savedpc, i); luai_threadyield(L); } //FIXME:
@@ -565,7 +566,7 @@ namespace KopiLua
 				continue;
 			  }
 			  case OpCode.OP_LOADK: {
-		        TValue rb = KBx(L, i, k);
+		        TValue rb = KBx(L, i, k, ci);
 		        setobj2s(L, ra, rb);
 				continue;
 			  }
@@ -588,7 +589,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_GETGLOBAL: {
 				TValue g = new TValue();
-				TValue rb = KBx(L, i, k);
+				TValue rb = KBx(L, i, k, ci);
 				sethvalue(L, g, cl.env);
 				lua_assert(ttisstring(rb));
 				//Protect(
@@ -610,7 +611,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETGLOBAL: {
 				TValue g = new TValue();
-                TValue rb = KBx(L, i, k);
+                TValue rb = KBx(L, i, k, ci);
 				sethvalue(L, g, cl.env);
 				lua_assert(ttisstring(rb));
 				//Protect(

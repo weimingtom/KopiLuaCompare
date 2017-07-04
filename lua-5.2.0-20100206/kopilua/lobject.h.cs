@@ -166,44 +166,44 @@ namespace KopiLua
 			{
 				this.values = null;
 				this.index = 0;
-				this.value = new Value();
-				this.tt = 0;
+				this.value_ = new Value();
+				this.tt_ = 0;
 			}
 
 			public lua_TValue(lua_TValue value)
 			{
 				this.values = value.values;
 				this.index = value.index;
-				this.value = value.value; // todo: do a shallow copy here
-				this.tt = value.tt;
+				this.value_ = value.value_; // todo: do a shallow copy here
+				this.tt_ = value.tt_;
 			}
 
 			public lua_TValue(lua_TValue[] values)
 			{
 				this.values = values;
 				this.index = Array.IndexOf(values, this);
-				this.value = new Value();
-				this.tt = 0;
+				this.value_ = new Value();
+				this.tt_ = 0;
 			}
 
 			public lua_TValue(Value value, int tt)
 			{
 				this.values = null;
 				this.index = 0;
-				this.value = value;
-				this.tt = tt;
+				this.value_ = value;
+				this.tt_ = tt;
 			}
 
 			public lua_TValue(lua_TValue[] values, Value value, int tt)
 			{
 				this.values = values;
 				this.index = Array.IndexOf(values, this);
-				this.value = value;
-				this.tt = tt;
+				this.value_ = value;
+				this.tt_ = tt;
 			}
 
-		  public Value value = new Value();
-		  public int tt;
+		  public Value value_ = new Value(); //FIXME:see TValuefields
+		  public int tt_;
 		};
 
 
@@ -219,15 +219,15 @@ namespace KopiLua
 		public static bool ttisfunction(TValue o)	{return (ttype(o) == LUA_TFUNCTION);}
 		public static bool ttisboolean(TValue o)	{return (ttype(o) == LUA_TBOOLEAN);}
 		public static bool ttisuserdata(TValue o)	{return (ttype(o) == LUA_TUSERDATA);}
-		public static bool ttisuserdata(CommonHeader o)	{return (ttype(o) == LUA_TUSERDATA);} //FIXME:added
+		//public static bool ttisuserdata(CommonHeader o)	{return (ttype(o) == LUA_TUSERDATA);} //FIXME:added
 		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
-		public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
+		//public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
 		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
-        public static bool ttisdeadkey(TValue o) { reeturn (ttype(o) == LUA_TDEADKEY);}
+        public static bool ttisdeadkey(TValue o) { return (ttype(o) == LUA_TDEADKEY);}
 		
 		/* Macros to access values */
 		public static int    ttype(TValue o) { return o.tt_; }
-		public static int    ttype(CommonHeader o) { return o.tt_; }
+		//public static int    ttype(CommonHeader o) { return o.tt_; } //FIXME:???
 		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), o.value_.gc); }
 		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), o.value_.p); }
 		public static lua_Number nvalue(TValue o) { return (lua_Number)check_exp(ttisnumber(o), o.value_.n); }
@@ -247,11 +247,11 @@ namespace KopiLua
 		*/
 		public static bool iscollectable(TValue o)	{ return (ttype(o) >= LUA_TSTRING); }
 
-		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt) }		
+		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt); }
 		
 		public static void checkconsistency(TValue obj)
 		{
-			lua_assert(!iscollectable(obj) || righttt(obj))
+			lua_assert(!iscollectable(obj) || righttt(obj));
 		}
 
 		public static void checkliveness(global_State g, TValue obj)
@@ -267,7 +267,7 @@ namespace KopiLua
 
 		public static void setnvalue(TValue obj, lua_Number x) {
 			obj.value_.n = x;
-			obj.tt = LUA_TNUMBER;
+			obj.tt_ = LUA_TNUMBER;
 		}
 
 		public static void changenvalue(TValue obj, lua_Number x) {
@@ -282,8 +282,8 @@ namespace KopiLua
 		}
 
 		public static void setbvalue(TValue obj, int x) {
-			obj.value.b = x;
-			obj.tt = LUA_TBOOLEAN;
+			obj.value_.b = x;
+			obj.tt_ = LUA_TBOOLEAN;
 		}
 
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) {
@@ -322,7 +322,7 @@ namespace KopiLua
 			checkliveness(G(L), obj);
 		}
 		
-		public static void setdeadvalue(TValue obj) { (obj.tt_=LUA_TDEADKEY); }
+		public static void setdeadvalue(TValue obj) { obj.tt_=LUA_TDEADKEY; }
 
 
 		public static void setobj(lua_State L, TValue obj1, TValue obj2) {
@@ -588,7 +588,7 @@ namespace KopiLua
 			}
 			public TKey(TKey copy)
 			{
-				this.nk = new TKey_nk(copy.nk.value, copy.nk.tt, copy.nk.next);
+				this.nk = new TKey_nk(copy.nk.value_, copy.nk.tt_, copy.nk.next);
 			}
 			public TKey(Value value, int tt, Node next)
 			{

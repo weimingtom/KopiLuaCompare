@@ -50,17 +50,17 @@ namespace KopiLua
 
 		public static TString newlstr (lua_State L, CharPtr str, uint l,
 											   uint h) {
-		  size_t totalsize;  /* total size of TString object */
-		  GCObject **list;  /* (pointer to) list where it will be inserted */
+		  uint totalsize;  /* total size of TString object */
+		  GCObjectRef list;  /* (pointer to) list where it will be inserted */
 		  TString ts;
 		  stringtable tb = G(L).strt;
 		  if (l+1 > MAX_SIZET /GetUnmanagedSize(typeof(char)))
 		    luaM_toobig(L);
 		  if ((tb.nuse > (int)tb.size) && (tb.size <= MAX_INT/2))
 		    luaS_resize(L, tb.size*2);  /* too crowded */
-		  totalsize = sizeof(TString) + ((l + 1) * sizeof(char));
-		  list = &tb->hash[lmod(h, tb->size)];
-		  ts = &luaC_newobj(L, LUA_TSTRING, totalsize, list, 0)->ts;
+		  totalsize = (uint)(GetUnmanagedSize(typeof(TString)) + ((l + 1) * GetUnmanagedSize(typeof(char))));//FIXME:(uint)
+		  list = new ArrayRef(tb.hash, (int)lmod(h, tb.size)); //FIXME:(int)
+		  ts = luaC_newobj<TString>(L, LUA_TSTRING, totalsize, list, 0).ts;
 		  ts.tsv.len = l;
 		  ts.tsv.hash = h;
 		  ts.tsv.reserved = 0;
@@ -96,35 +96,29 @@ namespace KopiLua
 		public static Udata luaS_newudata(lua_State L, uint s, Table e)
 		{
 		    Udata u;
-			//FIXME:not added
-		    //if (s > MAX_SIZET - sizeof(Udata))
-			//  luaM_toobig(L);
-			//FXIME:here changed
-			u = new Udata();
-			luaC_link(L, obj2gco(u), LUA_TUSERDATA);
+		    if (s > MAX_SIZET - GetUnmanagedSize(typeof(Udata)))
+			  luaM_toobig(L);
+		    u = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s), null, 0).u; //FIXME:(uint)
 			u.uv.len = s;
 			u.uv.metatable = null;
 			u.uv.env = e;
-			u.user_data = new byte[s]; //FIXME:???
 			return u;
 		}
-
-        //FIXME:here changed
+		
+		//FIXME:added
 		public static Udata luaS_newudata(lua_State L, Type t, Table e)
 		{
 		    Udata u;
-		    //FIXME:not added
-		    //if (s > MAX_SIZET - sizeof(Udata))
-			//  luaM_toobig(L);
-			//FXIME:here changed
-			u = &luaC_newobj(L, LUA_TUSERDATA, sizeof(Udata) + s, NULL, 0)->u;
-			u.uv.len = 0;
+		    uint s = (uint)GetUnmanagedSize(t);
+		    if (s > MAX_SIZET - GetUnmanagedSize(typeof(Udata)))
+			  luaM_toobig(L);
+		    u = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s), null, 0).u; //FIXME:(uint)
+			u.uv.len = 0;//FIXME:s;
 			u.uv.metatable = null;
 			u.uv.env = e;
-			u.user_data = luaM_realloc_(L, t);  //FIXME:??? added
-			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:??? added
+			u.user_data = luaM_realloc_(L, t);  //FIXME:???
+			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:???
 			return u;
 		}
-
 	}
 }

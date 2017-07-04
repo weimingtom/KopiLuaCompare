@@ -123,20 +123,23 @@ namespace KopiLua
 		  g.grayagain = o;
 		}
 
-
+        //FIXME:refer to luaM_new
+        //public static object luaM_realloc_<T>(lua_State L)
+		//T new_obj = (T)System.Activator.CreateInstance(typeof(T));
+		//AddTotalBytes(L, nsize);
 		/*
 		** create a new collectable object and link it to '*list'
 		*/
-		GCObject luaC_newobj (lua_State L, int tt, uint sz, GCObject[] list,
+		public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz, GCObjectRef list,
 		                       int offset) {
 		  global_State g = G(L);
-		  GCObject o = obj2gco(cast(char *, luaM_newobject(L, tt, sz)) + offset);
+		  GCObject o = obj2gco(luaM_newobject<T>(L/*, tt, sz*/)/* + offset*/); //FIXME:???no offset
 		  if (list == null)
-		    list = &g.rootgc;  /* standard list for collectable objects */
+		  	list = new RootGCRef(g);  /* standard list for collectable objects */
 		  gch(o).marked = luaC_white(g);
-		  gch(o).tt = tt;
-		  gch(o).next = *list;
-		  list[0] = o;
+		  gch(o).tt = (byte)tt; //FIXME:(byte)
+		  gch(o).next = list.get();
+		  list.set(o);
 		  return o;
 		}
 
@@ -239,7 +242,7 @@ namespace KopiLua
 		  markobject(g, g.mainthread);
 		  /* make global table and registry to be traversed before main stack */
 		  markobject(g, g.l_gt);
-		  markvalue(g, &g.l_registry);
+		  markvalue(g, g.l_registry);
 		  markmt(g);
 		  markbeingfnz(g);  /* mark any finalizing object left from previous cycle */
 		  g.gcstate = GCSpropagate;
@@ -405,7 +408,7 @@ namespace KopiLua
 		  for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
 		    markvalue(g, o);
 		  if (g.gcstate == GCSatomic) {  /* final traversal? */
-            StkId lim = L.stack + L.stacksize;  /* real end of stack */
+		  	StkId lim = L.stack[L.stacksize];  /* real end of stack */
 		  	for (; o <= lim; StkId.inc(ref o))  /* clear not-marked stack slice */
 		      setnilvalue(o);
 		  }
@@ -432,8 +435,8 @@ namespace KopiLua
 			  Closure cl = gco2cl(o);
 			  g.gray = cl.c.gclist;
 			  traverseclosure(g, cl);
-			  return (cl.c.isC != 0) ? sizeCclosure(cl.c.nupvalues) :
-								   sizeLclosure(cl.l.nupvalues);
+			  return (l_mem)((cl.c.isC != 0) ? sizeCclosure(cl.c.nupvalues) :
+			                 sizeLclosure(cl.l.nupvalues)); //FIXME:(l_mem)
 			}
 			case LUA_TTHREAD: {
 			  lua_State th = gco2th(o);
@@ -708,7 +711,7 @@ namespace KopiLua
 		public static void luaC_freeallobjects (lua_State L) {
 		  global_State g = G(L);
 		  int i;
-		  while (g.tobefnz) GCTM(L, 0);  /* Call all pending finalizers */
+		  while (g.tobefnz != null) GCTM(L, 0);  /* Call all pending finalizers */
 		  /* following "white" makes all objects look dead */
 		  g.currentwhite = (byte)((WHITEBITS | bitmask(SFIXEDBIT)) & 0xff);
 		  sweepwholelist(L, new RootGCRef(g));
@@ -726,7 +729,7 @@ namespace KopiLua
 		  lua_assert(!iswhite(obj2gco(g.mainthread)));
 		  markobject(g, L);  /* mark running thread */
 		  /* registry and global metatables may be changed by API */
-		  markvalue(g, &g.l_registry);
+		  markvalue(g, g.l_registry);
 		  markmt(g);  /* mark basic metatables */
 		  /* remark occasional upvalues of (maybe) dead threads */
 		  remarkupvals(g);
@@ -734,7 +737,7 @@ namespace KopiLua
 		  propagateall(g);
 		  /* at this point, all strongly accessible objects are marked.
 		     Start marking weakly accessible objects. */
-		  traverselistofgrays(g, &g.weak);  /* remark weak tables */
+		  traverselistofgrays(g, ref g.weak);  /* remark weak tables */
 		  traverselistofgrays(g, ref g.ephemeron);  /* remark ephemeron tables */
   		  traverselistofgrays(g, ref g.grayagain);  /* remark gray again */
           convergeephemerons(g);
@@ -805,9 +808,9 @@ namespace KopiLua
 		  do {  /* always perform at least one single step */
 			lim -= singlestep(L);
 		  } while (lim > 0 && g.gcstate != GCSpause);
-		  g.GCthreshold =  (g.gcstate != GCSpause)
+          g.GCthreshold = (uint)((g.gcstate != GCSpause)
 		                       ? g.totalbytes + GCSTEPSIZE
-		                       : (g.totalbytes/100) * g.gcpause;
+		                       : (g.totalbytes/100) * g.gcpause); //FIXME:(uint)
 		  /* compensate if GC is "behind schedule" (has some debt to pay) */
 		  if (g.GCthreshold > debt) g.GCthreshold -= debt;
 		}
@@ -819,7 +822,7 @@ namespace KopiLua
 		*/
 		public static void luaC_runtilstate (lua_State L, int statesmask) {
 		  global_State g = G(L);
-		  while (!testbit(statesmask, g->gcstate))
+		  while (!testbit((byte)statesmask, g.gcstate)) //FIXME:(byte)
 		    singlestep(L);
 		}
 

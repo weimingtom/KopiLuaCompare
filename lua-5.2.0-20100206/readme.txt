@@ -150,7 +150,14 @@ lzio.h
 
 
 
+sizeof(r) => GetUnmanagedSize(typeof(r))
 
+
+        //FIXME:???not implemented
+        private static LX fromstate(lua_State L) { return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; } //FIXME:???
+
+		  GCObject o = obj2gco(luaM_newobject<T>(L/*, tt, sz*/))/* + offset*/); //FIXME:???no offset
+		  
 
 
 ------------------------------

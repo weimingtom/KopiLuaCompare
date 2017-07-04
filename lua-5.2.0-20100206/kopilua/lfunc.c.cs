@@ -20,7 +20,7 @@ namespace KopiLua
 	{
 
 		public static Closure luaF_newCclosure (lua_State L, int n, Table e) {
-		  Closure c = luaC_newobj(L, LUA_TFUNCTION, sizeCclosure(n), null, 0).cl;
+		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeCclosure(n), null, 0).cl;
 		  c.c.isC = 1;
 		  c.c.env = e;
 		  c.c.nupvalues = cast_byte(n);
@@ -32,7 +32,7 @@ namespace KopiLua
 
 
 		public static Closure luaF_newLclosure (lua_State L, int n, Table e) {
-		  Closure c = luaC_newobj(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
+		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
 		  c.l.isC = 0;
 		  c.l.env = e;
 		  c.l.nupvalues = cast_byte(n);
@@ -45,7 +45,7 @@ namespace KopiLua
 
 
 		public static UpVal luaF_newupval (lua_State L) {
-		  UpVal uv = luaC_newobj(L, LUA_TUPVAL, sizeof(UpVal), null, 0).uv;
+		  UpVal uv = luaC_newobj<UpVal>(L, LUA_TUPVAL, (uint)GetUnmanagedSize(typeof(UpVal)), null, 0).uv;
 		  uv.v = uv.u.value;
 		  setnilvalue(uv.v);
 		  return uv;
@@ -66,7 +66,7 @@ namespace KopiLua
 			pp = new NextRef(p);
 		  }
 		  /* not found: create a new one */
-		  uv = luaC_newobj(L, LUA_TUPVAL, sizeof(UpVal), pp, 0).uv;
+		  uv = luaC_newobj<UpVal>(L, LUA_TUPVAL, (uint)GetUnmanagedSize(typeof(UpVal)), pp, 0).uv;
 		  uv.v = level;  /* current value lives in the stack */
 		  uv.u.l.prev = g.uvhead;  /* double link it in `uvhead' list */
 		  uv.u.l.next = g.uvhead.u.l.next;
@@ -111,7 +111,7 @@ namespace KopiLua
 
 
 		public static Proto luaF_newproto (lua_State L) {
-		  Proto f = luaC_newobj(L, LUA_TPROTO, sizeof(Proto), null, 0).p;
+		  Proto f = luaC_newobj<Proto>(L, LUA_TPROTO, (uint)GetUnmanagedSize(typeof(Proto)), null, 0).p;
 		  f.k = null;
 		  f.sizek = 0;
 		  f.p = null;
@@ -130,7 +130,7 @@ namespace KopiLua
 		  f.linedefined = 0;
 		  f.lastlinedefined = 0;
 		  f.source = null;
-          f.envreg = NO_REG;
+		  f.envreg = (byte)NO_REG; //FIXME:(byte)
 		  return f;
 		}
 
@@ -141,14 +141,14 @@ namespace KopiLua
 		  luaM_freearray<TValue>(L, f.k);
 		  luaM_freearray<Int32>(L, f.lineinfo);
 		  luaM_freearray<LocVar>(L, f.locvars);
-		  luaM_freearray<TString>(L, f.upvalues);
+		  luaM_freearray<Upvaldesc>(L, f.upvalues);
 		  luaM_free(L, f);
 		}
 
 		// we have a gc, so nothing to do
 		public static void luaF_freeclosure (lua_State L, Closure c) {
-		  int size = (c.c.isC != 0) ? sizeCclosure(c.c.nupvalues) :
-								  sizeLclosure(c.l.nupvalues);
+		  int size = (int)((c.c.isC != 0) ? sizeCclosure(c.c.nupvalues) :
+			                  sizeLclosure(c.l.nupvalues)); //FIXME:(int)
 		  //luaM_freemem(L, c, size);
 		  SubtractTotalBytes(L, size);
 		}

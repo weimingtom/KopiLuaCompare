@@ -210,7 +210,7 @@ namespace KopiLua
 		  int i, e, n;
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  i = luaL_optint(L, 2, 1);
-		  e = luaL_opt(L, luaL_checkint, 3, (int)lua_rawlen(L, 1));
+		  e = luaL_opt_integer(L, luaL_checkint, 3, (int)lua_rawlen(L, 1)); //FIXME:original luaL_opt
 		  if (i > e) return 0;  /* empty range */
 		  n = e - i + 1;  /* number of elements */
 		  if (n <= 0 || lua_checkstack(L, n)==0)  /* n <= 0 means arith. overflow */

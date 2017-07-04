@@ -34,11 +34,11 @@ namespace KopiLua
 		/*
 		** thread state + extra space
 		*/
-		public struct LX {
+		public class LX {
 		#if LUAI_EXTRASPACE
-		  char buff[LUAI_EXTRASPACE];
+		  public char buff[LUAI_EXTRASPACE];
 		#endif
-		  lua_State l;
+		  public lua_State l;
 		};
 
 
@@ -46,13 +46,13 @@ namespace KopiLua
 		** Main thread combines a thread state and the global state
 		*/
 		public class LG : lua_State {
-		  public LX l {get {return this;}}
+		  public LX l = new LX();
 		  public global_State g = new global_State();
 		};
 		
 
-        //FIXME:???
-		//#define fromstate(L)	(cast(LX *, cast(lu_byte *, (L)) - offsetof(LX, l)))
+        //FIXME:???not implemented
+        private static LX fromstate(lua_State L) { return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; } //FIXME:???
 
 
 
@@ -113,7 +113,7 @@ namespace KopiLua
 		** function is not compatible with void*.)
 		*/
 		private static int cpcall (lua_State L) {
-		  lua_CFunction f = *(lua_CFunction *)lua_touserdata(L, 1);
+		  lua_CFunction f = ((lua_CFunction[])lua_touserdata(L, 1))[0]; //FIXME:???
 		  lua_remove(L, 1);  /* remove f from stack */
 		  /* restore original environment for 'cpcall' */
 		  lua_pushglobaltable(L);
@@ -137,11 +137,11 @@ namespace KopiLua
 		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), mt);
 		  /* registry[LUA_RIDX_CPCALL] = cpcall */
 		  cp = luaF_newCclosure(L, 0, g.l_gt);
-		  cp->c.f = cpcall;
+		  cp.c.f = cpcall;
 		  setclvalue(L, mt, cp);
 		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_CPCALL), mt);
 		  /* registry[LUA_RIDX_GLOBALS] = l_gt */
-		  sethvalue(L, mt, g->l_gt);
+		  sethvalue(L, mt, g.l_gt);
 		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), mt);
 		}
 
@@ -202,7 +202,7 @@ namespace KopiLua
 		  lua_State L1;
 		  lua_lock(L);
 		  luaC_checkGC(L);
-		  L1 = &luaC_newobj(L, LUA_TTHREAD, sizeof(LX), NULL, offsetof(LX, l))->th;
+		  L1 = luaC_newobj<lua_State>(L, LUA_TTHREAD, (uint)GetUnmanagedSize(typeof(LX)), null, /*offsetof(LX, l)*/0).th; //FIXME:???
 		  setthvalue(L, L.top, L1);
 		  api_incr_top(L);
 		  preinit_state(L1, G(L));
@@ -219,7 +219,7 @@ namespace KopiLua
 
 
 		private static void luaE_freethread (lua_State L, lua_State L1) {
-          LX *l = fromstate(L1);
+          LX l = fromstate(L1);
 		  luaF_close(L1, L1.stack[0]);  /* close all upvalues for this thread */
 		  lua_assert(L1.openupval == null);
 		  luai_userstatefree(L1);
@@ -232,10 +232,10 @@ namespace KopiLua
 		  int i;
 		  lua_State L;
 		  global_State g;
-		  LG *l = cast(LG *, (*f)(ud, NULL, 0, sizeof(LG)));
+		  LG l = (LG)f(typeof(LG)); //FIXME:(LG)(f(ud, null, 0, (uint)(GetUnmanagedSize(typeof(LG)))));
 		  if (l == null) return null;
-		  L = &l->l.l;
-		  g = &l->g;
+		  L = l.l.l;
+		  g = l.g;
 		  L.next = null;
 		  L.tt = LUA_TTHREAD;
 		  g.currentwhite = (lu_byte)bit2mask(WHITE0BIT, FIXEDBIT);
@@ -255,8 +255,8 @@ namespace KopiLua
 		  g.strt.size = 0;
 		  g.strt.nuse = 0;
 		  g.strt.hash = null;
-		  setnilvalue(&g->l_registry);
-		  g->l_gt = NULL;
+		  setnilvalue(g.l_registry);
+		  g.l_gt = null;
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
           g.version = lua_version(null);

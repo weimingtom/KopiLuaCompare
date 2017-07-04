@@ -65,7 +65,7 @@ namespace KopiLua
 		** prototype for memory-allocation functions
 		*/
         //public delegate object lua_Alloc(object ud, object ptr, uint osize, uint nsize);
-		public delegate object lua_Alloc(Type t);
+		public delegate object lua_Alloc(Type t); //FIXME:!!!changed here!!!
 
 
 		/*

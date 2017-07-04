@@ -306,7 +306,7 @@ namespace KopiLua
 		  setnvalue(o, r);
 		  if (r == 0 || luai_numisnan(null, r)) {  /* handle -0 and NaN */
 		    /* use raw representation as key to avoid numeric problems */
-		    setsvalue(L, L.top, luaS_newlstr(L, (CharPtr)r, sizeof(r))); //FIXME:???
+		    setsvalue(L, L.top, luaS_newlstr(L, CharPtr.FromNumber(r), (uint)GetUnmanagedSize(typeof(lua_Number)))); //FIXME:???
 		     incr_top(L);
 		     n = addk(fs, L.top - 1, o);
 		     StkId.dec(ref L.top);

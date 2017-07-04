@@ -416,8 +416,8 @@ namespace KopiLua
 		      return s;  /* match succeeded */
 		    }
 		    case '$': {
-		      if (*(p+1) == '\0')  /* is the `$' the last char in pattern? */
-		        return (s == ms->src_end) ? s : NULL;  /* check end of string */
+		  	  if (p[1] == '\0')  /* is the `$' the last char in pattern? */
+		        return (s == ms.src_end) ? s : null;  /* check end of string */
 		      else goto dflt;
 		    }
 			case L_ESC: {  /* escaped sequences not in the format class[*+?-]? */
@@ -448,6 +448,7 @@ namespace KopiLua
 				  }
 				default: break;  /* go through to 'dflt' */
 			  }
+		  	  break; //FIXME:added???
 			}
 			default: dflt: {  /* pattern class plus optional sufix */
 			  CharPtr ep = classend(ms, p);  /* points to what is next */
@@ -475,6 +476,7 @@ namespace KopiLua
 			  }
 			}
 		  }
+		  return null; //FIXME: added ???
 		}
 
 

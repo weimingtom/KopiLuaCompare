@@ -36,8 +36,8 @@ namespace KopiLua
 
 		//#elif defined(LUA_WIN)
 
-		private static FilePtr lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
-		private static void lua_pclose(lua_State L, FilePtr file)  { /*(void)L,*/ _pclose(file); }
+		private static Stream lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
+		private static int lua_pclose(lua_State L, Stream file)  { /*(void)L,*/ return _pclose(file); }
 
 		//#else
 
@@ -465,7 +465,7 @@ namespace KopiLua
 			  status = ((status!=0) && (fwrite(s, GetUnmanagedSize(typeof(char)), (int)l, f) == l)) ? 1 : 0;
 			}
 		  }
-		  if (status) return 1;  /* file handle already on stack top */
+		  if (status != 0) return 1;  /* file handle already on stack top */
 		  else return pushresult(L, status, null);
 		}
 
@@ -476,7 +476,7 @@ namespace KopiLua
 
 
 		private static int f_write (lua_State L) {
-		  FilePtr f = tofile(L); 
+		  Stream f = tofile(L); 
 		  lua_pushvalue(L, 1);  /* push file at the stack top (to be returned) */
 		  return g_write(L, f, 2);
 		}

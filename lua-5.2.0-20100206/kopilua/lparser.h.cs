@@ -68,7 +68,7 @@ namespace KopiLua
 
 
 
-		public struct vardesc {
+		public class vardesc {
 		  public ushort idx;
 		};
 
@@ -76,7 +76,7 @@ namespace KopiLua
 
 		/* list of all active local variables */
 		public struct Varlist {
-		  public vardesc actvar;
+		  public vardesc[] actvar;
 		  public int nactvar;
 		  public int actvarsize;
 		};
@@ -89,8 +89,9 @@ namespace KopiLua
 		public class FuncState {
 		  public FuncState()
 		  {
-			  for (int i=0; i<this.upvalues.Length; i++)
-				  this.upvalues[i] = new upvaldesc();
+		  	//FIXME:removed
+		  	//for (int i=0; i<this.upvalues.Length; i++)
+			//	  this.upvalues[i] = new upvaldesc();
 		  }
 
 		  public Proto f;  /* current function header */

@@ -72,7 +72,7 @@ namespace KopiLua
 
 		public static void luaC_checkGC(lua_State L)
 		{
-			condchangemem(L); //FIXME:???
+			//FIXME:empty-> //condchangemem(L);
 			if (G(L).totalbytes >= G(L).GCthreshold) luaC_step(L);
 		}
 

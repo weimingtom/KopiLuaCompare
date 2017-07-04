@@ -67,10 +67,10 @@ namespace KopiLua
 		*/
 		public const int numints = sizeof(lua_Number) / sizeof(int);
 
-
+        //FIXME:see below
 		//#define dummynode		(&dummynode_)
-
-		//#define isdummy(n)		((n) == dummynode) //FIXME:???
+		private static bool isdummy(Node n) {return ((n) == dummynode);}
+		private static bool isdummy(Node[] n) {return ((n[0]) == dummynode);}
 
 
 		//static const Node dummynode_ = {
@@ -85,7 +85,7 @@ namespace KopiLua
 		*/
 		private static Node hashnum (Table t, lua_Number n) {
 		  int i;
-		  luai_hashnum(i, n);
+		  luai_hashnum(out i, n);
 		  if (i < 0) {
 		     i = -i;  /* must be a positive value */
 		     if (i < 0) i = 0;  /* handle INT_MIN */
@@ -359,7 +359,7 @@ namespace KopiLua
 
 
 		public static Table luaH_new (lua_State L) {
-		  Table t = &luaC_newobj(L, LUA_TTABLE, sizeof(Table), NULL, 0)->h;
+		  Table t = luaC_newobj<Table>(L, LUA_TTABLE, (uint)GetUnmanagedSize(typeof(Table)), null, 0).h;
 		  t.metatable = null;
 		  t.flags = cast_byte(~0);
 		  t.array = null;
@@ -370,7 +370,7 @@ namespace KopiLua
 
 
 		public static void luaH_free (lua_State L, Table t) {
-		  if (!isdummy(t.node))
+		  if (!isdummy(t.node[0])) //FIXME:[0]
 			luaM_freearray(L, t.node/*, sizenode(t)*/); //FIXME:
 		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:
 		  luaM_free(L, t);
@@ -543,20 +543,20 @@ namespace KopiLua
 		  uint i = j;  /* i is zero or a present index */
 		  j++;
 		  /* find `i' and `j' such that i is present and j is not */
-		  while (!ttisnil(luaH_getint(t, j))) {
+		  while (!ttisnil(luaH_getint(t, (int)j))) { //FIXME:(int)
 			i = j;
 			j *= 2;
 			if (j > (uint)MAX_INT) {  /* overflow? */
 			  /* table was built with bad purposes: resort to linear search */
 			  i = 1;
-			  while (!ttisnil(luaH_getint(t, i))) i++;
+			  while (!ttisnil(luaH_getint(t, (int)i))) i++; //FIXME:(int)
 			  return (int)(i - 1);
 			}
 		  }
 		  /* now do a binary search between them */
 		  while (j - i > 1) {
 			uint m = (i+j)/2;
-			if (ttisnil(luaH_getint(t, m))) j = m;
+			if (ttisnil(luaH_getint(t, (int)m))) j = m; //FIXME:(int)
 			else i = m;
 		  }
 		  return (int)i;
@@ -580,7 +580,7 @@ namespace KopiLua
 			return (int)i;
 		  }
 		  /* else must find a boundary in hash part */
-		  else if (isdummy(t.node))  /* hash part is empty? */
+		  else if (isdummy(t.node))  /* hash part is empty? */ //FIXME:[0]
 			return (int)j;  /* that is easy... */
 		  else return unbound_search(t, j);
 		}

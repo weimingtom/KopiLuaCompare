@@ -27,7 +27,7 @@ namespace KopiLua
 		//#if !defined(LUA_STRFTIMEOPTIONS)
 
 		//#if !defined(LUA_USE_POSIX)
-		//#define LUA_STRFTIMEOPTIONS     { "aAbBcdHIjmMpSUwWxXyYz%", "" }
+		private static CharPtr[] LUA_STRFTIMEOPTIONS = new CharPtr[] { "aAbBcdHIjmMpSUwWxXyYz%", "" };
 		//#else
 		//#define LUA_STRFTIMEOPTIONS     { "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
 		//                                "E", "cCxXyY",  \
@@ -175,19 +175,20 @@ namespace KopiLua
 		}
 
 
+		private static CharPtr[] options = LUA_STRFTIMEOPTIONS;
 		private static CharPtr checkoption (lua_State L, CharPtr conv, CharPtr buff) {
-		  static const char *const options[] = LUA_STRFTIMEOPTIONS;
-		  unsigned int i;
-		  for (i = 0; i < sizeof(options)/sizeof(options[0]); i += 2) {
-		    if (*conv != '\0' && strchr(options[i], *conv) != NULL) {
-		      buff[1] = *conv;
-		      if (*options[i + 1] == '\0') {  /* one-char conversion specifier? */
+		  //static const char *const options[] = LUA_STRFTIMEOPTIONS;
+		  uint i;
+		  for (i = 0; i < options.Length; i += 2) {
+		  	if (conv[0] != '\0' && strchr(options[i], conv[0]) != null) {
+		  	  buff[1] = conv[0];
+		  	  if (options[i + 1][0] == '\0') {  /* one-char conversion specifier? */
 		        buff[2] = '\0';  /* end buffer */
 		        return conv + 1;
 		      }
-		      else if (*(conv + 1) != '\0' &&
-		               strchr(options[i + 1], *(conv + 1)) != NULL) {
-		        buff[2] = *(conv + 1);  /* valid two-char conversion specifier */
+		  	  else if (conv[1] != '\0' &&
+		  	           strchr(options[i + 1], conv[1]) != null) {
+		  	  	buff[2] = conv[1];  /* valid two-char conversion specifier */
 		        buff[3] = '\0';  /* end buffer */
 		        return conv + 2;
 		      }

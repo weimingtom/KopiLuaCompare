@@ -253,13 +253,13 @@ namespace KopiLua
 		 //*h++=(char)*(char*)&x;				/* endianness */
 		 h[0] = (char)x;						/* endianness */
 		 h.inc();
-		 h[0] = (char)sizeof(int);
+		 h[0] = (char)GetUnmanagedSize(typeof(int));
 		 h.inc();
-		 h[0] = (char)sizeof(uint);
+		 h[0] = (char)GetUnmanagedSize(typeof(uint));
 		 h.inc();
-		 h[0] = (char)sizeof(Instruction);
+		 h[0] = (char)GetUnmanagedSize(typeof(Instruction));
 		 h.inc();
-		 h[0] = (char)sizeof(lua_Number);
+		 h[0] = (char)GetUnmanagedSize(typeof(lua_Number));
 		 h.inc();
 
 		  //(h++)[0] = ((lua_Number)0.5 == 0) ? 0 : 1;		/* is lua_Number integral? */

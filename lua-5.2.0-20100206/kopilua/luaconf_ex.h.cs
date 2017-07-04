@@ -341,6 +341,17 @@ namespace KopiLua
 					result += chars[i];
 				return result;
 			}
+			//FIXME:added
+			public static CharPtr FromNumber(lua_Number n)
+			{
+				byte[] bytes = BitConverter.GetBytes(n);
+				char[] chars = new Char[bytes.Length];
+				for (int i = 0; i < bytes.Length; ++i)
+				{
+					chars[i] = (char)bytes[i];
+				}
+				return new CharPtr(chars);
+			}
 		}
 
 		public static int memcmp(CharPtr ptr1, CharPtr ptr2, uint size) { return memcmp(ptr1, ptr2, (int)size); }
@@ -865,15 +876,16 @@ namespace KopiLua
 			return Math.Log10(d);
 		}	
 
-		public static FilePtr _popen(CharPtr command, CharPtr type)
+		public static Stream _popen(CharPtr command, CharPtr type)
 		{
 			//FIXME:not implemented
 			return null;
 		}
 		
-		public static void _pclose(FilePtr stream)
+		public static int _pclose(Stream stream)
 		{
 			//FIXME:not implemented
-		}		
+			return 0;
+		}
 	}
 }

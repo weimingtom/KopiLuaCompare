@@ -4,12 +4,12 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		public static int sizeCclosure(int n) {
-			return GetUnmanagedSize(typeof(CClosure)) + GetUnmanagedSize(typeof(TValue)) * (n - 1);
+		public static uint sizeCclosure(int n) {
+			return (uint)(GetUnmanagedSize(typeof(CClosure)) + GetUnmanagedSize(typeof(TValue)) * (n - 1));
 		}
 
-		public static int sizeLclosure(int n) {
-			return GetUnmanagedSize(typeof(LClosure)) + GetUnmanagedSize(typeof(TValue)) * (n - 1);
+		public static uint sizeLclosure(int n) {
+			return (uint)(GetUnmanagedSize(typeof(LClosure)) + GetUnmanagedSize(typeof(TValue)) * (n - 1));
 		}
 	}
 }
