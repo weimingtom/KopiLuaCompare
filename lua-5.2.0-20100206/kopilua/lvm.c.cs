@@ -558,7 +558,7 @@ namespace KopiLua
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
-			lua_assert(base_ <= L.top && L.top < L.stack[L.stacksize]); //FIXME:???
+			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
 			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {

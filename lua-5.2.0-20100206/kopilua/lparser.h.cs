@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace KopiLua
 {
 	using lu_byte = System.Byte;
@@ -68,7 +70,23 @@ namespace KopiLua
 
 
 
-		public class vardesc {
+		public class vardesc : ArrayElement {
+			//-----------------------------------
+			//FIXME:ArrayElement added
+			private vardesc[] values = null; 
+			private int index = -1;
+
+			public void set_index(int index)
+			{
+				this.index = index;
+			}
+
+			public void set_array(object array)
+			{
+				this.values = (vardesc[])array;
+				Debug.Assert(this.values != null);
+			}
+			//------------------------------------------
 		  public ushort idx;
 		};
 

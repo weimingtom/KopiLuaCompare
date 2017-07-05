@@ -846,7 +846,9 @@ namespace KopiLua
 			else if (t == typeof(Int32))
 				return 4;
 			else if (t == typeof(Single))
-				return 4;			
+				return 4;
+			else if (t == typeof(vardesc))
+				return 2;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}

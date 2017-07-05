@@ -166,9 +166,16 @@ lgc.c:
 		  }
 		  
 		  
+luaconf.h:
+		public static void luai_hashnum(out int i, lua_Number d) { int e;
+		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???
+		  lua_number2int(out i, d); i += e; }
 		  
 
-
+lvm.c
+lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
+			
+			
 ------------------------------
 
 lapi.c	76
