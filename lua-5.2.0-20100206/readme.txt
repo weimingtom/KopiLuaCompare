@@ -222,7 +222,39 @@ here --------->			public CharPtr str; //FIXME:added = new CharPtr()???;
 		};
 -----------------------------------------
 
+lgc.c: stop overflow
 
+
+		private static void traversestack (global_State g, lua_State L) {
+		  StkId o;
+		  if (L.stack == null)
+		    return;  /* stack not completely built yet */
+		  for (o = new lua_TValue(L.stack); o < L.top; /*StkId.inc(ref o)*/o = o + 1) {//FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
+		    markvalue(g, o);
+		    
+-------->		    //------------------------
+		    if (o >= L.top - 1) 
+		    {
+		    	break;//FIXME:added, o will overflow
+		    }
+		    //------------------------
+		  }
+		  if (g.gcstate == GCSatomic) {  /* final traversal? */
+		  	StkId limMinus1 = L.stack[L.stacksize-1];  /* real end of stack */ //FIXME:L.stack[L.stacksize] will overvlow, changed it
+		  	for (; o <= limMinus1; /*StkId.inc(ref o)*/o = o + 1) { /* clear not-marked stack slice */ //FIXME:overflow, changed 'o < lim' to 'o <= limMinus1'
+		      setnilvalue(o);
+			  
+-------->		      //------------------------
+		      if (o >= L.top - 1)
+			  {
+			  	break;//FIXME:added, o will overflow
+			  }
+		      //------------------------
+		  	}
+		  }
+		}
+		
+		
 		
 		
 		

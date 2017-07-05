@@ -416,7 +416,7 @@ namespace KopiLua
 		    //------------------------
 		    if (o >= L.top - 1) 
 		    {
-		    	break;//FIXME:added, o will overflow
+		    	break;//FIXME:added, o + 1 will overflow
 		    }
 		    //------------------------
 		  }
@@ -428,7 +428,7 @@ namespace KopiLua
 		      //------------------------
 		      if (o >= L.top - 1)
 			  {
-			  	break;//FIXME:added, o will overflow
+			  	break;//FIXME:added, o + 1 will overflow
 			  }
 		      //------------------------
 		  	}
