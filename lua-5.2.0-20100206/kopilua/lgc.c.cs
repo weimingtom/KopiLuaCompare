@@ -410,12 +410,28 @@ namespace KopiLua
 		  StkId o;
 		  if (L.stack == null)
 		    return;  /* stack not completely built yet */
-		  for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
+		  for (o = new lua_TValue(L.stack); o < L.top; /*StkId.inc(ref o)*/o = o + 1) {//FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
 		    markvalue(g, o);
+		    
+		    //------------------------
+		    if (o >= L.top - 1) 
+		    {
+		    	break;//FIXME:added, o will overflow
+		    }
+		    //------------------------
+		  }
 		  if (g.gcstate == GCSatomic) {  /* final traversal? */
-		  	StkId lim = L.stack[L.stacksize];  /* real end of stack */
-		  	for (; o <= lim; StkId.inc(ref o))  /* clear not-marked stack slice */
+		  	StkId limMinus1 = L.stack[L.stacksize-1];  /* real end of stack */ //FIXME:L.stack[L.stacksize] will overvlow, changed it
+		  	for (; o <= limMinus1; /*StkId.inc(ref o)*/o = o + 1) { /* clear not-marked stack slice */ //FIXME:overflow, changed 'o < lim' to 'o <= limMinus1'
 		      setnilvalue(o);
+			  
+		      //------------------------
+		      if (o >= L.top - 1)
+			  {
+			  	break;//FIXME:added, o will overflow
+			  }
+		      //------------------------
+		  	}
 		  }
 		}
 
@@ -674,7 +690,7 @@ namespace KopiLua
 		    lua_assert(gch(curr).tt == LUA_TUSERDATA && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
 		    if (!(all != 0 || iswhite(curr)))  /* not being collected? */
-		    	p = new NextRef(gch(curr).next);  /* don't bother with it */
+		    	p = new NextRef(gch(curr));  /* don't bother with it */
 		    else {
 		      l_setbit(ref gch(curr).marked, FINALIZEDBIT); /* won't be finalized again */
 		      p.set(gch(curr).next);  /* remove 'curr' from 'rootgc' list */

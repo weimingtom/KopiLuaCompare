@@ -175,7 +175,58 @@ luaconf.h:
 lvm.c
 lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
 			
-			
+
+
+
+
+
+
+
+
+
+-----------------------------------------
+TString 
+lstring.c
+		  ts = luaC_newobj<TString>(L, LUA_TSTRING, totalsize, list, 0).ts;
+		  ts.tsv.len = l;
+		  ts.tsv.hash = h;
+		  ts.tsv.reserved = 0;
+		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char)));
+		  memcpy(ts.str.chars, str.chars, str.index, (int)l);
+
+ts+1 => ts.str.chars, see 
+ (1): lgc.c
+		 public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz, GCObjectRef list,
+		                       int offset) {
+		  global_State g = G(L);
+		  GCObject o = obj2gco(luaM_newobject<T>(L/*, tt, sz*/)/* + offset*/); //FIXME:???no offset
+		  if (o is TString) //FIXME:added
+		  {
+		  	int len_plus_1 = (int)sz - GetUnmanagedSize(typeof(TString));
+		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
+		  }
+(2): lobject.h
+		public class TString : TString_tsv {
+			//public L_Umaxalign dummy;  /* ensures maximum alignment for strings */			
+			public TString_tsv tsv { get { return this; } }
+
+			public TString()
+			{
+				
+			}
+			//public TString(CharPtr str) { this.str = str; } //FIXME:removed
+
+here --------->			public CharPtr str; //FIXME:added = new CharPtr()???;
+
+			public override string ToString() { return str.ToString(); } // for debugging
+		};
+-----------------------------------------
+
+
+		
+		
+		
+		
 ------------------------------
 
 lapi.c	76
