@@ -1,5 +1,5 @@
 /*
-** $Id: ldump.c,v 2.11 2009/09/28 16:32:50 roberto Exp roberto $
+** $Id: ldump.c,v 1.17 2010/10/13 21:04:52 lhf Exp $
 ** save precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -75,7 +75,7 @@ static void DumpString(const TString* s, DumpState* D)
 
 #define DumpCode(f,D)	 DumpVector(f->code,f->sizecode,sizeof(Instruction),D)
 
-static void DumpFunction(const Proto* f, const TString* p, DumpState* D);
+static void DumpFunction(const Proto* f, DumpState* D);
 
 static void DumpConstants(const Proto* f, DumpState* D)
 {
@@ -98,14 +98,11 @@ static void DumpConstants(const Proto* f, DumpState* D)
    case LUA_TSTRING:
 	DumpString(rawtsvalue(o),D);
 	break;
-   default:
-	lua_assert(0);			/* cannot happen */
-	break;
   }
  }
  n=f->sizep;
  DumpInt(n,D);
- for (i=0; i<n; i++) DumpFunction(f->p[i],f->source,D);
+ for (i=0; i<n; i++) DumpFunction(f->p[i],D);
 }
 
 static void DumpUpvalues(const Proto* f, DumpState* D)
@@ -122,6 +119,7 @@ static void DumpUpvalues(const Proto* f, DumpState* D)
 static void DumpDebug(const Proto* f, DumpState* D)
 {
  int i,n;
+ DumpString((D->strip) ? NULL : f->source,D);
  n= (D->strip) ? 0 : f->sizelineinfo;
  DumpVector(f->lineinfo,n,sizeof(int),D);
  n= (D->strip) ? 0 : f->sizelocvars;
@@ -137,15 +135,13 @@ static void DumpDebug(const Proto* f, DumpState* D)
  for (i=0; i<n; i++) DumpString(f->upvalues[i].name,D);
 }
 
-static void DumpFunction(const Proto* f, const TString* p, DumpState* D)
+static void DumpFunction(const Proto* f, DumpState* D)
 {
- DumpString((f->source==p || D->strip) ? NULL : f->source,D);
  DumpInt(f->linedefined,D);
  DumpInt(f->lastlinedefined,D);
  DumpChar(f->numparams,D);
  DumpChar(f->is_vararg,D);
  DumpChar(f->maxstacksize,D);
- DumpChar(f->envreg,D);
  DumpCode(f,D);
  DumpConstants(f,D);
  DumpUpvalues(f,D);
@@ -171,6 +167,6 @@ int luaU_dump (lua_State* L, const Proto* f, lua_Writer w, void* data, int strip
  D.strip=strip;
  D.status=0;
  DumpHeader(&D);
- DumpFunction(f,NULL,&D);
+ DumpFunction(f,&D);
  return D.status;
 }

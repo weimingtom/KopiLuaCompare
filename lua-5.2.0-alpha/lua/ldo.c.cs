@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.c,v 2.79 2009/12/22 15:32:50 roberto Exp roberto $
+** $Id: ldo.c,v 2.89 2010/09/30 17:21:31 roberto Exp roberto $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -48,7 +48,7 @@
 */
 #if !defined(LUAI_THROW)
 
-#if defined(__cplusplus)
+#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)
 /* C++ exceptions */
 #define LUAI_THROW(L,c)		throw(c)
 #define LUAI_TRY(L,c,a) \
@@ -83,8 +83,8 @@ struct lua_longjmp {
 
 static void seterrorobj (lua_State *L, int errcode, StkId oldtop) {
   switch (errcode) {
-    case LUA_ERRMEM: {
-      setsvalue2s(L, oldtop, luaS_newliteral(L, MEMERRMSG));
+    case LUA_ERRMEM: {  /* memory error? */
+      setsvalue2s(L, oldtop, G(L)->memerrmsg); /* reuse preregistered msg. */
       break;
     }
     case LUA_ERRERR: {
@@ -177,7 +177,7 @@ void luaD_growstack (lua_State *L, int n) {
   if (size > LUAI_MAXSTACK)  /* error after extra size? */
     luaD_throw(L, LUA_ERRERR);
   else {
-    int needed = L->top - L->stack + n + EXTRA_STACK;
+    int needed = cast_int(L->top - L->stack) + n + EXTRA_STACK;
     int newsize = 2 * size;
     if (newsize > LUAI_MAXSTACK) newsize = LUAI_MAXSTACK;
     if (newsize < needed) newsize = needed;
@@ -293,18 +293,43 @@ static StkId tryfuncTM (lua_State *L, StkId func) {
 ** returns true if function has been executed (C function)
 */
 int luaD_precall (lua_State *L, StkId func, int nresults) {
-  LClosure *cl;
+  Closure *cl;
+  lua_CFunction f;
   ptrdiff_t funcr;
   if (!ttisfunction(func)) /* `func' is not a function? */
     func = tryfuncTM(L, func);  /* check the `function' tag method */
   funcr = savestack(L, func);
-  cl = &clvalue(func)->l;
-  L->ci->nresults = nresults;
-  if (!cl->isC) {  /* Lua function? prepare its call */
+  if (ttislcf(func)) {  /* light C function? */
+    f = fvalue(func);  /* get it */
+    goto isCfunc;  /* go to call it */
+  }
+  cl = clvalue(func);
+  if (cl->c.isC) {  /* C closure? */
+    CallInfo *ci;
+    int n;
+    f = cl->c.f;
+  isCfunc:  /* call C function 'f' */
+    luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
+    ci = next_ci(L);  /* now 'enter' new function */
+    ci->nresults = nresults;
+    ci->func = restorestack(L, funcr);
+    ci->top = L->top + LUA_MINSTACK;
+    lua_assert(ci->top <= L->stack_last);
+    ci->callstatus = 0;
+    if (L->hookmask & LUA_MASKCALL)
+      luaD_hook(L, LUA_HOOKCALL, -1);
+    lua_unlock(L);
+    n = (*f)(L);  /* do the actual call */
+    lua_lock(L);
+    api_checknelems(L, n);
+    luaD_poscall(L, L->top - n);
+    return 1;
+  }
+  else {  /* Lua function: prepare its call */
     CallInfo *ci;
     int nparams, nargs;
     StkId base;
-    Proto *p = cl->p;
+    Proto *p = cl->l.p;
     luaD_checkstack(L, p->maxstacksize);
     func = restorestack(L, funcr);
     nargs = cast_int(L->top - func) - 1;  /* number of real arguments */
@@ -316,6 +341,7 @@ int luaD_precall (lua_State *L, StkId func, int nresults) {
     else  /* vararg function */
       base = adjust_varargs(L, p, nargs);
     ci = next_ci(L);  /* now 'enter' new function */
+    ci->nresults = nresults;
     ci->func = func;
     ci->u.l.base = base;
     ci->top = base + p->maxstacksize;
@@ -326,24 +352,6 @@ int luaD_precall (lua_State *L, StkId func, int nresults) {
     if (L->hookmask & LUA_MASKCALL)
       callhook(L, ci);
     return 0;
-  }
-  else {  /* if is a C function, call it */
-    CallInfo *ci;
-    int n;
-    luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
-    ci = next_ci(L);  /* now 'enter' new function */
-    ci->func = restorestack(L, funcr);
-    ci->top = L->top + LUA_MINSTACK;
-    lua_assert(ci->top <= L->stack_last);
-    ci->callstatus = 0;
-    if (L->hookmask & LUA_MASKCALL)
-      luaD_hook(L, LUA_HOOKCALL, -1);
-    lua_unlock(L);
-    n = (*curr_func(L)->c.f)(L);  /* do the actual call */
-    lua_lock(L);
-    api_checknelems(L, n);
-    luaD_poscall(L, L->top - n);
-    return 1;
   }
 }
 
@@ -361,8 +369,8 @@ int luaD_poscall (lua_State *L, StkId firstResult) {
     L->oldpc = ci->previous->u.l.savedpc;  /* 'oldpc' for caller function */
   }
   res = ci->func;  /* res == final position of 1st result */
-  L->ci = ci = ci->previous;  /* back to caller */
   wanted = ci->nresults;
+  L->ci = ci = ci->previous;  /* back to caller */
   /* move results to correct place */
   for (i = wanted; i != 0 && firstResult < L->top; i--)
     setobjs2s(L, res++, firstResult++);
@@ -452,7 +460,7 @@ static int recover (lua_State *L, int status) {
   CallInfo *ci = findpcall(L);
   if (ci == NULL) return 0;  /* no recovery point */
   /* "finish" luaD_pcall */
-  oldtop = restorestack(L, ci->u.c.oldtop);
+  oldtop = restorestack(L, ci->u.c.extra);
   luaF_close(L, oldtop);
   seterrorobj(L, status, oldtop);
   L->ci = ci;
@@ -469,7 +477,7 @@ static int recover (lua_State *L, int status) {
 /*
 ** signal an error in the call to 'resume', not in the execution of the
 ** coroutine itself. (Such errors should not be handled by any coroutine
-** error hanlder and should not kill the coroutine.)
+** error handler and should not kill the coroutine.)
 */
 static void resume_error (lua_State *L, const char *msg, StkId firstArg) {
   L->top = firstArg;  /* remove args from the stack */
@@ -501,11 +509,11 @@ static void resume (lua_State *L, void *ud) {
     if (isLua(ci))  /* yielded inside a hook? */
       luaV_execute(L);  /* just continue running Lua code */
     else {  /* 'common' yield */
+      ci->func = restorestack(L, ci->u.c.extra);
       if (ci->u.c.k != NULL) {  /* does it have a continuation? */
         int n;
         ci->u.c.status = LUA_YIELD;  /* 'default' status */
         ci->callstatus |= CIST_YIELDED;
-        ci->func = restorestack(L, ci->u.c.oldtop);
         lua_unlock(L);
         n = (*ci->u.c.k)(L);  /* call continuation */
         lua_lock(L);
@@ -526,6 +534,7 @@ LUA_API int lua_resume (lua_State *L, int nargs) {
   luai_userstateresume(L, nargs);
   ++G(L)->nCcalls;  /* count resume */
   L->nny = 0;  /* allow yields */
+  api_checknelems(L, (L->status == LUA_OK) ? nargs + 1 : nargs);
   status = luaD_rawrunprotected(L, resume, L->top - nargs);
   if (status == -1)  /* error calling 'lua_resume'? */
     status = LUA_ERRRUN;
@@ -565,11 +574,10 @@ LUA_API int lua_yieldk (lua_State *L, int nresults, int ctx, lua_CFunction k) {
     api_check(L, k == NULL, "hooks cannot continue after yielding");
   }
   else {
-    if ((ci->u.c.k = k) != NULL) {  /* is there a continuation? */
+    if ((ci->u.c.k = k) != NULL)  /* is there a continuation? */
       ci->u.c.ctx = ctx;  /* save context */
-      ci->u.c.oldtop = savestack(L, ci->func);  /* save current 'func' */
-    }
-    ci->func = L->top - nresults - 1;  /* protect stack slots below */
+    ci->u.c.extra = savestack(L, ci->func);  /* save current 'func' */
+    ci->func = L->top - nresults - 1;  /* protect stack below results */
     luaD_throw(L, LUA_YIELD);
   }
   lua_assert(ci->callstatus & CIST_HOOKED);  /* must be inside a hook */
@@ -623,8 +631,7 @@ static void f_parser (lua_State *L, void *ud) {
            : luaY_parser(L, p->z, &p->buff, &p->varl, p->name);
   setptvalue2s(L, L->top, tf);
   incr_top(L);
-  cl = luaF_newLclosure(L, tf->sizeupvalues, G(L)->l_gt);
-  cl->l.p = tf;
+  cl = luaF_newLclosure(L, tf);
   setclvalue(L, L->top - 1, cl);
   for (i = 0; i < tf->sizeupvalues; i++)  /* initialize upvalues */
     cl->l.upvals[i] = luaF_newupval(L);

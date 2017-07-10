@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.131 2010/01/21 16:31:24 roberto Exp roberto $
+** $Id: luaconf.h,v 1.150 2010/11/10 17:38:10 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -30,11 +30,11 @@
 
 
 #if !defined(LUA_ANSI) && defined(_WIN32)
-#define LUA_WIN
+/*#define LUA_WIN*/
 #endif
 
 #if defined(LUA_WIN)
-#define LUA_DL_DLL
+/*#define LUA_DL_DLL*/
 #endif
 
 
@@ -47,8 +47,8 @@
 
 #if defined(LUA_USE_MACOSX)
 #define LUA_USE_POSIX
-#define LUA_USE_DLOPEN
-#define LUA_USE_READLINE	/* needs some extra libraries */
+#define LUA_USE_DLOPEN		/* does not need -ldl */
+#define LUA_USE_READLINE	/* needs an extra library: -lreadline */
 #endif
 
 
@@ -76,7 +76,7 @@
 ** hierarchy or if you want to install your libraries in
 ** non-conventional directories.
 */
-#if defined(_WIN32)
+#if defined(_WIN32)	/* { */
 /*
 ** In Windows, any exclamation mark ('!') in the path is replaced by the
 ** path of the directory of the executable file of the current process.
@@ -89,16 +89,18 @@
 #define LUA_CPATH_DEFAULT \
 		LUA_CDIR"?.dll;" LUA_CDIR"loadall.dll;" ".\\?.dll"
 
-#else
+#else			/* }{ */
+
+#define LUA_VDIR	LUA_VERSION_MAJOR "." LUA_VERSION_MINOR "/"
 #define LUA_ROOT	"/usr/local/"
-#define LUA_LDIR	LUA_ROOT "share/lua/5.2/"
-#define LUA_CDIR	LUA_ROOT "lib/lua/5.2/"
+#define LUA_LDIR	LUA_ROOT "share/lua/" LUA_VDIR
+#define LUA_CDIR	LUA_ROOT "lib/lua/" LUA_VDIR
 #define LUA_PATH_DEFAULT  \
 		LUA_LDIR"?.lua;"  LUA_LDIR"?/init.lua;" \
 		LUA_CDIR"?.lua;"  LUA_CDIR"?/init.lua;" "./?.lua"
 #define LUA_CPATH_DEFAULT \
 		LUA_CDIR"?.so;" LUA_CDIR"loadall.so;" "./?.so"
-#endif
+#endif			/* } */
 
 
 /*
@@ -114,6 +116,14 @@
 
 
 /*
+@@ LUA_ENV is the name of the variable that holds the current
+@@ environment, used to access global names.
+** CHANGE it if you do not like this name.
+*/
+#define LUA_ENV		"_ENV"
+
+
+/*
 @@ LUA_API is a mark for all core API functions.
 @@ LUALIB_API is a mark for all auxiliary library functions.
 @@ LUAMOD_API is a mark for all standard library opening functions.
@@ -122,19 +132,20 @@
 ** the libraries, you may want to use the following definition (define
 ** LUA_BUILD_AS_DLL to get it).
 */
-#if defined(LUA_BUILD_AS_DLL)
+#if defined(LUA_BUILD_AS_DLL)	/* { */
 
-#if defined(LUA_CORE) || defined(LUA_LIB)
+#if defined(LUA_CORE) || defined(LUA_LIB)	/* { */
 #define LUA_API __declspec(dllexport)
-#else
+#else						/* }{ */
 #define LUA_API __declspec(dllimport)
-#endif
+#endif						/* } */
 
-#else
+#else				/* }{ */
 
 #define LUA_API		extern
 
-#endif
+#endif				/* } */
+
 
 /* more often than not the libs go together with the core */
 #define LUALIB_API	LUA_API
@@ -155,7 +166,7 @@
 ** give a warning about it. To avoid these warnings, change to the
 ** default definition.
 */
-#if defined(luaall_c)
+#if defined(luaall_c)		/* { */
 #define LUAI_FUNC	static
 #define LUAI_DDEC	static
 #define LUAI_DDEF	static
@@ -166,11 +177,11 @@
 #define LUAI_DDEC	LUAI_FUNC
 #define LUAI_DDEF	/* empty */
 
-#else
+#else				/* }{ */
 #define LUAI_FUNC	extern
 #define LUAI_DDEC	extern
 #define LUAI_DDEF	/* empty */
-#endif
+#endif				/* } */
 
 
 
@@ -192,9 +203,16 @@
 
 /*
 @@ luai_writestring defines how 'print' prints its results.
-** CHANGE it if your system does not have a useful stdout.
 */
+#include <stdio.h>
 #define luai_writestring(s,l)	fwrite((s), sizeof(char), (l), stdout)
+
+/*
+@@ luai_writestringerror defines how to print error messages.
+** (A format string with one argument is enough for Lua...)
+*/
+#define luai_writestringerror(s,p) \
+	(fprintf(stderr, (s), (p)), fflush(stderr))
 
 
 
@@ -211,7 +229,7 @@
 ** You can define it to get all options, or change specific options
 ** to fit your specific needs.
 */
-#if defined(LUA_COMPAT_ALL)
+#if defined(LUA_COMPAT_ALL)	/* { */
 
 /*
 @@ LUA_COMPAT_UNPACK controls the presence of global 'unpack'.
@@ -220,18 +238,13 @@
 #define LUA_COMPAT_UNPACK
 
 /*
-@@ LUA_COMPAT_CPCALL controls the presence of macro 'lua_cpcall'.
-** You can replace it with the preregistered function 'cpcall'.
+@@ macro 'lua_cpcall' emulates deprecated function lua_cpcall.
+** You can call your C function directly (with light C functions).
 */
 #define lua_cpcall(L,f,u)  \
-	(lua_pushlightuserdata(L,(u)), luaL_cpcall(L,(f),1,0))
-
-/*
-@@ LUA_COMPAT_FENV controls the presence of functions 'setfenv/getfenv'.
-** You can replace them with lexical environments, 'loadin', or the
-** debug library.
-*/
-#define LUA_COMPAT_FENV
+	(lua_pushcfunction(L, (f)), \
+	 lua_pushlightuserdata(L,(u)), \
+	 lua_pcall(L,1,0,0))
 
 
 /*
@@ -246,14 +259,6 @@
 #define LUA_COMPAT_MAXN
 
 /*
-@@ LUA_COMPAT_DEBUGLIB controls compatibility with preloading
-** the debug library.
-** You should add 'require"debug"' everywhere you need the debug
-** library.
-*/
-#define LUA_COMPAT_DEBUGLIB
-
-/*
 @@ The following macros supply trivial compatibility for some
 ** changes in the API. The macros themselves document how to
 ** change your code to avoid using them.
@@ -262,13 +267,16 @@
 
 #define lua_objlen(L,i)		lua_rawlen(L, (i))
 
-#define lua_equal(L,idx1,idx2)	lua_compare(L,(idx1),(idx2),LUA_OPEQ)
+#define lua_equal(L,idx1,idx2)		lua_compare(L,(idx1),(idx2),LUA_OPEQ)
 #define lua_lessthan(L,idx1,idx2)	lua_compare(L,(idx1),(idx2),LUA_OPLT)
 
-/* compatibility with previous wrong spelling */
-#define luaL_typerror		luaL_typeerror
+/*
+@@ LUA_COMPAT_MODULE controls compatibility with previous
+** module functions 'module' (Lua) and 'luaL_register' (C).
+*/
+#define LUA_COMPAT_MODULE
 
-#endif
+#endif				/* } */
 
 /* }================================================================== */
 
@@ -280,14 +288,14 @@
 ** your machine. Probably you do not need to change this.
 */
 /* avoid overflows in comparison */
-#if INT_MAX-20 < 32760
+#if INT_MAX-20 < 32760		/* { */
 #define LUAI_BITSINT	16
-#elif INT_MAX > 2147483640L
+#elif INT_MAX > 2147483640L	/* }{ */
 /* int has at least 32 bits */
 #define LUAI_BITSINT	32
-#else
+#else				/* }{ */
 #error "you must define LUA_BITSINT with number of bits in an integer"
-#endif
+#endif				/* } */
 
 
 /*
@@ -300,16 +308,16 @@
 ** good enough for your machine. Probably you do not need to change
 ** this.
 */
-#if LUAI_BITSINT >= 32
+#if LUAI_BITSINT >= 32		/* { */
 #define LUA_INT32	int
 #define LUAI_UMEM	size_t
 #define LUAI_MEM	ptrdiff_t
-#else
+#else				/* }{ */
 /* 16-bit ints */
 #define LUA_INT32	long
 #define LUAI_UMEM	unsigned long
 #define LUAI_MEM	long
-#endif
+#endif				/* } */
 
 
 /*
@@ -329,26 +337,12 @@
 
 
 
-/*
-** {==================================================================
-** CHANGE (to smaller values) the following definitions if your system
-** has a small C stack. (Or you may want to change them to larger
-** values if your system has a large C stack and these limits are
-** too rigid for you.) Some of these constants control the size of
-** stack-allocated arrays used by the compiler or the interpreter, while
-** others limit the maximum number of recursive calls that the compiler
-** or the interpreter can perform. Values too large may cause a C stack
-** overflow for some forms of deep constructs.
-** ===================================================================
-*/
-
 
 /*
 @@ LUAL_BUFFERSIZE is the buffer size used by the lauxlib buffer system.
+** CHANGE it if it uses too much C-stack space.
 */
 #define LUAL_BUFFERSIZE		BUFSIZ
-
-/* }================================================================== */
 
 
 
@@ -419,76 +413,47 @@
 */
 #define LUA_INTEGER	ptrdiff_t
 
-
 /*
-@@ lua_number2int is a macro to convert lua_Number to int.
-@@ lua_number2integer is a macro to convert lua_Number to LUA_INTEGER.
-@@ lua_number2uint is a macro to convert a lua_Number to an unsigned
-@* LUA_INT32.
-@@ lua_uint2number is a macro to convert an unsigned LUA_INT32
-@* to a lua_Number.
-** CHANGE them if you know a faster way to convert a lua_Number to
-** int (with any rounding method and without throwing errors) in your
-** system. In Pentium machines, a naive typecast from double to int
-** in C is extremely slow, so any alternative is worth trying.
+@@ LUA_UNSIGNED is the integral type used by lua_pushunsigned/lua_tounsigned.
+** It must have at least 32 bits.
 */
+#define LUA_UNSIGNED	unsigned LUA_INT32
 
-/* On a Pentium, resort to a trick */
-#if defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI) && !defined(__SSE2__) && \
-	(defined(__i386) || defined (_M_IX86) || defined(__i386__))
 
-/* On a Microsoft compiler, use assembler */
-#if defined(_MSC_VER)
+#if defined(LUA_CORE)		/* { */
 
-#define lua_number2int(i,d)   {__asm fld d   __asm fistp i}
-#define lua_number2integer(i,n)		lua_number2int(i, n)
-#define lua_number2uint(i,n)		lua_number2int(i, n)
+#if defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)	/* { */
 
-#else
-/* the next trick should work on any Pentium, but sometimes clashes
+/* On a Microsoft compiler on a Pentium, use assembler to avoid clashes
    with a DirectX idiosyncrasy */
+#if defined(_MSC_VER) && defined(M_IX86)		/* { */
 
-union luai_Cast { double l_d; long l_l; };
-#define lua_number2int(i,d) \
-  { volatile union luai_Cast u; u.l_d = (d) + 6755399441055744.0; (i) = u.l_l; }
-#define lua_number2integer(i,n)		lua_number2int(i, n)
-#define lua_number2uint(i,n)		lua_number2int(i, n)
+#define MS_ASMTRICK
 
-#endif
+#else				/* }{ */
+/* the next definition uses a trick that should work on any machine
+   using IEEE754 with a 32-bit integer type */
 
-
-#else
-/* this option always works, but may be slow */
-#define lua_number2int(i,d)	((i)=(int)(d))
-#define lua_number2integer(i,d)	((i)=(LUA_INTEGER)(d))
-#define lua_number2uint(i,d)	((i)=(unsigned LUA_INT32)(d))
-
-#endif
-
-
-/* on several machines, coercion from unsigned to double is too slow,
-   so avoid that if possible */
-#define lua_uint2number(u)  \
-	((LUA_INT32)(u) < 0 ? (lua_Number)(u) : (lua_Number)(LUA_INT32)(u))
-
+#define LUA_IEEE754TRICK
 
 /*
-@@ luai_hashnum is a macro do hash a lua_Number value into an integer.
-@* The hash must be deterministic and give reasonable values for
-@* both small and large values (outside the range of integers). 
-@* It is used only in ltable.c.
+@@ LUA_IEEEENDIAN is the endianness of doubles in your machine
+@@ (0 for little endian, 1 for big endian); if not defined, Lua will
+@@ check it dynamically.
 */
-
-#if defined(ltable_c) || defined(luaall_c)
-
-#include <float.h>
-#include <math.h>
-
-#define luai_hashnum(i,d) { int e;  \
-  d = frexp(d, &e) * (lua_Number)(INT_MAX - DBL_MAX_EXP);  \
-  lua_number2int(i, d); i += e; }
-
+/* check for known architectures */
+#if defined(__i386__) || defined(__i386) || defined(i386) || \
+    defined (__x86_64)
+#define LUA_IEEEENDIAN	0
+#elif defined(__POWERPC__) || defined(__ppc__)
+#define LUA_IEEEENDIAN	1
 #endif
+
+#endif				/* } */
+
+#endif			/* } */
+
+#endif			/* } */
 
 /* }================================================================== */
 

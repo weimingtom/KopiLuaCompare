@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.34 2009/11/26 11:39:20 roberto Exp roberto $
+** $Id: lobject.c,v 2.42 2010/10/29 11:13:14 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -81,6 +81,10 @@ int luaO_rawequalObj (const TValue *t1, const TValue *t2) {
       return bvalue(t1) == bvalue(t2);  /* boolean true must be 1 !! */
     case LUA_TLIGHTUSERDATA:
       return pvalue(t1) == pvalue(t2);
+    case LUA_TSTRING:
+      return rawtsvalue(t1) == rawtsvalue(t2);
+    case LUA_TLCF:
+      return fvalue(t1) == fvalue(t2);
     default:
       lua_assert(iscollectable(t1));
       return gcvalue(t1) == gcvalue(t2);
@@ -102,30 +106,32 @@ lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
 }
 
 
+static int checkend (const char *s, const char *endptr) {
+  if (endptr == s) return 0;  /* no characters converted */
+  while (lisspace(cast(unsigned char, *endptr))) endptr++;
+  return (*endptr == '\0');  /* OK if no trailing characters */
+}
+
+
 int luaO_str2d (const char *s, lua_Number *result) {
   char *endptr;
   *result = lua_str2number(s, &endptr);
-  if (endptr == s) return 0;  /* conversion failed */
-  if (*endptr == 'x' || *endptr == 'X')  /* maybe an hexadecimal constant? */
-    *result = cast_num(strtoul(s, &endptr, 16));
-  if (*endptr == '\0') return 1;  /* most common case */
-  while (lisspace(cast(unsigned char, *endptr))) endptr++;
-  if (*endptr != '\0') return 0;  /* invalid trailing characters? */
-  return 1;
+  if (checkend(s, endptr)) return 1;  /* conversion OK? */
+  *result = cast_num(strtoul(s, &endptr, 0)); /* try hexadecimal */
+  return checkend(s, endptr);
 }
 
 
 
-static void pushstr (lua_State *L, const char *str) {
-  setsvalue2s(L, L->top, luaS_new(L, str));
+static void pushstr (lua_State *L, const char *str, size_t l) {
+  setsvalue2s(L, L->top, luaS_newlstr(L, str, l));
   incr_top(L);
 }
 
 
 /* this function handles only `%d', `%c', %f, %p, and `%s' formats */
 const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
-  int n = 1;
-  pushstr(L, "");
+  int n = 0;
   for (;;) {
     const char *e = strchr(fmt, '%');
     if (e == NULL) break;
@@ -135,14 +141,13 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
       case 's': {
         const char *s = va_arg(argp, char *);
         if (s == NULL) s = "(null)";
-        pushstr(L, s);
+        pushstr(L, s, strlen(s));
         break;
       }
       case 'c': {
-        char buff[2];
-        buff[0] = cast(char, va_arg(argp, int));
-        buff[1] = '\0';
-        pushstr(L, buff);
+        char buff;
+        buff = cast(char, va_arg(argp, int));
+        pushstr(L, &buff, 1);
         break;
       }
       case 'd': {
@@ -157,12 +162,12 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
       }
       case 'p': {
         char buff[4*sizeof(void *) + 8]; /* should be enough space for a `%p' */
-        sprintf(buff, "%p", va_arg(argp, void *));
-        pushstr(L, buff);
+        int l = sprintf(buff, "%p", va_arg(argp, void *));
+        pushstr(L, buff, l);
         break;
       }
       case '%': {
-        pushstr(L, "%");
+        pushstr(L, "%", 1);
         break;
       }
       default: {
@@ -175,8 +180,8 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
     n += 2;
     fmt = e+2;
   }
-  pushstr(L, fmt);
-  luaV_concat(L, n+1);
+  pushstr(L, fmt, strlen(fmt));
+  if (n > 0) luaV_concat(L, n + 1);
   return svalue(L->top - 1);
 }
 
@@ -221,7 +226,7 @@ void luaO_chunkid (char *out, const char *source, size_t bufflen) {
   else {  /* string; format as [string "source"] */
     const char *nl = strchr(source, '\n');  /* find first new line (if any) */
     addstr(out, PRE, LL(PRE));  /* add prefix */
-    bufflen -= LL(PRE RETS POS);  /* save space for prefix+suffix */
+    bufflen -= LL(PRE RETS POS) + 1;  /* save space for prefix+suffix+'\0' */
     if (l < bufflen && nl == NULL) {  /* small one-line source? */
       addstr(out, source, l);  /* keep it */
     }

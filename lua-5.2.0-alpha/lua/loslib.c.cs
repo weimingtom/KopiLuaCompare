@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.28 2009/12/17 12:26:09 roberto Exp roberto $
+** $Id: loslib.c,v 1.31 2010/07/02 12:01:53 roberto Exp roberto $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -146,11 +146,10 @@ static int getboolfield (lua_State *L, const char *key) {
 
 
 static int getfield (lua_State *L, const char *key, int d) {
-  int res;
+  int res, isnum;
   lua_getfield(L, -1, key);
-  if (lua_isnumber(L, -1))
-    res = (int)lua_tointeger(L, -1);
-  else {
+  res = (int)lua_tointegerx(L, -1, &isnum);
+  if (!isnum) {
     if (d < 0)
       return luaL_error(L, "field " LUA_QS " missing in date table", key);
     res = d;
@@ -277,7 +276,11 @@ static int os_setlocale (lua_State *L) {
 
 
 static int os_exit (lua_State *L) {
-  int status = luaL_optint(L, 1, EXIT_SUCCESS);
+  int status;
+  if (lua_isboolean(L, 1))
+    status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+  else
+    status = luaL_optint(L, 1, EXIT_SUCCESS);
   if (lua_toboolean(L, 2))
     lua_close(L);
   exit(status);
@@ -304,7 +307,7 @@ static const luaL_Reg syslib[] = {
 
 
 LUAMOD_API int luaopen_os (lua_State *L) {
-  luaL_register(L, LUA_OSLIBNAME, syslib);
+  luaL_newlib(L, syslib);
   return 1;
 }
 

@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.33 2009/11/19 19:06:52 roberto Exp roberto $
+** $Id: lobject.h,v 2.41 2010/06/04 13:25:10 roberto Exp roberto $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -16,19 +16,19 @@
 #include "lua.h"
 
 
-/* tags for values visible from Lua */
-#define LAST_TAG	LUA_TTHREAD
-
-#define NUM_TAGS	(LAST_TAG+1)
-
-
 /*
 ** Extra tags for non-values
 */
-#define LUA_TPROTO	(LAST_TAG+1)
-#define LUA_TUPVAL	(LAST_TAG+2)
-#define LUA_TDEADKEY	(LAST_TAG+3)
+#define LUA_TPROTO	LUA_NUMTAGS
+#define LUA_TUPVAL	(LUA_NUMTAGS+1)
+#define LUA_TDEADKEY	(LUA_NUMTAGS+2)
 
+
+/*
+** Variant tag for light C functions (negative to be considered
+** non collectable by 'iscollectable')
+*/
+#define LUA_TLCF	(~0x0F | LUA_TFUNCTION)
 
 /*
 ** Union of all collectable objects
@@ -56,16 +56,18 @@ typedef struct GCheader {
 ** Union of all Lua values
 */
 typedef union {
-  GCObject *gc;
-  void *p;
-  lua_Number n;
-  int b;
+  GCObject *gc;    /* collectable objects */
+  void *p;         /* light userdata */
+  lua_Number n;    /* numbers */
+  int b;           /* booleans */
+  lua_CFunction f; /* light C functions */
 } Value;
 
 
 
 /*
-** Tagged Values
+** Tagged Values. This is the basic representation of values in Lua,
+** an actual value plus a tag with its type.
 */
 
 #define TValuefields	Value value_; int tt_
@@ -75,8 +77,20 @@ typedef struct lua_TValue {
 } TValue;
 
 
-/* macro defining a nil value to be used in definitions */
+/* macro defining a nil value */
 #define NILCONSTANT    {NULL}, LUA_TNIL
+
+
+/*
+** type tag of a TValue
+*/
+#define ttype(o)	((o)->tt_)
+
+
+/*
+** type tag of a TValue with no variants
+*/
+#define ttypenv(o)	(ttype(o) & 0x0F)
 
 
 /* Macros to test type */
@@ -84,7 +98,9 @@ typedef struct lua_TValue {
 #define ttisnumber(o)	(ttype(o) == LUA_TNUMBER)
 #define ttisstring(o)	(ttype(o) == LUA_TSTRING)
 #define ttistable(o)	(ttype(o) == LUA_TTABLE)
-#define ttisfunction(o)	(ttype(o) == LUA_TFUNCTION)
+#define ttisfunction(o)	(ttypenv(o) == LUA_TFUNCTION)
+#define ttisclosure(o)	(ttype(o) == LUA_TFUNCTION)
+#define ttislcf(o)	(ttype(o) == LUA_TLCF)
 #define ttisboolean(o)	(ttype(o) == LUA_TBOOLEAN)
 #define ttisuserdata(o)	(ttype(o) == LUA_TUSERDATA)
 #define ttisthread(o)	(ttype(o) == LUA_TTHREAD)
@@ -92,7 +108,6 @@ typedef struct lua_TValue {
 #define ttisdeadkey(o)	(ttype(o) == LUA_TDEADKEY)
 
 /* Macros to access values */
-#define ttype(o)	((o)->tt_)
 #define gcvalue(o)	check_exp(iscollectable(o), (o)->value_.gc)
 #define pvalue(o)	check_exp(ttislightuserdata(o), (o)->value_.p)
 #define nvalue(o)	check_exp(ttisnumber(o), (o)->value_.n)
@@ -100,18 +115,19 @@ typedef struct lua_TValue {
 #define tsvalue(o)	(&rawtsvalue(o)->tsv)
 #define rawuvalue(o)	check_exp(ttisuserdata(o), &(o)->value_.gc->u)
 #define uvalue(o)	(&rawuvalue(o)->uv)
-#define clvalue(o)	check_exp(ttisfunction(o), &(o)->value_.gc->cl)
+#define clvalue(o)	check_exp(ttisclosure(o), &(o)->value_.gc->cl)
+#define fvalue(o)	check_exp(ttislcf(o), (o)->value_.f)
 #define hvalue(o)	check_exp(ttistable(o), &(o)->value_.gc->h)
 #define bvalue(o)	check_exp(ttisboolean(o), (o)->value_.b)
 #define thvalue(o)	check_exp(ttisthread(o), &(o)->value_.gc->th)
 
 #define l_isfalse(o)	(ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))
 
-/*
-** for internal debug only
-*/
+
 #define iscollectable(o)	(ttype(o) >= LUA_TSTRING)
 
+
+/* Macros for internal tests */
 #define righttt(obj)		(ttype(obj) == gcvalue(obj)->gch.tt)
 
 #define checkconsistency(obj)	lua_assert(!iscollectable(obj) || righttt(obj))
@@ -126,8 +142,10 @@ typedef struct lua_TValue {
 #define setnvalue(obj,x) \
   { TValue *i_o=(obj); i_o->value_.n=(x); i_o->tt_=LUA_TNUMBER; }
 
-#define changenvalue(obj,x) \
-  ( lua_assert((obj)->tt_==LUA_TNUMBER), (obj)->value_.n=(x) )
+#define setfvalue(obj,x) \
+  { TValue *i_o=(obj); i_o->value_.f=(x); i_o->tt_=LUA_TLCF; }
+
+#define changenvalue(o,x)  check_exp((o)->tt_==LUA_TNUMBER, (o)->value_.n=(x))
 
 #define setpvalue(obj,x) \
   { TValue *i_o=(obj); i_o->value_.p=(x); i_o->tt_=LUA_TLIGHTUSERDATA; }
@@ -176,7 +194,7 @@ typedef struct lua_TValue {
 
 
 /*
-** different types of sets, according to destination
+** different types of assignments, according to destination
 */
 
 /* from stack to (same) stack */
@@ -200,7 +218,7 @@ typedef TValue *StkId;  /* index to stack elements */
 
 
 /*
-** String headers for string table
+** Header for string value; string bytes follow the end of this structure
 */
 typedef union TString {
   L_Umaxalign dummy;  /* ensures maximum alignment for strings */
@@ -213,11 +231,16 @@ typedef union TString {
 } TString;
 
 
+/* get the actual string (array of bytes) from a TString */
 #define getstr(ts)	cast(const char *, (ts) + 1)
+
+/* get the actual string (array of bytes) from a Lua value */
 #define svalue(o)       getstr(rawtsvalue(o))
 
 
-
+/*
+** Header for userdata; memory area follows the end of this structure
+*/
 typedef union Udata {
   L_Umaxalign dummy;  /* ensures maximum alignment for `local' udata */
   struct {
@@ -231,13 +254,24 @@ typedef union Udata {
 
 
 /*
-** Upvalues from a function prototype
+** Description of an upvalue for function prototypes
 */
 typedef struct Upvaldesc {
   TString *name;  /* upvalue name (for debug information) */
-  lu_byte instack;
+  lu_byte instack;  /* whether it is in stack */
   lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
 } Upvaldesc;
+
+
+/*
+** Description of a local variable for function prototypes
+** (used for debug information)
+*/
+typedef struct LocVar {
+  TString *varname;
+  int startpc;  /* first point where variable is active */
+  int endpc;    /* first point where variable is dead */
+} LocVar;
 
 
 /*
@@ -249,8 +283,9 @@ typedef struct Proto {
   Instruction *code;
   struct Proto **p;  /* functions defined inside the function */
   int *lineinfo;  /* map from opcodes to source lines */
-  struct LocVar *locvars;  /* information about local variables */
+  LocVar *locvars;  /* information about local variables */
   Upvaldesc *upvalues;  /* upvalue information */
+  union Closure *cache;  /* last created closure with this prototype */
   TString  *source;
   int sizeupvalues;  /* size of 'upvalues' */
   int sizek;  /* size of `k' */
@@ -261,25 +296,16 @@ typedef struct Proto {
   int linedefined;
   int lastlinedefined;
   GCObject *gclist;
-  lu_byte numparams;
+  lu_byte numparams;  /* number of fixed parameters */
   lu_byte is_vararg;
-  lu_byte maxstacksize;
-  lu_byte envreg;  /* register in outer function with initial environment */
+  lu_byte maxstacksize;  /* maximum stack used by this function */
 } Proto;
-
-
-typedef struct LocVar {
-  TString *varname;
-  int startpc;  /* first point where variable is active */
-  int endpc;    /* first point where variable is dead */
-} LocVar;
 
 
 
 /*
-** Upvalues
+** Lua Upvalues
 */
-
 typedef struct UpVal {
   CommonHeader;
   TValue *v;  /* points to stack or to its own value */
@@ -298,20 +324,19 @@ typedef struct UpVal {
 */
 
 #define ClosureHeader \
-	CommonHeader; lu_byte isC; lu_byte nupvalues; GCObject *gclist; \
-	struct Table *env
+	CommonHeader; lu_byte isC; lu_byte nupvalues; GCObject *gclist
 
 typedef struct CClosure {
   ClosureHeader;
   lua_CFunction f;
-  TValue upvalue[1];
+  TValue upvalue[1];  /* list of upvalues */
 } CClosure;
 
 
 typedef struct LClosure {
   ClosureHeader;
   struct Proto *p;
-  UpVal *upvals[1];
+  UpVal *upvals[1];  /* list of upvalues */
 } LClosure;
 
 
@@ -321,10 +346,10 @@ typedef union Closure {
 } Closure;
 
 
-#define iscfunction(o)	(ttisfunction(o) && clvalue(o)->c.isC)
-#define isLfunction(o)	(ttisfunction(o) && !clvalue(o)->c.isC)
+#define isLfunction(o)	(ttisclosure(o) && !clvalue(o)->c.isC)
 
 #define getproto(o)	(clvalue(o)->l.p)
+
 
 /*
 ** Tables
@@ -370,7 +395,11 @@ typedef struct Table {
 #define sizenode(t)	(twoto((t)->lsizenode))
 
 
+/*
+** (address of) a fixed nil value
+*/
 #define luaO_nilobject		(&luaO_nilobject_)
+
 
 LUAI_DDEC const TValue luaO_nilobject_;
 

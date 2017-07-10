@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.260 2010/01/06 15:08:00 roberto Exp roberto $
+** $Id: lua.h,v 1.275 2010/10/25 20:31:11 roberto Exp roberto $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -16,8 +16,12 @@
 #include "luaconf.h"
 
 
-#define LUA_VERSION	"Lua 5.2"
-#define LUA_RELEASE	"Lua 5.2.0"
+#define LUA_VERSION_MAJOR	"5"
+#define LUA_VERSION_MINOR	"2"
+#define LUA_VERSION_RELEASE	"0"
+
+#define LUA_VERSION	"Lua " LUA_VERSION_MAJOR "." LUA_VERSION_MINOR
+#define LUA_RELEASE	LUA_VERSION "." LUA_VERSION_RELEASE
 #define LUA_VERSION_NUM	502
 #define LUA_COPYRIGHT	LUA_RELEASE "  Copyright (C) 1994-2010 Lua.org, PUC-Rio"
 #define LUA_AUTHORS	"R. Ierusalimschy, L. H. de Figueiredo, W. Celes"
@@ -34,8 +38,7 @@
 ** pseudo-indices
 */
 #define LUA_REGISTRYINDEX	LUAI_FIRSTPSEUDOIDX
-#define LUA_ENVIRONINDEX	(LUA_REGISTRYINDEX - 1)
-#define lua_upvalueindex(i)	(LUA_ENVIRONINDEX - (i))
+#define lua_upvalueindex(i)	(LUA_REGISTRYINDEX - (i))
 
 
 /* thread status */
@@ -82,6 +85,8 @@ typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
 #define LUA_TUSERDATA		7
 #define LUA_TTHREAD		8
 
+#define LUA_NUMTAGS		9
+
 
 
 /* minimum Lua stack available to a C function */
@@ -90,8 +95,7 @@ typedef void * (*lua_Alloc) (void *ud, void *ptr, size_t osize, size_t nsize);
 
 /* predefined values in the registry */
 #define LUA_RIDX_MAINTHREAD	1
-#define LUA_RIDX_CPCALL		2
-#define LUA_RIDX_GLOBALS	3
+#define LUA_RIDX_GLOBALS	2
 #define LUA_RIDX_LAST		LUA_RIDX_GLOBALS
 
 
@@ -101,6 +105,9 @@ typedef LUA_NUMBER lua_Number;
 
 /* type for integer functions */
 typedef LUA_INTEGER lua_Integer;
+
+/* unsigned integer type */
+typedef LUA_UNSIGNED lua_Unsigned;
 
 
 
@@ -129,6 +136,7 @@ LUA_API const lua_Number *(lua_version) (lua_State *L);
 /*
 ** basic stack manipulation
 */
+LUA_API int   (lua_absindex) (lua_State *L, int idx);
 LUA_API int   (lua_gettop) (lua_State *L);
 LUA_API void  (lua_settop) (lua_State *L, int idx);
 LUA_API void  (lua_pushvalue) (lua_State *L, int idx);
@@ -152,8 +160,9 @@ LUA_API int             (lua_isuserdata) (lua_State *L, int idx);
 LUA_API int             (lua_type) (lua_State *L, int idx);
 LUA_API const char     *(lua_typename) (lua_State *L, int tp);
 
-LUA_API lua_Number      (lua_tonumber) (lua_State *L, int idx);
-LUA_API lua_Integer     (lua_tointeger) (lua_State *L, int idx);
+LUA_API lua_Number      (lua_tonumberx) (lua_State *L, int idx, int *isnum);
+LUA_API lua_Integer     (lua_tointegerx) (lua_State *L, int idx, int *isnum);
+LUA_API lua_Unsigned    (lua_tounsignedx) (lua_State *L, int idx, int *isnum);
 LUA_API int             (lua_toboolean) (lua_State *L, int idx);
 LUA_API const char     *(lua_tolstring) (lua_State *L, int idx, size_t *len);
 LUA_API size_t          (lua_rawlen) (lua_State *L, int idx);
@@ -191,6 +200,7 @@ LUA_API int   (lua_compare) (lua_State *L, int idx1, int idx2, int op);
 LUA_API void        (lua_pushnil) (lua_State *L);
 LUA_API void        (lua_pushnumber) (lua_State *L, lua_Number n);
 LUA_API void        (lua_pushinteger) (lua_State *L, lua_Integer n);
+LUA_API void        (lua_pushunsigned) (lua_State *L, lua_Unsigned n);
 LUA_API const char *(lua_pushlstring) (lua_State *L, const char *s, size_t l);
 LUA_API const char *(lua_pushstring) (lua_State *L, const char *s);
 LUA_API const char *(lua_pushvfstring) (lua_State *L, const char *fmt,
@@ -212,7 +222,7 @@ LUA_API void  (lua_rawgeti) (lua_State *L, int idx, int n);
 LUA_API void  (lua_createtable) (lua_State *L, int narr, int nrec);
 LUA_API void *(lua_newuserdata) (lua_State *L, size_t sz);
 LUA_API int   (lua_getmetatable) (lua_State *L, int objindex);
-LUA_API void  (lua_getfenv) (lua_State *L, int idx);
+LUA_API void  (lua_getuservalue) (lua_State *L, int idx);
 
 
 /*
@@ -223,7 +233,7 @@ LUA_API void  (lua_setfield) (lua_State *L, int idx, const char *k);
 LUA_API void  (lua_rawset) (lua_State *L, int idx);
 LUA_API void  (lua_rawseti) (lua_State *L, int idx, int n);
 LUA_API int   (lua_setmetatable) (lua_State *L, int objindex);
-LUA_API int   (lua_setfenv) (lua_State *L, int idx);
+LUA_API void  (lua_setuservalue) (lua_State *L, int idx);
 
 
 /*
@@ -266,7 +276,10 @@ LUA_API int  (lua_status) (lua_State *L);
 #define LUA_GCSTEP		5
 #define LUA_GCSETPAUSE		6
 #define LUA_GCSETSTEPMUL	7
-#define LUA_GCISRUNNING		8
+#define LUA_GCSETMAJORINC	8
+#define LUA_GCISRUNNING		9
+#define LUA_GCGEN		10
+#define LUA_GCINC		11
 
 LUA_API int (lua_gc) (lua_State *L, int what, int data);
 
@@ -293,15 +306,22 @@ LUA_API void      (lua_setallocf) (lua_State *L, lua_Alloc f, void *ud);
 ** ===============================================================
 */
 
+#define lua_tonumber(L,i)	lua_tonumberx(L,i,NULL)
+#define lua_tointeger(L,i)	lua_tointegerx(L,i,NULL)
+#define lua_tounsigned(L,i)	lua_tounsignedx(L,i,NULL)
+
 #define lua_pop(L,n)		lua_settop(L, -(n)-1)
 
 #define lua_newtable(L)		lua_createtable(L, 0, 0)
 
-#define lua_setglobal(L,s)	lua_setfield(L, LUA_ENVIRONINDEX, (s))
-#define lua_getglobal(L,s)	lua_getfield(L, LUA_ENVIRONINDEX, (s))
+#define lua_setglobal(L,s)  \
+	(lua_pushglobaltable(L), lua_pushvalue(L, -2), \
+	 lua_setfield(L, -2, (s)), lua_pop(L, 2))
 
-#define lua_register(L,n,f) \
-	(lua_pushcfunction(L, (f)), lua_setfield(L, LUA_ENVIRONINDEX, (n)))
+#define lua_getglobal(L,s) \
+	(lua_pushglobaltable(L), lua_getfield(L, -1, (s)), lua_remove(L, -2))
+
+#define lua_register(L,n,f) (lua_pushcfunction(L, (f)), lua_setglobal(L, (n)))
 
 #define lua_pushcfunction(L,f)	lua_pushcclosure(L, (f), 0)
 

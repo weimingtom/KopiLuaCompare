@@ -1,5 +1,5 @@
 /*
-** $Id: lfunc.c,v 2.18 2009/12/11 13:39:34 roberto Exp roberto $
+** $Id: lfunc.c,v 2.26 2010/06/10 21:27:09 roberto Exp roberto $
 ** Auxiliary functions to manipulate prototypes and closures
 ** See Copyright Notice in lua.h
 */
@@ -16,24 +16,23 @@
 #include "lgc.h"
 #include "lmem.h"
 #include "lobject.h"
-#include "lopcodes.h"
 #include "lstate.h"
 
 
 
-Closure *luaF_newCclosure (lua_State *L, int n, Table *e) {
+Closure *luaF_newCclosure (lua_State *L, int n) {
   Closure *c = &luaC_newobj(L, LUA_TFUNCTION, sizeCclosure(n), NULL, 0)->cl;
   c->c.isC = 1;
-  c->c.env = e;
   c->c.nupvalues = cast_byte(n);
   return c;
 }
 
 
-Closure *luaF_newLclosure (lua_State *L, int n, Table *e) {
+Closure *luaF_newLclosure (lua_State *L, Proto *p) {
+  int n = p->sizeupvalues;
   Closure *c = &luaC_newobj(L, LUA_TFUNCTION, sizeLclosure(n), NULL, 0)->cl;
   c->l.isC = 0;
-  c->l.env = e;
+  c->l.p = p;
   c->l.nupvalues = cast_byte(n);
   while (n--) c->l.upvals[n] = NULL;
   return c;
@@ -54,12 +53,14 @@ UpVal *luaF_findupval (lua_State *L, StkId level) {
   UpVal *p;
   UpVal *uv;
   while (*pp != NULL && (p = gco2uv(*pp))->v >= level) {
+    GCObject *o = obj2gco(p);
     lua_assert(p->v != &p->u.value);
     if (p->v == level) {  /* found a corresponding upvalue? */
-      if (isdead(g, obj2gco(p)))  /* is it dead? */
-        changewhite(obj2gco(p));  /* ressurrect it */
+      if (isdead(g, o))  /* is it dead? */
+        changewhite(o);  /* resurrect it */
       return p;
     }
+    resetoldbit(o);  /* may create a newer upval after this one */
     pp = &p->next;
   }
   /* not found: create a new one */
@@ -98,10 +99,12 @@ void luaF_close (lua_State *L, StkId level) {
     if (isdead(g, o))
       luaF_freeupval(L, uv);  /* free upvalue */
     else {
-      unlinkupval(uv);
-      setobj(L, &uv->u.value, uv->v);
+      unlinkupval(uv);  /* remove upvalue from 'uvhead' list */
+      setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
       uv->v = &uv->u.value;  /* now current value lives here */
-      luaC_linkupval(L, uv);  /* link upvalue into `gcroot' list */
+      gch(o)->next = g->allgc;  /* link upvalue into 'allgc' list */
+      g->allgc = o;
+      luaC_checkupvalcolor(g, uv);
     }
   }
 }
@@ -114,6 +117,7 @@ Proto *luaF_newproto (lua_State *L) {
   f->p = NULL;
   f->sizep = 0;
   f->code = NULL;
+  f->cache = NULL;
   f->sizecode = 0;
   f->lineinfo = NULL;
   f->sizelineinfo = 0;
@@ -127,7 +131,6 @@ Proto *luaF_newproto (lua_State *L) {
   f->linedefined = 0;
   f->lastlinedefined = 0;
   f->source = NULL;
-  f->envreg = NO_REG;
   return f;
 }
 

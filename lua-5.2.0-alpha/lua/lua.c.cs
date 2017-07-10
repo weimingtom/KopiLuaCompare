@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.183 2010/01/21 16:31:06 roberto Exp roberto $
+** $Id: lua.c,v 1.193 2010/10/18 16:06:33 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -31,9 +31,12 @@
 #define LUA_MAXINPUT		512
 #endif
 
-#if !defined(LUA_INIT_VAR)
-#define LUA_INIT_VAR		"LUA_INIT"
+#if !defined(LUA_INIT)
+#define LUA_INIT		"LUA_INIT"
 #endif
+
+#define LUA_INITVERSION  \
+	LUA_INIT "_" LUA_VERSION_MAJOR "_" LUA_VERSION_MINOR
 
 
 /*
@@ -102,9 +105,15 @@ static void laction (int i) {
 }
 
 
-static void print_usage (char badoption) {
-  fprintf(stderr,
-  "%s: unrecognized option '-%c'\n"
+static void print_usage (const char *badoption) {
+  if (badoption[1] == 'e' || badoption[1] == 'l') {
+    luai_writestringerror("%s: ", progname);
+    luai_writestringerror("'%s' needs argument\n", badoption);
+  } else {
+    luai_writestringerror("%s: ", progname);
+    luai_writestringerror("unrecognized option '%s'\n", badoption);
+  }
+  luai_writestringerror(
   "usage: %s [options] [script [args]]\n"
   "Available options are:\n"
   "  -e stat  execute string " LUA_QL("stat") "\n"
@@ -114,15 +123,13 @@ static void print_usage (char badoption) {
   "  --       stop handling options\n"
   "  -        stop handling options and execute stdin\n"
   ,
-  progname, badoption, progname);
-  fflush(stderr);
+  progname);
 }
 
 
 static void l_message (const char *pname, const char *msg) {
-  if (pname) fprintf(stderr, "%s: ", pname);
-  fprintf(stderr, "%s\n", msg);
-  fflush(stderr);
+  if (pname) luai_writestringerror("%s: ", pname);
+  luai_writestringerror("%s\n", msg);
 }
 
 
@@ -163,14 +170,14 @@ static int traceback (lua_State *L) {
 }
 
 
-static int docall (lua_State *L, int narg, int clear) {
+static int docall (lua_State *L, int narg, int nres) {
   int status;
   int base = lua_gettop(L) - narg;  /* function index */
   lua_pushcfunction(L, traceback);  /* push traceback function */
   lua_insert(L, base);  /* put it under chunk and args */
   globalL = L;  /* to be available to 'laction' */
   signal(SIGINT, laction);
-  status = lua_pcall(L, narg, (clear ? 0 : LUA_MULTRET), base);
+  status = lua_pcall(L, narg, nres, base);
   signal(SIGINT, SIG_DFL);
   lua_remove(L, base);  /* remove traceback function */
   return status;
@@ -202,28 +209,37 @@ static int getargs (lua_State *L, char **argv, int n) {
 
 static int dofile (lua_State *L, const char *name) {
   int status = luaL_loadfile(L, name);
-  if (status == LUA_OK) status = docall(L, 0, 1);
+  if (status == LUA_OK) status = docall(L, 0, 0);
   return report(L, status);
 }
 
 
 static int dostring (lua_State *L, const char *s, const char *name) {
   int status = luaL_loadbuffer(L, s, strlen(s), name);
-  if (status == LUA_OK) status = docall(L, 0, 1);
+  if (status == LUA_OK) status = docall(L, 0, 0);
   return report(L, status);
 }
 
 
 static int dolibrary (lua_State *L, const char *name) {
-  lua_getfield(L, LUA_ENVIRONINDEX, "require");
+  int status;
+  lua_pushglobaltable(L);
+  lua_getfield(L, -1, "require");
   lua_pushstring(L, name);
-  return report(L, docall(L, 1, 1));
+  status = docall(L, 1, 1);
+  if (status == LUA_OK) {
+    lua_setfield(L, -2, name);  /* global[name] = require return */
+    lua_pop(L, 1);  /* remove global table */
+  }
+  else
+    lua_remove(L, -2);  /* remove global table (below error msg.) */
+  return report(L, status);
 }
 
 
 static const char *get_prompt (lua_State *L, int firstline) {
   const char *p;
-  lua_getfield(L, LUA_ENVIRONINDEX, firstline ? "_PROMPT" : "_PROMPT2");
+  lua_getglobal(L, firstline ? "_PROMPT" : "_PROMPT2");
   p = lua_tostring(L, -1);
   if (p == NULL) p = (firstline ? LUA_PROMPT : LUA_PROMPT2);
   lua_pop(L, 1);  /* remove global */
@@ -293,11 +309,11 @@ static void dotty (lua_State *L) {
   const char *oldprogname = progname;
   progname = NULL;
   while ((status = loadline(L)) != -1) {
-    if (status == LUA_OK) status = docall(L, 0, 0);
+    if (status == LUA_OK) status = docall(L, 0, LUA_MULTRET);
     report(L, status);
     if (status == LUA_OK && lua_gettop(L) > 0) {  /* any result to print? */
       luaL_checkstack(L, LUA_MINSTACK, "too many results to print");
-      lua_getfield(L, LUA_ENVIRONINDEX, "print");
+      lua_getglobal(L, "print");
       lua_insert(L, 1);
       if (lua_pcall(L, lua_gettop(L)-1, 0, 0) != LUA_OK)
         l_message(progname, lua_pushfstring(L,
@@ -307,7 +323,6 @@ static void dotty (lua_State *L) {
   }
   lua_settop(L, 0);  /* clear stack */
   luai_writestring("\n", 1);
-  fflush(stdout);
   progname = oldprogname;
 }
 
@@ -316,14 +331,14 @@ static int handle_script (lua_State *L, char **argv, int n) {
   int status;
   const char *fname;
   int narg = getargs(L, argv, n);  /* collect arguments */
-  lua_setfield(L, LUA_ENVIRONINDEX, "arg");
+  lua_setglobal(L, "arg");
   fname = argv[n];
   if (strcmp(fname, "-") == 0 && strcmp(argv[n-1], "--") != 0)
     fname = NULL;  /* stdin */
   status = luaL_loadfile(L, fname);
   lua_insert(L, -(narg+1));
   if (status == LUA_OK)
-    status = docall(L, narg, 0);
+    status = docall(L, narg, LUA_MULTRET);
   else
     lua_pop(L, narg);
   return report(L, status);
@@ -354,14 +369,15 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe) {
         break;
       case 'e':
         *pe = 1;  /* go through */
-      case 'l':
-        if (argv[i][2] == '\0') {
-          i++;
-          if (argv[i] == NULL) return -1;
+      case 'l':  /* both options need an argument */
+        if (argv[i][2] == '\0') {  /* no concatenated argument? */
+          i++;  /* try next 'argv' */
+          if (argv[i] == NULL || argv[i][0] == '-')
+            return -(i - 1);  /* no next argument or it is another option */
         }
         break;
-      default:  /* invalid option; return the offendind character as a... */
-        return -(unsigned char)argv[i][1];  /* ...negative value */
+      default:  /* invalid option; return its index... */
+        return -i;  /* ...as a negative value */
     }
   }
   return 0;
@@ -371,7 +387,6 @@ static int collectargs (char **argv, int *pi, int *pv, int *pe) {
 static int runargs (lua_State *L, char **argv, int n) {
   int i;
   for (i = 1; i < n; i++) {
-    if (argv[i] == NULL) continue;
     lua_assert(argv[i][0] == '-');
     switch (argv[i][1]) {  /* option */
       case 'e': {
@@ -398,24 +413,29 @@ static int runargs (lua_State *L, char **argv, int n) {
 
 
 static int handle_luainit (lua_State *L) {
-  const char *init = getenv(LUA_INIT_VAR);
+  const char *name = "=" LUA_INITVERSION;
+  const char *init = getenv(name + 1);
+  if (init == NULL) {
+    name = "=" LUA_INIT;
+    init = getenv(name + 1);  /* try alternative name */
+  }
   if (init == NULL) return LUA_OK;
   else if (init[0] == '@')
     return dofile(L, init+1);
   else
-    return dostring(L, init, "=" LUA_INIT_VAR);
+    return dostring(L, init, name);
 }
 
 
 static int pmain (lua_State *L) {
-  int argc = lua_tointeger(L, 1);
+  int argc = (int)lua_tointeger(L, 1);
   char **argv = (char **)lua_touserdata(L, 2);
   int script;
   int has_i = 0, has_v = 0, has_e = 0;
   if (argv[0] && argv[0][0]) progname = argv[0];
   script = collectargs(argv, &has_i, &has_v, &has_e);
   if (script < 0) {  /* invalid arg? */
-    print_usage(-script);  /* '-script' is the offending argument */
+    print_usage(argv[-script]);
     return 0;
   }
   if (has_v) print_version();
@@ -452,9 +472,10 @@ int main (int argc, char **argv) {
     return EXIT_FAILURE;
   }
   /* call 'pmain' in protected mode */
+  lua_pushcfunction(L, &pmain);
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */
-  status = luaL_cpcall(L, &pmain, 2, 1);
+  status = lua_pcall(L, 2, 1, 0);
   result = lua_toboolean(L, -1);  /* get result */
   finalreport(L, status);
   lua_close(L);
