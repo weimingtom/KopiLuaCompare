@@ -150,13 +150,22 @@ lzio.h
 
 
 
+
+bug/todo:
+//-----------------------------------------------
+//sizeof is not good for csharp managed code, use GetUnmanagedSize(typeof()) instead
 sizeof(r) => GetUnmanagedSize(typeof(r))
 
+//-----------------------------------------------
+??? fromstate() is empty, offset is ignored
 
         //FIXME:???not implemented
         private static LX fromstate(lua_State L) { return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; } //FIXME:???
 
 		  GCObject o = obj2gco(luaM_newobject<T>(L/*, tt, sz*/))/* + offset*/); //FIXME:???no offset
+
+//-------------------------------------------------
+??? only account for TString
 
 lgc.c:
 		  if (o is TString) //FIXME:added
@@ -164,19 +173,33 @@ lgc.c:
 		  	int len_plus_1 = (int)sz - GetUnmanagedSize(typeof(TString));
 		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
 		  }
-		  
-		  
+
+//------------------------------------------------
+???DBL_MAX_EXP not implemented
+
 luaconf.h:
 		public static void luai_hashnum(out int i, lua_Number d) { int e;
 		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???
 		  lua_number2int(out i, d); i += e; }
 		  
 
+//-------------------------------------------------
+??? <= is changed to < (not only here), see below ('lgc.c: stop overflow')  
+
 lvm.c
 lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
 			
 
+//------------------------------------------------
+??? AddTotalBytes/SubtractTotalBytes is ignored at somewhere (maybe at luaM_newobject and lgc.c ('if (o is TString)', see upper))  
 
+		static void AddTotalBytes(lua_State L, int num_bytes) { G(L).totalbytes += (uint)num_bytes; }
+		static void SubtractTotalBytes(lua_State L, int num_bytes) { G(L).totalbytes -= (uint)num_bytes; }
+
+		static void AddTotalBytes(lua_State L, uint num_bytes) {G(L).totalbytes += num_bytes;}
+		static void SubtractTotalBytes(lua_State L, uint num_bytes) {G(L).totalbytes -= num_bytes;}
+		
+//------------------------------------------------
 
 
 
@@ -191,10 +214,11 @@ lstring.c
 		  ts.tsv.len = l;
 		  ts.tsv.hash = h;
 		  ts.tsv.reserved = 0;
-		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char)));
+		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char))); //<---------------------here is changed, 'ts+1' to 'ts.str.chars' 
 		  memcpy(ts.str.chars, str.chars, str.index, (int)l);
 
 ts+1 => ts.str.chars, see 
+
  (1): lgc.c
 		 public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz, GCObjectRef list,
 		                       int offset) {
@@ -222,7 +246,7 @@ here --------->			public CharPtr str; //FIXME:added = new CharPtr()???;
 		};
 -----------------------------------------
 
-lgc.c: stop overflow
+lgc.c: add if and break statement, for stoping overflow
 
 
 		private static void traversestack (global_State g, lua_State L) {
