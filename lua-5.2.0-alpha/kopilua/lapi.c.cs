@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.111 2010/01/13 16:18:25 roberto Exp roberto $
+** $Id: lapi.c,v 2.139 2010/10/25 20:31:11 roberto Exp roberto $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -30,15 +30,6 @@ namespace KopiLua
 			api_check(L, (i) != luaO_nilobject, "invalid index");
 		}
 
-		private static Table getcurrenv (lua_State L) {
-		  if (L.ci.previous == null)  /* no enclosing function? */
-			return G(L).l_gt;  /* use global table as environment */
-		  else {
-			Closure func = curr_func(L);
-			return func.c.env;
-		  }
-		}
-
 
 		static TValue index2addr (lua_State L, int idx) {
           CallInfo ci = L.ci;
@@ -52,26 +43,25 @@ namespace KopiLua
 			api_check(L, idx != 0 && -idx <= L.top - (ci.func + 1), "invalid index");
 			return L.top + idx;
 		  }
-		  else switch (idx) {  /* pseudo-indices */
-			case LUA_REGISTRYINDEX: return G(L).l_registry;
-			case LUA_ENVIRONINDEX: {
-			  sethvalue(L, L.env, getcurrenv(L));
-			  return L.env;
-			}
-			default: {
-			  Closure func = curr_func(L);
-			  idx = LUA_ENVIRONINDEX - idx;
-              api_check(L, idx <= System.Byte.MaxValue + 1, "upvalue index too large");
-			  return (idx <= func.c.nupvalues)
-						? func.c.upvalue[idx-1]
-						: (TValue)luaO_nilobject;
-			}
+		  else if (idx == LUA_REGISTRYINDEX)
+		    return &G(L)->l_registry;
+		  else {  /* upvalues */
+		    idx = LUA_REGISTRYINDEX - idx;
+		    api_check(L, idx <= MAXUPVAL + 1, "upvalue index too large");
+		    if (ttislcf(ci->func))  /* light C function? */
+		      return cast(TValue *, luaO_nilobject);  /* it has no upvalues */
+		    else {
+		      Closure *func = clvalue(ci->func);
+		      return (idx <= func->c.nupvalues)
+		             ? &func->c.upvalue[idx-1]
+		             : cast(TValue *, luaO_nilobject);
+		    }
 		  }
 		}
 
 
 		/*
-		** to be caled by 'lua_checkstack' in protected mode, to grow stack
+		** to be called by 'lua_checkstack' in protected mode, to grow stack
 		** capturing memory errors
 		*/
 		private static void growstack (lua_State L, object ud) {
@@ -87,7 +77,7 @@ namespace KopiLua
 		  if (L.stack_last - L.top > size)  /* stack large enough? */
 		    res = 1;  /* yes; check is OK */
 		  else {  /* no; need to grow stack */
-		    int inuse = L.top - L.stack + EXTRA_STACK;
+		    int inuse = (int)(L.top - L.stack) + EXTRA_STACK; //FIXME:cast_int()
 		    if (inuse > LUAI_MAXSTACK - size)  /* can grow without overflow? */
 		      res = 0;  /* no */
 		    else  {/* try to grow stack */
@@ -141,6 +131,16 @@ namespace KopiLua
 		*/
 
 
+		/*
+		** convert an acceptable stack index into an absolute index
+		*/
+		public static int lua_absindex (lua_State L, int idx) {
+		  return (idx > 0 || idx <= LUA_REGISTRYINDEX)
+		         ? idx
+		         : cast_int(L.top - L.ci.func + idx);
+		}
+
+
 		public static int lua_gettop (lua_State L) {
 		  return cast_int(L.top - (L.ci.func + 1));
 		}
@@ -189,27 +189,18 @@ namespace KopiLua
 		private static void moveto (lua_State L, TValue fr, int idx) {
 		  TValue to = index2addr(L, idx);
 		  api_checkvalidindex(L, to);
-		  if (idx == LUA_ENVIRONINDEX) {
-		    Closure func = curr_func(L);
-		    api_check(L, ttistable(fr), "table expected");
-		    func.c.env = hvalue(fr);
-		    luaC_barrier(L, func, fr);
+		  setobj(L, to, fr);
+		  if (idx < LUA_REGISTRYINDEX) {  /* function upvalue? */
+		    lua_assert(ttisclosure(L.ci.func));
+		    luaC_barrier(L, clvalue(L.ci.func), fr);
 		  }
-		  else {
-		    setobj(L, to, fr);
-		    if (idx < LUA_ENVIRONINDEX)  /* function upvalue? */
-		      luaC_barrier(L, curr_func(L), fr);
-		  }
-		  /* LUA_REGISTRYINDEX does not need gc barrier
+  		  /* LUA_REGISTRYINDEX does not need gc barrier
 		     (collector revisits it before finishing collection) */
 		}
 
 
 		public static void lua_replace (lua_State L, int idx) {
 		  lua_lock(L);
-		  /* explicit test for incompatible code */
-		  if (idx == LUA_ENVIRONINDEX && L.ci.previous == null)
-		    luaG_runerror(L, "no calling environment");
 		  api_checknelems(L, 1);
 		  moveto(L, L.top - 1, idx);
 		  StkId.dec(ref L.top);
@@ -243,19 +234,19 @@ namespace KopiLua
 
 		public static int lua_type (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
-		  return (o == luaO_nilobject) ? LUA_TNONE : ttype(o);
+		  return (o == luaO_nilobject) ? LUA_TNONE : ttypenv(o);
 		}
 
 
 		public static CharPtr lua_typename (lua_State L, int t) {
 		  //UNUSED(L);
-		  return typename(t);
+		  return ttypename(t);
 		}
 
 
 		public static bool lua_iscfunction (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
-		  return iscfunction(o);
+		  return (ttislcf(o) || (ttisclosure(o) && clvalue(o).c.isC));
 		}
 
 
@@ -320,27 +311,51 @@ namespace KopiLua
 		}
 
 
-		public static lua_Number lua_tonumber (lua_State L, int idx) {
+		public static lua_Number lua_tonumberx (lua_State L, int idx, int *isnum) {
 		  TValue n = new TValue();
 		  TValue o = index2addr(L, idx);
-		  if (tonumber(ref o, n) != 0)
+		  if (tonumber(ref o, n) != 0) {
+            if (isnum) *isnum = 1;
 			return nvalue(o);
-		  else
+		  }
+		  else {
+            if (isnum) *isnum = 0;
 			return 0;
+		  }
 		}
 
 
-		public static lua_Integer lua_tointeger (lua_State L, int idx) {
+		public static lua_Integer lua_tointegerx (lua_State L, int idx, int *isnum) {
 		  TValue n = new TValue();
 		  TValue o = index2addr(L, idx);
 		  if (tonumber(ref o, n) != 0) {
 			lua_Integer res;
 			lua_Number num = nvalue(o);
 			lua_number2integer(out res, num);
+            if (isnum) *isnum = 1;
 			return res;
 		  }
-		  else
+		  else {
+            if (isnum) *isnum = 0;
 			return 0;
+		  }
+		}
+
+
+		public static lua_Unsigned lua_tounsignedx (lua_State L, int idx, int *isnum) {
+		  TValue n;
+		  const TValue *o = index2addr(L, idx);
+		  if (tonumber(o, &n)) {
+		    lua_Unsigned res;
+		    lua_Number num = nvalue(o);
+		    lua_number2unsigned(res, num);
+		    if (isnum) *isnum = 1;
+		    return res;
+		  }
+		  else {
+		    if (isnum) *isnum = 0;
+		    return 0;
+		  }
 		}
 
 
@@ -381,7 +396,10 @@ namespace KopiLua
 
 		public static lua_CFunction lua_tocfunction (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
-		  return (!iscfunction(o)) ? null : clvalue(o).c.f;
+		  if (ttislcf(o)) return fvalue(o);
+		  else if (ttisclosure(o) && clvalue(o).c.isC)
+		    return clvalue(o).c.f;
+		  else return null;  /* not a C function */
 		}
 
 
@@ -406,6 +424,7 @@ namespace KopiLua
 		  switch (ttype(o)) {
 			case LUA_TTABLE: return hvalue(o);
 			case LUA_TFUNCTION: return clvalue(o);
+            case LUA_TLCF: return cast(void *, cast(size_t, fvalue(o)));
 			case LUA_TTHREAD: return thvalue(o);
 			case LUA_TUSERDATA:
 			case LUA_TLIGHTUSERDATA:
@@ -445,6 +464,16 @@ namespace KopiLua
 		}
 
 
+		public static void lua_pushunsigned (lua_State L, lua_Unsigned u) {
+		  lua_Number n;
+		  lua_lock(L);
+		  n = lua_unsigned2number(u);
+		  setnvalue(L->top, n);
+		  api_incr_top(L);
+		  lua_unlock(L);
+		}
+
+
 		public static CharPtr lua_pushlstring (lua_State L, CharPtr s, uint len) {
           TString ts;
 		  lua_lock(L);
@@ -462,8 +491,16 @@ namespace KopiLua
 			lua_pushnil(L);
             return null;
           }
-		  else
-			return lua_pushlstring(L, s, (uint)strlen(s));
+		  else {
+		    TString *ts;
+		    lua_lock(L);
+		    luaC_checkGC(L);
+		    ts = luaS_new(L, s);
+		    setsvalue2s(L, L->top, ts);
+		    api_incr_top(L);
+		    lua_unlock(L);
+		    return getstr(ts);
+		  }
 		}
 
 
@@ -499,18 +536,22 @@ namespace KopiLua
 
 
 		public static void lua_pushcclosure (lua_State L, lua_CFunction fn, int n) {
-		  Closure cl;
 		  lua_lock(L);
-		  api_checknelems(L, n);
-		  api_check(L, n <= System.Byte.MaxValue, "upvalue index too large");
-		  luaC_checkGC(L);
-		  cl = luaF_newCclosure(L, n, getcurrenv(L));
-		  cl.c.f = fn;
-		  L.top -= n;
-		  while (n-- != 0)
-			setobj2n(L, cl.c.upvalue[n], L.top+n);
-		  setclvalue(L, L.top, cl);
-		  lua_assert(iswhite(obj2gco(cl)));
+		  if (n == 0) {
+		    setfvalue(L->top, fn);
+		  }
+		  else {
+		    Closure *cl;
+		    api_checknelems(L, n);
+		    api_check(L, n <= MAXUPVAL, "upvalue index too large");
+		    luaC_checkGC(L);
+		    cl = luaF_newCclosure(L, n);
+		    cl->c.f = fn;
+		    L->top -= n;
+		    while (n--)
+		      setobj2n(L, &cl->c.upvalue[n], L->top + n);
+		    setclvalue(L, L->top, cl);
+		  }
 		  api_incr_top(L);
 		  lua_unlock(L);
 		}
@@ -616,7 +657,7 @@ namespace KopiLua
 			  mt = uvalue(obj).metatable;
 			  break;
 			default:
-			  mt = G(L).mt[ttype(obj)];
+			  mt = G(L).mt[ttypenv(obj)];
 			  break;
 		  }
 		  if (mt == null)
@@ -631,22 +672,16 @@ namespace KopiLua
 		}
 
 
-		public static void lua_getfenv (lua_State L, int idx) {
+		public static void lua_getuservalue (lua_State L, int idx) {
 		  StkId o;
 		  lua_lock(L);
 		  o = index2addr(L, idx);
 		  api_checkvalidindex(L, o);
-		  switch (ttype(o)) {
-			case LUA_TFUNCTION:
-			  sethvalue(L, L.top, clvalue(o).c.env);
-			  break;
-			case LUA_TUSERDATA:
-			  sethvalue(L, L.top, uvalue(o).env);
-			  break;
-			default:
-			  setnilvalue(L.top);
-			  break;
-		  }
+		  api_check(L, ttisuserdata(o), "userdata expected");
+		  if (uvalue(o)->env) {
+		    sethvalue(L, L->top, uvalue(o)->env);
+		  } else
+		    setnilvalue(L->top);
 		  api_incr_top(L);
 		  lua_unlock(L);
 		}
@@ -689,7 +724,7 @@ namespace KopiLua
 		  t = index2addr(L, idx);
 		  api_check(L, ttistable(t), "table expected");
 		  setobj2t(L, luaH_set(L, hvalue(t), L.top-2), L.top-1);
-		  luaC_barriert(L, hvalue(t), L.top-1);
+		  luaC_barrierback(L, gcvalue(t), L->top-1);
 		  L.top -= 2;
 		  lua_unlock(L);
 		}
@@ -702,7 +737,7 @@ namespace KopiLua
 		  o = index2addr(L, idx);
 		  api_check(L, ttistable(o), "table expected");
 		  setobj2t(L, luaH_setint(L, hvalue(o), n), L.top-1);
-		  luaC_barriert(L, hvalue(o), L.top-1);
+		  luaC_barrierback(L, gcvalue(o), L->top-1);
 		  StkId.dec(ref L.top);
 		  lua_unlock(L);
 		}
@@ -725,7 +760,7 @@ namespace KopiLua
 			case LUA_TTABLE: {
 			  hvalue(obj).metatable = mt;
 			  if (mt != null)
-				luaC_objbarriert(L, hvalue(obj), mt);
+				luaC_objbarrierback(L, gcvalue(obj), mt);
 			  break;
 			}
 			case LUA_TUSERDATA: {
@@ -737,7 +772,7 @@ namespace KopiLua
 			  break;
 			}
 			default: {
-			  G(L).mt[ttype(obj)] = mt;
+			  G(L).mt[ttypenv(obj)] = mt;
 			  break;
 			}
 		  }
@@ -747,29 +782,22 @@ namespace KopiLua
 		}
 
 
-		public static int lua_setfenv (lua_State L, int idx) {
+		public static void lua_setuservalue (lua_State L, int idx) {
 		  StkId o;
-		  int res = 1;
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  o = index2addr(L, idx);
 		  api_checkvalidindex(L, o);
-		  api_check(L, ttistable(L.top - 1), "table expected");
-		  switch (ttype(o)) {
-			case LUA_TFUNCTION:
-			  clvalue(o).c.env = hvalue(L.top - 1);
-			  break;
-			case LUA_TUSERDATA:
-			  uvalue(o).env = hvalue(L.top - 1);
-			  break;
-			default:
-			  res = 0;
-			  break;
+		  api_check(L, ttisuserdata(o), "userdata expected");
+		  if (ttisnil(L->top - 1))
+		    uvalue(o)->env = NULL;
+		  else {
+		    api_check(L, ttistable(L->top - 1), "table expected");
+		    uvalue(o)->env = hvalue(L->top - 1);
+		    luaC_objbarrier(L, gcvalue(o), hvalue(L->top - 1));
 		  }
-		  if (res != 0) luaC_objbarrier(L, gcvalue(o), hvalue(L.top - 1));
-		  StkId.dec(ref L.top);
+		  L->top--;
 		  lua_unlock(L);
-		  return res;
 		}
 
 
@@ -801,6 +829,7 @@ namespace KopiLua
 		  api_check(L, k == null || isLua(L.ci)==0, 
 		    "cannot use continuations inside hooks");
 		  api_checknelems(L, nargs+1);
+          api_check(L, L.status == LUA_OK, "cannot do calls on non-normal thread");
 		  checkresults(L, nargs, nresults);
 		  func = L.top - (nargs+1);
 		  if (k != null && L.nny == 0) {  /* need to prepare continuation? */
@@ -842,6 +871,7 @@ namespace KopiLua
 		  api_check(L, k == null || isLua(L.ci)==0,
 		    "cannot use continuations inside hooks");
 		  api_checknelems(L, nargs+1);
+          api_check(L, L->status == LUA_OK, "cannot do calls on non-normal thread");
 		  checkresults(L, nargs, nresults);
 		  if (errfunc == 0)
 			func = 0;
@@ -860,7 +890,7 @@ namespace KopiLua
 		    ci.u.c.k = k;  /* save continuation */
 		    ci.u.c.ctx = ctx;  /* save context */
 		    /* save information for error recovery */
-		    ci.u.c.oldtop = savestack(L, c.func);
+		    ci.u.c.extra = savestack(L, c.func);
 		    ci.u.c.old_allowhook = L.allowhook;
 		    ci.u.c.old_errfunc = L.errfunc;
 		    L.errfunc = func;
@@ -886,6 +916,18 @@ namespace KopiLua
 		  if (chunkname == null) chunkname = "?";
 		  luaZ_init(L, z, reader, data);
 		  status = luaD_protectedparser(L, z, chunkname);
+		  if (status == LUA_OK) {  /* no errors? */
+		    Closure *f = clvalue(L->top - 1);  /* get newly created function */
+		    lua_assert(!f->c.isC);
+		    if (f->l.nupvalues == 1) {  /* does it have one upvalue? */
+		      /* get global table from registry */
+		      Table *reg = hvalue(&G(L)->l_registry);
+		      const TValue *gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
+		      /* set global table as 1st upvalue of 'f' (may be LUA_ENV) */
+		      setobj(L, f->l.upvals[0]->v, gt);
+		      luaC_barrier(L, f->l.upvals[0], gt);
+		    }
+		  }
 		  lua_unlock(L);
 		  return status;
 		}
@@ -922,11 +964,11 @@ namespace KopiLua
 		  g = G(L);
 		  switch (what) {
 			case LUA_GCSTOP: {
-			  g.GCthreshold = MAX_LUMEM;
+			  stopgc(g);
 			  break;
 			}
 			case LUA_GCRESTART: {
-			  g.GCthreshold = g.totalbytes;
+			  g.GCdebt = 0;
 			  break;
 			}
 			case LUA_GCCOLLECT: {
@@ -943,18 +985,22 @@ namespace KopiLua
 			  break;
 			}
 			case LUA_GCSTEP: {
-              lu_mem oldts = g.GCthreshold;
-			  lu_mem a = ((lu_mem)data << 10);
-			  g.GCthreshold = (a <= g.totalbytes) ? g.totalbytes - a : 0;
-		      while (g.GCthreshold <= g.totalbytes) {
-		        luaC_step(L);
-		        if (g.gcstate == GCSpause) {  /* end of cycle? */
-		          res = 1;  /* signal it */
-			      break;
-			    }
-              }
-		      if (oldts == MAX_LUMEM)  /* collector was stopped? */
-		        g.GCthreshold = oldts;  /* keep it that way */
+		      int stopped = gcstopped(g);
+		      if (g->gckind == KGC_GEN) {  /* generational mode? */
+		        res = (g->lastmajormem == 0);  /* 1 if will do major collection */
+		        luaC_step(L);  /* do a single step */
+		      }
+		      else {
+		        while (data-- >= 0) {
+		          luaC_step(L);
+		          if (g->gcstate == GCSpause) {  /* end of cycle? */
+		            res = 1;  /* signal it */
+		            break;
+		          }
+		        }
+		      }
+		      if (stopped)  /* collector was stopped? */
+		        stopgc(g);  /* keep it that way */
 		      break;
 			}
 			case LUA_GCSETPAUSE: {
@@ -962,13 +1008,26 @@ namespace KopiLua
 			  g.gcpause = data;
 			  break;
 			}
+		    case LUA_GCSETMAJORINC: {
+		      res = g->gcmajorinc;
+		      g->gcmajorinc = data;
+		      break;
+		    }
 			case LUA_GCSETSTEPMUL: {
 			  res = g.gcstepmul;
 			  g.gcstepmul = data;
 			  break;
 			}
 		    case LUA_GCISRUNNING: {
-		      res = (g.GCthreshold != MAX_LUMEM ? 1 : 0);
+		      res = !gcstopped(g);
+		      break;
+		    }
+		    case LUA_GCGEN: {  /* change collector to generational mode */
+		      luaC_changemode(L, KGC_GEN);
+		      break;
+		    }
+		    case LUA_GCINC: {  /* change collector to incremental mode */
+		      luaC_changemode(L, KGC_NORMAL);
 		      break;
 		    }
 			default: res = -1;  /* invalid option */
@@ -1060,7 +1119,7 @@ namespace KopiLua
 			Udata u;
 			lua_lock(L);
 			luaC_checkGC(L);
-			u = luaS_newudata(L, size, getcurrenv(L));
+			u = luaS_newudata(L, size, null);
 			setuvalue(L, L.top, u);
 			api_incr_top(L);
 			lua_unlock(L);
@@ -1080,20 +1139,27 @@ namespace KopiLua
 			return u.user_data;
 		}
 
-		static CharPtr aux_upvalue (StkId fi, int n, ref TValue val) {
+		static CharPtr aux_upvalue (StkId fi, int n, ref TValue val,
+                                    GCObject **owner) {
 		  Closure f;
-		  if (!ttisfunction(fi)) return null;
+		  if (!ttisclosure(fi)) return null;
 		  f = clvalue(fi);
 		  if (f.c.isC != 0) {
 			if (!(1 <= n && n <= f.c.nupvalues)) return null;
 			val = f.c.upvalue[n-1];
+            if (owner) *owner = obj2gco(f);
 			return "";
 		  }
 		  else {
-			Proto p = f.l.p;
-			if (!(1 <= n && n <= p.sizeupvalues)) return null;
-			val = f.l.upvals[n-1].v;
-			return getstr(p.upvalues[n-1].name);
+		    const char *name;
+		    Proto *p = f->l.p;
+		    if (!(1 <= n && n <= p->sizeupvalues)) return NULL;
+		    *val = f->l.upvals[n-1]->v;
+		    if (owner) *owner = obj2gco(f->l.upvals[n - 1]);
+		    name = getstr(p->upvalues[n-1].name);
+		    if (name == NULL)  /* no debug information? */
+		      name = "";
+		    return name;
 		  }
 		}
 
@@ -1102,7 +1168,7 @@ namespace KopiLua
 		  CharPtr name;
 		  TValue val = new TValue();
 		  lua_lock(L);
-		  name = aux_upvalue(index2addr(L, funcindex), n, ref val);
+		  name = aux_upvalue(index2addr(L, funcindex), n, &val, null);
 		  if (name != null) {
 			setobj2s(L, L.top, val);
 			api_incr_top(L);
@@ -1115,15 +1181,16 @@ namespace KopiLua
 		public static CharPtr lua_setupvalue (lua_State L, int funcindex, int n) {
 		  CharPtr name;
 		  TValue val = new TValue();
+          GCObject *owner;
 		  StkId fi;
 		  lua_lock(L);
 		  fi = index2addr(L, funcindex);
 		  api_checknelems(L, 1);
-		  name = aux_upvalue(fi, n, ref val);
+		  name = aux_upvalue(fi, n, ref val, &owner);
 		  if (name != null) {
 			StkId.dec(ref L.top);
 			setobj(L, val, L.top);
-			luaC_barrier(L, clvalue(fi), L.top);
+			luaC_barrier(L, owner, L->top);
 		  }
 		  lua_unlock(L);
 		  return name;
@@ -1132,13 +1199,11 @@ namespace KopiLua
 
 		private static UpValRef getupvalref (lua_State L, int fidx, int n, Closure[] pf) {
 		  Closure f;
-		  Proto p;
 		  StkId fi = index2addr(L, fidx);
-		  api_check(L, ttisfunction(fi), "function expected");
+		  api_check(L, ttisclosure(fi), "Lua function expected");
 		  f = clvalue(fi);
 		  api_check(L, f.c.isC == 0, "Lua function expected");
-		  p = f.l.p;
-		  api_check(L, (1 <= n && n <= p.sizeupvalues), "invalid upvalue index");
+		  api_check(L, (1 <= n && n <= f->l.p->sizeupvalues), "invalid upvalue index");
 		  if (pf != null) pf[0] = f;
 		  return new UpValRef(f.l.upvals, n - 1);  /* get its upvalue pointer */
 		}
@@ -1147,7 +1212,7 @@ namespace KopiLua
 		private static object lua_upvalueid (lua_State L, int fidx, int n) {
 		  Closure f;
 		  StkId fi = index2addr(L, fidx);
-		  api_check(L, ttisfunction(fi), "function expected");
+		  api_check(L, ttisclosure(fi), "function expected");
 		  f = clvalue(fi);
 		  if (f.c.isC != 0) {
 		    api_check(L, 1 <= n && n <= f.c.nupvalues, "invalid upvalue index");
