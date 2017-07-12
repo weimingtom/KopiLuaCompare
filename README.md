@@ -25,6 +25,7 @@
 
 ## Related Projects  
 * https://github.com/weimingtom/Kuuko  
+https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
 CSharp/Java port (done)    
 
 * https://github.com/weimingtom/kurumi    
