@@ -21,14 +21,27 @@ namespace KopiLua
 		  public CharPtr name;
 		  public lua_CFunction func;
 		};
+
+
+
+
+
 		public static void luaL_checkversion(lua_State L) { luaL_checkversion_(L, LUA_VERSION_NUM);}
 
-
+		/* pre-defined references */
+		public const int LUA_NOREF = (-2);
+		public const int LUA_REFNIL = (-1);
 		/*
 		** ===============================================================
 		** some useful macros
 		** ===============================================================
 		*/
+
+
+		public static void luaL_newlibtable(L,l) {
+		  return lua_createtable(L, 0, sizeof(l)/sizeof((l)[0]) - 1); }
+
+		public static void luaL_newlib(L,l) { return (luaL_newlibtable(L,l), luaL_setfuncs(L,l,0)); }
 
 		public static void luaL_argcheck(lua_State L, bool cond, int numarg, string extramsg) {
 			if (!cond)
@@ -66,42 +79,29 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-
-
 		public class luaL_Buffer {
-		  public int p;			/* current position in buffer */
-		  public int lvl;  /* number of strings in the stack (level) */
+		  public CharPtr b;  /* buffer address */
+		  public uint size;  /* buffer size */
+		  public uint n;  /* number of characters in buffer */
 		  public lua_State L;
-		  public CharPtr buffer = new char[LUAL_BUFFERSIZE];
+		  public CharPtr initb = new char[LUAL_BUFFERSIZE];  /* initial buffer */
 		};
 
 		public static void luaL_addchar(luaL_Buffer B, char c) {
-			if (B.p >= LUAL_BUFFERSIZE)
-				luaL_prepbuffer(B);
-			B.buffer[B.p++] = c;
+			((void)((B)->n < (B)->size || luaL_prepbuffsize((B), 1)),
+   				((B)->b[(B)->n++] = (c)))
 		}
 
 
 		public static void luaL_addsize(luaL_Buffer B, int n)	{B.p += n;}
 
+		public static void luaL_prepbuffer(B) { return luaL_prepbuffsize(B, LUAL_BUFFERSIZE); }
 		/* }====================================================== */
 
 
-		/* compatibility with ref system */
+		/* compatibility with old module system */
 
-		/* pre-defined references */
-		public const int LUA_NOREF       = (-2);
-		public const int LUA_REFNIL      = (-1);
-
-		//#define lua_ref(L,lock) ((lock) ? luaL_ref(L, LUA_REGISTRYINDEX) : \
-		//      (lua_pushstring(L, "unlocked references are obsolete"), lua_error(L), 0))
-
-		//#define lua_unref(L,ref)        luaL_unref(L, LUA_REGISTRYINDEX, (ref))
-
-		//#define lua_getref(L,ref)       lua_rawgeti(L, LUA_REGISTRYINDEX, (ref))
-
-
-		//#define luaL_reg	luaL_Reg
+		public static void luaL_register(L,n,l) { return (luaL_openlib(L,(n),(l),0)); }
 
 
 	}
