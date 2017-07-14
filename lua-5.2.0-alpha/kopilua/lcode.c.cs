@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.42 2009/09/23 20:33:05 roberto Exp roberto $
+** $Id: lcode.c,v 2.48 2010/07/02 20:42:40 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -94,6 +94,7 @@ namespace KopiLua
 		  else
 			return (pc+1)+offset;  /* turn offset into absolute position */
 		}
+
 
 		private static InstructionPtr getjumpcontrol (FuncState fs, int pc) {
 		  InstructionPtr pi = new InstructionPtr(fs.f.code, pc);
@@ -262,7 +263,7 @@ namespace KopiLua
 
 		private static void freeexp (FuncState fs, expdesc e) {
 		  if (e.k == expkind.VNONRELOC)
-			freereg(fs, e.u.s.info);
+			freereg(fs, e.u.info);
 		}
 
 
@@ -348,7 +349,7 @@ namespace KopiLua
 		public static void luaK_setoneret (FuncState fs, expdesc e) {
 		  if (e.k == expkind.VCALL) {  /* expression is an open function call? */
 			e.k = expkind.VNONRELOC;
-			e.u.s.info = GETARG_A(getcode(fs, e));
+			e.u.info = GETARG_A(getcode(fs, e));
 		  }
 		  else if (e.k == expkind.VVARARG) {
 			SETARG_B(getcode(fs, e), 2);
@@ -364,21 +365,20 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VUPVAL: {
-			  e.u.s.info = luaK_codeABC(fs, OpCode.OP_GETUPVAL, 0, e.u.s.info, 0);
-			  e.k = expkind.VRELOCABLE;
-			  break;
-			}
-			case expkind.VGLOBAL: {
-				e.u.s.info = luaK_codeABxX(fs, OpCode.OP_GETGLOBAL, 0, e.u.s.info);
+			  e.u.info = luaK_codeABC(fs, OpCode.OP_GETUPVAL, 0, e.u.s.info, 0);
 			  e.k = expkind.VRELOCABLE;
 			  break;
 			}
 			case expkind.VINDEXED: {
-			  freereg(fs, e.u.s.aux);
-			  freereg(fs, e.u.s.info);
-			  e.u.s.info = luaK_codeABC(fs, OpCode.OP_GETTABLE, 0, e.u.s.info, e.u.s.aux);
-			  e.k = expkind.VRELOCABLE;
-			  break;
+		      OpCode op = OP_GETTABUP;  /* assume 't' is in an upvalue */
+		      freereg(fs, e->u.ind.idx);
+		      if (e->u.ind.vt == VLOCAL) {  /* 't' is in a register? */
+		        freereg(fs, e->u.ind.t);
+		        op = OP_GETTABLE;
+		      }
+		      e->u.info = luaK_codeABC(fs, op, 0, e->u.ind.t, e->u.ind.idx);
+		      e->k = VRELOCABLE;
+		      break;
 			}
 			case expkind.VVARARG:
 			case expkind.VCALL: {
@@ -408,7 +408,7 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VK: {
-			  luaK_codek(fs, reg, e.u.s.info);
+			  luaK_codek(fs, reg, e.u.info);
 			  break;
 			}
 			case expkind.VKNUM: {
@@ -421,8 +421,8 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VNONRELOC: {
-			  if (reg != e.u.s.info)
-				luaK_codeABC(fs, OpCode.OP_MOVE, reg, e.u.s.info, 0);
+			  if (reg != e.u.info)
+				luaK_codeABC(fs, OpCode.OP_MOVE, reg, e.u.info, 0);
 			  break;
 			}
 			default: {
@@ -430,7 +430,7 @@ namespace KopiLua
 			  return;  /* nothing to do... */
 			}
 		  }
-		  e.u.s.info = reg;
+		  e.u.info = reg;
 		  e.k = expkind.VNONRELOC;
 		}
 
@@ -446,7 +446,7 @@ namespace KopiLua
 		private static void exp2reg (FuncState fs, expdesc e, int reg) {
 		  discharge2reg(fs, e, reg);
 		  if (e.k == expkind.VJMP)
-			luaK_concat(fs, ref e.t, e.u.s.info);  /* put this jump in `t' list */
+			luaK_concat(fs, ref e.t, e.u.info);  /* put this jump in `t' list */
 		  if (hasjumps(e)) {
 			int final;  /* position after whole expression */
 			int p_f = NO_JUMP;  /* position of an eventual LOAD false */
@@ -462,7 +462,7 @@ namespace KopiLua
 			patchlistaux(fs, e.t, final, reg, p_t);
 		  }
 		  e.f = e.t = NO_JUMP;
-		  e.u.s.info = reg;
+		  e.u.info = reg;
 		  e.k = expkind.VNONRELOC;
 		}
 
@@ -478,14 +478,20 @@ namespace KopiLua
 		public static int luaK_exp2anyreg (FuncState fs, expdesc e) {
 		  luaK_dischargevars(fs, e);
 		  if (e.k == expkind.VNONRELOC) {
-			if (!hasjumps(e)) return e.u.s.info;  /* exp is already in a register */
-			if (e.u.s.info >= fs.nactvar) {  /* reg. is not a local? */
-			  exp2reg(fs, e, e.u.s.info);  /* put value on it */
-			  return e.u.s.info;
+			if (!hasjumps(e)) return e.u.info;  /* exp is already in a register */
+			if (e.u.info >= fs.nactvar) {  /* reg. is not a local? */
+			  exp2reg(fs, e, e.u.info);  /* put value on it */
+			  return e.u.info;
 			}
 		  }
 		  luaK_exp2nextreg(fs, e);  /* default */
-		  return e.u.s.info;
+		  return e.u.info;
+		}
+
+
+		public static void luaK_exp2anyregup (FuncState fs, expdesc e) { //FIXME:public ???
+		  if (e.k != VUPVAL || hasjumps(e))
+		    luaK_exp2anyreg(fs, e);
 		}
 
 
@@ -504,21 +510,21 @@ namespace KopiLua
 			case expkind.VFALSE:
 			case expkind.VNIL: {
 			  if (fs.nk <= MAXINDEXRK) {  /* constant fit in RK operand? */
-		  		e.u.s.info = (e.k == expkind.VNIL)  ? nilK(fs) : boolK(fs, (e.k == expkind.VTRUE) ? 1 : 0);
+		  		e.u.info = (e.k == expkind.VNIL)  ? nilK(fs) : boolK(fs, (e.k == expkind.VTRUE) ? 1 : 0);
 				e.k = expkind.VK;
-				return RKASK(e.u.s.info);
+				return RKASK(e.u.info);
 			  }
 			  else break;
 			}
 		    case expkind.VKNUM: {
-		      e.u.s.info = luaK_numberK(fs, e.u.nval);
+		      e.u.info = luaK_numberK(fs, e.u.nval);
 		      e.k = expkind.VK;
 		      /* go through */
 			  goto case expkind.VK;//FIXME:
 		    }
 			case expkind.VK: {
-			  if (e.u.s.info <= MAXINDEXRK)  /* constant fit in argC? */
-				return RKASK(e.u.s.info);
+			  if (e.u.info <= MAXINDEXRK)  /* constant fit in argC? */
+				return RKASK(e.u.info);
 			  else break;
 			}
 			default: break;
@@ -532,22 +538,18 @@ namespace KopiLua
 		  switch (var.k) {
 			case expkind.VLOCAL: {
 			  freeexp(fs, ex);
-			  exp2reg(fs, ex, var.u.s.info);
+			  exp2reg(fs, ex, var.u.info);
 			  return;
 			}
 			case expkind.VUPVAL: {
 			  int e = luaK_exp2anyreg(fs, ex);
-			  luaK_codeABC(fs, OpCode.OP_SETUPVAL, e, var.u.s.info, 0);
-			  break;
-			}
-			case expkind.VGLOBAL: {
-			  int e = luaK_exp2anyreg(fs, ex);
-			  luaK_codeABxX(fs, OpCode.OP_SETGLOBAL, e, var.u.s.info);
+			  luaK_codeABC(fs, OpCode.OP_SETUPVAL, e, var.u.info, 0);
 			  break;
 			}
 			case expkind.VINDEXED: {
+              OpCode op = (var->u.ind.vt == VLOCAL) ? OP_SETTABLE : OP_SETTABUP;
 			  int e = luaK_exp2RK(fs, ex);
-			  luaK_codeABC(fs, OpCode.OP_SETTABLE, var.u.s.info, var.u.s.aux, e);
+			  luaK_codeABC(fs, op, var.u.ind.t, var.u.ind.idx, e);
 			  break;
 			}
 			default: {
@@ -564,16 +566,16 @@ namespace KopiLua
 		  luaK_exp2anyreg(fs, e);
 		  freeexp(fs, e);
 		  func = fs.freereg;
-		  luaK_reserveregs(fs, 2);
-		  luaK_codeABC(fs, OpCode.OP_SELF, func, e.u.s.info, luaK_exp2RK(fs, key));
+		  luaK_codeABC(fs, OpCode.OP_SELF, func, e.u.info, luaK_exp2RK(fs, key));
 		  freeexp(fs, key);
-		  e.u.s.info = func;
+          luaK_reserveregs(fs, 2);
+		  e.u.info = func;
 		  e.k = expkind.VNONRELOC;
 		}
 
 
 		private static void invertjump (FuncState fs, expdesc e) {
-		  InstructionPtr pc = getjumpcontrol(fs, e.u.s.info);
+		  InstructionPtr pc = getjumpcontrol(fs, e.u.info);
 		  lua_assert(testTMode(GET_OPCODE(pc[0])) != 0 && GET_OPCODE(pc[0]) != OpCode.OP_TESTSET &&
 												   GET_OPCODE(pc[0]) != OpCode.OP_TEST);
 		  SETARG_A(pc, (GETARG_A(pc[0]) == 0) ? 1 : 0);
@@ -591,7 +593,7 @@ namespace KopiLua
 		  }
 		  discharge2anyreg(fs, e);
 		  freeexp(fs, e);
-		  return condjump(fs, OpCode.OP_TESTSET, NO_REG, e.u.s.info, cond);
+		  return condjump(fs, OpCode.OP_TESTSET, NO_REG, e.u.info, cond);
 		}
 
 
@@ -605,7 +607,7 @@ namespace KopiLua
 			}
 			case expkind.VJMP: {
 			  invertjump(fs, e);
-			  pc = e.u.s.info;
+			  pc = e.u.info;
 			  break;
 			}
 		    case expkind.VFALSE: {
@@ -636,7 +638,7 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VJMP: {
-			  pc = e.u.s.info;
+			  pc = e.u.info;
 			  break;
 			}
 			case expkind.VTRUE: {
@@ -677,7 +679,7 @@ namespace KopiLua
 			case expkind.VNONRELOC: {
 			  discharge2anyreg(fs, e);
 			  freeexp(fs, e);
-			  e.u.s.info = luaK_codeABC(fs, OpCode.OP_NOT, 0, e.u.s.info, 0);
+			  e.u.info = luaK_codeABC(fs, OpCode.OP_NOT, 0, e.u.s.info, 0);
 			  e.k = expkind.VRELOCABLE;
 			  break;
 			}
@@ -694,7 +696,11 @@ namespace KopiLua
 
 
 		public static void luaK_indexed (FuncState fs, expdesc t, expdesc k) {
-		  t.u.s.aux = luaK_exp2RK(fs, k);
+		  lua_assert(!hasjumps(t));
+		  t.u.ind.t = t->u.info;
+		  t.u.ind.idx = luaK_exp2RK(fs, k);
+		  t.u.ind.vt = (t.k == VUPVAL) ? VUPVAL
+			                                 : check_exp(vkisinreg(t.k), VLOCAL);
 		  t.k = expkind.VINDEXED;
 		}
 
@@ -710,7 +716,8 @@ namespace KopiLua
 		}
 
 
-		private static void codearith (FuncState fs, OpCode op, expdesc e1, expdesc e2) {
+		private static void codearith (FuncState fs, OpCode op, 
+		                               expdesc e1, expdesc e2, int line) {
 		  if (constfolding(op, e1, e2) != 0)
 			return;
 		  else {
@@ -724,8 +731,9 @@ namespace KopiLua
 		      freeexp(fs, e2);
 		      freeexp(fs, e1);
 		    }
-			e1.u.s.info = luaK_codeABC(fs, op, 0, o1, o2);
+			e1.u.info = luaK_codeABC(fs, op, 0, o1, o2);
 			e1.k = expkind.VRELOCABLE;
+            luaK_fixline(fs, line);
 		  }
 		}
 
@@ -741,12 +749,12 @@ namespace KopiLua
 			temp = o1; o1 = o2; o2 = temp;  /* o1 <==> o2 */
 			cond = 1;
 		  }
-		  e1.u.s.info = condjump(fs, op, cond, o1, o2);
+		  e1.u.info = condjump(fs, op, cond, o1, o2);
 		  e1.k = expkind.VJMP;
 		}
 
 
-		public static void luaK_prefix (FuncState fs, UnOpr op, expdesc e) {
+		public static void luaK_prefix (FuncState fs, UnOpr op, expdesc e, int line) {
 		  expdesc e2 = new expdesc();
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKNUM; e2.u.nval = 0;
 		  switch (op) {
@@ -755,14 +763,14 @@ namespace KopiLua
 		        e.u.nval = luai_numunm(null, e.u.nval);  /* fold it */
 		      else {
 				luaK_exp2anyreg(fs, e);
-			    codearith(fs, OpCode.OP_UNM, e, e2);
+			    codearith(fs, OpCode.OP_UNM, e, e2, line);
               }
 			  break;
 			}
 			case UnOpr.OPR_NOT: codenot(fs, e); break;
 			case UnOpr.OPR_LEN: {
 			  luaK_exp2anyreg(fs, e);  /* cannot operate on constants */
-			  codearith(fs, OpCode.OP_LEN, e, e2);
+			  codearith(fs, OpCode.OP_LEN, e, e2, line);
 			  break;
 			}
 			default: lua_assert(0); break;
@@ -797,7 +805,8 @@ namespace KopiLua
 		}
 
 
-		public static void luaK_posfix (FuncState fs, BinOpr op, expdesc e1, expdesc e2) {
+		public static void luaK_posfix (FuncState fs, BinOpr op, 
+		                                expdesc e1, expdesc e2, int line) {
 		  switch (op) {
 			case BinOpr.OPR_AND: {
 			  lua_assert(e1.t == NO_JUMP);  /* list must be closed */
@@ -816,20 +825,20 @@ namespace KopiLua
 			case BinOpr.OPR_CONCAT: {
 			  luaK_exp2val(fs, e2);
 			  if (e2.k == expkind.VRELOCABLE && GET_OPCODE(getcode(fs, e2)) == OpCode.OP_CONCAT) {
-				lua_assert(e1.u.s.info == GETARG_B(getcode(fs, e2))-1);
+				lua_assert(e1.u.info == GETARG_B(getcode(fs, e2))-1);
 				freeexp(fs, e1);
-				SETARG_B(getcode(fs, e2), e1.u.s.info);
-				e1.k = expkind.VRELOCABLE; e1.u.s.info = e2.u.s.info;
+				SETARG_B(getcode(fs, e2), e1.u.info);
+				e1.k = expkind.VRELOCABLE; e1.u.info = e2.u.info;
 			  }
 			  else {
 				luaK_exp2nextreg(fs, e2);  /* operand must be on the 'stack' */
-				codearith(fs, OpCode.OP_CONCAT, e1, e2);
+				codearith(fs, OpCode.OP_CONCAT, e1, e2, line);
 			  }
 			  break;
 			}
 		    case BinOpr.OPR_ADD: case BinOpr.OPR_SUB: case BinOpr.OPR_MUL: case BinOpr.OPR_DIV:
 		    case BinOpr.OPR_MOD: case BinOpr.OPR_POW: {
-		      codearith(fs, (OpCode)(op - BinOpr.OPR_ADD + OpCode.OP_ADD), e1, e2);
+		      codearith(fs, (OpCode)(op - BinOpr.OPR_ADD + OpCode.OP_ADD), e1, e2, line);
 		      break;
 		    }
 		    case BinOpr.OPR_EQ: case BinOpr.OPR_LT: case BinOpr.OPR_LE: {

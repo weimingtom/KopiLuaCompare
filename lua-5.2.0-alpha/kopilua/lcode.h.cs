@@ -25,7 +25,7 @@ namespace KopiLua
 		public enum UnOpr { OPR_MINUS, OPR_NOT, OPR_LEN, OPR_NOUNOPR };
 
 
-		public static InstructionPtr getcode(FuncState fs, expdesc e)	{return new InstructionPtr(fs.f.code, e.u.s.info);}
+		public static InstructionPtr getcode(FuncState fs, expdesc e)	{return new InstructionPtr(fs.f.code, e.u.info);}
 
 		public static int luaK_codeAsBx(FuncState fs, OpCode o, int A, int sBx)	{return luaK_codeABx(fs,o,A,(uint)(sBx+MAXARG_sBx));} //FIXME:added (uint)
 
