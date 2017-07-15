@@ -51,4 +51,15 @@ llex.c
 20:17 2017-07-15
 llex.h
 
-
+00:16 2017-07-16
+llimits.h
+00:27 2017-07-16
+lmathlib.c
+00:30 2017-07-16
+lmem.c
+	luaM_realloc_ not sync, no gc
+00:31 2017-07-16
+lmem.h
+00:49 2017-07-16
+loadlib.c
+	LUA_COMPAT_MODULE

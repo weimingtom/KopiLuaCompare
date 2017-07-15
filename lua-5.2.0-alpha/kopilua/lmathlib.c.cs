@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.73 2009/03/17 17:55:39 roberto Exp roberto $
+** $Id: lmathlib.c,v 1.78 2010/11/12 15:47:34 roberto Exp roberto $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -14,13 +14,21 @@ namespace KopiLua
 
 	public partial class Lua
 	{
+
+        //#undef PI
 		public const double PI = 3.14159265358979323846;
 		public const double RADIANS_PER_DEGREE = PI / 180.0;
 
 
+		/* macro 'l_tg' allows the addition of an 'l' or 'f' to all math operations */
+		//#if !defined(l_tg)
+		//#define l_tg(x)		(x) //FIXME: not used here
+		//#endif
+
+
 
 		private static int math_abs (lua_State L) {
-		  lua_pushnumber(L, Math.Abs(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, Math.Abs(luaL_checknumber(L, 1))); //FIXME:l_tg(fabs), same below
 		  return 1;
 		}
 
@@ -70,7 +78,8 @@ namespace KopiLua
 		}
 
 		private static int math_atan2 (lua_State L) {
-		  lua_pushnumber(L, Math.Atan2(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, Math.Atan2(luaL_checknumber(L, 1), 
+		                               luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
@@ -85,13 +94,14 @@ namespace KopiLua
 		}
 
 		private static int math_fmod (lua_State L) {
-		  lua_pushnumber(L, fmod(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, fmod(luaL_checknumber(L, 1), 
+		                         luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
 		private static int math_modf (lua_State L) {
-		  double ip;
-		  double fp = modf(luaL_checknumber(L, 1), out ip);
+		  lua_Number ip;
+		  lua_Number fp = modf(luaL_checknumber(L, 1), out ip);
 		  lua_pushnumber(L, ip);
 		  lua_pushnumber(L, fp);
 		  return 2;
@@ -103,7 +113,8 @@ namespace KopiLua
 		}
 
 		private static int math_pow (lua_State L) {
-		  lua_pushnumber(L, Math.Pow(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, Math.Pow(luaL_checknumber(L, 1), 
+		                             luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
@@ -122,12 +133,13 @@ namespace KopiLua
 		}
 
 		private static int math_log10 (lua_State L) {
-//#if LUA_COMPAT_LOG10
-		  luaL_error(L, "function " + LUA_QL("log10") + 
-		                " is deprecated; use log(x, 10) instead");
-//#endif
+//#if !LUA_COMPAT_LOG10 //FIXME:???
+//		  return luaL_error(L, "function " + LUA_QL("log10") + 
+//		                " is deprecated; use log(x, 10) instead");
+//#else
 		  lua_pushnumber(L, Math.Log10(luaL_checknumber(L, 1)));
 		  return 1;
+//#endif
 		}
 
 		private static int math_exp (lua_State L) {
@@ -153,7 +165,8 @@ namespace KopiLua
 		}
 
 		private static int math_ldexp (lua_State L) {
-		  lua_pushnumber(L, ldexp(luaL_checknumber(L, 1), luaL_checkint(L, 2)));
+		  lua_pushnumber(L, ldexp(luaL_checknumber(L, 1), 
+		                          luaL_checkint(L, 2)));
 		  return 1;
 		}
 
@@ -186,7 +199,7 @@ namespace KopiLua
 		  return 1;
 		}
 
-		private static Random rng = new Random();
+		private static Random rng = new Random(); //FIXME:added
 
 		private static int math_random (lua_State L) {
 		  /* the `%' avoids the (rare) case of r==1, and is needed also because on
@@ -218,9 +231,8 @@ namespace KopiLua
 
 
 		private static int math_randomseed (lua_State L) {
-		  //srand(luaL_checkint(L, 1));
-			rng = new Random(luaL_checkint(L, 1)); 
-		  rng.Next(); /* discard first value to avoid undesirable correlations */ //FIXME:???
+		  rng = new Random(luaL_checkunsigned(L, 1)); //FIXME:changed - srand(luaL_checkunsigned(L, 1));
+		  rng.Next(); /* discard first value to avoid undesirable correlations */ //FIXME:changed - (void)rand();
 		  return 0;
 		}
 
@@ -262,7 +274,7 @@ namespace KopiLua
 		** Open math library
 		*/
 		public static int luaopen_math (lua_State L) {
-		  luaL_register(L, LUA_MATHLIBNAME, mathlib);
+		  luaL_newlib(L, mathlib);
 		  lua_pushnumber(L, PI);
 		  lua_setfield(L, -2, "pi");
 		  lua_pushnumber(L, HUGE_VAL);

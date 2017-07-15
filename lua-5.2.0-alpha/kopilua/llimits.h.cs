@@ -1,7 +1,7 @@
 //#define lua_assert
 
 /*
-** $Id: llimits.h,v 1.76 2009/12/17 12:26:09 roberto Exp roberto $
+** $Id: llimits.h,v 1.83 2010/11/03 15:16:17 roberto Exp roberto $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -36,9 +36,10 @@ namespace KopiLua
 		//typedef unsigned char lu_byte;
 
 
-		public const uint MAX_SIZET	= uint.MaxValue - 2;
+		public const uint MAX_SIZET	= uint.MaxValue - 2; //FIXME:changed
 
-		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2;
+		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2; //FIXME:changed
+		public const lu_mem MIN_LMEM = ((l_mem)~((~(lu_mem)0)>>1)); //FIXME:???
 
 
 		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
@@ -83,14 +84,14 @@ namespace KopiLua
 #else
 
 		[Conditional("DEBUG")]
-		public static void lua_assert(bool c) {}
+		public static void lua_assert(bool c) {/* empty */}
 		[Conditional("DEBUG")]
-		public static void lua_assert(bool c, string msg) {}
+		public static void lua_assert(bool c, string msg) {/* empty */}
 
 		[Conditional("DEBUG")]
-		public static void lua_assert(int c) {}
+		public static void lua_assert(int c) {/* empty */}
 		[Conditional("DEBUG")]
-		public static void lua_assert(int c, string msg) {}
+		public static void lua_assert(int c, string msg) {/* empty */}
 
 		public static object check_exp(bool c, object e) { return e; }
 		public static object check_exp(int c, object e) { return e; }
@@ -134,6 +135,13 @@ namespace KopiLua
 		public const int LUAI_MAXCCALLS = 200;
 		//#endif
 
+		/*
+		** maximum number of upvalues in a closure (both C and Lua). (Value
+		** must fit in an unsigned char.)
+		*/
+		public const int MAXUPVAL = UCHAR_MAX; //FIXME:UCHAR_MAX???
+
+
 		public static int cast_int(int i) { return (int)i; }
 		public static int cast_int(long i) { return (int)(int)i; }
 		public static int cast_int(bool i) { return i ? (int)1 : (int)0; }
@@ -160,11 +168,15 @@ namespace KopiLua
 
 
 		/* minimum size for the string table (must be power of 2) */
+
 		public const int MINSTRTABSIZE	= 32;
 
 
+
 		/* minimum size for string buffer */
+
 		public const int LUA_MINBUFFER	= 32;
+
 
 
 		#if !lua_lock
@@ -198,7 +210,7 @@ namespace KopiLua
 		#endif
 
 		#if !luai_userstatefree
-		public static void luai_userstatefree(lua_State L)           { /*((void)L)*/ }
+		public static void luai_userstatefree(lua_State L, lua_State L1)           { /*((void)L)*/ }
 		#endif
 
 		#if !luai_userstateresume
@@ -209,18 +221,117 @@ namespace KopiLua
 		public static void luai_userstateyield(lua_State L, int n)        { /*((void)L)*/ }
 		#endif
 
+		//FIXME:<----------------------------------
+		/*
+		** lua_number2int is a macro to convert lua_Number to int.
+		** lua_number2integer is a macro to convert lua_Number to lua_Integer.
+		** lua_number2unsigned is a macro to convert a lua_Number to a lua_Unsigned.
+		** lua_unsigned2number is a macro to convert a lua_Unsigned to a lua_Number.
+		*/
 
+		#if defined(MS_ASMTRICK)	/* { */
+		/* trick with Microsoft assembler for X86 */
+
+		#define lua_number2int(i,n)  __asm {__asm fld n   __asm fistp i}
+		#define lua_number2integer(i,n)		lua_number2int(i, n)
+		#define lua_number2unsigned(i,n)  \
+		  {__int64 l; __asm {__asm fld n   __asm fistp l} i = (unsigned int)l;}
+
+
+		#elif defined(LUA_IEEE754TRICK)		/* }{ */
+		/* the next trick should work on any machine using IEEE754 with
+		   a 32-bit integer type */
+
+		union luai_Cast { double l_d; LUA_INT32 l_p[2]; };
+
+		#if !defined(LUA_IEEEENDIAN)	/* { */
+		#define LUAI_EXTRAIEEE	\
+		  static const union luai_Cast ieeeendian = {-(33.0 + 6755399441055744.0)};
+		#define LUA_IEEEENDIAN		(ieeeendian.l_p[1] == 33)
+		#else
+		#define LUAI_EXTRAIEEE		/* empty */
+		#endif				/* } */
+
+		#define lua_number2int32(i,n,t) \
+		  { LUAI_EXTRAIEEE \
+		    volatile union luai_Cast u; u.l_d = (n) + 6755399441055744.0; \
+		    (i) = (t)u.l_p[LUA_IEEEENDIAN]; }
+
+		#define lua_number2int(i,n)		lua_number2int32(i, n, int)
+		#define lua_number2integer(i,n)		lua_number2int32(i, n, lua_Integer)
+		#define lua_number2unsigned(i,n)	lua_number2int32(i, n, lua_Unsigned)
+
+		#endif				/* } */
+
+
+		/* the following definitions always work, but may be slow */
+
+		#if !defined(lua_number2int)
+		#define lua_number2int(i,n)	((i)=(int)(n))
+		#endif
+
+		#if !defined(lua_number2integer)
+		#define lua_number2integer(i,n)	((i)=(lua_Integer)(n))
+		#endif
+
+		#if !defined(lua_number2unsigned)	/* { */
+		/* the following definition assures proper modulo behavior */
+		#if defined(LUA_NUMBER_DOUBLE)
+		#include <math.h>
+		#define SUPUNSIGNED	((lua_Number)(~(lua_Unsigned)0) + 1)
+		#define lua_number2unsigned(i,n)  \
+			((i)=(lua_Unsigned)((n) - floor((n)/SUPUNSIGNED)*SUPUNSIGNED))
+		#else
+		#define lua_number2unsigned(i,n)	((i)=(lua_Unsigned)(n))
+		#endif
+		#endif				/* } */
+
+
+		#if !defined(lua_unsigned2number)
+		/* on several machines, coercion from unsigned to double is slow,
+		   so it may be worth to avoid */
+		#define lua_unsigned2number(u)  \
+		    (((u) <= (lua_Unsigned)INT_MAX) ? (lua_Number)(int)(u) : (lua_Number)(u))
+		#endif
+
+
+		/*
+		** luai_hashnum is a macro do hash a lua_Number value into an integer.
+		** The hash must be deterministic and give reasonable values for
+		** both small and large values (outside the range of integers).
+		** It is used only in ltable.c.
+		*/
+
+		#if !defined(luai_hashnum)	/* { */
+
+		#include <float.h>
+		#include <math.h>
+
+		#define luai_hashnum(i,n) { int e;  \
+		  n = frexp(n, &e) * (lua_Number)(INT_MAX - DBL_MAX_EXP);  \
+		  lua_number2int(i, n); i += e; }
+
+		#endif						/* } */
+		//FIXME:---------------------------------->
 
 
 		/*
 		** macro to control inclusion of some hard tests on stack reallocation
 		*/
+		//------------------>FIXME: below ignore???, TODO
 		//#ifndef HARDSTACKTESTS
 		//#define condmovestack(x)	((void)0)
 		//#else
 		//#define condmovestack(L) /* realloc stack keeping its size */ \
 		//	luaD_reallocstack((L), (L)->stacksize - EXTRA_STACK - 1)
 		//#endif
-        //------------------>FIXME:???
+        //------------------>FIXME:below ignore???, TODO		
+		//#if !defined(HARDMEMTESTS)
+		//#define condchangemem(L)	condmovestack(L)
+		//#else
+		//#define condchangemem(L)  \
+		//	((void)(gcstopped(G(L)) || (luaC_fullgc(L, 0), 1)))
+		//#endif
+
 	}
 }

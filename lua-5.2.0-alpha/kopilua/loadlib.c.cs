@@ -1,11 +1,11 @@
 /*
-** $Id: loadlib.c,v 1.79 2010/01/13 16:09:05 roberto Exp roberto $
+** $Id: loadlib.c,v 1.93 2010/11/10 18:05:36 roberto Exp roberto $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
 ** This module contains an implementation of loadlib for Unix systems
-** that have dlfcn, an implementation for Darwin (Mac OS X), an
-** implementation for Windows, and a stub for other systems.
+** that have dlfcn, an implementation for Windows, and a stub for other
+** systems.
 */
 
 using System;
@@ -21,17 +21,21 @@ namespace KopiLua
 	{
 
 		/*
-		** LUA_PATH_VAR and LUA_CPATH_VAR are the names of the environment
+		** LUA_PATH and LUA_CPATH are the names of the environment
 		** variables that Lua check to set its paths.
 		*/
-		//#if !defined(LUA_PATH_VAR)
-		private const string LUA_PATH_VAR = "LUA_PATH";
+		//#if !defined(LUA_PATH)
+		private const string LUA_PATH = "LUA_PATH";
 		//#endif
 
-		//#if !defined(LUA_CPATH_VAR)
-		private const string LUA_CPATH_VAR = "LUA_CPATH";
+		//#if !defined(LUA_CPATH)
+		private const string LUA_CPATH = "LUA_CPATH";
 		//#endif
 
+		private const string LUA_PATHSUFFIX	 = "_" + LUA_VERSION_MAJOR + "_" + LUA_VERSION_MINOR;
+
+		private const string LUA_PATHVERSION = LUA_PATH + LUA_PATHSUFFIX;
+		private const string LUA_CPATHVERSION = LUA_CPATH + LUA_PATHSUFFIX;
 
 		/*
 		** LUA_PATH_SEP is the character that separates templates in a path.
@@ -142,11 +146,12 @@ namespace KopiLua
 		private const int LUA_LLE_FLAGS	= 0;
 		//#endif
 
+
 		static void setprogdir (lua_State L) {
 		  char buff[MAX_PATH + 1];
 		  char *lb;
 		  DWORD nsize = sizeof(buff)/GetUnmanagedSize(typeof(char));
-		  DWORD n = GetModuleFileName(null, buff, nsize);
+		  DWORD n = GetModuleFileNameA(null, buff, nsize);
 		  if (n == 0 || n == nsize || (lb = strrchr(buff, '\\')) == null)
 			luaL_error(L, "unable to get ModuleFileName");
 		  else {
@@ -160,7 +165,7 @@ namespace KopiLua
 		static void pusherror (lua_State L) {
 		  int error = GetLastError();
 		  char buffer[128];
-		  if (FormatMessage(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
+		  if (FormatMessageA(FORMAT_MESSAGE_IGNORE_INSERTS | FORMAT_MESSAGE_FROM_SYSTEM,
 			  null, error, 0, buffer, sizeof(buffer), null))
 			lua_pushstring(L, buffer);
 		  else
@@ -173,7 +178,7 @@ namespace KopiLua
 
 
 		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
-		  HMODULE lib = LoadLibraryEx(path, null, LUA_LLE_FLAGS);
+		  HMODULE lib = LoadLibraryExA(path, null, LUA_LLE_FLAGS);
           UNUSED(seeglb);  /* symbols are 'global' by default? */
 		  if (lib == null) pusherror(L);
 		  return lib;
@@ -187,90 +192,6 @@ namespace KopiLua
 		}
 
 		/* }====================================================== */
-
-
-
-#elif LUA_DL_DYLD
-		/*
-		** {======================================================================
-		** Old native Mac OS X - only for old versions of Mac OS (< 10.3)
-		** =======================================================================
-		*/
-
-		//#include <mach-o/dyld.h>
-
-
-		/* Mac appends a `_' before C function names */
-		//#undef POF
-		//#define POF	"_" LUA_POF
-
-
-		static void pusherror (lua_State L) {
-		  CharPtr err_str;
-		  CharPtr err_file;
-		  NSLinkEditErrors err;
-		  int err_num;
-		  NSLinkEditError(err, err_num, err_file, err_str);
-		  lua_pushstring(L, err_str);
-		}
-
-
-		static CharPtr errorfromcode (NSObjectFileImageReturnCode ret) {
-		  switch (ret) {
-			case NSObjectFileImageInappropriateFile:
-			  return "file is not a bundle";
-			case NSObjectFileImageArch:
-			  return "library is for wrong CPU type";
-			case NSObjectFileImageFormat:
-			  return "bad format";
-			case NSObjectFileImageAccess:
-			  return "cannot access file";
-			case NSObjectFileImageFailure:
-			default:
-			  return "unable to load library";
-		  }
-		}
-
-
-		static void ll_unloadlib (void *lib) {
-		  NSUnLinkModule((NSModule)lib, NSUNLINKMODULE_OPTION_RESET_LAZY_REFERENCES);
-		}
-
-
-		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
-		  NSObjectFileImage img;
-		  NSObjectFileImageReturnCode ret;
-		  /* this would be a rare case, but prevents crashing if it happens */
-		  if(!_dyld_present()) {
-			lua_pushliteral(L, "dyld not present");
-			return null;
-		  }
-		  ret = NSCreateObjectFileImageFromFile(path, img);
-		  if (ret == NSObjectFileImageSuccess) {
-			NSModule mod = NSLinkModule(img, 
-			                            path, 
-										NSLINKMODULE_OPTION_RETURN_ON_ERROR |
-                                  (seeglb ? 0 : NSLINKMODULE_OPTION_PRIVATE));
-			NSDestroyObjectFileImage(img);
-			if (mod == null) pusherror(L);
-			return mod;
-		  }
-		  lua_pushstring(L, errorfromcode(ret));
-		  return null;
-		}
-
-
-		static lua_CFunction ll_sym (lua_State L, void *lib, readonly CharPtr sym) {
-		  NSSymbol nss = NSLookupSymbolInModule((NSModule)lib, sym);
-		  if (nss == null) {
-			lua_pushfstring(L, "symbol " + LUA_QS + " not found", sym);
-			return null;
-		  }
-		  return (lua_CFunction)NSAddressOfSymbol(nss);
-		}
-
-		/* }====================================================== */
-
 
 
 #else
@@ -292,8 +213,8 @@ namespace KopiLua
 		}
 
 
-		public static object ll_load (lua_State L, CharPtr path, int seeglb) { //FIXME:added seeglb
-		  //(void)(path);  /* to avoid warnings */
+		public static object ll_load (lua_State L, CharPtr path, int seeglb) { //FIXME:(added seeglb) already sync
+		  //(void)(path); (void)(seeglb);  /* to avoid warnings */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
 		}
@@ -322,8 +243,7 @@ namespace KopiLua
 			lua_pop(L, 1);  /* remove result from gettable */
 			//plib = lua_newuserdata(L, (uint)Marshal.SizeOf(plib)); //FIXME:deleted ???
 			//plib[0] = null;
-			luaL_getmetatable(L, "_LOADLIB");
-			lua_setmetatable(L, -2);
+			luaL_setmetatable(L, "_LOADLIB");
 			lua_pushfstring(L, "%s%s", LIBPREFIX, path);
 			lua_pushvalue(L, -2);
 			lua_settable(L, LUA_REGISTRYINDEX);
@@ -356,9 +276,7 @@ namespace KopiLua
 			lua_CFunction f = ll_sym(L, reg, sym);
 			if (f == null)
 			  return ERRFUNC;  /* unable to find function */
-		    lua_pushcfunction(L, f);  /* else create new function... */
-		    lua_pushglobaltable(L);   /* ... and set the standard global table... */
-		    lua_setfenv(L, -2);       /* ... as its environment */
+		    lua_pushcfunction(L, f);  /* else create new function */
 		    return 0;  /* no errors */
 		  }
 		}
@@ -405,6 +323,7 @@ namespace KopiLua
 		  return l;
 		}
 
+
 		private static CharPtr searchpath (lua_State L, CharPtr name,
 		                                             CharPtr path) {
           name = luaL_gsub(L, name, ".", LUA_DIRSEP);
@@ -437,7 +356,7 @@ namespace KopiLua
 		private static CharPtr findfile (lua_State L, CharPtr name,
 												   CharPtr pname) {
 		  CharPtr path;
-		  lua_getfield(L, LUA_ENVIRONINDEX, pname);
+		  lua_getfield(L, lua_upvalueindex(1), pname);
 		  path = lua_tostring(L, -1);
 		  if (path == null)
 			luaL_error(L, LUA_QL("package.%s") + " must be a string", pname);
@@ -511,17 +430,12 @@ namespace KopiLua
 
 		private static int loader_preload (lua_State L) {
 		  CharPtr name = luaL_checkstring(L, 1);
-		  lua_getfield(L, LUA_ENVIRONINDEX, "preload");
-		  if (!lua_istable(L, -1))
-			luaL_error(L, LUA_QL("package.preload") + " must be a table");
+		  lua_getfield(L, LUA_REGISTRYINDEX, "_PRELOAD");
 		  lua_getfield(L, -1, name);
 		  if (lua_isnil(L, -1))  /* not found? */
 			lua_pushfstring(L, "\n\tno field package.preload['%s']", name);
 		  return 1;
 		}
-
-
-		public static object sentinel = new object();
 
 
 		public static int ll_require (lua_State L) {
@@ -530,13 +444,10 @@ namespace KopiLua
 		  lua_settop(L, 1);  /* _LOADED table will be at index 2 */
 		  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
 		  lua_getfield(L, 2, name);
-		  if (lua_toboolean(L, -1) != 0) {  /* is it there? */
-			if (lua_touserdata(L, -1) == sentinel)  /* check loops */
-			  luaL_error(L, "loop or previous error loading module " + LUA_QS, name);
-			return 1;  /* package is already loaded */
-		  }
+		  if (lua_toboolean(L, -1))  /* is it there? */
+		    return 1;  /* package is already loaded */
 		  /* else must load it; iterate over available loaders */
-		  lua_getfield(L, LUA_ENVIRONINDEX, "loaders");
+		  lua_getfield(L, lua_upvalueindex(1), "loaders");
 		  if (!lua_istable(L, -1))
 			luaL_error(L, LUA_QL("package.loaders") + " must be a table");
 		  lua_pushliteral(L, "");  /* error message accumulator */
@@ -554,14 +465,12 @@ namespace KopiLua
 			else
 			  lua_pop(L, 1);
 		  }
-		  lua_pushlightuserdata(L, sentinel);
-		  lua_setfield(L, 2, name);  /* _LOADED[name] = sentinel */
 		  lua_pushstring(L, name);  /* pass name as argument to module */
 		  lua_call(L, 1, 1);  /* run loaded module */
 		  if (!lua_isnil(L, -1))  /* non-nil return? */
 			lua_setfield(L, 2, name);  /* _LOADED[name] = returned value */
 		  lua_getfield(L, 2, name);
-		  if (lua_touserdata(L, -1) == sentinel) {   /* module did not set a value? */
+		  if (lua_isnil(L, -1)) {   /* module did not set a value? */
 			lua_pushboolean(L, 1);  /* use true as result */
 			lua_pushvalue(L, -1);  /* extra copy to be returned */
 			lua_setfield(L, 2, name);  /* _LOADED[name] = true */
@@ -578,16 +487,19 @@ namespace KopiLua
 		** 'module' function
 		** =======================================================
 		*/
+#if LUA_COMPAT_MODULE //FIXME:???
 		
-
-		private static void setfenv (lua_State L) {
+		/*
+		** changes the environment variable of calling function
+		*/
+		private static void set_env (lua_State L) {
 		  lua_Debug ar = new lua_Debug();
 		  if (lua_getstack(L, 1, ar) == 0 ||
 		      lua_getinfo(L, "f", ar) == 0 ||  /* get calling function */
 		      lua_iscfunction(L, -1))
 		    luaL_error(L, LUA_QL("module") + " not called from a Lua function");
 		  lua_pushvalue(L, -2);  /* copy new environment table to top */
-		  lua_setfenv(L, -2);
+		  lua_setupvalue(L, -2, 1);
 		  lua_pop(L, 1);  /* remove function */
 		}
 
@@ -619,18 +531,8 @@ namespace KopiLua
 
 		private static int ll_module (lua_State L) {
 		  CharPtr modname = luaL_checkstring(L, 1);
-		  int loaded = lua_gettop(L) + 1;  /* index of _LOADED table */
-		  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
-		  lua_getfield(L, loaded, modname);  /* get _LOADED[modname] */
-		  if (!lua_istable(L, -1)) {  /* not found? */
-			lua_pop(L, 1);  /* remove previous result */
-			/* try global variable (and create one if it does not exist) */
-		    lua_pushglobaltable(L);
-		    if (luaL_findtable(L, 0, modname, 1) != null)
-			  return luaL_error(L, "name conflict for module " + LUA_QS, modname);
-			lua_pushvalue(L, -1);
-			lua_setfield(L, loaded, modname);  /* _LOADED[modname] = new table */
-		  }
+		  int lastarg = lua_gettop(L);  /* last parameter */
+  		  luaL_pushmodule(L, modname, 1);  /* get/create module table */
 		  /* check whether table already has a _NAME field */
 		  lua_getfield(L, -1, "_NAME");
 		  if (!lua_isnil(L, -1))  /* is table an initialized module? */
@@ -640,8 +542,8 @@ namespace KopiLua
 			modinit(L, modname);
 		  }
 		  lua_pushvalue(L, -1);
-		  setfenv(L);
-		  dooptions(L, loaded - 1);
+		  set_env(L);
+		  dooptions(L, lastarg);
 		  return 1;
 		}
 
@@ -659,6 +561,17 @@ namespace KopiLua
 		}
 
 
+#else
+
+		private static int ll_seeall (lua_State L) {
+		  return luaL_error(L, "deprecated function");
+		}
+
+		private static int ll_module (lua_State L) {
+		  return luaL_error(L, "deprecated function");
+		}
+
+#endif
 		/* }====================================================== */
 
 
@@ -666,9 +579,11 @@ namespace KopiLua
 		/* auxiliary mark (for internal use) */
 		public readonly static string AUXMARK		= String.Format("{0}", (char)1);
 
-		private static void setpath (lua_State L, CharPtr fieldname, CharPtr envname,
-										   CharPtr def) {
-		  CharPtr path = getenv(envname);
+		private static void setpath (lua_State L, CharPtr fieldname, CharPtr envname1,
+                                                  CharPtr envname2, CharPtr def) {
+		  CharPtr path = getenv(envname1);
+		  if (path == null)  /* no environment variable? */
+		    path = getenv(envname2);  /* try alternative name */		  
 		  if (path == null)  /* no environment variable? */
 			lua_pushstring(L, def);  /* use default */
 		  else {
@@ -709,31 +624,34 @@ namespace KopiLua
 		  lua_pushcfunction(L, gctm);
 		  lua_setfield(L, -2, "__gc");
 		  /* create `package' table */
-		  luaL_register(L, LUA_LOADLIBNAME, pk_funcs);
-		  lua_copy(L, -1, LUA_ENVIRONINDEX);
+		  luaL_newlib(L, pk_funcs);
 		  /* create `loaders' table */
-		  lua_createtable(L, loaders.Length - 1, 0);
+		  lua_createtable(L, loaders.Length - 1, 0); //FIXME:changed
 		  /* fill it with pre-defined loaders */
 		  for (i=0; loaders[i] != null; i++) {
-			lua_pushcfunction(L, loaders[i]);
+		    lua_pushvalue(L, -2);  /* set 'package' as upvalue for all loaders */
+		    lua_pushcclosure(L, loaders[i], 1);
 			lua_rawseti(L, -2, i+1);
 		  }
 		  lua_setfield(L, -2, "loaders");  /* put it in field `loaders' */
-		  setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);  /* set field `path' */
-		  setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT); /* set field `cpath' */
+		  /* set field 'path' */
+		  setpath(L, "path", LUA_PATHVERSION, LUA_PATH, LUA_PATH_DEFAULT);
+		  /* set field 'cpath' */
+		  setpath(L, "cpath", LUA_CPATHVERSION, LUA_CPATH, LUA_CPATH_DEFAULT);
 		  /* store config information */
 		  lua_pushliteral(L, LUA_DIRSEP + "\n" + LUA_PATH_SEP + "\n" + LUA_PATH_MARK + "\n" +
 							 LUA_EXEC_DIR + "\n" + LUA_IGMARK + "\n");
 		  lua_setfield(L, -2, "config");
 		  /* set field `loaded' */
-		  luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 2);
+		  luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED");
 		  lua_setfield(L, -2, "loaded");
 		  /* set field `preload' */
-		  lua_newtable(L);
+		  luaL_findtable(L, LUA_REGISTRYINDEX, "_PRELOAD");
 		  lua_setfield(L, -2, "preload");
 		  lua_pushglobaltable(L);
-		  luaL_register(L, null, ll_funcs);  /* open lib into global table */
-		  lua_pop(L, 1);
+		  lua_pushvalue(L, -2);  /* set 'package' as upvalue for next lib */
+		  luaL_setfuncs(L, ll_funcs, 1);  /* open lib into global table */
+		  lua_pop(L, 1);  /* pop global table */
 		  return 1;  /* return 'package' table */
 		}
 

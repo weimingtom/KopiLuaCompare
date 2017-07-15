@@ -1,5 +1,5 @@
 /*
-** $Id: lmem.c,v 1.73 2006/09/14 18:42:28 roberto Exp roberto $
+** $Id: lmem.c,v 1.78 2010/05/04 18:10:02 roberto Exp roberto $
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -68,11 +68,10 @@ namespace KopiLua
 		}
 
 
-
+		//FIXME: not sync, no gc below
 		/*
 		** generic allocation routine.
 		*/
-
 		public static object luaM_realloc_(lua_State L, Type t)
 		{
 			int unmanaged_size = (int)GetUnmanagedSize(t);
