@@ -33,3 +33,7 @@ ldo.h
 10:07 2017/7/15
 ldump.c
 
+10:29 2017/7/15
+lfunc.c
+lfunc.h
+

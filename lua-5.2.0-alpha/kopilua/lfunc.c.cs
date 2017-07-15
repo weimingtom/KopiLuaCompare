@@ -1,5 +1,5 @@
 /*
-** $Id: lfunc.c,v 2.18 2009/12/11 13:39:34 roberto Exp roberto $
+** $Id: lfunc.c,v 2.26 2010/06/10 21:27:09 roberto Exp roberto $
 ** Auxiliary functions to manipulate prototypes and closures
 ** See Copyright Notice in lua.h
 */
@@ -19,27 +19,27 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		public static Closure luaF_newCclosure (lua_State L, int n, Table e) {
+		public static Closure luaF_newCclosure (lua_State L, int n) {
 		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeCclosure(n), null, 0).cl;
 		  c.c.isC = 1;
-		  c.c.env = e;
 		  c.c.nupvalues = cast_byte(n);
-		  c.c.upvalue = new TValue[n];
-		  for (int i = 0; i < n; i++)
-			  c.c.upvalue[i] = new lua_TValue(); //FIXME:???
+		  c.c.upvalue = new TValue[n]; //FIXME:added???
+		  for (int i = 0; i < n; i++)  //FIXME:added???
+			  c.c.upvalue[i] = new lua_TValue(); //FIXME:??? //FIXME:added???
 		  return c;
 		}
 
 
-		public static Closure luaF_newLclosure (lua_State L, int n, Table e) {
+		public static Closure luaF_newLclosure (lua_State L, Proto p) {
+          int n = p.sizeupvalues;
 		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
 		  c.l.isC = 0;
-		  c.l.env = e;
+		  c.l.p = p;
 		  c.l.nupvalues = cast_byte(n);
-		  c.l.upvals = new UpVal[n];
-		  for (int i = 0; i < n; i++)
-			  c.l.upvals[i] = new UpVal(); //FIXME:???
-		  while (n > 0) c.l.upvals[n] = null;
+		  c.l.upvals = new UpVal[n]; //FIXME:added???
+		  for (int i = 0; i < n; i++) //FIXME:added???
+			  c.l.upvals[i] = new UpVal(); //FIXME:??? //FIXME:added???
+		  while (n > 0) c.l.upvals[n] = null; //FIXME:added??? while (n--) c->l.upvals[n] = NULL;
 		  return c;
 		}
 
@@ -51,19 +51,22 @@ namespace KopiLua
 		  return uv;
 		}
 
+
 		public static UpVal luaF_findupval (lua_State L, StkId level) {
 		  global_State g = G(L);
 		  GCObjectRef pp = new OpenValRef(L);
 		  UpVal p;
 		  UpVal uv;
 		  while (pp.get() != null && (p = gco2uv(pp.get())).v >= level) {
+            GCObject o = obj2gco(p);
 			lua_assert(p.v != p.u.value);
 			if (p.v == level) {  /* found a corresponding upvalue? */
-			  if (isdead(g, obj2gco(p)))  /* is it dead? */
-				changewhite(obj2gco(p));  /* ressurrect it */
+			  if (isdead(g, o))  /* is it dead? */
+				changewhite(o);  /* ressurrect it */
 			  return p;
 			}
-			pp = new NextRef(p);
+            resetoldbit(o);  /* may create a newer upval after this one */
+			pp = new NextRef(p); //FIXME:???pp = &p->next;
 		  }
 		  /* not found: create a new one */
 		  uv = luaC_newobj<UpVal>(L, LUA_TUPVAL, (uint)GetUnmanagedSize(typeof(UpVal)), pp, 0).uv;
@@ -101,10 +104,12 @@ namespace KopiLua
 			if (isdead(g, o))
 			  luaF_freeupval(L, uv);  /* free upvalue */
 			else {
-			  unlinkupval(uv);
-			  setobj(L, uv.u.value, uv.v);
-			  uv.v = uv.u.value;  /* now current value lives here */
-			  luaC_linkupval(L, uv);  /* link upvalue into `gcroot' list */
+		  	  unlinkupval(uv);  /* remove upvalue from 'uvhead' list */
+		      setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
+		      uv->v = &uv->u.value;  /* now current value lives here */
+		      gch(o)->next = g->allgc;  /* link upvalue into 'allgc' list */
+		      g->allgc = o;
+		      luaC_checkupvalcolor(g, uv);
 			}
 		  }
 		}
@@ -117,6 +122,7 @@ namespace KopiLua
 		  f.p = null;
 		  f.sizep = 0;
 		  f.code = null;
+          f.cache = NULL;
 		  f.sizecode = 0;
           f.lineinfo = null;
 		  f.sizelineinfo = 0;
@@ -130,7 +136,6 @@ namespace KopiLua
 		  f.linedefined = 0;
 		  f.lastlinedefined = 0;
 		  f.source = null;
-		  f.envreg = (byte)NO_REG; //FIXME:(byte)
 		  return f;
 		}
 
@@ -149,8 +154,8 @@ namespace KopiLua
 		public static void luaF_freeclosure (lua_State L, Closure c) {
 		  int size = (int)((c.c.isC != 0) ? sizeCclosure(c.c.nupvalues) :
 			                  sizeLclosure(c.l.nupvalues)); //FIXME:(int)
-		  //luaM_freemem(L, c, size);
-		  SubtractTotalBytes(L, size);
+		  //luaM_freemem(L, c, size); //FIXME: deleted
+		  SubtractTotalBytes(L, size); //FIXME: added
 		}
 
 
