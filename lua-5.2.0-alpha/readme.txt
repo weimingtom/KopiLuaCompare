@@ -41,3 +41,14 @@ lfunc.h
 lgc.c //many changes
 17:01 2017-07-15
 lgc.h //many changes
+
+19:40 2017-07-15
+linit.c
+19:58 2017-07-15
+liolib.c
+20:16 2017-07-15
+llex.c
+20:17 2017-07-15
+llex.h
+
+

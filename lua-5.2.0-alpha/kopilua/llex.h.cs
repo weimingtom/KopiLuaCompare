@@ -63,6 +63,7 @@ namespace KopiLua
 			public Mbuffer buff;  /* buffer for tokens */
             public Varlist varl;  /* list of all active local variables */
 			public TString source;  /* current source name */
+            public TString envn;  /* environment variable name */
 			public char decpoint;  /* locale decimal point */
 		};
 	}
