@@ -1,5 +1,5 @@
 /*
-** $Id: ldump.c,v 2.11 2009/09/28 16:32:50 roberto Exp roberto $
+** $Id: ldump.c,v 1.17 2010/10/13 21:04:52 lhf Exp $
 ** save precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -104,10 +104,9 @@ namespace KopiLua
 		 }
 		}
 
-		private static void DumpCode(Proto f,DumpState D)
-		{
-			DumpVector(f.code, f.sizecode, D);
-		}
+		private static void DumpCode(Proto f,DumpState D) { DumpVector(f.code, f.sizecode, D); } //FIXME:no sizeof(Instruction)
+
+        //static void DumpFunction(const Proto* f, DumpState* D);
 
 		private static void DumpConstants(Proto f, DumpState D)
 		{
@@ -130,14 +129,11 @@ namespace KopiLua
 		   case LUA_TSTRING:
 			DumpString(rawtsvalue(o),D);
 			break;
-		   default:
-			lua_assert(0);			/* cannot happen */
-			break;
 		  }
 		 }
 		 n=f.sizep;
 		 DumpInt(n,D);
-		 for (i=0; i<n; i++) DumpFunction(f.p[i],f.source,D);
+		 for (i=0; i<n; i++) DumpFunction(f.p[i],D);
 		}
 
 		private static void DumpUpvalues(Proto f, DumpState D)
@@ -154,6 +150,7 @@ namespace KopiLua
 		private static void DumpDebug(Proto f, DumpState D)
 		{
 		 int i,n;
+         DumpString((D.strip) ? null : f.source,D);
 		 n= (D.strip != 0) ? 0 : f.sizelineinfo;
 		 DumpVector(f.lineinfo, n, D);
 		 n= (D.strip != 0) ? 0 : f.sizelocvars;
@@ -169,15 +166,13 @@ namespace KopiLua
 		 for (i=0; i<n; i++) DumpString(f.upvalues[i].name,D);
 		}
 
-		private static void DumpFunction(Proto f, TString p, DumpState D)
+		private static void DumpFunction(Proto f, DumpState D)
 		{
-		 DumpString( ((f.source==p) || (D.strip!=0)) ? null : f.source, D);
 		 DumpInt(f.linedefined,D);
 		 DumpInt(f.lastlinedefined,D);
 		 DumpChar(f.numparams,D);
 		 DumpChar(f.is_vararg,D);
 		 DumpChar(f.maxstacksize,D);
-		 DumpChar(f.envreg,D);
 		 DumpCode(f,D);
 		 DumpConstants(f,D);
          DumpUpvalues(f,D);
@@ -203,7 +198,7 @@ namespace KopiLua
 		 D.strip=strip;
 		 D.status=0;
 		 DumpHeader(D);
-		 DumpFunction(f,null,D);
+		 DumpFunction(f,D);
 		 return D.status;
 		}
 	}
