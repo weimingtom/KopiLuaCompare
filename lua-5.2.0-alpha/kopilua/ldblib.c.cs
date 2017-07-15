@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.118 2009/11/25 15:27:51 roberto Exp roberto $
+** $Id: ldblib.c,v 1.125 2010/11/10 18:06:10 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -37,19 +37,23 @@ namespace KopiLua
 		}
 
 
-		private static int db_getfenv (lua_State L) {
-          luaL_checkany(L, 1);
-		  lua_getfenv(L, 1);
+		private static int db_getuservalue (lua_State L) {
+		  if (lua_type(L, 1) != LUA_TUSERDATA)
+		    lua_pushnil(L);
+		  else
+		    lua_getuservalue(L, 1);
 		  return 1;
 		}
 
 
-		private static int db_setfenv (lua_State L) {
-		  luaL_checktype(L, 2, LUA_TTABLE);
+		private static int db_setuservalue (lua_State L) {
+		  if (lua_type(L, 1) == LUA_TLIGHTUSERDATA)
+		    luaL_argerror(L, 1, "full userdata expected, got light userdata");
+		  luaL_checktype(L, 1, LUA_TUSERDATA);
+		  if (!lua_isnoneornil(L, 2))
+		    luaL_checktype(L, 2, LUA_TTABLE);
 		  lua_settop(L, 2);
-		  if (lua_setfenv(L, 1) == 0)
-			luaL_error(L, LUA_QL("setfenv") +
-						  " cannot change environment of given object");
+		  lua_setuservalue(L, 1);
 		  return 1;
 		}
 
@@ -150,18 +154,26 @@ namespace KopiLua
 		  lua_State L1 = getthread(L, out arg);
 		  lua_Debug ar = new lua_Debug();
 		  CharPtr name;
-		  if (lua_getstack(L1, luaL_checkint(L, arg+1), ar)==0)  /* out of range? */
-			return luaL_argerror(L, arg+1, "level out of range");
-		  name = lua_getlocal(L1, ar, luaL_checkint(L, arg+2));
-		  if (name != null) {
-			lua_xmove(L1, L, 1);
-			lua_pushstring(L, name);
-			lua_pushvalue(L, -2);
-			return 2;
+		  int nvar = luaL_checkint(L, arg+2);  /* local-variable index */
+		  if (lua_isfunction(L, arg + 1)) {  /* function argument? */
+		    lua_pushvalue(L, arg + 1);  /* push function */
+		    lua_pushstring(L, lua_getlocal(L, NULL, nvar));  /* push local name */
+		    return 1;
 		  }
-		  else {
-			lua_pushnil(L);
-			return 1;
+		  else {  /* stack-level argument */
+			if (lua_getstack(L1, luaL_checkint(L, arg+1), ar)==0)  /* out of range? */
+			  return luaL_argerror(L, arg+1, "level out of range");
+			name = lua_getlocal(L1, ar, nvar);
+			if (name != null) {
+			  lua_xmove(L1, L, 1);  /* push local value */
+			  lua_pushstring(L, name);  /* push name */
+			  lua_pushvalue(L, -2);  /* re-order */
+			  return 2;
+			}
+		    else {
+			  lua_pushnil(L);  /* no name (nor value) */
+			  return 1;
+			}
 		  }
 		}
 
@@ -334,15 +346,13 @@ namespace KopiLua
 		private static int db_debug (lua_State L) {
 		  for (;;) {
 			CharPtr buffer = new char[250];
-			fputs("lua_debug> ", stderr);
+			luai_writestringerror("%s", "lua_debug> ");
 			if (fgets(buffer, stdin) == null ||
 				strcmp(buffer, "cont\n") == 0)
 			  return 0;
 			if (luaL_loadbuffer(L, buffer, (uint)strlen(buffer), "=(debug command)")!=0 ||
-				lua_pcall(L, 0, 0, 0)!=0) {
-			  fputs(lua_tostring(L, -1), stderr);
-			  fputs("\n", stderr);
-			}
+				lua_pcall(L, 0, 0, 0)!=0)
+			  luai_writestringerror("%s\n", lua_tostring(L, -1));
 			lua_settop(L, 0);  /* remove eventual returns */
 		  }
 		}
@@ -364,7 +374,7 @@ namespace KopiLua
 
 		private readonly static luaL_Reg[] dblib = {
 		  new luaL_Reg("debug", db_debug),
-		  new luaL_Reg("getfenv", db_getfenv),
+		  new luaL_Reg("getuservalue", db_getuservalue),
 		  new luaL_Reg("gethook", db_gethook),
 		  new luaL_Reg("getinfo", db_getinfo),
 		  new luaL_Reg("getlocal", db_getlocal),
@@ -373,7 +383,7 @@ namespace KopiLua
 		  new luaL_Reg("getupvalue", db_getupvalue),
 		  new luaL_Reg("upvaluejoin", db_upvaluejoin),
 		  new luaL_Reg("upvalueid", db_upvalueid),
-		  new luaL_Reg("setfenv", db_setfenv),
+		  new luaL_Reg("setuservalue", db_setuservalue),
 		  new luaL_Reg("sethook", db_sethook),
 		  new luaL_Reg("setlocal", db_setlocal),
 		  new luaL_Reg("setmetatable", db_setmetatable),
@@ -384,7 +394,7 @@ namespace KopiLua
 
 
 		public static int luaopen_debug (lua_State L) {
-		  luaL_register(L, LUA_DBLIBNAME, dblib);
+		  luaL_newlib(L, dblib);
 		  return 1;
 		}
 

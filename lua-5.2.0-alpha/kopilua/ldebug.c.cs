@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.62 2010/01/11 17:37:59 roberto Exp roberto $
+** $Id: ldebug.c,v 2.73 2010/09/07 19:21:39 roberto Exp roberto $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -106,13 +106,22 @@ namespace KopiLua
 
 
 		public static CharPtr lua_getlocal (lua_State L, lua_Debug ar, int n) {
-		  StkId pos = new StkId();
-		  CharPtr name = findlocal(L, ar.i_ci, n, ref pos);
+		  const char *name;
 		  lua_lock(L);
-		  if (name != null) {
-			  setobj2s(L, L.top, pos);
+		  if (ar == NULL) {  /* information about non-active function? */
+		    if (!isLfunction(L->top - 1))  /* not a Lua function? */
+		      name = NULL;
+		    else  /* consider live variables at function start (parameters) */
+		      name = luaF_getlocalname(clvalue(L->top - 1)->l.p, n, 0);
+		  }
+		  else {  /* active function; get information through 'ar' */
+		    StkId pos;
+		    name = findlocal(L, ar->i_ci, n, &pos);
+		    if (name) {
+		      setobj2s(L, L->top, pos);
 		      api_incr_top(L);
-          }
+		    }
+		  }
 		  lua_unlock(L);
 		  return name;
 		}
@@ -131,16 +140,17 @@ namespace KopiLua
 
 
 		private static void funcinfo (lua_Debug ar, Closure cl) {
-		  if (cl.c.isC != 0) {
+		  if (cl == null || cl.c.isC != 0) {
 			ar.source = "=[C]";
 			ar.linedefined = -1;
 			ar.lastlinedefined = -1;
 			ar.what = "C";
 		  }
 		  else {
-			ar.source = getstr(cl.l.p.source);
-			ar.linedefined = cl.l.p.linedefined;
-			ar.lastlinedefined = cl.l.p.lastlinedefined;
+            Proto p = cl.l.p;
+			ar.source = p.source != null ? getstr(p.source) : "=?";
+			ar.linedefined = p.linedefined;
+			ar.lastlinedefined = p.lastlinedefined;
 			ar.what = (ar.linedefined == 0) ? "main" : "Lua";
 		  }
 		  luaO_chunkid(ar.short_src, ar.source, LUA_IDSIZE);
@@ -178,8 +188,8 @@ namespace KopiLua
 				break;
 			  }
 			  case 'u': {
-				ar.nups = f.c.nupvalues;
-		        if (f.c.isC != 0) {
+				ar.nups = (f == null) ? 0 : f.c.nupvalues;
+		        if (f == null || f.c.isC != 0) {
 				  ar.isvararg = (char)1;
 		          ar.nparams = 0;
 		        }
@@ -213,28 +223,30 @@ namespace KopiLua
 
 		public static int lua_getinfo (lua_State L, CharPtr what, lua_Debug ar) {
 		  int status;
-		  Closure f = null;
-		  CallInfo ci = null;
+		  Closure cl;
+		  CallInfo ci;
+          StkId func;
 		  lua_lock(L);
 		  if (what == '>') {
-			StkId func = L.top - 1;
+            ci = null;
+			func = L.top - 1;
 			luai_apicheck(L, ttisfunction(func));
 			what = what.next();  /* skip the '>' */
-			f = clvalue(func);
 			StkId.dec(ref L.top);  /* pop function */
 		  }
 		  else {
 			ci = ar.i_ci;
+            func = ci.func;
 			lua_assert(ttisfunction(ci.func));
-			f = clvalue(ci.func);
 		  }
-		  status = auxgetinfo(L, what, ar, f, ci);
+          cl = ttisclosure(func) ? clvalue(func) : null;
+		  status = auxgetinfo(L, what, ar, cl, ci);
 		  if (strchr(what, 'f') != null) {
-			setclvalue(L, L.top, f);
+			setobjs2s(L, L.top, func);
 			incr_top(L);
 		  }
 		  if (strchr(what, 'L') != null)
-			collectvalidlines(L, f);
+			collectvalidlines(L, cl);
 		  lua_unlock(L);
 		  return status;
 		}
@@ -246,22 +258,23 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		private static CharPtr kname (Proto p, int c) {
-		  if (ISK(c) != 0 && ttisstring(p.k[INDEXK(c)]))
-		    return svalue(p.k[INDEXK(c)]);
+		private static void kname (Proto p, int c, int reg, const char *what,
+                   const char **name) {
+		  if (c == reg && what && *what == 'c')
+		    return;  /* index is a constant; name already correct */
+		  else if (ISK(c) && ttisstring(&p->k[INDEXK(c)]))
+		    *name = svalue(&p->k[INDEXK(c)]);
 		  else
-		    return "?";
+		    *name = "?";
 		}
 
 
 		private static CharPtr getobjname (lua_State L, CallInfo ci, int reg,
 		                               ref CharPtr name) {
-		  Proto p;
-		  int lastpc, pc;
-		  CharPtr what = null;
-		  lua_assert(isLua(ci));
-		  p = ci_func(ci).l.p;
-		  lastpc = currentpc(ci);
+		  Proto *p = ci_func(ci)->l.p;
+		  const char *what = NULL;
+		  int lastpc = currentpc(ci);
+		  int pc;
 		  name = luaF_getlocalname(p, reg + 1, lastpc);
 		  if (name != null)  /* is a local? */
 		    return "local";
@@ -271,17 +284,6 @@ namespace KopiLua
 		    OpCode op = GET_OPCODE(i);
 		    int a = GETARG_A(i);
 		    switch (op) {
-		      case OpCode.OP_GETGLOBAL: {
-		        if (reg == a) {
-		          int g = GETARG_Bx(i);
-		          if (g != 0) g--;
-		          else g = GETARG_Ax(p.code[++pc]);
-		          lua_assert(ttisstring(p.k[g]));
-		          name = svalue(p.k[g]);
-		          what = "global";
-		        }
-		        break;
-		      }
 		      case OpCode.OP_MOVE: {
 		        if (reg == a) {
 		          int b = GETARG_B(i);  /* move from 'b' to 'a' */
@@ -291,11 +293,16 @@ namespace KopiLua
 		        }
 		        break;
 		      }
+              case OpCode.OP_GETTABUP:
 		      case OpCode.OP_GETTABLE: {
 		        if (reg == a) {
 		          int k = GETARG_C(i);  /* key index */
-		          name = kname(p, k);
-		          what = "field";
+		          int t = GETARG_B(i);
+		          const char *vn = (op == OP_GETTABLE)  /* name of indexed variable */ 
+		                           ? luaF_getlocalname(p, t + 1, pc)
+		                           : getstr(p->upvalues[t].name);
+		          kname(p, k, a, what, name);
+		          what = (vn && strcmp(vn, LUA_ENV) == 0) ? "global" : "field";
 		        }
 		        break;
 		      }
@@ -308,6 +315,17 @@ namespace KopiLua
 		        }
 		        break;
 		      }
+		      case OpCode.OP_LOADK: {
+		        if (reg == a) {
+		          int b = GETARG_Bx(i);
+		          b = (b > 0) ? b - 1 : GETARG_Ax(p->code[pc + 1]);
+		          if (ttisstring(&p->k[b])) {
+		            what = "constant";
+		            *name = svalue(&p->k[b]);
+		          }
+		        }
+		        break;
+		      }
 		      case OpCode.OP_LOADNIL: {
 		        int b = GETARG_B(i);  /* move from 'b' to 'a' */
 		        if (a <= reg && reg <= b)  /* set registers from 'a' to 'b' */
@@ -317,7 +335,7 @@ namespace KopiLua
 		      case OpCode.OP_SELF: {
 		        if (reg == a) {
 		          int k = GETARG_C(i);  /* key index */
-		          name = kname(p, k);
+		          name = kname(p, k, a, what, name);
 		          what = "method";
 		        }
 		        break;
@@ -360,12 +378,15 @@ namespace KopiLua
 		  switch (GET_OPCODE(i)) {
 		    case OpCode.OP_CALL:
 		    case OpCode.OP_TAILCALL:
-		    case OpCode.OP_TFORLOOP:
 		      return getobjname(L, ci, GETARG_A(i), ref name);
-		    case OpCode.OP_GETGLOBAL:
+		    case OpCode.OP_TFORCALL: {
+		      *name = "for iterator";
+		       return "for iterator";
+		    }
 		    case OpCode.OP_SELF:
+            case OpCode.OP_GETTABUP:
 		    case OpCode.OP_GETTABLE: tm = TMS.TM_INDEX; break;
-		    case OpCode.OP_SETGLOBAL:
+		    case OpCode.OP_SETTABUP:
 		    case OpCode.OP_SETTABLE: tm = TMS.TM_NEWINDEX; break;
 		    case OpCode.OP_EQ: tm = TMS.TM_EQ; break;
 		    case OpCode.OP_ADD: tm = TMS.TM_ADD; break;
@@ -399,13 +420,31 @@ namespace KopiLua
 		}
 
 
+		private static CharPtr getupvalname (CallInfo ci, /*const*/ TValue o,
+		                               const char **name) {
+		  LClosure *c = &ci_func(ci)->l;
+		  int i;
+		  for (i = 0; i < c->nupvalues; i++) {
+		    if (c->upvals[i]->v == o) {
+		      *name = getstr(c->p->upvalues[i].name);
+		      return "upvalue";
+		    }
+		  }
+		  return NULL;
+		}
+
+
+
 		public static void luaG_typeerror (lua_State L, TValue o, CharPtr op) {
           CallInfo ci = L.ci;
 		  CharPtr name = null;
-		  CharPtr t = typename(ttype(o));
-		  CharPtr kind = (isLua(ci) != 0 && isinstack(ci, o) != 0) ?
-								 getobjname(L, ci, cast_int(o - ci.u.l.base_), ref name) :
-								 null;
+		  const char *t = objtypename(o);
+		  const char *kind = NULL;
+		  if (isLua(ci)) {
+		    kind = getupvalname(ci, o, &name);  /* check whether 'o' is an upvalue */
+		    if (!kind && isinstack(ci, o))  /* no? try a register */ 
+		      kind = getobjname(L, ci, cast_int(o - ci->u.l.base), &name);
+		  }
 		  if (kind != null)
 			luaG_runerror(L, "attempt to %s %s " + LUA_QS + " (a %s value)",
 						op, kind, name, t);
@@ -430,8 +469,8 @@ namespace KopiLua
 
 
 		public static int luaG_ordererror (lua_State L, TValue p1, TValue p2) {
-		  CharPtr t1 = typename(ttype(p1));
-		  CharPtr t2 = typename(ttype(p2));
+		  CharPtr t1 = objtypename(p1);
+		  CharPtr t2 = objtypename(p2);
 		  if (t1 == t2) //FIXME:???
 			luaG_runerror(L, "attempt to compare two %s values", t1);
 		  else
@@ -445,7 +484,12 @@ namespace KopiLua
 		  if (isLua(ci) != 0) {  /* is Lua code? */
 			CharPtr buff = new CharPtr(new char[LUA_IDSIZE]);  /* add file:line information */
 			int line = currentline(ci);
-			luaO_chunkid(buff, getstr(ci_func(ci).l.p.source), LUA_IDSIZE);
+		    TString *src = ci_func(ci)->l.p->source;
+		    if (src)
+		      luaO_chunkid(buff, getstr(src), LUA_IDSIZE);
+		    else {  /* no source available; use "?" instead */
+		      buff[0] = '?'; buff[1] = '\0';
+		    }
 			luaO_pushfstring(L, "%s:%d: %s", buff, line, msg);
 		  }
 		}
@@ -463,9 +507,12 @@ namespace KopiLua
 		  luaD_throw(L, LUA_ERRRUN);
 		}
 
-		public static void luaG_runerror(lua_State L, CharPtr fmt, params object[] argp)
-		{
+
+		public static void luaG_runerror(lua_State L, CharPtr fmt, params object[] argp) {
+		    //va_list argp; //FIXME:deleted
+			//va_start(argp, fmt); //FIXME:deleted
 			addinfo(L, luaO_pushvfstring(L, fmt, argp));
+            //va_end(argp); //FIXME:deleted
 			luaG_errormsg(L);
 		}
 
