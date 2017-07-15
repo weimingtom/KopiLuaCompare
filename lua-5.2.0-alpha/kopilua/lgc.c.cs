@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.66 2009/12/16 16:42:58 roberto Exp roberto $
+** $Id: lgc.c,v 2.102 2010/09/03 14:14:01 roberto Exp roberto $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -23,41 +23,60 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		public const uint GCSTEPSIZE	= 1024;
-		public const int GCSWEEPMAX		= 40;
-		public const int GCSWEEPCOST	= 10;
-		public const int GCFINALIZECOST	= 100;
+        /* how much to allocate before next GC step */
+		private const int GCSTEPSIZE	= 1024; //FIXME: uint->int
+
+        /* maximum number of elements to sweep in each single step */
+		private const int GCSWEEPMAX		= 40;
+
+		/* cost of sweeping one element */
+		private const int GCSWEEPCOST	= 1;
+		
+		/* maximum number of finalizers to call in each GC step */
+		private const int GCFINALIZENUM	= 4;
+
+		/* cost of marking the root set */
+		private const int GCROOTCOST = 10;
+
+		/* cost of atomic step */
+		private const int GCATOMICCOST = 1000;
+
+		/* basic cost to traverse one object (to be added to the links the
+		   object may have) */
+		private const int TRAVCOST = 5;
 
 
-		public static byte maskcolors	= (byte)(~(bitmask(BLACKBIT)|WHITEBITS));
+		/*
+		** standard negative debt for GC; a reasonable "time" to wait before
+		** starting a new cycle
+		*/
+		private static void stddebt(g) { return (-cast(l_mem, g.totalbytes/100) * g.gcpause); }
 
-		public static void makewhite(global_State g, GCObject x)
-		{
-		   gch(x).marked = (byte)(gch(x).marked & maskcolors | luaC_white(g));
-		}
+
+		/*
+		** 'makewhite' erases all color bits plus the old bit and then
+		** sets only the current white bit
+		*/
+		public static byte maskcolors	= (byte)(~(bit2mask(BLACKBIT, OLDBIT) | WHITEBITS)); //FIXME: cast_byte() removed 
+		public static void makewhite(global_State g, GCObject x) {
+		   gch(x).marked = (byte)(gch(x).marked & maskcolors | luaC_white(g)); }
 
 		public static void white2gray(GCObject x) { resetbits(ref gch(x).marked, WHITEBITS); }
 		public static void black2gray(GCObject x) { resetbit(ref gch(x).marked, BLACKBIT); }
 
-		public static void stringmark(TString s) {resetbits(ref s.tsv.marked, WHITEBITS);}
+		public static void stringmark(TString s) {if (s != null) resetbits(ref s.tsv.marked, WHITEBITS);} //FIXME: &&->if
 
 		public static bool isfinalized(Udata_uv u) { return testbit(u.marked, FINALIZEDBIT); }
         public static bool isfinalized(GCheader u) { return testbit(u.marked, FINALIZEDBIT); } //FIXME:added
 
 		public static void checkdeadkey(Node n) { lua_assert(!ttisdeadkey(gkey(n)) || ttisnil(gval(n)));} 
 
-		public static void markvalue(global_State g, TValue o) 
-		{
-			checkconsistency(o);
-			if (valiswhite(o))
-				reallymarkobject(g,gcvalue(o));
-		}
 
-		public static void markobject(global_State g, object t)
-		{
-			if (t != null && iswhite(obj2gco(t)))
-				reallymarkobject(g, obj2gco(t));
-		}
+		public static void markvalue(global_State g, TValue o)  { checkconsistency(o);
+			if (valiswhite(o)) reallymarkobject(g,gcvalue(o)); }
+
+		public static void markobject(global_State g, object t) { if (t != null && iswhite(obj2gco(t)))
+				reallymarkobject(g, obj2gco(t)); }
 
 		//static void reallymarkobject (global_State *g, GCObject *o);
 
@@ -68,12 +87,16 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		private static void linktable (Table h, ref GCObject p) {
-		  h.gclist = p;
-		  p = obj2gco(h);
-		}
+
+		/*
+		** link table 'h' into list pointed by 'p'
+		*/
+		private static void linktable (Table h, ref GCObject p) { h.gclist = p; p = obj2gco(h); }
 		
 		
+		/*
+		** mark a table entry as dead (therefore removing it from the table)
+		*/
 		private static void removeentry (Node n) {
 		  lua_assert(ttisnil(gval(n)));
 		  if (iscollectable(gkey(n)))
@@ -82,8 +105,8 @@ namespace KopiLua
 
 
 		/*
-		** The next function tells whether a key or value can be cleared from
-		** a weak table. Non-collectable objects are never removed from weak
+		** tells whether a key or value can be cleared from a weak
+		** table. Non-collectable objects are never removed from weak
 		** tables. Strings behave as `values', so are never removed too. for
 		** other objects: if really collected, cannot keep them; for objects
 		** being finalized, keep them in keys, but not in values
@@ -99,28 +122,79 @@ namespace KopiLua
 		}
 
 
-		public static void luaC_barrierf (lua_State L, GCObject o, GCObject v) {
+		/*
+		** barrier that moves collector forward, that is, mark the white object
+		** being pointed by a black object.
+		*/
+		public static void luaC_barrier_ (lua_State L, GCObject o, GCObject v) {
 		  global_State g = G(L);
 		  lua_assert(isblack(o) && iswhite(v) && !isdead(g, v) && !isdead(g, o));
-		  lua_assert(g.gcstate != GCSfinalize && g.gcstate != GCSpause);
+		  lua_assert(isgenerational(g) || g->gcstate != GCSpause);
 		  lua_assert(gch(o).tt != LUA_TTABLE);
-		  /* must keep invariant? */
-		  if (g.gcstate == GCSpropagate)
-			reallymarkobject(g, v);  /* restore invariant */
-		  else  /* don't mind */
-			makewhite(g, o);  /* mark as white just to avoid other barriers */
+		  if (keepinvariant(g))  /* must keep invariant? */
+		    reallymarkobject(g, v);  /* restore invariant */
+		  else {  /* sweep phase */
+		    lua_assert(issweepphase(g));
+		    makewhite(g, o);  /* mark main obj. as white to avoid other barriers */
+		  }
 		}
 
 
-		public static void luaC_barrierback(lua_State L, Table t)
-		{
+		/*
+		** barrier that moves collector backward, that is, mark the black object
+		** pointing to a white object as gray again. (Current implementation
+		** only works for tables; access to 'gclist' is not uniform across
+		** different types.)
+		*/
+		public static void luaC_barrierback_ (lua_State L, GCObject o) {
 		  global_State g = G(L);
-		  GCObject o = obj2gco(t);
 		  lua_assert(isblack(o) && !isdead(g, o));
-		  lua_assert(g.gcstate != GCSfinalize && g.gcstate != GCSpause);
-		  black2gray(o);  /* make table gray (again) */
-		  t.gclist = g.grayagain;
+		  black2gray(o);  /* make object gray (again) */
+		  gco2t(o).gclist = g.grayagain;
 		  g.grayagain = o;
+		}
+
+
+		/*
+		** barrier for prototypes. When creating first closure (cache is
+		** NULL), use a forward barrier; this may be the only closure of the
+		** prototype (if it is a "regular" function, with a single instance)
+		** and the prototype may be big, so it is better to avoid traversing
+		** it again. Otherwise, use a backward barrier, to avoid marking all
+		** possible instances.
+		*/
+		public static void luaC_barrierproto_ (lua_State L, Proto p, Closure c) {
+		  global_State g = G(L);
+		  lua_assert(isblack(obj2gco(p)));
+		  if (p.cache == null) {  /* first time? */
+		    luaC_objbarrier(L, p, c);
+		  }
+		  else {  /* use a backward barrier */
+		    black2gray(obj2gco(p));  /* make prototype gray (again) */
+		    p.gclist = g.grayagain;
+		    g.grayagain = obj2gco(p);
+		  }
+		}
+
+
+		/*
+		** check color (and invariants) for an upvalue that was closed,
+		** i.e., moved into the 'allgc' list
+		*/
+		public static void luaC_checkupvalcolor (global_State g, UpVal uv) {
+		  GCObject o = obj2gco(uv);
+		  lua_assert(!isblack(o));  /* open upvalues are never black */
+		  if (isgray(o)) {
+		    if (keepinvariant(g)) {
+		      resetoldbit(o);  /* see MOVE OLD rule */
+		      gray2black(o);  /* it is being visited now */
+		      markvalue(g, uv->v);
+		    }
+		    else {
+		      lua_assert(issweepphase(g));
+		      makewhite(g, o);
+		    }
+		  }
 		}
 
         //FIXME:refer to luaM_new
@@ -128,7 +202,9 @@ namespace KopiLua
 		//T new_obj = (T)System.Activator.CreateInstance(typeof(T));
 		//AddTotalBytes(L, nsize);
 		/*
-		** create a new collectable object and link it to '*list'
+		** create a new collectable object (with given type and size) and link
+		** it to '*list'. 'offset' tells how many bytes to allocate before the
+		** object itself (used only by states).
 		*/
 		public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz, GCObjectRef list,
 		                       int offset) {
@@ -148,24 +224,6 @@ namespace KopiLua
 		  return o;
 		}
 
-
-		public static void luaC_linkupval (lua_State L, UpVal uv) {
-		  global_State g = G(L);
-		  GCObject o = obj2gco(uv);
-		  gch(o).next = g.rootgc;  /* link upvalue into `rootgc' list */
-		  g.rootgc = o;
-		  if (isgray(o)) {
-			if (g.gcstate == GCSpropagate) {
-			  gray2black(o);  /* closed upvalues need barrier */
-			  luaC_barrier(L, uv, uv.v);
-			}
-			else {  /* sweep phase: sweep it (turning it into white) */
-			  makewhite(g, o);
-			  lua_assert(g.gcstate != GCSfinalize && g.gcstate != GCSpause);
-			}
-		  }
-		}
-
 		/* }====================================================== */
 
 
@@ -176,25 +234,33 @@ namespace KopiLua
 		** =======================================================
 		*/
 
+
+		/*
+		** mark an object. Userdata and closed upvalues are visited and turned
+		** black here. Strings remain gray (it is the same as making them
+		** black). Other objects are marked gray and added to appropriate list
+		** to be visited (and turned black) later. (Open upvalues are already
+		** linked in 'headuv' list.)
+		*/
 		private static void reallymarkobject (global_State g, GCObject o) {
 		  lua_assert(iswhite(o) && !isdead(g, o));
 		  white2gray(o);
 		  switch (gch(o).tt) {
 			case LUA_TSTRING: {
-			  return;
+			  return;  /* for strings, gray is as good as black */
 			}
 			case LUA_TUSERDATA: {
 			  Table mt = gco2u(o).metatable;
-			  gray2black(o);  /* udata are never gray */
 			  markobject(g, mt);
 			  markobject(g, gco2u(o).env);
+              gray2black(o);  /* all pointers marked */
 			  return;
 			}
 			case LUA_TUPVAL: {
 			  UpVal uv = gco2uv(o);
 			  markvalue(g, uv.v);
-			  if (uv.v == uv.u.value)  /* closed? */
-				gray2black(o);  /* open upvalues are never black */
+			  if (uv.v == uv.u.value)  /* closed? (open upvalues remain gray) */
+				gray2black(o);  /* make it black */
 			  return;
 			}
 			case LUA_TFUNCTION: {
@@ -216,53 +282,60 @@ namespace KopiLua
 			  g.gray = o;
 			  break;
 			}
-			default: lua_assert(0); break;
+			default: lua_assert(0); break; //FIXME: add break
 		  }
 		}
 
 
+		/*
+		** mark tag methods for basic types
+		*/
 		private static void markmt (global_State g) {
 		  int i;
-		  for (i=0; i<NUM_TAGS; i++)
+		  for (i=0; i < LUA_NUMTAGS; i++)
 		     markobject(g, g.mt[i]);
 		}
 
 
+		/*
+		** mark all objects in list of being-finalized
+		*/
 		private static void markbeingfnz (global_State g) {
 		  GCObject o;
 		  for (o = g.tobefnz; o != null; o = gch(o).next) {
-		    lua_assert(testbit(gch(o).marked, SEPARATED));
 		    makewhite(g, o);
 		    reallymarkobject(g, o);
 		  }
 		}
 
 
-		/* mark root set */
-		private static void markroot (lua_State L) {
-		  global_State g = G(L);
-		  g.gray = null;
-		  g.grayagain = null;
-		  g.weak = g.ephemeron = g.allweak = null;
-		  markobject(g, g.mainthread);
-		  /* make global table and registry to be traversed before main stack */
-		  markobject(g, g.l_gt);
-		  markvalue(g, g.l_registry);
-		  markmt(g);
-		  markbeingfnz(g);  /* mark any finalizing object left from previous cycle */
-		  g.gcstate = GCSpropagate;
+		/*
+		** mark all values stored in marked open upvalues. (See comment in
+		** 'lstate.h'.)
+		*/
+		private static void remarkupvals (global_State g) {
+		  UpVal uv;
+		  for (uv = g.uvhead.u.l.next; uv != &g.uvhead; uv = uv.u.l.next) {
+		    if (isgray(obj2gco(uv)))
+		      markvalue(g, uv.v);
+		  }
 		}
 
 
-		private static void remarkupvals (global_State g) {
-		  UpVal uv;
-		  for (uv = g.uvhead.u.l.next; uv != g.uvhead; uv = uv.u.l.next) {
-			lua_assert(uv.u.l.next.u.l.prev == uv && uv.u.l.prev.u.l.next == uv);
-			if (isgray(obj2gco(uv)))
-			  markvalue(g, uv.v);
-		  }
-		}		
-		
+		/*
+		** mark root set and reset all gray lists, to start a new
+		** incremental (or full) collection
+		*/
+		private static void markroot (lua_State L) {
+		  global_State g = G(L);
+		  g.gray = g.grayagain = null;
+		  g.weak = g.allweak = g.ephemeron = null;
+		  markobject(g, g.mainthread);
+		  markvalue(g, g.l_registry);
+		  markmt(g);
+		  markbeingfnz(g);  /* mark any finalizing object left from previous cycle */
+		}
+	
 		/* }====================================================== */
 
 
@@ -273,49 +346,48 @@ namespace KopiLua
 		*/
 
 		private static void traverseweakvalue (global_State g, Table h) {
-		  int i = sizenode(h);
-		  while (i-- != 0) {
-		    Node n = gnode(h, i);
+		  Node *n, *limit = gnode(h, sizenode(h));
+		  for (n = gnode(h, 0); n < limit; n++) {
 		    checkdeadkey(n);
-		    if (ttisnil(gval(n)))
-		      removeentry(n);  /* remove empty entries */
+		    if (ttisnil(gval(n)))  /* entry is empty? */
+		      removeentry(n);  /* remove it */
 		    else {
 		      lua_assert(!ttisnil(gkey(n)));
-		      markvalue(g, gkey(n));
+		      markvalue(g, gkey(n));  /* mark key */
 		    }
 		  }
-		  linktable(h, ref g.weak);
+		  linktable(h, ref g.weak);  /* link into appropriate list */
 		}
 
 
 		private static int traverseephemeron (global_State g, Table h) {
-		  int marked = 0;
-		  int hasclears = 0;
-		  int i = h.sizearray;
-		  while (i-- != 0) {  /* mark array part (numeric keys are 'strong') */
+		  int marked = 0;  /* true if an object is marked in this traversal */
+		  int hasclears = 0;  /* true if table has unmarked pairs */
+		  Node *n, *limit = gnode(h, sizenode(h));
+		  int i;
+		  /* traverse array part (numeric keys are 'strong') */
+		  for (i = 0; i < h->sizearray; i++) {
 		    if (valiswhite(h.array[i])) {
 		      marked = 1;
 		      reallymarkobject(g, gcvalue(h.array[i]));
 		    }
 		  }
-		  i = sizenode(h);
-		  while (i-- != 0) {
-		    Node n = gnode(h, i);
+		  /* traverse hash part */
+		  for (n = gnode(h, 0); n < limit; n++) {
 		    checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
-		    else if (valiswhite(gval(n))) {
-		      /* value is not marked yet */
-		      if (iscleared(key2tval(n), 1) != 0)  /* key is not marked (yet)? */
+		    else if (valiswhite(gval(n))) {  /* value not marked yet? */
+		      if (iscleared(gkey(n), 1) != 0)  /* key is not marked (yet)? */
 		        hasclears = 1;  /* may have to propagate mark from key to value */
-		      else {  /* mark value only if key is marked */
-		        marked = 1;  /* some mark changed status */
+		      else {  /* key is marked, so mark value */
+		        marked = 1;  /* value was not marked */
 		        reallymarkobject(g, gcvalue(gval(n)));
 		      }
 		    }
 		  }
-		  if (hasclears != 0)
-		    linktable(h, ref g.ephemeron);
+		  if (hasclears != 0)  /* does table have unmarked pairs? */
+		    linktable(h, ref g.ephemeron);  /* will have to propagate again */
 		  else  /* nothing to propagate */
 		    linktable(h, ref g.weak);  /* avoid convergence phase  */
 		  return marked;
@@ -323,26 +395,24 @@ namespace KopiLua
 
 
 		private static void traversestrongtable (global_State g, Table h) {
+          Node *n, *limit = gnode(h, sizenode(h));
 		  int i;
-		  i = h.sizearray;
-		  while (i-- != 0)
+		  for (i = 0; i < h->sizearray; i++)  /* traverse array part */
 		    markvalue(g, h.array[i]);
-		  i = sizenode(h);
-		  while (i-- != 0) {
-		    Node n = gnode(h, i);
+		  for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */
 		    checkdeadkey(n);
-		    if (ttisnil(gval(n)))
-		      removeentry(n);  /* remove empty entries */
+		    if (ttisnil(gval(n)))  /* entry is empty? */
+		      removeentry(n);  /* remove it */
 		    else {
 		      lua_assert(!ttisnil(gkey(n)));
-		      markvalue(g, gkey(n));
-		      markvalue(g, gval(n));
+		      markvalue(g, gkey(n));  /* mark key */
+		      markvalue(g, gval(n));  /* mark value */
 		    }
 		  }
 		}
 
 
-		private static void traversetable (global_State g, Table h) {
+		private static int traversetable (global_State g, Table h) {
 		  TValue mode = gfasttm(g, h.metatable, TMS.TM_MODE);
 		  markobject(g, h.metatable);
 		  //FIXME:??? modify mode!=0 to mode!=null, avoid lua_TValue.operator int() exception
@@ -351,46 +421,43 @@ namespace KopiLua
 		    int weakvalue = (strchr(svalue(mode), 'v') != null) ? 1 : 0;
 		    if (weakkey != 0 || weakvalue != 0) {  /* is really weak? */
 		      black2gray(obj2gco(h));  /* keep table gray */
-		      if (weakkey == 0)  /* strong keys? */
+		      if (weakkey == 0) {  /* strong keys? */
 		        traverseweakvalue(g, h);
-		      else if (weakvalue == 0)  /* strong values? */
+		        return TRAVCOST + sizenode(h);
+		      }
+		      else if (weakvalue == 0) {  /* strong values? */
 		        traverseephemeron(g, h);
-		      else
+		        return TRAVCOST + sizenode(h);
+		      }
+		      else {
 		        linktable(h, ref g.allweak);  /* nothing to traverse now */
-		      return;
+		        return TRAVCOST;
+		      }
 		    }  /* else go through */
 		  }
 		  traversestrongtable(g, h);
+          return TRAVCOST + h->sizearray + (2 * sizenode(h));
 		}
-
-
 
 		//FIXME:<----------------------------
-
-		/*
-		** All marks are conditional because a GC may happen while the
-		** prototype is still being created
-		*/
-		private static void traverseproto (global_State g, Proto f) {
+		private static int traverseproto (global_State g, Proto f) {
 		  int i;
-		  if (f.source != null) stringmark(f.source);
-		  for (i=0; i<f.sizek; i++)  /* mark literals */
+		  if (f.cache && iswhite(obj2gco(f.cache)))
+		    f.cache = null;  /* allow cache to be collected */
+		  stringmark(f.source);
+		  for (i = 0; i < f.sizek; i++)  /* mark literals */
 			markvalue(g, f.k[i]);
-		  for (i=0; i<f.sizeupvalues; i++) {  /* mark upvalue names */
-			if (f.upvalues[i].name != null)
-			  stringmark(f.upvalues[i].name);
-		  }
-		  for (i=0; i<f.sizep; i++)  /* mark nested protos */
-			  markobject(g, f.p[i]);
-		  for (i=0; i<f.sizelocvars; i++) {  /* mark local-variable names */
-			if (f.locvars[i].varname != null)
-			  stringmark(f.locvars[i].varname);
-		  }
+		  for (i = 0; i < f.sizeupvalues; i++)  /* mark upvalue names */
+			stringmark(f.upvalues[i].name);
+		  for (i = 0; i < f.sizep; i++)  /* mark nested protos */
+		    markobject(g, f.p[i]);
+		  for (i = 0; i < f.sizelocvars; i++)  /* mark local-variable names */
+			stringmark(f.locvars[i].varname);
+          return TRAVCOST + f->sizek + f->sizeupvalues + f->sizep + f->sizelocvars;
 		}
 
 
-		private static void traverseclosure (global_State g, Closure cl) {
-		  markobject(g, cl.c.env);
+		private static int traverseclosure (global_State g, Closure cl) {
 		  if (cl.c.isC != 0) {
 			int i;
 			for (i=0; i<cl.c.nupvalues; i++)  /* mark its upvalues */
@@ -399,18 +466,20 @@ namespace KopiLua
 		  else {
 			int i;
 			lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
-			markobject(g, cl.l.p);
+			markobject(g, cl.l.p);  /* mark its prototype */
 			for (i=0; i<cl.l.nupvalues; i++)  /* mark its upvalues */
 			  markobject(g, cl.l.upvals[i]);
 		  }
+          return TRAVCOST + cl->c.nupvalues;
 		}
 
 
-		private static void traversestack (global_State g, lua_State L) {
-		  StkId o;
-		  if (L.stack == null)
+		private static int traversestack (global_State g, lua_State L) {
+		  StkId[] o_ = L.stack; //FIXME:???o_
+		  if (o_ == null) //FIXME:???o_
 		    return;  /* stack not completely built yet */
-		  for (o = new lua_TValue(L.stack); o < L.top; /*StkId.inc(ref o)*/o = o + 1) {//FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
+		  StkId o = new lua_TValue(o_); //FIXME:o_->o
+		  for (; o < L.top; /*StkId.inc(ref o)*/o = o + 1) {//FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
 		    markvalue(g, o);
 		    
 		    //------------------------
@@ -433,14 +502,16 @@ namespace KopiLua
 		      //------------------------
 		  	}
 		  }
+		  return TRAVCOST + (int)(o - L.stack);
 		}
 
 
 		/*
-		** traverse one gray object, turning it to black.
-		** Returns `quantity' traversed.
+		** traverse one gray object, turning it to black (except for threads,
+		** which are always gray).
+		** Returns number of values traversed.
 		*/
-		private static l_mem propagatemark (global_State g) {
+		private static int propagatemark (global_State g) {
 		  GCObject o = g.gray;
 		  lua_assert(isgray(o));
 		  gray2black(o);
@@ -448,16 +519,12 @@ namespace KopiLua
 			case LUA_TTABLE: {
 			  Table h = gco2t(o);
 			  g.gray = h.gclist;
-			  traversetable(g, h);
-			  return	GetUnmanagedSize(typeof(Table)) + GetUnmanagedSize(typeof(TValue)) * h.sizearray +
-						GetUnmanagedSize(typeof(Node)) * sizenode(h);
+			  return traversetable(g, h);
 			}
 			case LUA_TFUNCTION: {
 			  Closure cl = gco2cl(o);
 			  g.gray = cl.c.gclist;
-			  traverseclosure(g, cl);
-			  return (l_mem)((cl.c.isC != 0) ? sizeCclosure(cl.c.nupvalues) :
-			                 sizeLclosure(cl.l.nupvalues)); //FIXME:(l_mem)
+			  return traverseclosure(g, cl);
 			}
 			case LUA_TTHREAD: {
 			  lua_State th = gco2th(o);
@@ -465,19 +532,12 @@ namespace KopiLua
 			  th.gclist = g.grayagain;
 			  g.grayagain = o;
 			  black2gray(o);
-			  traversestack(g, th);
-			  return	GetUnmanagedSize(typeof(lua_State)) + GetUnmanagedSize(typeof(TValue)) * th.stacksize;
+			  return traversestack(g, th);
 			}
 			case LUA_TPROTO: {
 			  Proto p = gco2p(o);
 			  g.gray = p.gclist;
-			  traverseproto(g, p);
-			  return	GetUnmanagedSize(typeof(Proto)) + GetUnmanagedSize(typeof(Instruction)) * p.sizecode +
-						GetUnmanagedSize(typeof(Proto)) * p.sizep +
-						GetUnmanagedSize(typeof(TValue)) * p.sizek + 
-						GetUnmanagedSize(typeof(int)) * p.sizelineinfo +
-						GetUnmanagedSize(typeof(LocVar)) * p.sizelocvars +
-						GetUnmanagedSize(typeof(TString)) * p.sizeupvalues;
+			  return traverseproto(g, p);
 			}
 			default: lua_assert(0); return 0;
 		  }
@@ -502,14 +562,14 @@ namespace KopiLua
 		  int changed;
 		  do {
 		    GCObject w;
-		    GCObject next = g.ephemeron;
-		    g.ephemeron = null;
+		    GCObject next = g.ephemeron;  /* get ephemeron list */
+		    g.ephemeron = null;  /* tables will return to this list when traversed */
 		    changed = 0;
 		    while ((w = next) != null) {
 		      next = gco2t(w).gclist;
-		      if (traverseephemeron(g, gco2t(w)) != 0) {
-		        changed = 1;
-		        propagateall(g);
+		      if (traverseephemeron(g, gco2t(w)) != 0) {  /* traverse marked some value? */
+			    propagateall(g);  /* propagate changes */
+		        changed = 1;  /* will have to revisit all ephemeron tables */
 		      }
 		    }
 		  } while (changed != 0);
@@ -526,26 +586,27 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		/* clear collected entries from weaktables */
+
+		/*
+		** clear collected entries from all weaktables in list 'l'
+		*/
 		private static void cleartable (GCObject l) {
-		  while (l != null) {
+		  for (; l != NULL; l = gco2t(l)->gclist) {
 			Table h = gco2t(l);
-			int i = h.sizearray;
-		    while (i--!= 0) {
+			Node *n, *limit = gnode(h, sizenode(h));
+		    int i;
+		    for (i = 0; i < h->sizearray; i++) {
 			  TValue o = h.array[i];
 			  if (iscleared(o, 0) != 0)  /* value was collected? */
 			    setnilvalue(o);  /* remove value */
 		    }
-			i = sizenode(h);
-			while (i-- != 0) {
-			  Node n = gnode(h, i);
+			for (n = gnode(h, 0); n < limit; n++) {
 			  if (!ttisnil(gval(n)) &&  /* non-empty entry? */
-				  (iscleared(key2tval(n), 1) != 0 || iscleared(gval(n), 0) != 0)) {
+				  (iscleared(gkey(n), 1) != 0 || iscleared(gval(n), 0) != 0)) {
 				setnilvalue(gval(n));  /* remove value ... */
-				removeentry(n);  /* remove entry from Table */
+				removeentry(n);  /* and remove entry from table */
 			  }
 			}
-			l = h.gclist;
 		  }
 		}
 
@@ -579,34 +640,64 @@ namespace KopiLua
 		//static GCObject **sweeplist (lua_State *L, GCObject **p, lu_mem count);
 
 
-		private static void sweepthread (lua_State L, lua_State L1, int alive) {
+		/*
+		** sweep the (open) upvalues of a thread and resize its stack and
+		** list of call-info structures.
+		*/
+		private static void sweepthread (lua_State L, lua_State L1) {
 		  if (L1.stack == null) return;  /* stack not completely built yet */
 		  sweepwholelist(L, new PtrRef(L1.openupval));  /* sweep open upvalues */ //FIXME:???
 		  luaE_freeCI(L1);  /* free extra CallInfo slots */
 		  /* should not change the stack during an emergency gc cycle */
-		  if (alive != 0 && G(L).gckind != KGC_EMERGENCY)
+		  if (G(L).gckind != KGC_EMERGENCY)
 		      luaD_shrinkstack(L1);
 		}
 
 
+		/*
+		** sweep at most 'count' elements from a list of GCObjects erasing dead
+		** objects, where a dead (not alive) object is one marked with the "old"
+		** (non current) white and not fixed.
+		** In non-generational mode, change all non-dead objects back to white,
+		** preparing for next collection cycle.
+		** In generational mode, keep black objects black, and also mark them as
+		** old; stop when hitting an old object, as all objects after that
+		** one will be old too.
+		** When object is a thread, sweep its list of open upvalues too.
+		*/
 		private static GCObjectRef sweeplist (lua_State L, GCObjectRef p, lu_mem count) {
-		  GCObject curr;
-		  global_State g = G(L);
-		  int deadmask = otherwhite(g);
-		  while ((curr = p.get()) != null && count-- > 0) {
-            int alive = (gch(curr).marked ^ WHITEBITS) & deadmask;
-		  	if (gch(curr).tt == LUA_TTHREAD)
-			  sweepthread(L, gco2th(curr), alive);
-			if (alive != 0) {
-			  lua_assert(isdead(g, curr) || testbit(gch(curr).marked, FIXEDBIT));
-			  makewhite(g, curr);  /* make it white (for next cycle) */
-			  p = new NextRef(gch(curr));
-			}
-			else {  /* must erase `curr' */
-			  lua_assert(isdead(g, curr) || deadmask == bitmask(SFIXEDBIT));
-			  p.set( gch(curr).next );  /* remove 'curr' from list */
-			  freeobj(L, curr);
-			}
+		  global_State *g = G(L);
+		  int ow = otherwhite(g);
+		  int toclear, toset;  /* bits to clear and to set in all live objects */
+		  int tostop;  /* stop sweep when this is true */
+		  if (isgenerational(g)) {  /* generational mode? */
+		    toclear = ~0;  /* clear nothing */
+		    toset = bitmask(OLDBIT);  /* set the old bit of all surviving objects */
+		    tostop = bitmask(OLDBIT);  /* do not sweep old generation */
+		  }
+		  else {  /* normal mode */
+		    toclear = maskcolors;  /* clear all color bits + old bit */
+		    toset = luaC_white(g);  /* make object white */
+		    tostop = 0;  /* do not stop */
+		  }
+		  while (*p != NULL && count-- > 0) {
+		    GCObject *curr = *p;
+		    int marked = gch(curr)->marked;
+		    if (isdeadm(ow, marked)) {  /* is 'curr' dead? */
+		      *p = gch(curr)->next;  /* remove 'curr' from list */
+		      freeobj(L, curr);  /* erase 'curr' */
+		    }
+		    else {
+		      if (gch(curr)->tt == LUA_TTHREAD)
+		        sweepthread(L, gco2th(curr));  /* sweep thread's upvalues */
+		      if (testbits(marked, tostop)) {
+		        static GCObject *nullp = NULL;
+		        return &nullp;  /* stop sweeping this list */
+		      }
+		      /* update marks */
+		      gch(curr)->marked = cast_byte((marked & toclear) | toset);
+		      p = &gch(curr)->next;  /* go to next element */
+		    }
 		  }
 		  return p;
 		}
@@ -622,25 +713,28 @@ namespace KopiLua
 
 		private static void checkSizes (lua_State L) {
 		  global_State g = G(L);
-		  if (g.strt.nuse < (lu_int32)(g.strt.size)) {
-		    /* string-table size could be the smaller power of 2 larger than 'nuse' */
-		    int size = 1 << luaO_ceillog2((uint)(g.strt.nuse)); //FIXME:???
-		    if (size < g.strt.size)  /* current table too large? */
-		      luaS_resize(L, size);  /* shrink it */
+		  if (g->gckind != KGC_EMERGENCY) {  /* do not change sizes in emergency */
+		    int hs = g->strt.size / 2;  /* half the size of the string table */
+			if (g->strt.nuse < cast(lu_int32, hs))  /* using less than that half? */
+			  luaS_resize(L, hs);  /* halve its size */
+			luaZ_freebuffer(L, &g->buff);  /* free concatenation buffer */
 		  }
-		  luaZ_freebuffer(L, g.buff);
 		}
 
 
 	    private static Udata udata2finalize (global_State g) {
 		  GCObject o = g.tobefnz;  /* get first element */
-		  g.tobefnz = gch(o).next;  /* remove it from 'tobefnz' list */
-		  gch(o).next = g.rootgc;  /* return it to `root' list */
-		  g.rootgc = o;
-		  lua_assert(isfinalized(gch(o)));
-		  resetbit(ref gch(o).marked, SEPARATED);  /* mark it as such */
-		  makewhite(g, o);
-		  return rawgco2u(o);
+		  Udata u = rawgco2u(o);
+		  lua_assert(isfinalized(&u->uv));
+		  lua_assert(!isold(o));
+		  g->tobefnz = u->uv.next;  /* remove it from 'tobefnz' list */
+		  u->uv.next = g->allgc;  /* return it to 'allgc' list */
+		  g->allgc = o;
+		  resetbit(u->uv.marked, SEPARATED);  /* mark that it is not in 'tobefnz' */
+		  resetoldbit(o); /* see MOVE OLD rule */
+		  if (!keepinvariant(g))  /* not keeping invariant? */
+		    makewhite(g, o);  /* "sweep" object */
+		  return u;
 		}
 
 
@@ -654,18 +748,18 @@ namespace KopiLua
 		  global_State g = G(L);
 		  Udata udata = udata2finalize(g);
 		  /*const*/ TValue tm = gfasttm(g, udata.uv.metatable, TMS.TM_GC);
-		  if (tm != null && ttisfunction(tm)) {
+		  if (tm != null && ttisfunction(tm)) {  /* is there a finalizer? */
             int status;
 			lu_byte oldah = L.allowhook;
-			lu_mem oldt = (lu_mem)g.GCthreshold;
+			lu_mem oldd = g.GCdebt;
 			L.allowhook = 0;  /* stop debug hooks during GC tag method */
-			g.GCthreshold = 2*g.totalbytes;  /* avoid GC steps */
-			setobj2s(L, L.top, tm);
-			setuvalue(L, L.top+1, udata);
-			L.top += 2;
+			stopgc(g);  /* avoid GC steps */
+			setobj2s(L, L.top, tm);  /* push finalizer... */
+			setuvalue(L, L.top+1, udata);  /* ... and its argument */
+			L.top += 2;  /* and (next line) call the finalizer */
 		    status = luaD_pcall(L, dothecall, null, savestack(L, L.top - 2), 0);
 		    L.allowhook = oldah;  /* restore hooks */
-		    g.GCthreshold = oldt;  /* restore threshold */
+		    g->GCdebt = oldd;  /* restore threshold */
 		    if (status != LUA_OK && propagateerrors != 0) {  /* error while running __gc? */
 		      if (status == LUA_ERRRUN) {  /* is there an error msg.? */
 		        luaO_pushfstring(L, "error in __gc tag method (%s)",
@@ -678,14 +772,18 @@ namespace KopiLua
 		}
 
 
-		/* move 'dead' udata that need finalization to list 'tobefnz' */
+		/*
+		** move all unreachable udata that need finalization from list 'udgc' to
+		** list 'tobefnz'
+		*/
 		public static void luaC_separateudata (lua_State L, int all) {
 		  global_State g = G(L);
-		  GCObjectRef p = new NextRef(g.mainthread);
+		  GCObject **p = &g->udgc;
 		  GCObject curr;
-		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????
-		  /* find last 'next' field in 'tobefnz' list (to insert elements in its end) */
-		  while (lastnext.get() != null) lastnext = new PtrRef(gch(lastnext.get()).next);
+		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????next???
+		  /* find last 'next' field in 'tobefnz' list (to add elements in its end) */
+		  while (lastnext.get() != null) 
+		    lastnext = new PtrRef(gch(lastnext.get()).next); //FIXME:next???PtrRef???
 		  while ((curr = p.get()) != null) {  /* traverse all finalizable objects */
 		    lua_assert(gch(curr).tt == LUA_TUSERDATA && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
@@ -693,9 +791,8 @@ namespace KopiLua
 		    	p = new NextRef(gch(curr));  /* don't bother with it */
 		    else {
 		      l_setbit(ref gch(curr).marked, FINALIZEDBIT); /* won't be finalized again */
-		      p.set(gch(curr).next);  /* remove 'curr' from 'rootgc' list */
-		      /* link 'curr' at the end of 'tobefnz' list */
-		      gch(curr).next = lastnext.get();
+		      p.set(gch(curr).next);  /* remove 'curr' from 'udgc' list */
+		      gch(curr).next = lastnext.get();  /* link at the end of 'tobefnz' list */
 		      lastnext.set(curr);
 		      lastnext = new PtrRef(gch(curr).next);
 		    }
@@ -703,20 +800,24 @@ namespace KopiLua
 		}
 
 
+		/*
+		** if userdata 'u' has a finalizer, remove it from 'allgc' list (must
+		** search the list to find it) and link it in 'udgc' list.
+		*/
 		public static void luaC_checkfinalizer (lua_State L, Udata u) {
 		  global_State g = G(L);
 		  if (testbit(u.uv.marked, SEPARATED) || /* userdata is already separated... */
 		      isfinalized(u.uv) ||                        /* ... or is finalized... */
 		      gfasttm(g, u.uv.metatable, TMS.TM_GC) == null)  /* or has no finalization? */
 		    return;  /* nothing to be done */
-		  else {  /* move 'u' to 2nd part of root list */
+		  else {  /* move 'u' to 'udgc' list */
 		    GCObjectRef p;
-		    for (p = new RootGCRef(g); p.get() != obj2gco(u); p.set(gch(p.get()).next))
-		    	lua_assert(p.get() != obj2gco(g.mainthread));  /* 'u' must be in this list */
-		    p.set(u.uv.next);  /* remove 'u' from root list */
-		    u.uv.next = g.mainthread.next;  /* re-link it in list */
-		    g.mainthread.next = obj2gco(u);
-		    l_setbit(ref u.uv.marked, SEPARATED);  /* mark it as such */
+		    for (p = &g->allgc; *p != obj2gco(u); p = &gch(*p)->next) ;
+		    *p = u->uv.next;  /* remove 'u' from root list */
+		    u->uv.next = g->udgc;  /* link it in list 'udgc' */
+		    g->udgc = obj2gco(u);
+		    l_setbit(u->uv.marked, SEPARATED);  /* mark it as such */
+		    resetoldbit(obj2gco(u));  /* see MOVE OLD rule */
 		  }
 		}
 
@@ -729,24 +830,60 @@ namespace KopiLua
 		** =======================================================
 		*/
 
+
+		private const void sweepphases =
+			(bitmask(GCSsweepstring) | bitmask(GCSsweepudata) | bitmask(GCSsweep));
+
+		/*
+		** change GC mode
+		*/
+		public static void luaC_changemode (lua_State L, int mode) {
+		  global_State *g = G(L);
+		  if (mode == g->gckind) return;  /* nothing to change */
+		  if (mode == KGC_GEN) {  /* change to generational mode */
+		    /* make sure gray lists are consistent */
+		    luaC_runtilstate(L, bitmask(GCSpropagate));
+		    g->lastmajormem = g->totalbytes;
+		    g->gckind = KGC_GEN;
+		  }
+		  else {  /* change to incremental mode */
+		    /* sweep all objects to turn them back to white
+		       (as white has not changed, nothing extra will be collected) */
+		    g->sweepstrgc = 0;
+		    g->gcstate = GCSsweepstring;
+		    g->gckind = KGC_NORMAL;
+		    luaC_runtilstate(L, ~sweepphases);
+		  }
+		}
+
+
+		/*
+		** call all pending finalizers */
+		private static void callallpendingfinalizers (lua_State L, int propagateerrors) {
+		  global_State *g = G(L);
+		  while (g->tobefnz) GCTM(L, propagateerrors);
+		}
+
+
 		public static void luaC_freeallobjects (lua_State L) {
 		  global_State g = G(L);
 		  int i;
-		  while (g.tobefnz != null) GCTM(L, 0);  /* Call all pending finalizers */
+		  callallpendingfinalizers(L, 0);
 		  /* following "white" makes all objects look dead */
-		  g.currentwhite = (byte)((WHITEBITS | bitmask(SFIXEDBIT)) & 0xff);
-		  sweepwholelist(L, new RootGCRef(g));
-		  lua_assert(g.rootgc == obj2gco(g.mainthread) &&
-		             g.mainthread.next == null);
-		  for (i = 0; i < g.strt.size; i++)  /* free all string lists */
-		  	sweepwholelist(L, new ArrayRef(g.strt.hash, i));
-		  lua_assert(g.strt.nuse == 0);
+		  g->currentwhite = WHITEBITS;
+		  g->gckind = KGC_NORMAL;
+		  sweepwholelist(L, &g->udgc);
+		  lua_assert(g->udgc == NULL);
+		  sweepwholelist(L, &g->allgc);
+		  lua_assert(g->allgc == NULL);
+		  for (i = 0; i < g->strt.size; i++)  /* free all string lists */
+		    sweepwholelist(L, &g->strt.hash[i]);
+		  lua_assert(g->strt.nuse == 0);
 		}
 
 
 		private static void atomic (lua_State L) {
 		  global_State g = G(L);
-          g.gcstate = GCSatomic;
 		  lua_assert(!iswhite(obj2gco(g.mainthread)));
 		  markobject(g, L);  /* mark running thread */
 		  /* registry and global metatables may be changed by API */
@@ -756,12 +893,11 @@ namespace KopiLua
 		  remarkupvals(g);
 		  /* traverse objects caught by write barrier and by 'remarkupvals' */
 		  propagateall(g);
-		  /* at this point, all strongly accessible objects are marked.
-		     Start marking weakly accessible objects. */
 		  traverselistofgrays(g, ref g.weak);  /* remark weak tables */
 		  traverselistofgrays(g, ref g.ephemeron);  /* remark ephemeron tables */
   		  traverselistofgrays(g, ref g.grayagain);  /* remark gray again */
           convergeephemerons(g);
+          /* at this point, all strongly accessible objects are marked. */
 		  luaC_separateudata(L, 0);  /* separate userdata to be finalized */
 		  markbeingfnz(g);  /* mark userdata that will be finalized */
 		  propagateall(g);  /* remark, to propagate `preserveness' */
@@ -770,70 +906,72 @@ namespace KopiLua
 		  cleartable(g.weak);
 		  cleartable(g.ephemeron);
 		  cleartable(g.allweak);
-		  g.currentwhite = cast_byte(otherwhite(g));  /* flip current white */
-		  g.sweepstrgc = 0;  /* go to sweep phase */
+		  g.sweepstrgc = 0;  /* prepare to sweep strings */
 		  g.gcstate = GCSsweepstring;
+		  g->currentwhite = cast_byte(otherwhite(g));  /* flip current white */
+		  /*lua_checkmemory(L);*/
 		}
 
 		
 		private static l_mem singlestep (lua_State L) {
 		  global_State g = G(L);
-		  /*lua_checkmemory(L);*/
 		  switch (g.gcstate) {
 			case GCSpause: {
-			  markroot(L);  /* start a new collection */
-			  return 0;
+		      if (!isgenerational(g))
+		        markroot(L);  /* start a new collection */
+		      /* in any case, root must be marked */
+		      lua_assert(!iswhite(obj2gco(g->mainthread))
+		              && !iswhite(gcvalue(&g->l_registry)));
+		      g->gcstate = GCSpropagate;
+		      return GCROOTCOST;
 			}
 			case GCSpropagate: {
 			  if (g.gray != null)
 				return propagatemark(g);
 			  else {  /* no more `gray' objects */
-				atomic(L);  /* finish mark phase */
-				return 0;
+		        g->gcstate = GCSatomic;  /* finish mark phase */
+		        atomic(L);
+		        return GCATOMICCOST;
 			  }
 			}
 			case GCSsweepstring: {
-		  	  sweepwholelist(L, new ArrayRef(g.strt.hash, g.sweepstrgc++));
-			  if (g.sweepstrgc >= g.strt.size) {  /* nothing more to sweep? */
-		  	  	g.sweepgc = new RootGCRef(g);
-				g.gcstate = GCSsweep;  /* sweep all other objects */
-              }
-			  return GCSWEEPCOST;
+		  	  if (g->sweepstrgc < g->strt.size) {
+		        sweepwholelist(L, &g->strt.hash[g->sweepstrgc++]);
+		        return GCSWEEPCOST;
+		      }
+		      else {  /* no more strings to sweep */
+		        g->sweepgc = &g->udgc;  /* prepare to sweep userdata */
+		        g->gcstate = GCSsweepudata;
+		        return 0;
+		      }
 			}
+			case GCSsweepudata: {
+		      if (*g->sweepgc) {
+		        g->sweepgc = sweeplist(L, g->sweepgc, GCSWEEPMAX);
+		        return GCSWEEPMAX*GCSWEEPCOST;
+		      }
+		      else {
+		        g->sweepgc = &g->allgc;  /* go to next phase */
+		        g->gcstate = GCSsweep;
+		        return GCSWEEPCOST;
+		      }
+		    }
 			case GCSsweep: {
-		  	  g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);
-			  if (g.sweepgc.get() == null)  /* nothing more to sweep? */
-				g.gcstate = GCSfinalize;  /* end sweep phase */
-			  return GCSWEEPMAX*GCSWEEPCOST;
-			}
-			case GCSfinalize: {
-			  if (g.tobefnz != null) {
-				GCTM(L, 1);
-				return GCFINALIZECOST;
-			  }
-			  else {
-		  		checkSizes(L);
-				g.gcstate = GCSpause;  /* end collection */
-				return 0;
-			  }
+		      if (*g->sweepgc) {
+		        g->sweepgc = sweeplist(L, g->sweepgc, GCSWEEPMAX);
+		        return GCSWEEPMAX*GCSWEEPCOST;
+		      }
+		      else {
+		        /* sweep main thread */
+		        GCObject *mt = obj2gco(g->mainthread);
+		        sweeplist(L, &mt, 1);
+		        checkSizes(L);
+		        g->gcstate = GCSpause;  /* finish collection */
+		        return GCSWEEPCOST;
+		      }
 			}
 			default: lua_assert(0); return 0;
 		  }
-		}
-
-		public static void luaC_step (lua_State L) {
-		  global_State g = G(L);
-		  l_mem lim = (l_mem)((GCSTEPSIZE / 100) * g.gcstepmul);  /* how much to work */
-          lu_mem debt = g.totalbytes - g.GCthreshold;
-          lua_assert(g.gckind == KGC_NORMAL);
-		  do {  /* always perform at least one single step */
-			lim -= singlestep(L);
-		  } while (lim > 0 && g.gcstate != GCSpause);
-          g.GCthreshold = (uint)((g.gcstate != GCSpause)
-		                       ? g.totalbytes + GCSTEPSIZE
-		                       : (g.totalbytes/100) * g.gcpause); //FIXME:(uint)
-		  /* compensate if GC is "behind schedule" (has some debt to pay) */
-		  if (g.GCthreshold > debt) g.GCthreshold -= debt;
 		}
 
 
@@ -848,29 +986,74 @@ namespace KopiLua
 		}
 
 
+		private static void generationalcollection (lua_State L) {
+		  global_State *g = G(L);
+		  if (g->lastmajormem == 0) {  /* signal for another major collection? */
+		    luaC_fullgc(L, 0);  /* perform a full regular collection */
+		    g->lastmajormem = g->totalbytes;  /* update control */
+		  }
+		  else {
+		    luaC_runtilstate(L, ~bitmask(GCSpause));  /* run complete cycle */
+		    luaC_runtilstate(L, bitmask(GCSpause));
+		    if (g->totalbytes > g->lastmajormem/100 * g->gcmajorinc)
+		      g->lastmajormem = 0;  /* signal for a major collection */
+		  }
+		  g->GCdebt = stddebt(g);
+		}
+
+
+		private static void step (lua_State L) {
+		  global_State *g = G(L);
+		  l_mem lim = g->gcstepmul;  /* how much to work */
+		  do {  /* always perform at least one single step */
+		    lim -= singlestep(L);
+		  } while (lim > 0 && g->gcstate != GCSpause);
+		  if (g->gcstate != GCSpause)
+		    g->GCdebt -= GCSTEPSIZE;
+		  else
+		    g->GCdebt = stddebt(g);
+		}
+
+
+		public static void luaC_step (lua_State L) {
+		  int i;
+		  if (isgenerational(G(L))) generationalcollection(L);
+		  else step(L);
+		  for (i = 0; i < GCFINALIZENUM && G(L)->tobefnz; i++)
+		    GCTM(L, 1);  /* Call a few pending finalizers */
+		}
+
+
 		/*
-		** performs a full GC cycle; if "isememrgency", does not call
+		** performs a full GC cycle; if "isemergency", does not call
 		** finalizers (which could change stack positions)
 		*/
 		public static void luaC_fullgc (lua_State L, int isemergency) {
 		  global_State g = G(L);
-		  lua_assert(g.gckind == KGC_NORMAL);
-		  g.gckind = (byte)(isemergency != 0 ? KGC_EMERGENCY : KGC_FORCED);
-		  if (g.gcstate == GCSpropagate) {  /* marking phase? */
+		  int origkind = g->gckind;
+		  lua_assert(origkind != KGC_EMERGENCY);
+		  if (!isemergency)   /* do not run finalizers during emergency GC */
+		    callallpendingfinalizers(L, 1);
+		  if (keepinvariant(g)) {  /* marking phase? */
 		    /* must sweep all objects to turn them back to white
-		       (as white does not change, nothing will be collected) */
-		    g.sweepstrgc = 0;
-		    g.gcstate = GCSsweepstring;
+		       (as white has not changed, nothing will be collected) */
+		    g->sweepstrgc = 0;
+		    g->gcstate = GCSsweepstring;
 		  }
-		  /* finish any pending sweep phase */
-		  luaC_runtilstate(L, ~bit2mask(GCSsweepstring, GCSsweep));
-		  markroot(L);  /* start a new collection */
-		  /* run collector up to finalizers */
-		  luaC_runtilstate(L, bitmask(GCSfinalize));
-		  g.gckind = KGC_NORMAL;
-		  if (isemergency==0)   /* do not run finalizers during emergency GC */
-		   luaC_runtilstate(L, ~bitmask(GCSfinalize));
-		  g.GCthreshold = (uint)((g.totalbytes/100) * g.gcpause); //FIXME:(uint)
+		  g->gckind = isemergency ? KGC_EMERGENCY : KGC_NORMAL;
+		  /* finish any pending sweep phase to start a new cycle */
+		  luaC_runtilstate(L, bitmask(GCSpause));
+		  /* run entire collector */
+		  luaC_runtilstate(L, ~bitmask(GCSpause));
+		  luaC_runtilstate(L, bitmask(GCSpause));
+		  if (origkind == KGC_GEN) {  /* generational mode? */
+		    /* generational mode must always start in propagate phase */
+		    luaC_runtilstate(L, bitmask(GCSpropagate));
+		  }
+		  g->gckind = origkind;
+		  g->GCdebt = stddebt(g);
+		  if (!isemergency)   /* do not run finalizers during emergency GC */
+		    callallpendingfinalizers(L, 1);
 		}
 
         /* }====================================================== */

@@ -37,3 +37,7 @@ ldump.c
 lfunc.c
 lfunc.h
 
+16:47 2017-07-15
+lgc.c //many changes
+17:01 2017-07-15
+lgc.h //many changes
