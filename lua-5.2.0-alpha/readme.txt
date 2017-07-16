@@ -80,3 +80,19 @@ loslib.c
 lparser.c
 13:43 2017-07-16
 lparser.h
+
+
+15:49 2017-07-16
+lstate.c
+	LG l = (LG)f(typeof(LG)); //FIXME:(LG)(f(ud, null, LUA_TTHREAD, (uint)(GetUnmanagedSize(typeof(LG))))); //FIXME:???LUA_TTHREAD
+16:03 2017-07-16
+lstate.h
+	public TString[] tmname = new TString[TM_N];  /* array with tag-method names */ //FIXME:not init with new TString()
+	public Table[] mt = new Table[LUA_NUMTAGS];  /* metatables for basic types */
+		changed to LUA_NUMTAGS, !!!NOTE!!!,where init with new Table() (maybe for loop)
+16:06 2017-07-16
+lstring.c
+16:08 2017-07-16
+lstring.h
+
+

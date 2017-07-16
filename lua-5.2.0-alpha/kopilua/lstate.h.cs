@@ -15,7 +15,7 @@ namespace KopiLua
 	** Some notes about garbage-collected objects:  All objects in Lua must
 	** be kept somehow accessible until being freed.
 	**
-	** Lua keeps most objects linked in list g->rootgc. The link uses field
+	** Lua keeps most objects linked in list g->allgc. The link uses field
 	** 'next' of the CommonHeader.
 	**
 	** Strings are kept in several lists headed by the array g->strt.hash.
@@ -28,9 +28,7 @@ namespace KopiLua
 	** when traversing the respective threads, but the thread may already be
 	** dead, while the upvalue is still accessible through closures.)
 	**
-	** Userdata with finalizers are kept in the list g->rootgc, but after
-	** the mainthread, which should be otherwise the last element in the
-	** list, as it was the first one inserted there.
+	** Userdata with finalizers are kept in the list g->udgc.
 	**
 	** The list g->tobefnz links all userdata being finalized.
 
@@ -50,8 +48,8 @@ namespace KopiLua
 
 		/* kinds of Garbage Collection */
 		public const int KGC_NORMAL	= 0;
-		public const int KGC_FORCED	= 1;	/* gc was forced by the program */
-		public const int KGC_EMERGENCY = 2;	/* gc was forced by an allocation failure */
+		public const int KGC_EMERGENCY	= 1;	/* gc was forced by an allocation failure */
+		public const int KGC_GEN = 2;	/* generational collection */
 
 
 		public class stringtable {
@@ -62,7 +60,7 @@ namespace KopiLua
 
 
 		/*
-		** informations about a call
+		** information about a call
 		*/
 		public class CallInfo : ArrayElement
 		{
@@ -147,7 +145,7 @@ namespace KopiLua
 			public StkId func;  /* function index in the stack */
 			public StkId top;  /* top for this function */
 			public CallInfo previous, next;  /* dynamic call link */
-			public short nresults;  /* expected number of results from a call */
+			public short nresults;  /* expected number of results from this function */
 			public lu_byte callstatus;
 			public class _u {
 			    public class _l {  /* only for Lua functions */
@@ -159,7 +157,7 @@ namespace KopiLua
 			      public int ctx;  /* context info. in case of yields */
 			      public lua_CFunction k;  /* continuation in case of yields */
 			      public ptrdiff_t old_errfunc;
-			      public ptrdiff_t oldtop;
+			      public ptrdiff_t extra;
 			      public lu_byte old_allowhook;
 			      public lu_byte status;
 			    };
@@ -181,7 +179,6 @@ namespace KopiLua
 		public const int CIST_TAIL = (1<<6); /* call was tail called */
 
 
-		public static Closure curr_func(lua_State L) { return (clvalue(L.ci.func)); }
 		public static Closure ci_func(CallInfo ci) { return (clvalue(ci.func)); }
 		public static int isLua(CallInfo ci)	{return ((ci.callstatus & CIST_LUA) != 0) ? 1 : 0;}
 
@@ -190,15 +187,20 @@ namespace KopiLua
 		** `global state', shared by all threads of this state
 		*/
 		public class global_State {
-		  public stringtable strt = new stringtable(); /* hash table for strings */
 		  public lua_Alloc frealloc;  /* function to reallocate memory */
 		  public object ud;         /* auxiliary data to `frealloc' */
+		  public lu_mem totalbytes;  /* number of bytes currently allocated */
+		  public l_mem GCdebt = ?;  /* when positive, run a GC step */
+		  public lu_mem lastmajormem;  /* memory in use after last major collection */
+		  public stringtable strt = new stringtable();  /* hash table for strings */
+		  public TValue l_registry = new TValue();
           public ushort nCcalls;  /* number of nested C calls */
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
           public lu_byte gckind;  /* kind of GC running */
 		  public int sweepstrgc;  /* position of sweep in `strt' */
-		  public GCObject rootgc;  /* list of all collectable objects */
+		  public GCObject allgc;  /* list of all collectable objects */
+		  public GCObject udgc;  /* list of collectable userdata with finalizers */
 		  public GCObjectRef sweepgc;  /* current position of sweep */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
@@ -206,19 +208,17 @@ namespace KopiLua
 		  public GCObject ephemeron;  /* list of ephemeron tables (weak keys) */
 		  public GCObject allweak;  /* list of all-weak tables */
 		  public GCObject tobefnz;  /* list of userdata to be GC */
+          public UpVal uvhead = new UpVal();  /* head of double-linked list of all open upvalues */
 		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatenation */
-		  public lu_mem GCthreshold;  /* when totalbytes > GCthreshold, run GC step */
-		  public lu_mem totalbytes;  /* number of bytes currently allocated */
 		  public int gcpause;  /* size of pause between successive GCs */
+          public int gcmajorinc;  /* how much to wait for a major GC (only in gen. mode) */
 		  public int gcstepmul;  /* GC `granularity' */
 		  public lua_CFunction panic;  /* to be called in unprotected errors */
-		  public TValue l_registry = new TValue();
-  		  public Table l_gt;  /* table of globals */
 		  public lua_State mainthread;
-		  public UpVal uvhead = new UpVal();  /* head of double-linked list of all open upvalues */
           public /*const*/ lua_Number[] version;  /* pointer to version number */
-		  public Table[] mt = new Table[NUM_TAGS];  /* metatables for basic types */
-		  public TString[] tmname = new TString[(int)TMS.TM_N];  /* array with tag-method names */
+          public TString memerrmsg;  /* memory-error message */
+          public TString[] tmname = new TString[(int)TMS.TM_N];  /* array with tag-method names */ //FIXME:???not init with new TString()
+		  public Table[] mt = new Table[LUA_NUMTAGS];  /* metatables for basic types */
 		};
 
 
@@ -241,7 +241,6 @@ namespace KopiLua
 		  public int basehookcount;
 		  public int hookcount;
 		  public lua_Hook hook;
-		  public TValue env = new TValue();  /* temporary place for environments */
 		  public GCObject openupval;  /* list of open upvalues in this stack */
 		  public GCObject gclist;
 		  public lua_longjmp errorJmp;  /* current error recover point */
@@ -251,7 +250,7 @@ namespace KopiLua
 
 
 		public static global_State G(lua_State L)	{return L.l_G;}
-		public static void G_set(lua_State L, global_State s) { L.l_G = s; }
+		public static void G_set(lua_State L, global_State s) { L.l_G = s; } //FIXME:added, not used???
 
 
 		/*

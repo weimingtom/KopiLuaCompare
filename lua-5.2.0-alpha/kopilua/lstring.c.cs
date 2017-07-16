@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.15 2009/12/11 21:31:14 roberto Exp roberto $
+** $Id: lstring.c,v 2.17 2010/04/03 20:24:18 roberto Exp roberto $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -36,6 +36,7 @@ namespace KopiLua
 		      uint h = (uint)lmod(gco2ts(p).hash, newsize);  /* new position */ //FIXME:(uint)lmod()
 		      gch(p).next = tb.hash[h];  /* chain it */
 		      tb.hash[h] = p;
+              resetoldbit(p);  /* see MOVE OLD rule */
 		      p = next;
 		    }
 		  }
@@ -65,11 +66,12 @@ namespace KopiLua
 		  ts.tsv.hash = h;
 		  ts.tsv.reserved = 0;
 		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char)));
-		  memcpy(ts.str.chars, str.chars, str.index, (int)l);
+		  memcpy(ts.str.chars, str.chars, str.index, (int)l); //FIXME:changed 
 		  ts.str[l] = '\0';  /* ending 0 */
 		  tb.nuse++;
 		  return ts;
 		}
+
 
 		public static TString luaS_newlstr (lua_State L, CharPtr str, uint l) {
 		  GCObject o;
@@ -91,6 +93,11 @@ namespace KopiLua
 		  }
 		  return newlstr(L, str, l, h);  /* not found; create a new string */
         }
+
+
+		public static TString luaS_new (lua_State L, CharPtr str) {
+		  return luaS_newlstr(L, str, strlen(str));
+		}
 
 		//FIXME:here changed
 		public static Udata luaS_newudata(lua_State L, uint s, Table e)
