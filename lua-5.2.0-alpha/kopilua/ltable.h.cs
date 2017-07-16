@@ -11,6 +11,5 @@ namespace KopiLua
 		
 		public static void gnext_set(Node n, Node v) { n.i_key.nk.next = v; }
 
-		public static TValue key2tval(Node n) { return n.i_key.tvk; }
 	}
 }

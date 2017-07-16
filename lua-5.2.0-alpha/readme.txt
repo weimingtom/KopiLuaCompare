@@ -95,4 +95,13 @@ lstring.c
 16:08 2017-07-16
 lstring.h
 
-
+20:12 2017-07-16
+lstrlib.c
+20:21 2017-07-16
+ltable.c
+	luaH_get(): //FIXME:added ???this is not beautiful, use goto default
+	luaH_get(): //FIXME: n->node
+20:21 2017-07-16
+ltable.h
+20:27 2017-07-16
+ltablib.c

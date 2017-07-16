@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.46 2009/11/26 11:39:20 roberto Exp roberto $
+** $Id: ltable.c,v 2.52 2010/06/25 12:18:10 roberto Exp roberto $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -37,8 +37,8 @@ namespace KopiLua
 		/*
 		** max size of array part is 2^MAXBITS
 		*/
-		//#if LUAI_BITSINT > 26
-		public const int MAXBITS = 26;	/* in the dotnet port LUAI_BITSINT is 32 */
+		//#if LUAI_BITSINT > 32
+		public const int MAXBITS = 30;	/* in the dotnet port LUAI_BITSINT is 32 */
 		//#else
 		//public const int MAXBITS		= (LUAI_BITSINT-2);
 		//#endif
@@ -59,6 +59,7 @@ namespace KopiLua
 		*/
 		public static Node hashmod(Table t, int n) { return gnode(t, (n % ((sizenode(t) - 1) | 1))); }
 
+
 		public static Node hashpointer(Table t, object p) { return hashmod(t, p.GetHashCode()); }
 
 
@@ -68,6 +69,7 @@ namespace KopiLua
 		public const int numints = sizeof(lua_Number) / sizeof(int);
 
         //FIXME:see below
+
 		//#define dummynode		(&dummynode_)
 		private static bool isdummy(Node n) {return ((n) == dummynode);}
 		private static bool isdummy(Node[] n) {return ((n[0]) == dummynode);}
@@ -109,6 +111,8 @@ namespace KopiLua
 			  return hashboolean(t, bvalue(key));
 			case LUA_TLIGHTUSERDATA:
 			  return hashpointer(t, pvalue(key));
+		    case LUA_TLCF:
+		      return hashpointer(t, fvalue(key));
 			default:
 				return hashpointer(t, gcvalue(key));
 		  }
@@ -146,7 +150,7 @@ namespace KopiLua
 			Node n = mainposition(t, key);
 			do {  /* check whether `key' is somewhere in the chain */
 			  /* key may be dead already, but it is ok to use it in `next' */
-			  if ((luaO_rawequalObj(key2tval(n), key) != 0) ||
+			  if ((luaO_rawequalObj(gkey(n), key) != 0) ||
 					(ttype(gkey(n)) == LUA_TDEADKEY && iscollectable(key) &&
 					 gcvalue(gkey(n)) == gcvalue(key))) {
 				i = cast_int(n - gnode(t, 0));  /* key index in hash table */
@@ -172,7 +176,7 @@ namespace KopiLua
 		  }
 		  for (i -= t.sizearray; i < sizenode(t); i++) {  /* then hash part */
 			if (!ttisnil(gval(gnode(t, i)))) {  /* a non-nil value? */
-			  setobj2s(L, key, key2tval(gnode(t, i)));
+			  setobj2s(L, key, gkey(gnode(t, i)));
 			  setobj2s(L, key+1, gval(gnode(t, i)));
 			  return 1;
 			}
@@ -253,7 +257,7 @@ namespace KopiLua
 		  while ((i--) != 0) {
 			Node n = t.node[i];
 			if (!ttisnil(gval(n))) {
-			  ause += countint(key2tval(n), nums);
+			  ause += countint(gkey(n), nums);
 			  totaluse++;
 			}
 		  }
@@ -320,10 +324,10 @@ namespace KopiLua
 		  for (i = twoto(oldhsize) - 1; i >= 0; i--) {
 			Node old = nold[i];
 			if (!ttisnil(gval(old)))
-			  setobjt2t(L, luaH_set(L, t, key2tval(old)), gval(old));
+			  setobjt2t(L, luaH_set(L, t, gkey(old)), gval(old));
 		  }
 		  if (!isdummy(nold))
-			luaM_freearray(L, nold/*, twoto(oldhsize)*/);  /* free old array */ //FIXME:???
+			luaM_freearray(L, nold/*, twoto(oldhsize)*/);  /* free old array */ //FIXME:???, changed
 		}
 
 
@@ -405,13 +409,13 @@ namespace KopiLua
 			  return luaH_set(L, t, key);  /* re-insert key into grown table */
 			}
 			lua_assert(!isdummy(n));
-			othern = mainposition(t, key2tval(mp));
+			othern = mainposition(t, gkey(mp));
 			if (othern != mp) {  /* is colliding node out of its main position? */
 			  /* yes; move colliding node into free position */
 			  while (gnext(othern) != mp) othern = gnext(othern);  /* find previous */
 			  gnext_set(othern, n);  /* redo the chain with `n' in place of `mp' */
-			  n.i_val = new TValue(mp.i_val);	/* copy colliding node into free pos. (mp.next also goes) */
-			  n.i_key = new TKey(mp.i_key);
+			  n.i_val = new TValue(mp.i_val);	/* copy colliding node into free pos. (mp.next also goes) */ //FIXME:???changed
+			  n.i_key = new TKey(mp.i_key); //FIXME:???changed
 			  gnext_set(mp, null);  /* now `mp' is free */
 			  setnilvalue(gval(mp));
 			}
@@ -423,7 +427,7 @@ namespace KopiLua
 			}
 		  }
 		  setobj2t(L, gkey(mp), key);
-		  luaC_barriert(L, t, key);
+		  luaC_barrierback(L, obj2gco(t), key);
 		  lua_assert(ttisnil(gval(mp)));
 		  return gval(mp);
 		}
@@ -456,7 +460,7 @@ namespace KopiLua
 		public static TValue luaH_getstr (Table t, TString key) {
 		  Node n = hashstr(t, key);
 		  do {  /* check whether `key' is somewhere in the chain */
-			if (ttisstring(gkey(n)) && rawtsvalue(gkey(n)) == key)
+			if (ttisstring(gkey(n)) && eqstr(rawtsvalue(gkey(n)), key))
 			  return gval(n);  /* that's it */
 			else n = gnext(n);
 		  } while (n != null);
@@ -478,24 +482,24 @@ namespace KopiLua
 			  if (luai_numeq(cast_num(k), nvalue(key))) /* index is int? */
 				return luaH_getint(t, k);  /* use specialized version */
 				/* else go through */
-			    //FIXME:added
+			    //FIXME:added ???this is not beautiful, use goto default
 				/* else go through ... actually on second thoughts don't, because this is C#*/
-				Node node = mainposition(t, key);
+				Node node = mainposition(t, key);//FIXME: n->node
 				do
 				{  /* check whether `key' is somewhere in the chain */
-					if (luaO_rawequalObj(key2tval(node), key) != 0)
-						return gval(node);  /* that's it */
-					else node = gnext(node);
-				} while (node != null);
+					if (luaO_rawequalObj(gkey(node), key) != 0)//FIXME: n->node
+						return gval(node);  /* that's it *///FIXME: n->node
+					else node = gnext(node);//FIXME: n->node
+				} while (node != null);//FIXME: n->node
 				return luaO_nilobject;
 			}
 			default: {
-				Node node = mainposition(t, key);
+				Node node = mainposition(t, key); //FIXME: n->node
 			  do {  /* check whether `key' is somewhere in the chain */
-				if (luaO_rawequalObj(key2tval(node), key) != 0)
-				  return gval(node);  /* that's it */
-				else node = gnext(node);
-			  } while (node != null);
+				if (luaO_rawequalObj(gkey(node), key) != 0)//FIXME: n->node
+				  return gval(node);  /* that's it *///FIXME: n->node
+				else node = gnext(node);//FIXME: n->node
+			  } while (node != null);//FIXME: n->node
 			  return luaO_nilobject;
 			}
 		  }

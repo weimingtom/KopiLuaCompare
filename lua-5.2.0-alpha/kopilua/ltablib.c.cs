@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.53 2009/12/28 16:30:31 roberto Exp roberto $
+** $Id: ltablib.c,v 1.57 2010/10/25 19:01:37 roberto Exp roberto $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -14,74 +14,14 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_rawlen(L, n);}
+		private static int aux_getn(lua_State L, int n)	
+			{luaL_checktype(L, n, LUA_TTABLE); return (int)lua_rawlen(L, n);}
 
-		private static int foreachi (lua_State L) {
-		  int n = aux_getn(L, 1);
-		  int i = 0; //FIXME:???not init with 0
-          //if (lua_getctx(L, ref i) == LUA_YIELD) goto poscall;
-		  //FIXME:start========================================
-		  if (lua_getctx(L, ref i) == LUA_YIELD)
-		  {
-		  	 bool firsttime = true;
-			  for (; i <= n; i++) {
-		  	 	if (firsttime)
-		  	 	{
-		  	 		firsttime = false;
-		  	 	}
-		  	 	else
-		  	 	{
-					lua_pushvalue(L, 2);  /* function */
-					lua_pushinteger(L, i);  /* 1st argument */
-					lua_rawgeti(L, 1, i);  /* 2nd argument */
-					lua_callk(L, 2, 1, i, foreachi);
-		  	 	}
-		  	 	//poscall:
-				if (!lua_isnil(L, -1))
-				  return 1;
-				lua_pop(L, 1);  /* remove nil result */
-			  }
-			  return 0;		  	
-		  }
-		  //FIXME:end========================================
-          luaL_checktype(L, 2, LUA_TFUNCTION);
-		  for (i = 1; i <= n; i++) {
-			lua_pushvalue(L, 2);  /* function */
-			lua_pushinteger(L, i);  /* 1st argument */
-			lua_rawgeti(L, 1, i);  /* 2nd argument */
-			lua_callk(L, 2, 1, i, foreachi);
-            //poscall:
-			if (!lua_isnil(L, -1))
-			  return 1;
-			lua_pop(L, 1);  /* remove nil result */
-		  }
-		  return 0;
+
+		private static int deprecatedfunc (lua_State L) {
+		  return luaL_error(L, "deprecated function");
 		}
 
-
-		private static int foreachcont (lua_State L) {
-		  for (;;) {
-		    if (!lua_isnil(L, -1))
-		      return 1;
-		    lua_pop(L, 2);  /* remove value and result */
-		    if (lua_next(L, 1) == 0)  /* no more elements? */
-		      return 0;
-		    lua_pushvalue(L, 2);  /* function */
-		    lua_pushvalue(L, -3);  /* key */
-		    lua_pushvalue(L, -3);  /* value */
-		    lua_callk(L, 2, 1, 0, foreachcont);
-		  }
-		}
-
-
-		private static int _foreach (lua_State L) {
-		  luaL_checktype(L, 1, LUA_TTABLE);
-		  luaL_checktype(L, 2, LUA_TFUNCTION);
-		  lua_pushnil(L);  /* first key */
-		  lua_pushnil(L);  /* first value */
-		  lua_pushnil(L);  /* first "return" */
-		  return foreachcont(L);
-		}
 
 
 #if LUA_COMPAT_MAXN
@@ -100,16 +40,8 @@ namespace KopiLua
 		  return 1;
 		}
 #else
-		private static int maxn (lua_State L) {
-		  return luaL_error(L, "function 'maxn' is deprecated");
-		}
+		private static int maxn (lua_State L) { return deprecatedfunc(L);}
 #endif
-
-
-		private static int getn (lua_State L) {
-		  lua_pushinteger(L, aux_getn(L, 1));
-		  return 1;
-		}
 
 
 		private static int tinsert (lua_State L) {
@@ -193,15 +125,15 @@ namespace KopiLua
 		private static int pack (lua_State L) {
 		  int top = lua_gettop(L);
 		  lua_createtable(L, top, 1);  /* create result table */
-		  /* use function environment as a temporary place to keep new table */
-		  lua_replace(L, LUA_ENVIRONINDEX);
 		  lua_pushinteger(L, top);  /* number of elements */
-		  lua_setfield(L, LUA_ENVIRONINDEX, "n");  /* t.n = number of elements */
-		  for (; top >= 1; top--)  /* assign elements */
-		    lua_rawseti(L, LUA_ENVIRONINDEX, top);
-		  lua_pushvalue(L, LUA_ENVIRONINDEX);  /* return new table */
-		  /* remove new table from environment to allow its later collection */
-		  lua_copy(L, LUA_REGISTRYINDEX, LUA_ENVIRONINDEX);
+		  lua_setfield(L, -2, "n");  /* t.n = number of elements */
+		  if (top > 0) {  /* at least one element? */
+		    lua_pushvalue(L, 1);
+		    lua_rawseti(L, -2, 1);  /* insert first element */
+		    lua_replace(L, 1);  /* move table into its position (index 1) */
+		    for (; top >= 2; top--)  /* assign other elements */
+		      lua_rawseti(L, 1, top);
+		  }
 		  return 1;
 		}
 
@@ -344,9 +276,9 @@ namespace KopiLua
 
 		private readonly static luaL_Reg[] tab_funcs = {
 		  new luaL_Reg("concat", tconcat),
-		  new luaL_Reg("foreach", _foreach),
-		  new luaL_Reg("foreachi", foreachi),
-		  new luaL_Reg("getn", getn),
+		  new luaL_Reg("foreach", deprecatedfunc),
+		  new luaL_Reg("foreachi", deprecatedfunc),
+		  new luaL_Reg("getn", deprecatedfunc),
 		  new luaL_Reg("maxn", maxn),
 		  new luaL_Reg("insert", tinsert),
 		  new luaL_Reg("pack", pack),
@@ -358,11 +290,11 @@ namespace KopiLua
 
 
 		public static int luaopen_table (lua_State L) {
-		  luaL_register(L, LUA_TABLIBNAME, tab_funcs);
+		  luaL_newlib(L, tab_funcs);
 #if LUA_COMPAT_UNPACK
 		  /* _G.unpack = table.unpack */
 		  lua_getfield(L, -1, "unpack");
-		  lua_setfield(L, LUA_ENVIRONINDEX, "unpack");
+		  lua_setglobal(L, "unpack");
 #endif
 		  return 1;
 		}

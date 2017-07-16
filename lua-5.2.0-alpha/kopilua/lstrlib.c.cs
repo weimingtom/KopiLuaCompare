@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.147 2009/12/17 12:50:20 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.158 2010/11/16 20:39:41 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -18,6 +18,7 @@ namespace KopiLua
 	using LUA_INTFRM_T = System.Int64;
 	using UNSIGNED_LUA_INTFRM_T = System.UInt64;
 	using lua_Number = System.Double;
+    using LUA_FLTFRM_T = System.Double;
 
 	public partial class Lua
 	{
@@ -65,12 +66,13 @@ namespace KopiLua
 
 
 		private static int str_reverse (lua_State L) {
-		  uint l;
+		  uint l, i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  luaL_buffinit(L, b);
-		  while ((l--) != 0) luaL_addchar(b, s[l]);
-		  luaL_pushresult(b);
+		  char *p = luaL_buffinitsize(L, &b, l);
+		  for (i = 0; i < l; i++)
+		    p[i] = s[l - i - 1];
+		  luaL_pushresultsize(&b, l);
 		  return 1;
 		}
 
@@ -80,10 +82,10 @@ namespace KopiLua
 		  uint i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  luaL_buffinit(L, b);
+		  char *p = luaL_buffinitsize(L, &b, l);
 		  for (i=0; i<l; i++)
-			  luaL_addchar(b, tolower(s[i]));
-		  luaL_pushresult(b);
+			  p[i] = tolower(uchar(s[i]));
+		  luaL_pushresultsize(b, l);
 		  return 1;
 		}
 
@@ -93,10 +95,10 @@ namespace KopiLua
 		  uint i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  luaL_buffinit(L, b);
+		  char *p = luaL_buffinitsize(L, &b, l);
 		  for (i=0; i<l; i++)
-			  luaL_addchar(b, toupper(s[i]));
-		  luaL_pushresult(b);
+			  p[i] = toupper(uchar(s[i]));
+		  luaL_pushresultsize(b, l);
 		  return 1;
 		}
 
@@ -136,20 +138,20 @@ namespace KopiLua
 		  int n = lua_gettop(L);  /* number of arguments */
 		  int i;
 		  luaL_Buffer b = new luaL_Buffer();
-		  luaL_buffinit(L, b);
+		  char *p = luaL_buffinitsize(L, &b, n);
 		  for (i=1; i<=n; i++) {
 			int c = luaL_checkint(L, i);
-			luaL_argcheck(L, (byte)(c) == c, i, "invalid value");
-			luaL_addchar(b, (char)(byte)c);
+			luaL_argcheck(L, (byte)(c) == c, i, "invalid value"); //FIXME: uchar()
+			p[i - 1] = (byte)(c); //FIXME: uchar()
 		  }
-		  luaL_pushresult(b);
+		  luaL_pushresultsize(b, n);
 		  return 1;
 		}
 
 
-		private static int writer (lua_State L, object b, uint size, object B)
-		{
-			if (b.GetType() != typeof(CharPtr))
+		private static int writer (lua_State L, object b, uint size, object B) {
+			//(void)L;
+			if (b.GetType() != typeof(CharPtr)) //FIXME: added below
 			{
 				using (MemoryStream stream = new MemoryStream())
 				{
@@ -163,7 +165,7 @@ namespace KopiLua
 					b = new CharPtr(chars);
 				}
 			}
-			luaL_addlstring((luaL_Buffer)B, (CharPtr)b, size);
+		  luaL_addlstring((luaL_Buffer)B, (CharPtr)b, size); //FIXME: changed
 		  return 0;
 		}
 
@@ -200,7 +202,8 @@ namespace KopiLua
 		  }
 
 		  public CharPtr src_init;  /* init of source string */
-		  public CharPtr src_end;  /* end (`\0') of source string */
+		  public CharPtr src_end;  /* end ('\0') of source string */
+		  public CharPtr p_end;  /* end ('\0') of pattern */
 		  public lua_State L;
 		  public int level;  /* total number of captures (finished or unfinished) */
 
@@ -238,19 +241,19 @@ namespace KopiLua
 		  p = p.next();
 		  switch (c) {
 			case L_ESC: {
-			  if (p[0] == '\0')
+			  if (p == ms.p_end)
 				luaL_error(ms.L, "malformed pattern (ends with " + LUA_QL("%%") + ")");
 			  return p+1;
 			}
 			case '[': {
 			  if (p[0] == '^') p = p.next();
 			  do {  /* look for a `]' */
-				if (p[0] == '\0')
+				if (p == ms.p_end)
 				  luaL_error(ms.L, "malformed pattern (missing " + LUA_QL("]") + ")");
-				c = p[0];
-				p = p.next();
-				if (c == L_ESC && p[0] != '\0')
-				  p = p.next();  /* skip escapes (e.g. `%]') */
+				c = p[0]; //FIXME: added, move to here, see below if
+				p = p.next(); //FIXME: added, move to here, see below if
+				if (c == L_ESC && p < ms.p_end) //FIXME: changed 
+				  p = p.next();  /* skip escapes (e.g. `%]') */ //FIXME: p++
 			  } while (p[0] != ']');
 			  return p+1;
 			}
@@ -267,13 +270,14 @@ namespace KopiLua
 			case 'a' : res = isalpha(c); break;
 			case 'c' : res = iscntrl(c); break;
 			case 'd' : res = isdigit(c); break;
+            case 'g' : res = isgraph(c); break;
 			case 'l' : res = islower(c); break;
 			case 'p' : res = ispunct(c); break;
 			case 's' : res = isspace(c); break;
 			case 'u' : res = isupper(c); break;
 			case 'w' : res = isalnum(c); break;
-			case 'x' : res = isxdigit((char)c); break;
-			case 'z' : res = (c == 0); break;
+			case 'x' : res = isxdigit(c); break; //FIXME: ???(char)c???->c
+			case 'z' : res = (c == 0); break;  /* deprecated option */
 			default: return (cl == c) ? 1 : 0;
 		  }
 		  return (islower(cl) ? (res ? 1 : 0) : ((!res) ? 1 : 0));
@@ -315,8 +319,9 @@ namespace KopiLua
 
 		private static CharPtr matchbalance (MatchState ms, CharPtr s,
 										   CharPtr p) {
-		  if ((p[0] == 0) || (p[1] == 0))
-			luaL_error(ms.L, "unbalanced pattern");
+		  if (p >= ms->p_end - 1)
+		    luaL_error(ms->L, "malformed pattern "
+		                      "(missing arguments to " LUA_QL("%%b") ")");
 		  if (s[0] != p[0]) return null;
 		  else {
 			int b = p[0];
@@ -386,8 +391,7 @@ namespace KopiLua
 		}
 
 
-		private static CharPtr match_capture(MatchState ms, CharPtr s, int l)
-		{
+		private static CharPtr match_capture(MatchState ms, CharPtr s, int l) {
 		  uint len;
 		  l = check_capture(ms, l);
 		  len = (uint)ms.capture[l].len;
@@ -399,9 +403,11 @@ namespace KopiLua
 
 
 		private static CharPtr match (MatchState ms, CharPtr s, CharPtr p) {
-		  s = new CharPtr(s);
-		  p = new CharPtr(p);
+		  s = new CharPtr(s); //FIXME:added
+		  p = new CharPtr(p); //FIXME:added
 		  init: /* using goto's to optimize tail recursion */
+		  if (p == ms->p_end)  /* end of pattern? */
+		    return s;  /* match succeeded */
 		  switch (p[0]) {
 			case '(': {  /* start capture */
 			  if (p[1] == ')')  /* position capture? */
@@ -412,11 +418,8 @@ namespace KopiLua
 			case ')': {  /* end capture */
 			  return end_capture(ms, s, p+1);
 			}
-		    case '\0': {  /* end of pattern */
-		      return s;  /* match succeeded */
-		    }
 		    case '$': {
-		  	  if (p[1] == '\0')  /* is the `$' the last char in pattern? */
+		  	  if ((p+1) == ms.p_end)  /* is the `$' the last char in pattern? */
 		        return (s == ms.src_end) ? s : null;  /* check end of string */
 		      else goto dflt;
 		    }
@@ -446,13 +449,13 @@ namespace KopiLua
 					if (s == null) return null;
 					p+=2; goto init;  /* else return match(ms, s, p+2) */
 				  }
-				default: break;  /* go through to 'dflt' */
+				default: goto dflt;  /* go through to 'dflt' */
 			  }
 		  	  break; //FIXME:added???
 			}
-			default: dflt: {  /* pattern class plus optional sufix */
+			default: dflt: {  /* pattern class plus optional suffix */
 			  CharPtr ep = classend(ms, p);  /* points to what is next */
-			  int m = (s<ms.src_end) && (singlematch((byte)(s[0]), p, ep)!=0) ? 1 : 0;
+			  int m = (s < ms.src_end) && (singlematch((byte)(s[0]), p, ep)!=0) ? 1 : 0;
 			  switch (ep[0]) {
 				case '?': {  /* optional */
 				  CharPtr res;
@@ -532,38 +535,49 @@ namespace KopiLua
 		}
 
 
+		/* check whether pattern has no special characters */
+		private static int nospecials (CharPtr p, uint l) {
+		  uint upto = 0;
+		  do {
+		    if (strpbrk(p + upto, SPECIALS))
+		      return 0;  /* pattern has a special character */ 
+		    upto += strlen(p + upto) + 1;  /* may have more after \0 */
+		  } while (upto <= l);
+		  return 1;  /* no special chars found */
+		}
+
+
 		private static int str_find_aux (lua_State L, int find) {
-		  uint l1, l2;
-		  CharPtr s = luaL_checklstring(L, 1, out l1);
-		  CharPtr p = luaL_checklstring(L, 2, out l2);
-		  uint init = posrelat(luaL_optinteger(L, 3, 1), l1);
+		  uint ls, lp;
+		  CharPtr s = luaL_checklstring(L, 1, out ls);
+		  CharPtr p = luaL_checklstring(L, 2, out lp);
+		  uint init = posrelat(luaL_optinteger(L, 3, 1), ls);
 		  if (init < 1) init = 1;
-		  else if (init > l1 + 1) {  /* start after string's end? */
+		  else if (init > ls + 1) {  /* start after string's end? */
 		    lua_pushnil(L);  /* cannot find anything */
 		    return 1;
 		  }
-		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) ||  /* explicit request? */
-			  strpbrk(p, SPECIALS) == null)) {  /* or no special characters? */
+          /* explicit request or no special characters? */
+		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) || nospecials(p, lp))) {
 			/* do a plain search */
-			CharPtr s2 = lmemfind(s + init - 1, l1 - init + 1, p, l2);
+			CharPtr s2 = lmemfind(s + init - 1, ls - init + 1, p, lp);
 			if (s2 != null) {
 			  lua_pushinteger(L, s2 - s + 1);
-			  lua_pushinteger(L, (int)(s2 - s + l2));
+			  lua_pushinteger(L, (int)(s2 - s + lp));
 			  return 2;
 			}
 		  }
 		  else {
 			MatchState ms = new MatchState();
-			int anchor = 0;
-			if (p[0] == '^')
-			{
-				p = p.next();
-				anchor = 1;
-			}
-			CharPtr s1=s + init - 1;
+			CharPtr s1 = s + init - 1;
+		    int anchor = (*p == '^');
+		    if (anchor) {
+		      p++; lp--;  /* skip anchor character */
+		    }
 			ms.L = L;
 			ms.src_init = s;
-			ms.src_end = s + l1;
+			ms.src_end = s + ls;
+            ms.p_end = p + lp;
 			do {
 			  CharPtr res;
 			  ms.level = 0;
@@ -595,13 +609,14 @@ namespace KopiLua
 
 		private static int gmatch_aux (lua_State L) {
 		  MatchState ms = new MatchState();
-		  uint ls;
+		  uint ls, lp;
 		  CharPtr s = lua_tolstring(L, lua_upvalueindex(1), out ls);
-		  CharPtr p = lua_tostring(L, lua_upvalueindex(2));
+		  CharPtr p = lua_tolstring(L, lua_upvalueindex(2), out lp);
 		  CharPtr src;
 		  ms.L = L;
 		  ms.src_init = s;
 		  ms.src_end = s+ls;
+          ms.p_end = p + lp;
 		  for (src = s + (uint)lua_tointeger(L, lua_upvalueindex(3));
 			   src <= ms.src_end;
 			   src = src.next()) {
@@ -629,14 +644,8 @@ namespace KopiLua
 		}
 
 
-		private static int gfind_nodef (lua_State L) {
-		  return luaL_error(L, LUA_QL("string.gfind") + " was renamed to " +
-							   LUA_QL("string.gmatch"));
-		}
-
-
 		private static void add_s (MatchState ms, luaL_Buffer b, CharPtr s,
-														   CharPtr e) {
+														         CharPtr e) {
 		  uint l, i;
 		  CharPtr news = lua_tolstring(ms.L, 3, out l);
 		  for (i = 0; i < l; i++) {
@@ -693,17 +702,12 @@ namespace KopiLua
 
 
 		private static int str_gsub (lua_State L) {
-		  uint srcl;
+		  uint srcl, lp;
 		  CharPtr src = luaL_checklstring(L, 1, out srcl);
-		  CharPtr p = luaL_checkstring(L, 2);
+		  CharPtr p = luaL_checklstring(L, 2, out lp);
           int tr = lua_type(L, 3);
           uint max_s = (uint)luaL_optinteger(L, 4, (int)(srcl+1));
-		  int anchor = 0;
-		  if (p[0] == '^')
-		  {
-			  p = p.next();
-			  anchor = 1;
-		  }
+		  int anchor = (p[0] == '^') ? 1 : 0;
 		  uint n = 0;
 		  MatchState ms = new MatchState();
 		  luaL_Buffer b = new luaL_Buffer();
@@ -711,9 +715,13 @@ namespace KopiLua
 		                   tr == LUA_TFUNCTION || tr == LUA_TTABLE, 3,
 		                      "string/function/table expected");
 		  luaL_buffinit(L, b);
+		  if (anchor) {
+		    p++; lp--;  /* skip anchor character */
+		  }
 		  ms.L = L;
 		  ms.src_init = src;
 		  ms.src_end = src+srcl;
+          ms.p_end = p + lp;
 		  while (n < max_s) {
 			CharPtr e;
 			ms.level = 0;
@@ -742,11 +750,19 @@ namespace KopiLua
 		/* }====================================================== */
 
 
+
 		/*
-		** length modifier for integer conversions ** in 'string.format' and
-		** integer type corresponding to the previous length
+		** {======================================================
+		** STRING FORMAT
+		** =======================================================
 		*/
 
+		/*
+		** LUA_INTFRMLEN is the length modifier for integer conversions in
+		** 'string.format'; LUA_INTFRM_T is the integer type corresponding to
+		** the previous length
+		*/
+		//#if !defined(LUA_INTFRMLEN)	/* { */
 		//#if defined(LUA_USELONGLONG)
 
 		//#define LUA_INTFRMLEN           "ll"
@@ -758,8 +774,20 @@ namespace KopiLua
 		//#define LUA_INTFRM_T            long
 
 		//#endif
+        //#endif				/* } */
 
 
+		/*
+		** LUA_FLTFRMLEN is the length modifier for float conversions in
+		** 'string.format'; LUA_FLTFRM_T is the float type corresponding to
+		** the previous length
+		*/
+		//#if !defined(LUA_FLTFRMLEN)
+
+		private const string LUA_FLTFRMLEN = "";
+		//#define LUA_FLTFRM_T            double //FIXME:???
+
+		//#endif
 		/* maximum size of each formatted item (> len(format('%99.99f', -1e308))) */
 		public const int MAX_ITEM	= 512;
 		/* valid flags in a format specification */
@@ -782,10 +810,10 @@ namespace KopiLua
 		    }
 		    else if (s[0] == '\0' || iscntrl(uchar(s[0]))) {
 		      CharPtr buff = new char[10];
-		      if (s[0] != '\0' && !isdigit(uchar(s[1])))
-		        sprintf(buff, "\\%d", uchar(s[0]));
+		      if (!isdigit(uchar(s[1])))
+		        sprintf(buff, "\\%d", (int)uchar(s[0]));
 		      else
-		        sprintf(buff, "\\%03d", uchar(s[0]));
+		        sprintf(buff, "\\%03d", (int)uchar(s[0]));
 		      luaL_addstring(b, buff);
 		    }
 		    else
@@ -818,16 +846,21 @@ namespace KopiLua
 		}
 
 
-		private static void addintlen (CharPtr form) {
+		/*
+		** add length modifier into formats
+		*/
+		private static void addlenmod (CharPtr form, CharPtr lenmod) {
 		  uint l = (uint)strlen(form);
+          uint lm = strlen(lenmod);
 		  char spec = form[l - 1];
-		  strcpy(form + l - 1, LUA_INTFRMLEN);
-		  form[l + (LUA_INTFRMLEN.Length + 1) - 2] = spec;
-		  form[l + (LUA_INTFRMLEN.Length + 1) - 1] = '\0';
+		  strcpy(form + l - 1, lenmod);
+		  form[l + lm - 1] = spec;
+		  form[l + lm] = '\0';
 		}
 
 
 		private static int str_format (lua_State L) {
+          int top = lua_gettop(L);
 		  int arg = 1;
 		  uint sfl;
 		  CharPtr strfrmt = luaL_checklstring(L, arg, out sfl);
@@ -835,90 +868,74 @@ namespace KopiLua
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_buffinit(L, b);
 		  while (strfrmt < strfrmt_end) {
-			  if (strfrmt[0] != L_ESC)
-			  {
+			  if (strfrmt[0] != L_ESC) {
 				  luaL_addchar(b, strfrmt[0]);
 				  strfrmt = strfrmt.next();
-			  }
-			  else if (strfrmt[1] == L_ESC)
-			  {
+			  } else if (strfrmt[1] == L_ESC) {
 				  luaL_addchar(b, strfrmt[0]);  /* %% */
 				  strfrmt = strfrmt + 2;
-			  }
-			  else
-			  { /* format item */
+			  } else { /* format item */
 				  strfrmt = strfrmt.next();
 				  CharPtr form = new char[MAX_FORMAT];  /* to store the format (`%...') */
-				  CharPtr buff = new char[MAX_ITEM];  /* to store the formatted item */
-				  arg++;
+				  CharPtr buff = luaL_prepbuffsize(&b, MAX_ITEM);  /* to put formatted item */
+			      int nb = 0;  /* number of bytes in added item */
+			      if (++arg > top)
+			        luaL_argerror(L, arg, "no value");
 				  strfrmt = scanformat(L, strfrmt, form);
-				  char ch = strfrmt[0];
-				  strfrmt = strfrmt.next();
-				  switch (ch)
-				  {
-					  case 'c':
-						  {
-							  sprintf(buff, form, luaL_checkint(L, arg));
-							  break;
-						  }
-					  case 'd':
-					  case 'i':
-					  case 'o':
-					  case 'u':
-					  case 'x':
-					  case 'X':
-						  {
-					          lua_Number n = luaL_checknumber(L, arg);
-					          LUA_INTFRM_T r = (n < 0) ? (LUA_INTFRM_T)n :
-					                                     (LUA_INTFRM_T)(UInt64)n;
-							  addintlen(form);
-							  sprintf(buff, form, r);
-							  break;
-						  }
-					  case 'e':
-					  case 'E':
-					  case 'f':
-					  case 'g':
-					  case 'G':
-						  {
-							  sprintf(buff, form, (double)luaL_checknumber(L, arg));
-							  break;
-						  }
-					  case 'q':
-						  {
-							  addquoted(L, b, arg);
-							  continue;  /* skip the 'addsize' at the end */
-						  }
-					  case 's':
-						  {
-							  uint l;
-							  CharPtr s = luaL_checklstring(L, arg, out l);
-							  if ((strchr(form, '.') == null) && l >= 100)
-							  {
-								  /* no precision and string is too long to be formatted;
-									 keep original string */
-								  lua_pushvalue(L, arg);
-								  luaL_addvalue(b);
-								  continue;  /* skip the `addsize' at the end */
-							  }
-							  else
-							  {
-								  sprintf(buff, form, s);
-								  break;
-							  }
-						  }
-					  default:
-						  {  /* also treat cases `pnLlh' */
-							  return luaL_error(L, "invalid option " + LUA_QL("%%%c") + " to " +
-												   LUA_QL("format"), strfrmt[-1]);
-						  }
+				  char ch = strfrmt[0]; //FIXME:added, move here
+				  strfrmt = strfrmt.next(); //FIXME:added, move here
+				  switch (ch) {
+					  case 'c': {
+					    nb = sprintf(buff, form, luaL_checkint(L, arg));
+						break;
+					  }
+					  case 'd':  case 'i':
+					  case 'o':  case 'u':  case 'x':  case 'X':  {
+				        lua_Number n = luaL_checknumber(L, arg);
+				        LUA_INTFRM_T r = (n < 0) ? (LUA_INTFRM_T)n :
+				                                   (LUA_INTFRM_T)(UInt64)n; //FIXME: changed here
+						addlenmod(form, LUA_INTFRMLEN);
+						nb = sprintf(buff, form, r);
+					    break;
+					  }
+					  case 'e':  case 'E':  case 'f':
+					  case 'g':  case 'G':  {
+                        addlenmod(form, LUA_FLTFRMLEN);
+					    nb = sprintf(buff, form, (LUA_FLTFRM_T)luaL_checknumber(L, arg));
+					    break;
+					  }
+					  case 'q': {
+					    addquoted(L, b, arg);
+						break;
+					  }
+					  case 's': {
+					    uint l;
+						CharPtr s = luaL_checklstring(L, arg, out l);
+						if ((strchr(form, '.') == null) && l >= 100) {
+						  /* no precision and string is too long to be formatted;
+						     keep original string */
+						  lua_pushvalue(L, arg);
+						  luaL_addvalue(b);
+						  break;
+					    }
+						else {
+						  nb = sprintf(buff, form, s);
+						  break;
+						}
+					  }
+					  default: {  /* also treat cases `pnLlh' */
+					    return luaL_error(L, "invalid option " + LUA_QL("%%%c") + " to " +
+						                     LUA_QL("format"), strfrmt[-1]);
+					  }
 				  }
-				  luaL_addlstring(b, buff, (uint)strlen(buff));
+				  luaL_addsize(b, nb);
 			  }
 		  }
 		  luaL_pushresult(b);
 		  return 1;
 		}
+
+		/* }====================================================== */
 
 
 		private readonly static luaL_Reg[] strlib = {
@@ -927,7 +944,6 @@ namespace KopiLua
 		  new luaL_Reg("dump", str_dump),
 		  new luaL_Reg("find", str_find),
 		  new luaL_Reg("format", str_format),
-		  new luaL_Reg("gfind", gfind_nodef),
 		  new luaL_Reg("gmatch", gmatch),
 		  new luaL_Reg("gsub", str_gsub),
 		  new luaL_Reg("len", str_len),
@@ -957,7 +973,7 @@ namespace KopiLua
 		** Open string library
 		*/
 		public static int luaopen_string (lua_State L) {
-		  luaL_register(L, LUA_STRLIBNAME, strlib);
+		  luaL_newlib(L, strlib);
 		  createmetatable(L);
 		  return 1;
 		}
