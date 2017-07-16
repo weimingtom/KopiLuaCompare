@@ -135,4 +135,17 @@ lundump.c
 	return (char)LoadVar(S, typeof(char)); //FIXME: changed // return -> void no return
 lundump.h
 
-	
+
+23:56 2017-07-16
+lvm.c
+	//#define checkGC(L)	Protect(luaC_checkGC(L); luai_threadyield(L);) //FIXME:
+	------
+	//Protect(
+	  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
+	  luaV_objlen(L, ra, RB(L, base_, i));
+	  base_ = ci.u.l.base_; //FIXME:???
+	//)
+lvm.h
+lzio.c
+lzio.h
+				

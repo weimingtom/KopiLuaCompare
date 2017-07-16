@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.102 2009/12/17 16:20:01 roberto Exp roberto $
+** $Id: lvm.c,v 2.124 2010/10/25 19:01:37 roberto Exp roberto $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -43,9 +43,10 @@ namespace KopiLua
 		  if (!ttisnumber(obj))
 			return 0;
 		  else {
+            CharPtr s = new char[LUAI_MAXNUMBER2STR]; //FIXME:???
 			lua_Number n = nvalue(obj);
-			CharPtr s = lua_number2str(n);
-			setsvalue2s(L, obj, luaS_new(L, s));
+			int l = lua_number2str(s, n); //FIXME:???
+			setsvalue2s(L, obj, luaS_newlstr(L, s, l));
 			return 1;
 		  }
 		}
@@ -68,6 +69,10 @@ namespace KopiLua
 			  luaD_hook(L, LUA_HOOKLINE, newline);
 		  }
           L.oldpc = ci.u.l.savedpc;
+		  if (L->status == LUA_YIELD) {  /* did hook yield? */
+		    ci->u.l.savedpc--;  /* undo increment (resume will increment it again) */
+		    luaD_throw(L, LUA_YIELD);
+		  }
 		}
 
 
@@ -81,7 +86,7 @@ namespace KopiLua
 		  setobj2s(L, L.top, p1); StkId.inc(ref L.top);  /* 1st argument */ //FIXME:++
 		  setobj2s(L, L.top, p2); StkId.inc(ref L.top);  /* 2nd argument */ //FIXME:++
 		  if (hasres == 0)  /* no result? 'p3' is third argument */ //FIXME:++
-		    setobj2s(L, L.top, p3); StkId.inc(ref L.top); /* 3th argument */ //FIXME:++
+		    setobj2s(L, L.top, p3); StkId.inc(ref L.top); /* 3rd argument */ //FIXME:++
 		  luaD_checkstack(L, 0);
 		  /* metamethod may yield only when called from Lua code */
   		  luaD_call(L, L.top - (4 - hasres), hasres, isLua(L.ci));
@@ -99,7 +104,7 @@ namespace KopiLua
 			if (ttistable(t)) {  /* `t' is a table? */
 			  Table h = hvalue(t);
 			  TValue res = luaH_get(h, key); /* do a primitive get */
-			  if (!ttisnil(res) ||  /* result is no nil? */
+			  if (!ttisnil(res) ||  /* result is not nil? */
 				  (tm = fasttm(L, h.metatable, TMS.TM_INDEX)) == null) { /* or no TM? */
 				setobj2s(L, val, res);
 				return;
@@ -117,6 +122,7 @@ namespace KopiLua
 		  luaG_runerror(L, "loop in gettable");
 		}
 
+
 		public static void luaV_settable (lua_State L, TValue t, TValue key, StkId val) {
 		  int loop;
           TValue temp = new TValue();
@@ -125,10 +131,10 @@ namespace KopiLua
 			if (ttistable(t)) {  /* `t' is a table? */
 			  Table h = hvalue(t);
 			  TValue oldval = luaH_set(L, h, key); /* do a primitive set */
-			  if (!ttisnil(oldval) ||  /* result is no nil? */
+			  if (!ttisnil(oldval) ||  /* result is not nil? */
 				  (tm = fasttm(L, h.metatable, TMS.TM_NEWINDEX)) == null) { /* or no TM? */
 				setobj2t(L, oldval, val);
-                luaC_barriert(L, h, val);
+                luaC_barrierback(L, obj2gco(h), val);
 				return;
 			  }
 			  /* else will try the tag method */
@@ -159,7 +165,7 @@ namespace KopiLua
 		}
 
 
-		private static TValue get_compTM (lua_State L, Table mt1, Table mt2,
+		private static TValue get_equalTM (lua_State L, Table mt1, Table mt2,
 										  TMS event_) {
 		  TValue tm1 = fasttm(L, mt1, event_);
 		  TValue tm2;
@@ -169,20 +175,16 @@ namespace KopiLua
 		  if (tm2 == null) return null;  /* no metamethod */
 		  if (luaO_rawequalObj(tm1, tm2) != 0)  /* same metamethods? */
 			return tm1;
-		return null;
+		  return null;
 		}
 
 
 		private static int call_orderTM (lua_State L, TValue p1, TValue p2,
 								 TMS event_) {
-		  TValue tm1 = luaT_gettmbyobj(L, p1, event_);
-		  TValue tm2;
-		  if (ttisnil(tm1)) return -1;  /* no metamethod? */
-		  tm2 = luaT_gettmbyobj(L, p2, event_);
-		  if (luaO_rawequalObj(tm1, tm2)==0)  /* different metamethods? */
-			return -1;
-		  callTM(L, tm1, p1, p2, L.top, 1);
-		  return l_isfalse(L.top) == 0 ? 1 : 0;
+		  if (!call_binTM(L, p1, p2, L.top, event_))
+		    return -1;  /* no metamethod */
+		  else
+		    return !l_isfalse(L.top);
 		}
 
 
@@ -211,11 +213,9 @@ namespace KopiLua
 
 		public static int luaV_lessthan (lua_State L, TValue l, TValue r) {
 		  int res;
-		  if (ttype(l) != ttype(r))
-			return luaG_ordererror(L, l, r);
-		  else if (ttisnumber(l))
+		  if (ttisnumber(l) && ttisnumber(r))
 			return luai_numlt(L, nvalue(l), nvalue(r)) ? 1 : 0;
-		  else if (ttisstring(l))
+		  else if (ttisstring(l) && ttisstring(r))
 			  return (l_strcmp(rawtsvalue(l), rawtsvalue(r)) < 0) ? 1 : 0;
 		  else if ((res = call_orderTM(L, l, r, TMS.TM_LT)) != -1)
 			return res;
@@ -225,11 +225,9 @@ namespace KopiLua
 
 		public static int luaV_lessequal (lua_State L, TValue l, TValue r) {
 		  int res;
-		  if (ttype(l) != ttype(r))
-			return luaG_ordererror(L, l, r);
-		  else if (ttisnumber(l))
+		  if (ttisnumber(l) && ttisnumber(r))
 			return luai_numle(L, nvalue(l), nvalue(r)) ? 1 : 0;
-		  else if (ttisstring(l))
+		  else if (ttisstring(l) && ttisstring(r))
 			  return (l_strcmp(rawtsvalue(l), rawtsvalue(r)) <= 0) ? 1 : 0;
 		  else if ((res = call_orderTM(L, l, r, TMS.TM_LE)) != -1)  /* first try `le' */
 			return res;
@@ -248,14 +246,16 @@ namespace KopiLua
 			case LUA_TNUMBER: return luai_numeq(nvalue(t1), nvalue(t2)) ? 1 : 0;
 			case LUA_TBOOLEAN: return (bvalue(t1) == bvalue(t2)) ? 1 : 0;  /* true must be 1 !! */
 			case LUA_TLIGHTUSERDATA: return (pvalue(t1) == pvalue(t2)) ? 1 : 0;
+		    case LUA_TLCF: return (fvalue(t1) == fvalue(t2)) ? 1 : 0;
+		    case LUA_TSTRING: return (eqstr(rawtsvalue(t1), rawtsvalue(t2))) ? 1 : 0;
 			case LUA_TUSERDATA: {
 			  if (uvalue(t1) == uvalue(t2)) return 1;
-			  tm = get_compTM(L, uvalue(t1).metatable, uvalue(t2).metatable, TMS.TM_EQ);
+			  tm = get_equalTM(L, uvalue(t1).metatable, uvalue(t2).metatable, TMS.TM_EQ);
 			  break;  /* will try TM */
 			}
 			case LUA_TTABLE: {
 			  if (hvalue(t1) == hvalue(t2)) return 1;
-			  tm = get_compTM(L, hvalue(t1).metatable, hvalue(t2).metatable, TMS.TM_EQ);
+			  tm = get_equalTM(L, hvalue(t1).metatable, hvalue(t2).metatable, TMS.TM_EQ);
 			  break;  /* will try TM */
 			}
 			default: return (gcvalue(t1) == gcvalue(t2)) ? 1 : 0;
@@ -303,7 +303,7 @@ namespace KopiLua
 			  setsvalue2s(L, top-n, luaS_newlstr(L, buffer, tl));
 			}
 			total -= n-1;  /* got 'n' strings to create 1 new */
-			L.top -= n-1;  /* poped 'n' strings and pushed one */
+			L.top -= n-1;  /* popped 'n' strings and pushed one */
 		  } while (total > 1);  /* repeat until only 1 result left */
 		}
 
@@ -348,6 +348,51 @@ namespace KopiLua
 
 
 		/*
+		** check whether cached closure in prototype 'p' may be reused, that is,
+		** whether there is a cached closure with the same upvalues needed by
+		** new closure to be created.
+		*/
+		private static Closure getcached (Proto p, UpVal **encup, StkId base) {
+		  Closure *c = p->cache;
+		  if (c != NULL) {  /* is there a cached closure? */
+		    int nup = p->sizeupvalues;
+		    Upvaldesc *uv = p->upvalues;
+		    int i;
+		    for (i = 0; i < nup; i++) {  /* check whether it has right upvalues */
+		      TValue *v = uv[i].instack ? base + uv[i].idx : encup[uv[i].idx]->v;
+		      if (c->l.upvals[i]->v != v)
+		        return NULL;  /* wrong upvalue; cannot reuse closure */
+		    }
+		  }
+		  return c;  /* return cached closure (or NULL if no cached closure) */
+		}
+
+
+		/*
+		** create a new Lua closure, push it in the stack, and initialize
+		** its upvalues. Note that the call to 'luaC_barrierproto' must come
+		** before the assignment to 'p->cache', as the function needs the
+		** original value of that field.
+		*/
+		private static void pushclosure (lua_State L, Proto p, UpVal **encup, StkId base,
+		                         StkId ra) {
+		  int nup = p->sizeupvalues;
+		  Upvaldesc *uv = p->upvalues;
+		  int i;
+		  Closure *ncl = luaF_newLclosure(L, p);
+		  setclvalue(L, ra, ncl);  /* anchor new closure in stack */
+		  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
+		    if (uv[i].instack)  /* upvalue refers to local variable? */
+		      ncl->l.upvals[i] = luaF_findupval(L, base + uv[i].idx);
+		    else  /* get upvalue from enclosing function */
+		      ncl->l.upvals[i] = encup[uv[i].idx];
+		  }
+		  luaC_barrierproto(L, p, ncl);
+		  p->cache = ncl;  /* save it on cache for reuse */
+		}
+
+
+		/*
 		** finish execution of an opcode interrupted by an yield
 		*/
 		public static void luaV_finishOp (lua_State L) {
@@ -355,14 +400,10 @@ namespace KopiLua
 		  StkId base_ = ci.u.l.base_;
 		  Instruction inst = ci.u.l.savedpc[-1];  /* interrupted instruction */
 		  OpCode op = GET_OPCODE(inst);
-		  if (op == OpCode.OP_EXTRAARG) {  /* extra argument? */
-		  	inst = ci.u.l.savedpc[ - 2];  /* get its 'main' instruction */
-		    op = GET_OPCODE(inst);
-		  }
 		  switch (op) {  /* finish its execution */
 		    case OpCode.OP_ADD: case OpCode.OP_SUB: case OpCode.OP_MUL: case OpCode.OP_DIV:
 		    case OpCode.OP_MOD: case OpCode.OP_POW: case OpCode.OP_UNM: case OpCode.OP_LEN:
-		    case OpCode.OP_GETGLOBAL: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
+		    case OpCode.OP_GETTABUP: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
 		  	  lua_TValue.dec(ref L.top);//--L.top
 		      setobjs2s(L, base_ + GETARG_A(inst), L.top);
 		      break;
@@ -383,7 +424,7 @@ namespace KopiLua
 		    case OpCode.OP_CONCAT: {
 		      StkId top = L.top - 1;  /* top when 'call_binTM' was called */
 		      int b = GETARG_B(inst);      /* first element to concatenate */
-		      int total = top - 1 - (base_ + b);  /* elements yet to concatenate */
+		      int total = (int)(top - 1 - (base_ + b));  /* yet to concatenate */
 		      setobj2s(L, top - 2, top);  /* put TM result in proper position */
 		      if (total > 1) {  /* are there elements to concat? */
 		        L.top = top - 1;  /* top is one after last element (at top-2) */
@@ -404,7 +445,7 @@ namespace KopiLua
 		        L.top = ci.top;  /* adjust results */
 		      break;
 		    }
-		    case OpCode.OP_TAILCALL: case OpCode.OP_SETGLOBAL: case OpCode.OP_SETTABLE:
+		    case OpCode.OP_TAILCALL: case OpCode.OP_SETTABUP: case OpCode.OP_SETTABLE:
 		      break;
 		    default: lua_assert(0);
 		      break;//FIXME:added
@@ -438,11 +479,12 @@ namespace KopiLua
 			return k[(GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(InstructionPtr.inc(ref ci.u.l.savedpc)[0]))]; }
 
 
-		public static void dojump(int i, CallInfo ci, lua_State L) { InstructionPtr.inc(ref ci.u.l.savedpc, i); luai_threadyield(L); } //FIXME:
+		public static void dojump(int i, CallInfo ci, lua_State L) { InstructionPtr.inc(ref ci.u.l.savedpc, i); } //FIXME:
 
 
 		//#define Protect(x)	{ {x;}; base = ci->u.l.base_; } //FIXME:
 
+		//#define checkGC(L)	Protect(luaC_checkGC(L); luai_threadyield(L);) //FIXME:
 
 		public static void arith_op(lua_State L, op_delegate op, TMS tm, StkId base_, Instruction i, TValue[] k, StkId ra/*, InstructionPtr pc*/, CallInfo ci) {
 		        TValue rb = RKB(L, base_, i, k);
@@ -461,6 +503,10 @@ namespace KopiLua
 					//);
 				}
 		      }
+
+
+		//#define vmdispatch(o)	switch(o)
+		//#define vmcase(l,b)	case l: {b}  break;
 
         //FIXME:added for debug
 		internal static void Dump(int pc, Instruction i)
@@ -538,22 +584,22 @@ namespace KopiLua
 
 		public static void luaV_execute (lua_State L) {
 		  CallInfo ci = L.ci;
-		  LClosure cl = clvalue(ci.func).l;
-		  TValue[] k = cl.p.k;
-		  StkId base_ = ci.u.l.base_;
+		  LClosure cl;
+		  TValue[] k;
+		  StkId base_;
+         newframe:  /* reentry point when frame changes (call/return) */
 		  lua_assert(isLua(ci));
+		  lua_assert(ci == L->ci);
+		  cl = &clvalue(ci->func)->l;
+		  k = cl->p->k;
+		  base = ci->u.l.base;
 		  /* main loop of interpreter */
 		  for (;;) {
 			Instruction i = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:++
 			StkId ra;
 			if ( ((L.hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) != 0) &&
 				(((--L.hookcount) == 0) || ((L.hookmask & LUA_MASKLINE) != 0))) {
-			  traceexec(L);
-			  if (L.status == LUA_YIELD) {  /* did hook yield? */
-			  	InstructionPtr.dec(ref ci.u.l.savedpc);  /* undo increment */
-				luaD_throw(L, LUA_YIELD);
-			  }
-			  base_ = ci.u.l.base_;
+			  Protect(traceexec(L));
 			}
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
@@ -563,42 +609,34 @@ namespace KopiLua
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
 				setobjs2s(L, ra, RB(L, base_, i));
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LOADK: {
 		        TValue rb = KBx(L, i, k, ci);
 		        setobj2s(L, ra, rb);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LOADBOOL: {
 				setbvalue(ra, GETARG_B(i));
 				if (GETARG_C(i) != 0) InstructionPtr.inc(ref ci.u.l.savedpc);  /* skip next instruction (if C) */
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LOADNIL: {
 				TValue rb = RB(L, base_, i);
 				do {
 					setnilvalue(StkId.dec(ref rb));
 				} while (rb >= ra);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_GETUPVAL: {
 				int b = GETARG_B(i);
 				setobj2s(L, ra, cl.upvals[b].v);
-				continue;
+				break;
 			  }
-			  case OpCode.OP_GETGLOBAL: {
-				TValue g = new TValue();
-				TValue rb = KBx(L, i, k, ci);
-				sethvalue(L, g, cl.env);
-				lua_assert(ttisstring(rb));
-				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_gettable(L, g, rb, ra);
-				  base_ = ci.u.l.base_;
-				  //);
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
-				continue;
+			  case OpCode.OP_GETTABUP: {
+				int b = GETARG_B(i);
+        		Protect(luaV_gettable(L, cl->upvals[b]->v, RKC(i), ra));
+				break;
 			  }
 			  case OpCode.OP_GETTABLE: {
 				//Protect(
@@ -607,26 +645,18 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				  //);
 				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
-				continue;
+				break;
 			  }
-			  case OpCode.OP_SETGLOBAL: {
-				TValue g = new TValue();
-                TValue rb = KBx(L, i, k, ci);
-				sethvalue(L, g, cl.env);
-				lua_assert(ttisstring(rb));
-				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_settable(L, g, rb, ra);
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
-				continue;
+			  case OpCode.OP_SETTABUP: {
+				int a = GETARG_A(i);
+        		Protect(luaV_settable(L, cl->upvals[a]->v, RKB(i), RKC(i)));
+				break;
 			  }
 			  case OpCode.OP_SETUPVAL: {
 				UpVal uv = cl.upvals[GETARG_B(i)];
 				setobj(L, uv.v, ra);
 				luaC_barrier(L, uv, ra);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_SETTABLE: {
 				//Protect(
@@ -635,7 +665,7 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				  //);
 				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
-				continue;
+				break;
 			  }
 			  case OpCode.OP_NEWTABLE: {
 				int b = GETARG_B(i);
@@ -644,13 +674,8 @@ namespace KopiLua
 		        sethvalue(L, ra, t);
 		        if (b != 0 || c != 0)
 		          luaH_resize(L, t, luaO_fb2int(b), luaO_fb2int(c));
-				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaC_checkGC(L);
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
-				continue;
+				checkGC(L);
+				break;
 			  }
 			  case OpCode.OP_SELF: {
 				StkId rb = RB(L, base_, i);
@@ -661,31 +686,31 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				  //);
 				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
-				continue;
+				break;
 			  }
 			  case OpCode.OP_ADD: {
 				arith_op(L, luai_numadd, TMS.TM_ADD, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_SUB: {
 				arith_op(L, luai_numsub, TMS.TM_SUB, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_MUL: {
 				arith_op(L, luai_nummul, TMS.TM_MUL, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_DIV: {
 				arith_op(L, luai_numdiv, TMS.TM_DIV, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_MOD: {
 				arith_op(L, luai_nummod, TMS.TM_MOD, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_POW: {
 				arith_op(L, luai_numpow, TMS.TM_POW, base_, i, k, ra, ci);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_UNM: {
 				TValue rb = RB(L, base_, i);
@@ -701,12 +726,12 @@ namespace KopiLua
 					//);
 				  //L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
 				}
-				continue;
+				break;
 			  }
 			  case OpCode.OP_NOT: {
 				int res = l_isfalse(RB(L, base_, i)) == 0 ? 0 : 1;  /* next assignment may change this value */
 				setbvalue(ra, res);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LEN: {
 				//Protect(
@@ -714,7 +739,7 @@ namespace KopiLua
 				  luaV_objlen(L, ra, RB(L, base_, i));
 				  base_ = ci.u.l.base_; //FIXME:???
 				//)
-				continue;
+				break;
 			  }
 			  case OpCode.OP_CONCAT: {
 				int b = GETARG_B(i);
@@ -722,16 +747,16 @@ namespace KopiLua
 				L.top = base_ + c + 1;  /* mark the end of concat operands */
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_concat(L, c-b+1); luaC_checkGC(L);
+				  luaV_concat(L, c-b+1); checkGC(L);
 				  base_ = ci.u.l.base_;
 				  //);
 				L.top = ci.top;  /* restore top */
 				setobjs2s(L, RA(L, base_, i), base_ + b);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_JMP: {
 				dojump(GETARG_sBx(i), ci, L);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_EQ: {
 				TValue rb = RKB(L, base_, i, k);
@@ -743,7 +768,7 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LT: {
 				//Protect(
@@ -753,7 +778,7 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_LE: {
 				//Protect(
@@ -763,13 +788,13 @@ namespace KopiLua
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_TEST: {
 				if (GETARG_C(i) != 0 ? l_isfalse(ra) == 0 : l_isfalse(ra) != 0)
 				  dojump(GETARG_sBx(ci.u.l.savedpc[0]), ci, L);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_TESTSET: {
 				TValue rb = RB(L, base_, i);
@@ -778,7 +803,7 @@ namespace KopiLua
 				  dojump(GETARG_sBx(ci.u.l.savedpc[0]), ci, L);
 				}
 				InstructionPtr.inc(ref ci.u.l.savedpc);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_CALL: {
 				int b = GETARG_B(i);
@@ -787,22 +812,20 @@ namespace KopiLua
 		        if (luaD_precall(L, ra, nresults) != 0) {  /* C function? */
 		          if (nresults >= 0) L.top = ci.top;  /* adjust results */
 		          base_ = ci.u.l.base_;
-		          continue;
 		        }
 		        else {  /* Lua function */
                   ci = L.ci;
 		          ci.callstatus |= CIST_REENTRY;
-		          break;  /* restart luaV_execute over new Lua function */
+		          goto newframe;  /* restart luaV_execute over new Lua function */
 		        }
+				break;
 			  }
 			  case OpCode.OP_TAILCALL: {
 				int b = GETARG_B(i);
 				if (b != 0) L.top = ra + b;  /* else previous instruction set top */
 				lua_assert(GETARG_C(i) - 1 == LUA_MULTRET);
-		        if (luaD_precall(L, ra, LUA_MULTRET) != 0) {  /* C function? */
+		        if (luaD_precall(L, ra, LUA_MULTRET) != 0)  /* C function? */
 		          base_ = ci.u.l.base_;
-		          continue;
-		        }
 		        else {
 			        /* tail call: put called frame (n) in place of caller one (o) */
 			        CallInfo nci = L.ci;  /* called frame */
@@ -823,8 +846,9 @@ namespace KopiLua
 		            oci.callstatus |= CIST_TAIL;  /* function was tail called */
 		            ci = L.ci = oci;  /* remove new frame */
                     lua_assert(L.top == oci.u.l.base_ + getproto(ofunc).maxstacksize);
-		            break;  /* restart luaV_execute over new Lua function */
+		            goto newframe;  /* restart luaV_execute over new Lua function */
 				}
+				break;
 			  }
 			  case OpCode.OP_RETURN: {
 				int b = GETARG_B(i);
@@ -838,8 +862,9 @@ namespace KopiLua
 		          if (b != 0) L.top = ci.top;
 		          lua_assert(isLua(ci));
 		          lua_assert(GET_OPCODE(ci.u.l.savedpc[-1]) == OpCode.OP_CALL);
-		          break;  /* restart luaV_execute over new Lua function */
+		          goto newframe;  /* restart luaV_execute over new Lua function */
 				}
+				break;
 			  }
 			  case OpCode.OP_FORLOOP: {
 				lua_Number step = nvalue(ra+2);
@@ -851,7 +876,7 @@ namespace KopiLua
 				  setnvalue(ra, idx);  /* update internal index... */
 				  setnvalue(ra+3, idx);  /* ...and external index */
 				}
-				continue;
+				break;
 			  }
 			  case OpCode.OP_FORPREP: {
 				TValue init = ra;
@@ -865,7 +890,7 @@ namespace KopiLua
 				  luaG_runerror(L, LUA_QL("for") + " step must be a number");
 				setnvalue(ra, luai_numsub(L, nvalue(ra), nvalue(pstep)));
 				dojump(GETARG_sBx(i), ci, L);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_TFORCALL: {
 				StkId cb = ra + 3;  /* call base */
@@ -882,15 +907,16 @@ namespace KopiLua
 		        i = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc);  /* go to next instruction */ //FIXME:++
 		        ra = RA(L, base_, i);
 		        lua_assert(GET_OPCODE(i) == OpCode.OP_TFORLOOP);
-		        /* go through */
-				goto case OpCode.OP_TFORLOOP; //FIXME:added
+		        goto l_tforloop; //FIXME:???
+				break;
               }
       		  case OpCode.OP_TFORLOOP: {
+                l_tforloop:
 	  		    if (!ttisnil(ra + 1)) {  /* continue loop? */
 				  setobjs2s(L, ra, ra + 1);  /* save control variable */
 				  dojump(GETARG_sBx(i), ci, L);  /* jump back */
 				}
-				continue;
+				break;
 			  }
 			  case OpCode.OP_SETLIST: {
 				int n = GETARG_B(i);
@@ -905,47 +931,28 @@ namespace KopiLua
 				h = hvalue(ra);
 				last = ((c-1)*LFIELDS_PER_FLUSH) + n;
 				if (last > h.sizearray)  /* needs more space? */
-				  luaH_resizearray(L, h, last);  /* pre-alloc it at once */
+				  luaH_resizearray(L, h, last);  /* pre-allocate it at once */
 				for (; n > 0; n--) {
 				  TValue val = ra+n;
 				  setobj2t(L, luaH_setint(L, h, last--), val);
-				  luaC_barriert(L, h, val);
+				  luaC_barrierback(L, obj2gco(h), val);
 				}
                 L.top = ci.top;  /* correct top (in case of previous open call) */
-				continue;
+				break;
 			  }
 			  case OpCode.OP_CLOSE: {
 				luaF_close(L, ra);
-				continue;
+				break;
 			  }
 			  case OpCode.OP_CLOSURE: {
-				Proto p = cl.p.p[GETARG_Bx(i)];  /* prototype for new closure */
-				int nup = p.sizeupvalues;
-				Closure ncl = luaF_newLclosure(L, nup, cl.env);
-				Upvaldesc[] uv = p.upvalues;
-                int j;
-				ncl.l.p = p;
-                setclvalue(L, ra, ncl);
-		        if (p.envreg != NO_REG) {  /* lexical environment? */
-                  StkId env = base_ + p.envreg;
-		          if (!ttistable(env))
-		            luaG_runerror(L, "environment is not a table: " +
-		                             "cannot create closure");
-		          else
-		            ncl.l.env = hvalue(env);
-		        }
-		        for (j = 0; j < nup; j++) {  /* fill in upvalues */
-		          if (uv[j].instack != 0)  /* upvalue refers to local variable? */
-		            ncl.l.upvals[j] = luaF_findupval(L, base_ + uv[j].idx);
-		          else  /* get upvalue from enclosing function */
-		            ncl.l.upvals[j] = cl.upvals[uv[j].idx];
-		        }
-				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc);//FIXME:
-					luaC_checkGC(L);
-				  base_ = ci.u.l.base_;
-				  //);
-				continue;
+				Proto p = cl.p.p[GETARG_Bx(i)];
+			  	Closure *ncl = getcached(p, cl->upvals, base);  /* cached closure */
+		        if (ncl == NULL)  /* no match? */
+		          pushclosure(L, p, cl->upvals, base, ra);  /* create a new one */
+		        else
+		          setclvalue(L, ra, ncl);  /* push cashed closure */
+		        checkGC(L);
+				break;
 			  }
 			  case OpCode.OP_VARARG: {
 				int b = GETARG_B(i) - 1;
@@ -969,19 +976,14 @@ namespace KopiLua
 					setnilvalue(ra + j);
 				  }
 				}
-				continue;
+				break;
 			  }
 		      case OpCode.OP_EXTRAARG: {
-		        luaG_runerror(L, "bad opcode");
-		        return;
+		        lua_assert(0);
+				break;
 		      }
 			}
 		  }
-		  /* function changed (call/return): update pointers */
-		  lua_assert(ci == L.ci); //FIXME: unreachable here
-		  cl = clvalue(ci.func).l;
-		  k = cl.p.k;
-		  base_ = ci.u.l.base_;
 		}
 	}
 }
