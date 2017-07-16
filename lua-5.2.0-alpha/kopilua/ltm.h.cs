@@ -40,7 +40,8 @@ namespace KopiLua
 		public static TValue fasttm(lua_State l, Table et, TMS e)	{return gfasttm(G(l), et, e);}
 
 
-		public static CharPtr typename(int x) { return luaT_typenames_[(x) + 1]; }
+		public static CharPtr ttypename(int x) { return luaT_typenames_[(x) + 1]; }
+		public static CharPtr objtypename(x) { return ttypename(ttypenv(x)); }
 
 	}
 }

@@ -105,3 +105,18 @@ ltable.c
 ltable.h
 20:27 2017-07-16
 ltablib.c
+
+21:14 2017-07-16
+ltm.c
+21:15 2017-07-16
+ltm.h
+21:32 2017-07-16
+lua.c
+	luai_writestringerror( //FIXME:???%s
+	collectargs (TODO) go through not sync //FIXME:go through->goto xxx
+21:44 2017-07-16
+lua.h
+	public static CharPtr lua_pushliteral(lua_State L, CharPtr s) {
+            //TODO: Implement use using lua_pushlstring instead of lua_pushstring
+			//lua_pushlstring(L, "" s, (sizeof(s)/GetUnmanagedSize(typeof(char)))-1)
+            return lua_pushstring(L, s); } //FIXME: changed 

@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.183 2010/01/21 16:31:06 roberto Exp roberto $
+** $Id: lua.c,v 1.193 2010/10/18 16:06:33 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -38,9 +38,12 @@ namespace KopiLua
 		private const int LUA_MAXINPUT = 512;
 		//#endif
 
-		//#if !defined(LUA_INIT_VAR)
-		private const string LUA_INIT_VAR = "LUA_INIT";
+		//#if !defined(LUA_INIT)
+		private const string LUA_INIT = "LUA_INIT";
 		//#endif
+
+		private const string LUA_INITVERSION = 
+			LUA_INIT + "_" + LUA_VERSION_MAJOR + "_" + LUA_VERSION_MINOR;
 
 
 		/*
@@ -112,9 +115,15 @@ namespace KopiLua
 
 
 		static void print_usage(char badoption) {
-			Console.Error.Write(
-            "%s: unrecognized option '-%c'\n" + 
-			"usage: {0} [options] [script [args]]\n" +
+		  if (badoption[1] == 'e' || badoption[1] == 'l') {
+		    luai_writestringerror("%s: ", progname);
+		    luai_writestringerror("'%s' needs argument\n", badoption);
+		  } else {
+		    luai_writestringerror("%s: ", progname);
+		    luai_writestringerror("unrecognized option '%s'\n", badoption);
+		  }
+			luai_writestringerror( //FIXME:???%s
+            "usage: %s [options] [script [args]]\n" +
 			"Available options are:\n" +
 			"  -e stat  execute string " + Lua.LUA_QL("stat").ToString() + "\n" +
 			"  -i       enter interactive mode after executing " + Lua.LUA_QL("script").ToString() + "\n" +
@@ -123,15 +132,13 @@ namespace KopiLua
 			"  --       stop handling options\n" +
 			"  -        stop handling options and execute stdin\n"
 			,
-			progname, badoption, progname);
-			Console.Error.Flush();
+			progname);
 		}
 
 
 		static void l_message(Lua.CharPtr pname, Lua.CharPtr msg) {
-			if (pname != null) Lua.fprintf(Lua.stderr, "%s: ", pname);
-			Lua.fprintf(Lua.stderr, "%s\n", msg);
-			Lua.fflush(Lua.stderr);
+			if (pname) luai_writestringerror("%s: ", pname);
+  			luai_writestringerror("%s\n", msg);
 		}
 
 
@@ -172,15 +179,15 @@ namespace KopiLua
 		}
 
 
-		static int docall(Lua.lua_State L, int narg, int clear) {
+		static int docall(Lua.lua_State L, int narg, int nres) {
 			int status;
 			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
 			Lua.lua_pushcfunction(L, traceback);  /* push traceback function */
 			Lua.lua_insert(L, base_);  /* put it under chunk and args */
             globalL = L;  /* to be available to 'laction' */
-			//signal(SIGINT, laction);
-			status = Lua.lua_pcall(L, narg, ((clear!=0) ? 0 : Lua.LUA_MULTRET), base_);
-			//signal(SIGINT, SIG_DFL);
+			//signal(SIGINT, laction); //FIXME:removed
+			status = Lua.lua_pcall(L, narg, nres, base_);
+			//signal(SIGINT, SIG_DFL); //FIXME:removed
 			Lua.lua_remove(L, base_);  /* remove traceback function */
 			return status;
 		}
@@ -194,7 +201,8 @@ namespace KopiLua
 		static int getargs(Lua.lua_State L, string[] argv, int n) {
 			int narg;
 			int i;
-			int argc = argv.Length;	/* count total number of arguments */ //FIXME:changed here
+			int argc = 0;	/* count total number of arguments */ //FIXME:changed here
+            argc = argv.Length;  /* count total number of arguments */ //FIXME: changed here
 			narg = argc - (n + 1);  /* number of arguments to the script */
 			Lua.luaL_checkstack(L, narg + 3, "too many arguments to script");
 			for (i = n + 1; i < argc; i++)
@@ -210,28 +218,37 @@ namespace KopiLua
 
 		static int dofile(Lua.lua_State L, Lua.CharPtr name) {
 			int status = Lua.luaL_loadfile(L, name);
-            if (status == Lua.LUA_OK) status = docall(L, 0, 1);
+            if (status == Lua.LUA_OK) status = docall(L, 0, 0);
 			return report(L, status);
 		}
 
 
 		static int dostring(Lua.lua_State L, Lua.CharPtr s, Lua.CharPtr name) {
 			int status = Lua.luaL_loadbuffer(L, s, (uint)Lua.strlen(s), name);
-			if (status == Lua.LUA_OK) status = docall(L, 0, 1);
+			if (status == Lua.LUA_OK) status = docall(L, 0, 0);
 			return report(L, status);
 		}
 
 
 		static int dolibrary(Lua.lua_State L, Lua.CharPtr name) {
-			Lua.lua_getfield(L, Lua.LUA_ENVIRONINDEX, "require");
-			Lua.lua_pushstring(L, name);
-			return report(L, docall(L, 1, 1));
+		  int status;
+		  lua_pushglobaltable(L);
+		  lua_getfield(L, -1, "require");
+		  lua_pushstring(L, name);
+		  status = docall(L, 1, 1);
+		  if (status == LUA_OK) {
+		    lua_setfield(L, -2, name);  /* global[name] = require return */
+		    lua_pop(L, 1);  /* remove global table */
+		  }
+		  else
+		    lua_remove(L, -2);  /* remove global table (below error msg.) */
+		  return report(L, status);
 		}
 
 
 		static Lua.CharPtr get_prompt(Lua.lua_State L, int firstline) {
 			Lua.CharPtr p;
-			Lua.lua_getfield(L, Lua.LUA_ENVIRONINDEX, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
+			Lua.lua_getglobal(L, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
 			p = Lua.lua_tostring(L, -1);
 			if (p == null) p = ((firstline!=0) ? LUA_PROMPT : LUA_PROMPT2);
 			Lua.lua_pop(L, 1);  /* remove global */
@@ -301,11 +318,11 @@ namespace KopiLua
 			Lua.CharPtr oldprogname = progname;
 			progname = null;
 			while ((status = loadline(L)) != -1) {
-				if (status == Lua.LUA_OK) status = docall(L, 0, 0);
+				if (status == Lua.LUA_OK) status = docall(L, 0, LUA_MULTRET);
 				report(L, status);
 				if (status == Lua.LUA_OK && Lua.lua_gettop(L) > 0) {  /* any result to print? */
 				    Lua.luaL_checkstack(L, Lua.LUA_MINSTACK, "too many results to print");
-				    Lua.lua_getfield(L, Lua.LUA_ENVIRONINDEX, "print");
+				    Lua.lua_getglobal(L, "print");
 					Lua.lua_insert(L, 1);
 					if (Lua.lua_pcall(L, Lua.lua_gettop(L) - 1, 0, 0) != Lua.LUA_OK)
 						l_message(progname, Lua.lua_pushfstring(L,
@@ -315,7 +332,6 @@ namespace KopiLua
 			}
 			Lua.lua_settop(L, 0);  /* clear stack */
 			Lua.luai_writestring("\n", 1);
-			Lua.fflush(Lua.stdout);
 			progname = oldprogname;
 		}
 
@@ -324,14 +340,14 @@ namespace KopiLua
 			int status;
 			Lua.CharPtr fname;
 			int narg = getargs(L, argv, n);  /* collect arguments */
-			Lua.lua_setfield(L, Lua.LUA_ENVIRONINDEX, "arg");
+			Lua.lua_setglobal(L, "arg");
 			fname = argv[n];
 			if (Lua.strcmp(fname, "-") == 0 && Lua.strcmp(argv[n - 1], "--") != 0)
 				fname = null;  /* stdin */
 			status = Lua.luaL_loadfile(L, fname);
 			Lua.lua_insert(L, -(narg + 1));
 			if (status == Lua.LUA_OK)
-				status = docall(L, narg, 0);
+				status = docall(L, narg, LUA_MULTRET);
 			else
 				Lua.lua_pop(L, narg);
 			return report(L, status);
@@ -371,14 +387,15 @@ namespace KopiLua
 							if (argv[i] == null) return -1;
 						}
 						break;
-					case 'l':
-						if (argv[i].Length == 2) {
-							i++;
-							if (i >= argv.Length) return -1;
+					case 'l':  /* both options need an argument */
+						if (argv[i].Length == 2) {  /* no concatenated argument? */ //FIXME:changed
+							i++;  /* try next 'argv' */
+							if (i >= argv.Length || argv[i][0] == '-')  //FIXME: changed
+							  return -(i - 1);  /* no next argument or it is another option */
 						}
 						break;
-					default:  /* invalid option; return the offendind character as a... */ 
-					    return -(byte)argv[i][1];  /* ...negative value */
+					default:  /* invalid option; return its index... */
+					    return -i;  /* ...as a negative value */
 				}
 			}
 			return 0;
@@ -388,7 +405,6 @@ namespace KopiLua
 		static int runargs(Lua.lua_State L, string[] argv, int n) {
 			int i;
 			for (i = 1; i < n; i++) {
-				if (argv[i] == null) continue;
 				Lua.lua_assert(argv[i][0] == '-');
 				switch (argv[i][1]) {  /* option */
 					case 'e': {
@@ -415,24 +431,29 @@ namespace KopiLua
 
 
 		static int handle_luainit(Lua.lua_State L) {
-			Lua.CharPtr init = Lua.getenv(LUA_INIT_VAR);
-			if (init == null) return Lua.LUA_OK;  /* status OK */
-			else if (init[0] == '@')
-				return dofile(L, init + 1);
-			else
-				return dostring(L, init, "=" + LUA_INIT_VAR);
+		  Lua.CharPtr name = "=" + LUA_INITVERSION;
+		  Lua.CharPtr init = getenv(name + 1);
+		  if (init == null) {
+		    name = "=" LUA_INIT;
+		    init = getenv(name + 1);  /* try alternative name */
+		  }
+		  if (init == null) return Lua.LUA_OK;  /* status OK */
+		  else if (init[0] == '@')
+			return dofile(L, init + 1);
+		  else
+			return dostring(L, init, name);
 		}
 
 
 		static int pmain(Lua.lua_State L) {
-			int argc = Lua.lua_tointeger(L, 1);
+			int argc = (int)Lua.lua_tointeger(L, 1);
 			string[] argv = (string[])Lua.lua_touserdata(L, 2);
 			int script;
 			int has_i = 0, has_v = 0, has_e = 0;
 			if ((argv.Length>0) && (argv[0]!="")) progname = argv[0];
 			script = collectargs(argv, ref has_i, ref has_v, ref has_e);
 			if (script < 0) {  /* invalid arg? */
-				print_usage((char)(-script));  /* '-script' is the offending argument */ //FIXME:(char)
+				print_usage(argv[-script]);
 				return 0;
 			}
 			if (has_v!=0) print_version();
@@ -479,9 +500,10 @@ namespace KopiLua
 				return Lua.EXIT_FAILURE;
 			}
 			/* call 'pmain' in protected mode */
+            lua_pushcfunction(L, &pmain);
 			Lua.lua_pushinteger(L, argc);  /* 1st argument */
 			Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
-			status = Lua.luaL_cpcall(L, pmain, 2, 1);
+			status = Lua.lua_pcall(L, 2, 1, 0);
 			result = Lua.lua_toboolean(L, -1);  /* get result */
 			finalreport(L, status);
 			Lua.lua_close(L);

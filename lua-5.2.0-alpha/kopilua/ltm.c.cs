@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.c,v 2.10 2009/11/19 19:06:52 roberto Exp roberto $
+** $Id: ltm.c,v 2.11 2010/01/13 16:18:25 roberto Exp roberto $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -65,8 +65,8 @@ namespace KopiLua
 			  mt = uvalue(o).metatable;
 			  break;
 			default:
-			  mt = G(L).mt[ttype(o)];
-			  break;
+			  mt = G(L).mt[ttypenv(o)];
+			  break;//FIXME: added
 		  }
 		  return ((mt!=null) ? luaH_getstr(mt, G(L).tmname[(int)event_]) : luaO_nilobject);
 		}
