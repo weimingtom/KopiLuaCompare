@@ -63,3 +63,13 @@ lmem.h
 00:49 2017-07-16
 loadlib.c
 	LUA_COMPAT_MODULE
+
+
+09:52 2017-07-16
+lobject.c
+10:18 2017-07-16
+lobject.h
+10:21 2017-07-16
+lopcodes.c
+10:25 2017-07-16
+lopcodes.h

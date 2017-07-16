@@ -11,24 +11,29 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		/* tags for values visible from Lua */
-		public const int LAST_TAG	= LUA_TTHREAD;
-
-		public const int NUM_TAGS	= (LAST_TAG+1);
 
 
 		/*
 		** Extra tags for non-values
 		*/
-		public const int LUA_TPROTO	= (LAST_TAG+1);
-		public const int LUA_TUPVAL	= (LAST_TAG+2);
-		public const int LUA_TDEADKEY	= (LAST_TAG+3);
+		public const int LUA_TPROTO	= LUA_NUMTAGS;
+		public const int LUA_TUPVAL	= (LUA_NUMTAGS+1);
+		public const int LUA_TDEADKEY	= (LUA_NUMTAGS+2);
 
-		public interface ArrayElement
+
+
+		/*
+		** Variant tag for light C functions (negative to be considered
+		** non collectable by 'iscollectable')
+		*/
+		public const int LUA_TLCF = (~0x0F | LUA_TFUNCTION); //FIXME:???
+
+		public interface ArrayElement //FIXME:added
 		{
 			void set_index(int index);
 			void set_array(object array);
 		}
+
 
 
 		/*
@@ -55,20 +60,22 @@ namespace KopiLua
 		** Union of all Lua values
 		*/
 		public struct Value {
-		  public GCObject gc;
-		  public object p;
-		  public lua_Number n;
-		  public int b;
+		  public GCObject gc;     /* collectable objects */
+		  public object p;        /* light userdata */
+		  public lua_Number n;    /* numbers */
+		  public int b;           /* booleans */
+		  public lua_CFunction f; /* light C functions */
 		};
 
 
 		/*
-		** Tagged Values
+		** Tagged Values. This is the basic representation of values in Lua,
+		** an actual value plus a tag with its type.
 		*/
 
 		//#define TValuefields	Value value; int tt
 
-		public class lua_TValue : ArrayElement
+		public class lua_TValue : ArrayElement //FIXME:changed
 		{
 			private lua_TValue[] values = null;
 			private int index = -1;
@@ -207,27 +214,38 @@ namespace KopiLua
 		};
 
 
-		/* macro defining a nil value to be used in definitions */
-		//#define NILCONSTANT    {NULL}, LUA_TNIL
-        //FIXME:???
+		/* macro defining a nil value */
+		//#define NILCONSTANT    {NULL}, LUA_TNIL //FIXME:removed
+
+
+		/*
+		** type tag of a TValue
+		*/
+		public static int ttype(TValue o) { return o.tt_; }
+
+
+		/*
+		** type tag of a TValue with no variants
+		*/
+		public static int ttypenv(TValue o) { return (ttype(o) & 0x0F); }
+
+
 
 		/* Macros to test type */
 		public static bool ttisnil(TValue o)	{return (ttype(o) == LUA_TNIL);}
 		public static bool ttisnumber(TValue o)	{return (ttype(o) == LUA_TNUMBER);}
 		public static bool ttisstring(TValue o)	{return (ttype(o) == LUA_TSTRING);}
 		public static bool ttistable(TValue o)	{return (ttype(o) == LUA_TTABLE);}
-		public static bool ttisfunction(TValue o)	{return (ttype(o) == LUA_TFUNCTION);}
+		public static bool ttisfunction(TValue o)	{return (ttypenv(o) == LUA_TFUNCTION);}
+		public static bool ttisclosure(TValue o) { return (ttype(o) == LUA_TFUNCTION);}
+		public static bool ttislcf(TValue o) { return (ttype(o) == LUA_TLCF);}
 		public static bool ttisboolean(TValue o)	{return (ttype(o) == LUA_TBOOLEAN);}
 		public static bool ttisuserdata(TValue o)	{return (ttype(o) == LUA_TUSERDATA);}
-		//public static bool ttisuserdata(CommonHeader o)	{return (ttype(o) == LUA_TUSERDATA);} //FIXME:added
 		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
-		//public static bool ttisthread(CommonHeader o)	{return (ttype(o) == LUA_TTHREAD);} //FIXME:added
 		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
         public static bool ttisdeadkey(TValue o) { return (ttype(o) == LUA_TDEADKEY);}
 		
 		/* Macros to access values */
-		public static int    ttype(TValue o) { return o.tt_; }
-		//public static int    ttype(CommonHeader o) { return o.tt_; } //FIXME:???
 		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), o.value_.gc); }
 		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), o.value_.p); }
 		public static lua_Number nvalue(TValue o) { return (lua_Number)check_exp(ttisnumber(o), o.value_.n); }
@@ -235,18 +253,19 @@ namespace KopiLua
 		public static TString_tsv tsvalue(TValue o) { return rawtsvalue(o).tsv; }
 		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), o.value_.gc.u); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
-		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisfunction(o), o.value_.gc.cl);}
+		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), o.value_.gc.cl);}
+        public static void fvalue(TValue o)	{ return check_exp(ttislcf(o), o.value_.f); }
 		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), o.value_.gc.h);}
 		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), o.value_.b);}
 		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), o.value_.gc.th);}
 
 		public static int l_isfalse(TValue o) { return ((ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))) ? 1 : 0; }
 
-		/*
-		** for internal debug only
-		*/
+		
 		public static bool iscollectable(TValue o)	{ return (ttype(o) >= LUA_TSTRING); }
 
+
+		/* Macros for internal tests */
 		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt); }
 		
 		public static void checkconsistency(TValue obj)
@@ -270,10 +289,10 @@ namespace KopiLua
 			obj.tt_ = LUA_TNUMBER;
 		}
 
-		public static void changenvalue(TValue obj, lua_Number x) {
-			lua_assert(obj.tt_==LUA_TNUMBER);
-			obj.value_.n=x; 
-		}
+		public static void setfvalue(TValue obj, lua_Number x) {
+			TValue *i_o=(obj); i_o->value_.f=(x); i_o->tt_=LUA_TLCF; }
+		
+		public static void changenvalue(o,x) { return check_exp((o)->tt_==LUA_TNUMBER, (o)->value_.n=(x)); }
   
 
 		public static void setpvalue( TValue obj, object x) {
@@ -333,7 +352,7 @@ namespace KopiLua
 
 
 		/*
-		** different types of sets, according to destination
+		** different types of assignments, according to destination
 		*/
 
 		/* from stack to (same) stack */
@@ -373,9 +392,9 @@ namespace KopiLua
 		//typedef TValue *StkId;  /* index to stack elements */
 		
 		/*
-		** String headers for string table
+		** Header for string value; string bytes follow the end of this structure
 		*/
-		public class TString_tsv : GCObject
+		public class TString_tsv : GCObject //FIXME:added
 		{
 			public lu_byte reserved;
 			public uint hash;
@@ -396,11 +415,18 @@ namespace KopiLua
 			public override string ToString() { return str.ToString(); } // for debugging
 		};
 
+        /* get the actual string (array of bytes) from a TString */
 		public static CharPtr getstr(TString ts) { return ts.str; }
-		public static CharPtr getstr(TString_tsv ts) { return ((TString)ts).str; }
+		public static CharPtr getstr(TString_tsv ts) { return ((TString)ts).str; } //FIXME:added
+		
+		/* get the actual string (array of bytes) from a Lua value */
 		public static CharPtr svalue(StkId o) { return getstr(rawtsvalue(o)); }
 
-		public class Udata_uv : GCObject
+
+		/*
+		** Header for userdata; memory area follows the end of this structure
+		*/
+		public class Udata_uv : GCObject //FIXME:added
 		{
 			public Table metatable;
 			public Table env;
@@ -422,7 +448,7 @@ namespace KopiLua
 		};
 
 		/*
-		** Upvalues from a function prototype
+		** Description of an upvalue for function prototypes
 		*/
 		public class Upvaldesc : ArrayElement {
 			//-----------------------------------
@@ -443,8 +469,19 @@ namespace KopiLua
 			//------------------------------------------
 			
 		  public TString name;  /* upvalue name (for debug information) */
-		  public lu_byte instack;
+		  public lu_byte instack;  /* whether it is in stack */
 		  public lu_byte idx;  /* index of upvalue (in stack or in outer function's list) */
+		};
+
+
+		/*
+		** Description of a local variable for function prototypes
+		** (used for debug information)
+		*/
+		public class LocVar {
+		  public TString varname;
+		  public int startpc;  /* first point where variable is active */
+		  public int endpc;    /* first point where variable is dead */
 		};
 
 
@@ -454,16 +491,17 @@ namespace KopiLua
 		*/
 		public class Proto : GCObject {
 
-		  public Proto[] protos = null;
-		  public int index = 0;
-		  public Proto this[int offset] {get { return this.protos[this.index + offset]; }}
+		  public Proto[] protos = null; //FIXME:added, CommonHeader
+		  public int index = 0; //FIXME:added, CommonHeader
+		  public Proto this[int offset] {get { return this.protos[this.index + offset]; }} //FIXME:added, CommonHeader
 
 		  public TValue[] k;  /* constants used by the function */
 		  public Instruction[] code;
-		  public new Proto[] p;  /* functions defined inside the function */
+		  public new Proto[] p;  /* functions defined inside the function */ //FIXME:added, new
 		  public int[] lineinfo;  /* map from opcodes to source lines */
 		  public LocVar[] locvars;  /* information about local variables */
 		  public Upvaldesc[] upvalues;  /* upvalue information */
+          public Closure cache;  /* last created closure with this prototype */
 		  public TString  source;
 		  public int sizeupvalues;  /* size of 'upvalues' */
 		  public int sizek;  /* size of `k' */
@@ -474,25 +512,16 @@ namespace KopiLua
 		  public int linedefined;
 		  public int lastlinedefined;
 		  public GCObject gclist;
-		  public lu_byte numparams;
+		  public lu_byte numparams;  /* number of fixed parameters */
 		  public lu_byte is_vararg;
-		  public lu_byte maxstacksize;
-          public lu_byte envreg;  /* register in outer function with initial environment */
-		};
-
-
-		public class LocVar {
-		  public TString varname;
-		  public int startpc;  /* first point where variable is active */
-		  public int endpc;    /* first point where variable is dead */
+		  public lu_byte maxstacksize; /* maximum stack used by this function */
 		};
 
 
 
 		/*
-		** Upvalues
+		** Lua Upvalues
 		*/
-
 		public class UpVal : GCObject {
 		  public TValue v;  /* points to stack or to its own value */
 
@@ -538,7 +567,6 @@ namespace KopiLua
 			public lu_byte isC;
 			public lu_byte nupvalues;
 			public GCObject gclist;
-			public Table env;
 		};
 
 		public class ClosureType {
@@ -557,14 +585,14 @@ namespace KopiLua
 		public class CClosure : ClosureType {
 			public CClosure(ClosureHeader header) : base(header) { }
 			public lua_CFunction f;
-			public TValue[] upvalue;
+			public TValue[] upvalue;  /* list of upvalues */ //FIXME:TValue[1]
 		};
 
 
 		public class LClosure : ClosureType {
 			public LClosure(ClosureHeader header) : base(header) { }
 			public Proto p;
-			public UpVal[] upvals;
+			public UpVal[] upvals;  /* list of upvalues */ //FIXME:UpVal*[1]
 		};
 
 		public class Closure : ClosureHeader
@@ -580,10 +608,10 @@ namespace KopiLua
 		};
 
 
-		public static bool iscfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC != 0)); }
-		public static bool isLfunction(TValue o) { return (ttisfunction(o) && (clvalue(o).c.isC==0)); }
+		public static bool isLfunction(TValue o) { return (ttisclosure(o) && (clvalue(o).c.isC==0)); }
 
         public static Proto getproto(TValue o) { return (clvalue(o).l.p); }
+
 
 		/*
 		** Tables
@@ -738,6 +766,9 @@ namespace KopiLua
 
 
         //FIXME:??? move to lobject.c
+		/*
+		** (address of) a fixed nil value
+		*/
 		public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL); //FIXME:??? new Tvalue(null, LUA_TNIL);
 		public static TValue luaO_nilobject = luaO_nilobject_;
 	}

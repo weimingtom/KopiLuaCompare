@@ -11,6 +11,7 @@ namespace KopiLua
 			`A' : 8 bits
 			`B' : 9 bits
 			`C' : 9 bits
+            'Ax' : 26 bits ('A', 'B', and 'C' together)
 			`Bx' : 18 bits (`B' and `C' together)
 			`sBx' : signed Bx
 
@@ -187,7 +188,7 @@ namespace KopiLua
 		public static int CREATE_Ax(OpCode o, int a)
 		{
 			return (int)(((((int)o)<<POS_OP)
-			              | (((int)a)<<POS_A)));
+			              | (((int)a)<<POS_Ax)));
 		}
 
 
@@ -237,10 +238,10 @@ namespace KopiLua
 		OP_LOADNIL,/*	A B	R(A) := ... := R(B) := nil			*/
 		OP_GETUPVAL,/*	A B	R(A) := UpValue[B]				*/
 
-		OP_GETGLOBAL,/*	A Bx	R(A) := Gbl[Kst(Bx - 1)]				*/
+		OP_GETTABUP,/*	A B C	R(A) := UpValue[B][RK(C)]			*/
 		OP_GETTABLE,/*	A B C	R(A) := R(B)[RK(C)]				*/
 
-		OP_SETGLOBAL,/*	A Bx	Gbl[Kst(Bx - 1)] := R(A)				*/
+		OP_SETTABUP,/*	A B C	UpValue[A][RK(B)] := RK(C)			*/
 		OP_SETUPVAL,/*	A B	UpValue[B] := R(A)				*/
 		OP_SETTABLE,/*	A B C	R(A)[RK(B)] := RK(C)				*/
 
@@ -278,14 +279,14 @@ namespace KopiLua
 		OP_FORPREP,/*	A sBx	R(A)-=R(A+2); pc+=sBx				*/
 
 		OP_TFORCALL,/*	A C	R(A+3), ... ,R(A+2+C) := R(A)(R(A+1), R(A+2));	*/
+		OP_TFORLOOP,/*	A sBx	if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }*/
+
 		OP_SETLIST,/*	A B C	R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B	*/
 
 		OP_CLOSE,/*	A	close all variables in the stack up to (>=) R(A)*/
-		OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx], R(A), ... ,R(A+n))	*/
+		OP_CLOSURE,/*	A Bx	R(A) := closure(KPROTO[Bx])			*/
 
-		OP_VARARG,/*	A B	R(A), R(A+1), ..., R(A+B-1) = vararg		*/
-		
-		OP_TFORLOOP,/*	A sBx	if R(A+1) ~= nil then { R(A)=R(A+1); pc += sBx }*/
+		OP_VARARG,/*	A B	R(A), R(A+1), ..., R(A+B-2) = vararg		*/
 
 		OP_EXTRAARG/*	Ax	extra (larger) argument for previous opcode		*/
 		};
@@ -309,8 +310,7 @@ namespace KopiLua
 		  (*) In OP_SETLIST, if (B == 0) then B = `top'; if (C == 0) then next
 		  'instruction' is EXTRAARG(real C).
 
-		  (*) In OP_LOADK, OP_GETGLOBAL, and OP_SETGLOBAL, if (Bx == 0) then next
-		  'instruction' is EXTRAARG(real Bx).
+		  (*) In OP_LOADK, if (Bx == 0) then next 'instruction' is EXTRAARG(real Bx).
 
 		  (*) For comparisons, A specifies what condition the test should accept
 		  (true or false).
@@ -336,11 +336,16 @@ namespace KopiLua
 		  OpArgK   /* argument is a constant or register/constant */
 		};
 
+		//LUAI_DDEC const lu_byte luaP_opmodes[NUM_OPCODES];
+
 		public static OpMode getOpMode(OpCode m)	{return (OpMode)(luaP_opmodes[(int)m] & 3);}
 		public static OpArgMask getBMode(OpCode m) { return (OpArgMask)((luaP_opmodes[(int)m] >> 4) & 3); }
 		public static OpArgMask getCMode(OpCode m) { return (OpArgMask)((luaP_opmodes[(int)m] >> 2) & 3); }
 		public static int testAMode(OpCode m) { return luaP_opmodes[(int)m] & (1 << 6); }
 		public static int testTMode(OpCode m) { return luaP_opmodes[(int)m] & (1 << 7); }
+
+
+		//LUAI_DDEC const char *const luaP_opnames[NUM_OPCODES+1];  /* opcode names */
 
 
 		/* number of list items to accumulate before a SETLIST instruction */

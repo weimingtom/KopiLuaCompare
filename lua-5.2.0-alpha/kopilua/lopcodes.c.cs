@@ -1,5 +1,5 @@
 /*
-** $Id: lopcodes.c,v 1.40 2008/10/30 15:39:30 roberto Exp roberto $
+** $Id: lopcodes.c,v 1.43 2010/03/12 19:14:06 roberto Exp roberto $
 ** See Copyright Notice in lua.h
 */
 
@@ -24,9 +24,9 @@ namespace KopiLua
 		  "LOADBOOL",
 		  "LOADNIL",
 		  "GETUPVAL",
-		  "GETGLOBAL",
+		  "GETTABUP",
 		  "GETTABLE",
-		  "SETGLOBAL",
+		  "SETTABUP",
 		  "SETUPVAL",
 		  "SETTABLE",
 		  "NEWTABLE",
@@ -53,11 +53,11 @@ namespace KopiLua
 		  "FORLOOP",
 		  "FORPREP",
 		  "TFORCALL",
+          "TFORLOOP",
 		  "SETLIST",
 		  "CLOSE",
 		  "CLOSURE",
 		  "VARARG",
-		  "TFORLOOP",
 		  "EXTRAARG",
 		  null
 		};
@@ -75,9 +75,9 @@ namespace KopiLua
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iABC)		/* OP_LOADBOOL */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iABC)		/* OP_LOADNIL */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABC)		/* OP_GETUPVAL */
-		 ,opmode(0, 1, OpArgMask.OpArgK, OpArgMask.OpArgN, OpMode.iABx)		/* OP_GETGLOBAL */
+		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgK, OpMode.iABC)		/* OP_GETTABUP */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgK, OpMode.iABC)		/* OP_GETTABLE */
-		 ,opmode(0, 0, OpArgMask.OpArgK, OpArgMask.OpArgN, OpMode.iABx)		/* OP_SETGLOBAL */
+		 ,opmode(0, 0, OpArgMask.OpArgK, OpArgMask.OpArgK, OpMode.iABC)		/* OP_SETTABUP */
 		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABC)		/* OP_SETUPVAL */
 		 ,opmode(0, 0, OpArgMask.OpArgK, OpArgMask.OpArgK, OpMode.iABC)		/* OP_SETTABLE */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iABC)		/* OP_NEWTABLE */
@@ -104,11 +104,11 @@ namespace KopiLua
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_FORLOOP */
 		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_FORPREP */
 		 ,opmode(0, 0, OpArgMask.OpArgN, OpArgMask.OpArgU, OpMode.iABC)		/* OP_TFORCALL */
+         ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_TFORLOOP */
 		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iABC)		/* OP_SETLIST */
 		 ,opmode(0, 0, OpArgMask.OpArgN, OpArgMask.OpArgN, OpMode.iABC)		/* OP_CLOSE */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABx)		/* OP_CLOSURE */
 		 ,opmode(0, 1, OpArgMask.OpArgU, OpArgMask.OpArgN, OpMode.iABC)		/* OP_VARARG */
-		 ,opmode(0, 1, OpArgMask.OpArgR, OpArgMask.OpArgN, OpMode.iAsBx)		/* OP_TFORLOOP */
 		 ,opmode(0, 0, OpArgMask.OpArgU, OpArgMask.OpArgU, OpMode.iAx)		/* OP_EXTRAARG */
 		};
 

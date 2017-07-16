@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.34 2009/11/26 11:39:20 roberto Exp roberto $
+** $Id: lobject.c,v 2.42 2010/10/29 11:13:14 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -81,6 +81,10 @@ namespace KopiLua
 			  return bvalue(t1) == bvalue(t2) ? 1 : 0;  /* boolean true must be 1 !! */
 			case LUA_TLIGHTUSERDATA:
 				return pvalue(t1) == pvalue(t2) ? 1 : 0;
+		    case LUA_TSTRING:
+		      return rawtsvalue(t1) == rawtsvalue(t2) ? 1 : 0;
+		    case LUA_TLCF:
+		      return fvalue(t1) == fvalue(t2) ? 1 : 0;
 			default:
 			  lua_assert(iscollectable(t1));
 			  return gcvalue(t1) == gcvalue(t2) ? 1 : 0;
@@ -102,31 +106,33 @@ namespace KopiLua
 		}
 
 
+		private static int checkend (CharPtr s, CharPtr endptr) {
+		  if (endptr == s) return 0;  /* no characters converted */
+		  while (lisspace(cast(unsigned char, *endptr))) endptr++;
+		  return (*endptr == '\0');  /* OK if no trailing characters */
+		}
+
+
 		public static int luaO_str2d (CharPtr s, out lua_Number result) {
 		  CharPtr endptr;
 		  result = lua_str2number(s, out endptr);
-		  if (endptr == s) return 0;  /* conversion failed */
-		  if (endptr[0] == 'x' || endptr[0] == 'X')  /* maybe an hexadecimal constant? */
-			result = cast_num(strtoul(s, out endptr, 16));
-		  if (endptr[0] == '\0') return 1;  /* most common case */
-		  while (lisspace(endptr[0]) != 0) endptr = endptr.next();
-		  if (endptr[0] != '\0') return 0;  /* invalid trailing characters? */
-		  return 1;
+		  if (checkend(s, endptr)) return 1;  /* conversion OK? */
+		  *result = cast_num(strtoul(s, &endptr, 0)); /* try hexadecimal */
+		  return checkend(s, endptr);
 		}
 
 
 
-		private static void pushstr (lua_State L, CharPtr str) {
-		  setsvalue2s(L, L.top, luaS_new(L, str));
+		private static void pushstr (lua_State L, CharPtr str, uint l) {
+		  setsvalue2s(L, L.top, luaS_newlstr(L, str, l));
 		  incr_top(L);
 		}
 
 
 		/* this function handles only `%d', `%c', %f, %p, and `%s' formats */
 		public static CharPtr luaO_pushvfstring (lua_State L, CharPtr fmt, params object[] argp) {
-		  int parm_index = 0;
-		  int n = 1;
-		  pushstr(L, "");
+		  int parm_index = 0; //FIXME: added, for emulating va_arg(argp, xxx)
+		  int n = 0;
 		  for (;;) {
 		    CharPtr e = strchr(fmt, '%');
 		    if (e == null) break;
@@ -134,19 +140,18 @@ namespace KopiLua
 		    incr_top(L);
 		    switch (e[1]) {
 		      case 's': {
-				  object o = argp[parm_index++];
-				  CharPtr s = o as CharPtr;
-				  if (s == null)
-					  s = (string)o;
+				  object o = argp[parm_index++]; //FIXME: changed
+				  CharPtr s = o as CharPtr; //FIXME: changed
+				  if (s == null) //FIXME: changed
+					  s = (string)o; //FIXME: changed
 				  if (s == null) s = "(null)";
-		          pushstr(L, s);
+		          pushstr(L, s, strlen(s));
 		          break;
 		      }
 		      case 'c': {
-		        CharPtr buff = new char[2];
+		        CharPtr buff = new char[1]; //FIXME:???char->CharPtr
 		        buff[0] = (char)(int)argp[parm_index++];
-		        buff[1] = '\0';
-		        pushstr(L, buff);
+		        pushstr(L, buff, 1); //FIXME:???&buff
 		        break;
 		      }
 		      case 'd': {
@@ -160,35 +165,38 @@ namespace KopiLua
 		        break;
 		      }
 		      case 'p': {
-		        //CharPtr buff = new char[4*sizeof(void *) + 8]; /* should be enough space for a `%p' */
-				CharPtr buff = new char[32];
-				sprintf(buff, "0x%08x", argp[parm_index++].GetHashCode());
-		        pushstr(L, buff);
+		        CharPtr buff = new char[32]; /* should be enough space for a `%p' */ //FIXME: changed, char buff[4*sizeof(void *) + 8];
+				int l = sprintf(buff, "0x%08x", argp[parm_index++].GetHashCode()); //FIXME: changed, %p->%08x
+		        pushstr(L, buff, l);
 		        break;
 		      }
 		      case '%': {
-		        pushstr(L, "%");
+		        pushstr(L, "%", 1);
 		        break;
 		      }
 		      default: {
 		        luaG_runerror(L,
 		            "invalid option " + LUA_QL("%%%c") + " to " + LUA_QL("lua_pushfstring"),
-		            (e + 1).ToString()); 
-		    	//FIXME: *(e+1)
+		            (e + 1).ToString()); //FIXME: changed, *(e+1)
 		        break;
 		      }
 		    }
 		    n += 2;
 		    fmt = e+2;
 		  }
-		  pushstr(L, fmt);
-		  luaV_concat(L, n+1);
+		  pushstr(L, fmt, strlen(fmt));
+		  if (n > 0) luaV_concat(L, n+1);
 		  return svalue(L.top - 1);
 		}
 
-		public static CharPtr luaO_pushfstring(lua_State L, CharPtr fmt, params object[] args)
-		{
-			return luaO_pushvfstring(L, fmt, args);
+
+		public static CharPtr luaO_pushfstring(lua_State L, CharPtr fmt, params object[] argp) {
+		  CharPtr msg;
+		  //va_list argp;
+		  //va_start(argp, fmt);
+		  msg = luaO_pushvfstring(L, fmt, argp); //FIXME: (argp->args), sync
+          //va_end(argp);
+          return msg;
 		}
 
 
@@ -198,6 +206,7 @@ namespace KopiLua
 		private const string POS = "\"]";
 
 		public static void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l); a += (l); }
+
 		public static void luaO_chunkid (CharPtr out_, CharPtr source, uint bufflen) {
 		  uint l = (uint)strlen(source);
 		  if (source[0] == '=') {  /* 'literal' source */
@@ -220,7 +229,7 @@ namespace KopiLua
 		  else {  /* string; format as [string "source"] */
 		    CharPtr nl = strchr(source, '\n');  /* find first new line (if any) */
 		    addstr(out_, PRE, LL(PRE));  /* add prefix */
-		    bufflen -= LL(PRE + RETS + POS);  /* save space for prefix+suffix */
+		    bufflen -= LL(PRE + RETS + POS) + 1;  /* save space for prefix+suffix+'\0' */
 		    if (l < bufflen && nl == null) {  /* small one-line source? */
 		      addstr(out_, source, l);  /* keep it */
 		    }
