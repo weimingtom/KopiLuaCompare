@@ -1,5 +1,5 @@
 /*
-** $Id: lualib.h,v 1.38 2009/07/01 16:16:40 roberto Exp roberto $
+** $Id: lualib.h,v 1.40 2010/06/10 21:29:47 roberto Exp roberto $
 ** Lua standard libraries
 ** See Copyright Notice in lua.h
 */
@@ -20,7 +20,7 @@ namespace KopiLua
 		public const string LUA_IOLIBNAME = "io";
 		public const string LUA_OSLIBNAME = "os";
 		public const string LUA_STRLIBNAME = "string";
-        public const string LUA_BITLIBNAME = "bit";
+        public const string LUA_BITLIBNAME = "bit32";
 		public const string LUA_MATHLIBNAME = "math";
 		public const string LUA_DBLIBNAME = "debug";
 		public const string LUA_LOADLIBNAME = "package";

@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.11 2009/09/28 16:32:50 roberto Exp roberto $
+** $Id: lundump.c,v 1.67 2010/10/13 21:04:52 lhf Exp $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -31,22 +31,13 @@ namespace KopiLua
 			public CharPtr name;
 		};
 
-		//#ifdef LUAC_TRUST_BINARIES
-		//#define IF(c,s)
-		//#else
-		//#define IF(c,s)		if (c) error(S,s)
-
-		public static void IF(int c, string s) { }
-		public static void IF(bool c, string s) { }
-
 		static void error(LoadState S, CharPtr why)
 		{
-		 luaO_pushfstring(S.L,"%s: %s in precompiled chunk",S.name,why);
+		 luaO_pushfstring(S.L,"%s: %s precompiled chunk",S.name,why);
 		 luaD_throw(S.L,LUA_ERRSYNTAX);
 		}
-		//#endif
 
-		public static object LoadMem(LoadState S, Type t)
+		public static object LoadMem(LoadState S, Type t) //FIXME: changed
 		{
 			int size = Marshal.SizeOf(t);
 			CharPtr str = new char[size];
@@ -60,7 +51,7 @@ namespace KopiLua
 			return b;
 		}
 
-		public static object LoadMem(LoadState S, Type t, int n)
+		public static object LoadMem(LoadState S, Type t, int n) //FIXME: changed
 		{
 			ArrayList array = new ArrayList();
 			for (int i=0; i<n; i++)
@@ -73,19 +64,17 @@ namespace KopiLua
 
 		private static void LoadBlock(LoadState S, CharPtr b, int size)
 		{
-		 uint r=luaZ_read(S.Z, b, (uint)size);
-		 IF (r!=0, "unexpected end");
+		 if (luaZ_read(S.Z, b, (uint)size)!=0) error(S,"corrupted"); //FIXME:(uint)
 		}
 
 		private static int LoadChar(LoadState S) 
 		{
-		 return (char)LoadVar(S, typeof(char));
+		 return (char)LoadVar(S, typeof(char)); //FIXME: changed
 		}
 
 		private static int LoadInt(LoadState S)
 		{
-		 int x = (int)LoadVar(S, typeof(int));
-		 IF (x<0, "bad integer");
+		 int x = (int)LoadVar(S, typeof(int)); //FIXME: changed
 		 return x;
 		}
 
@@ -132,7 +121,7 @@ namespace KopiLua
    			setnilvalue(o);
 			break;
 		   case LUA_TBOOLEAN:
-			setbvalue(o, LoadChar(S)!=0 ? 1 : 0);
+			setbvalue(o, LoadChar(S)!=0 ? 1 : 0); //FIXME:???!=0->(empty)
 			break;
 		   case LUA_TNUMBER:
 			setnvalue(o, LoadNumber(S));
@@ -140,16 +129,13 @@ namespace KopiLua
 		   case LUA_TSTRING:
 			setsvalue2n(S.L, o, LoadString(S));
 			break;
-		   default:
-			IF (1, "bad constant");
-			break;
 		  }
 		 }
 		 n=LoadInt(S);
 		 f.p=luaM_newvector<Proto>(S.L,n);
 		 f.sizep=n;
 		 for (i=0; i<n; i++) f.p[i]=null;
-		 for (i=0; i<n; i++) f.p[i]=LoadFunction(S,f.source);
+		 for (i=0; i<n; i++) f.p[i]=LoadFunction(S);
 		}
 
 		private static void LoadUpvalues(LoadState S, Proto f)
@@ -169,6 +155,7 @@ namespace KopiLua
 		private static void LoadDebug(LoadState S, Proto f)
 		{
 		 int i,n;
+         f.source=LoadString(S);
 		 n=LoadInt(S);
 		 f.lineinfo=luaM_newvector<int>(S.L,n);
 		 f.sizelineinfo=n;
@@ -187,25 +174,20 @@ namespace KopiLua
 		 for (i=0; i<n; i++) f.upvalues[i].name=LoadString(S);
 		}
 
-		private static Proto LoadFunction(LoadState S, TString p)
+		private static Proto LoadFunction(LoadState S)
 		{
-		 Proto f;
-		 if (++G(S.L).nCcalls > LUAI_MAXCCALLS) error(S, "function nest too deep");
-		 f=luaF_newproto(S.L);
+		 Proto f=luaF_newproto(S.L);
 		 setptvalue2s(S.L,S.L.top,f); incr_top(S.L);
-		 f.source=LoadString(S); if (f.source==null) f.source=p;
 		 f.linedefined=LoadInt(S);
 		 f.lastlinedefined=LoadInt(S);
 		 f.numparams=LoadByte(S);
 		 f.is_vararg=LoadByte(S);
 		 f.maxstacksize=LoadByte(S);
-         f.envreg=LoadByte(S);
 		 LoadCode(S,f);
 		 LoadConstants(S,f);
          LoadUpvalues(S,f);
 		 LoadDebug(S,f);
 		 StkId.dec(ref S.L.top);
-         G(S.L).nCcalls--;
 		 return f;
 		}
 
@@ -215,7 +197,7 @@ namespace KopiLua
 		 CharPtr s = new char[LUAC_HEADERSIZE];
 		 luaU_header(h);
 		 LoadBlock(S, s, LUAC_HEADERSIZE);
-		 IF (memcmp(h, s, LUAC_HEADERSIZE)!=0, "bad header");
+		 if (memcmp(h, s, LUAC_HEADERSIZE)!=0) error(S,"incompatible");
 		}
 
 		/*
@@ -234,15 +216,17 @@ namespace KopiLua
 		 S.Z=Z;
 		 S.b=buff;
 		 LoadHeader(S);
-		 return LoadFunction(S,luaS_newliteral(L,"=?"));
+		 return LoadFunction(S);
 		}
 
 		/*
 		* make header
+		* if you make any changes in the header or in LUA_SIGNATURE,
+		* be sure to update LUAC_HEADERSIZE accordingly in lundump.h.
 		*/
 		public static void luaU_header(CharPtr h)
 		{
-		 h = new CharPtr(h);
+		 h = new CharPtr(h); //FIXME:changed
 		 int x=1;
 		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length);
 		 h = h.add(LUA_SIGNATURE.Length);

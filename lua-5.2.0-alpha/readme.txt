@@ -120,3 +120,19 @@ lua.h
             //TODO: Implement use using lua_pushlstring instead of lua_pushstring
 			//lua_pushlstring(L, "" s, (sizeof(s)/GetUnmanagedSize(typeof(char)))-1)
             return lua_pushstring(L, s); } //FIXME: changed 
+
+
+22:17 2017-07-16
+luaconf.h
+	//FIXME:TODO:LUA_COMPAT_ALL is defined, but all defines removed here 
+		lua_cpcall <-#define
+	public const int LUAL_BUFFERSIZE		= 1024; // BUFSIZ; todo: check this - mjf
+		//FIXME: changed here, = BUFSIZ;
+22:19 2017-07-16
+lualib.h
+22:29 2017-07-16
+lundump.c	
+	return (char)LoadVar(S, typeof(char)); //FIXME: changed // return -> void no return
+lundump.h
+
+	
