@@ -18,18 +18,19 @@ namespace KopiLua
 		  VFALSE,
 		  VK,		/* info = index of constant in `k' */
 		  VKNUM,	/* nval = numerical value */
-		  VLOCAL,	/* info = local register; aux = read only */
-		  VUPVAL,       /* info = index of upvalue in `upvalues'; aux = read only */
-		  VGLOBAL,	/* info = index of table; aux = index of global name in `k' */
-		  VINDEXED,	/* info = table register; aux = index register (or `k') */
+          VNONRELOC,	/* info = result register */
+		  VLOCAL,	/* info = local register */
+		  VUPVAL,       /* info = index of upvalue in 'upvalues' */
+		  VINDEXED,	/* t = table register/upvalue; idx = index R/K */
 		  VJMP,		/* info = instruction pc */
 		  VRELOCABLE,	/* info = instruction pc */
-		  VNONRELOC,	/* info = result register */
 		  VCALL,	/* info = instruction pc */
 		  VVARARG	/* info = instruction pc */
 		};
 
 	
+		public static bool vkisvar(k) { return (VLOCAL <= (k) && (k) <= VINDEXED);}
+		public static bool vkisinreg(k) { return ((k) == VNONRELOC || (k) == VLOCAL);}
 
 		public class expdesc {
 
@@ -42,7 +43,7 @@ namespace KopiLua
 			}
 
 			public expkind k;
-			public class _u
+			public class _u   /* for indexed variables (VINDEXED) */
 			{
 				public void Copy(_u u)
 				{
@@ -50,17 +51,21 @@ namespace KopiLua
 					this.nval = u.nval;
 				}
 
-				public class _s
+				public class _ind
 				{
-					public void Copy(_s s)
+					public void Copy(_ind ind)
 					{
-						this.info = s.info;
-						this.aux = s.aux;
+						this.idx = ind.idx;
+						this.t = ind.t;
+                        this.vt = ind.vt;
 					}
-					public int info, aux;
+			      	public short idx;  /* index (R/K) */
+			      	public lu_byte t;  /* table (register or upvalue) */
+			      	public lu_byte vt;  /* whether 't' is register (VLOCAL) or upvalue (VUPVAL) */
 				};
-			    public _s s = new _s();
-				public lua_Number nval;
+			    public _ind ind = new _ind();
+				public int info;  /* for generic use */
+				public lua_Number nval;  /* for VKNUM */
 			};
 			public _u u = new _u();
 
@@ -128,7 +133,6 @@ namespace KopiLua
 		  public short nlocvars;  /* number of elements in `locvars' */
 		  public lu_byte nactvar;  /* number of active local variables */
 		  public lu_byte nups;  /* number of upvalues */
-		  public lu_byte envreg;  /* register holding current lexical environment */
 		};
 	}
 }

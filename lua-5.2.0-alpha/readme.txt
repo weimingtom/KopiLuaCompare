@@ -73,3 +73,10 @@ lobject.h
 lopcodes.c
 10:25 2017-07-16
 lopcodes.h
+
+13:08 2017-07-16
+loslib.c
+13:29 2017-07-16
+lparser.c
+13:43 2017-07-16
+lparser.h
