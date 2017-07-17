@@ -258,14 +258,14 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		private static void kname (Proto p, int c, int reg, const char *what,
-                   const char **name) {
-		  if (c == reg && what && *what == 'c')
+		private static void kname (Proto p, int c, int reg, CharPtr what,
+                   ref CharPtr name) {
+		  if (c == reg && what != null && what[0] == 'c')
 		    return;  /* index is a constant; name already correct */
-		  else if (ISK(c) && ttisstring(&p->k[INDEXK(c)]))
-		    *name = svalue(&p->k[INDEXK(c)]);
+		  else if (ISK(c) && ttisstring(&p.k[INDEXK(c)]))
+		    name = svalue(&p.k[INDEXK(c)]);
 		  else
-		    *name = "?";
+		    name = "?";
 		}
 
 
@@ -421,16 +421,16 @@ namespace KopiLua
 
 
 		private static CharPtr getupvalname (CallInfo ci, /*const*/ TValue o,
-		                               const char **name) {
-		  LClosure *c = &ci_func(ci)->l;
+		                               ref CharPtr name) {
+		  LClosure c = &ci_func(ci).l;
 		  int i;
-		  for (i = 0; i < c->nupvalues; i++) {
-		    if (c->upvals[i]->v == o) {
-		      *name = getstr(c->p->upvalues[i].name);
+		  for (i = 0; i < c.nupvalues; i++) {
+		    if (c.upvals[i].v == o) {
+		      name = getstr(c.p.upvalues[i].name);
 		      return "upvalue";
 		    }
 		  }
-		  return NULL;
+		  return null;
 		}
 
 

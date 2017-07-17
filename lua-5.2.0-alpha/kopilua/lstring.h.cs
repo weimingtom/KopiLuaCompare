@@ -23,7 +23,7 @@ namespace KopiLua
 		** as all string are internalized, string equality becomes
 		** pointer equality
 		*/
-		public static bool eqstr(a,b) { return ((a) == (b)); }
+		public static bool eqstr(TString a, TString b) { return ((a) == (b)); }
 		
 		
 	}

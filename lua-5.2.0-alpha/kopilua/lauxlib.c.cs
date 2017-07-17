@@ -18,6 +18,7 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 
 	public partial class Lua
 	{
@@ -697,7 +698,7 @@ namespace KopiLua
 		** Compatibility with 5.1 module functions
 		** =======================================================
 		*/
-		#if defined(LUA_COMPAT_MODULE)
+		#if LUA_COMPAT_MODULE
 
 		private static CharPtr luaL_findtablex (lua_State L, int idx,
 											   CharPtr fname, int szhint) {

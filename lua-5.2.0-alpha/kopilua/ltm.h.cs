@@ -41,7 +41,7 @@ namespace KopiLua
 
 
 		public static CharPtr ttypename(int x) { return luaT_typenames_[(x) + 1]; }
-		public static CharPtr objtypename(x) { return ttypename(ttypenv(x)); }
+		public static CharPtr objtypename(TValue x) { return ttypename(ttypenv(x)); }
 
 	}
 }

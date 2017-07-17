@@ -10,6 +10,7 @@ namespace KopiLua
 	using b_int = System.Int32;
 	using b_uint = System.UInt32;
 	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -18,10 +19,10 @@ namespace KopiLua
 		/* number of bits to consider in a number */
 		private const int NBITS	= 32;
 		
-		private const int ALLONES = (~(((~(lua_Unsigned)0) << (NBITS - 1)) << 1));
+		private const lua_Unsigned ALLONES = (~(((~(lua_Unsigned)0) << (NBITS - 1)) << 1));
 
 		/* mask to trim extra bits */
-		private static void trim(x)	 { return ((x) & ALLONES); }
+		private static lua_Unsigned trim(b_uint x)	 { return ((x) & ALLONES); }
 
 
 		//typedef unsigned LUA_INT32 b_uint;

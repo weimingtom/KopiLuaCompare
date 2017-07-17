@@ -31,10 +31,10 @@ namespace KopiLua
 		public const int GCSpause = 5;
 
 
-		public static bool issweepphase(g)  { return
-			(GCSsweepstring <= (g)->gcstate && (g)->gcstate <= GCSsweep); }
+		public static bool issweepphase(global_State g)  { return
+			(GCSsweepstring <= g.gcstate && g.gcstate <= GCSsweep); }
 
-		public static bool isgenerational(g) { return ((g)->gckind == KGC_GEN); }
+		public static bool isgenerational(global_State g) { return (g.gckind == KGC_GEN); }
 
 		/*
 		** macro to tell when main invariant (white objects cannot point to black
@@ -44,11 +44,11 @@ namespace KopiLua
 		** all objects are white again. During a generational collection, the
 		** invariant must be kept all times.
 		*/
-		public static bool keepinvariant(g) { return (isgenerational(g) || g->gcstate <= GCSatomic); }
+		public static bool keepinvariant(global_State g) { return (isgenerational(g) || g->gcstate <= GCSatomic); }
 
 
-		public static bool gcstopped(g) { return ((g)->GCdebt == MIN_LMEM); }
-		public static bool stopgc(g) { return ((g)->GCdebt = MIN_LMEM); }
+		public static bool gcstopped(global_State g) { return (g.GCdebt == MIN_LMEM); }
+		public static bool stopgc(global_State g) { return (g.GCdebt = MIN_LMEM); }
 
 
 		/*
@@ -83,16 +83,16 @@ namespace KopiLua
 		public static bool iswhite(GCObject x) { return testbits(x.gch.marked, WHITEBITS); }
 		public static bool isblack(GCObject x) { return testbit(x.gch.marked, BLACKBIT); }
 		public static bool isgray(GCObject x)   /* neither white nor black */
-			{ return (!testbits((x)->gch.marked, WHITEBITS | bitmask(BLACKBIT))); }
+			{ return (!testbits(x.gch.marked, WHITEBITS | bitmask(BLACKBIT))); }
 
-		public static bool isold(x) { return testbit((x)->gch.marked, OLDBIT); }
+		public static bool isold(GCObject x) { return testbit(x.gch.marked, OLDBIT); }
 
 		/* MOVE OLD rule: whenever an object is moved to the beginning of
 		   a GC list, its old bit must be cleared */
-		public static void resetoldbit(o) { return resetbit((o)->gch.marked, OLDBIT); }
+		public static void resetoldbit(GCObject o) { return resetbit(o.gch.marked, OLDBIT); }
 
 		public static int otherwhite(global_State g) { return g.currentwhite ^ WHITEBITS; }
-		public static bool isdeadm(ow,m) { return (!(((m) ^ WHITEBITS) & (ow))); }
+		public static bool isdeadm(int ow, int m) { return (!(((m) ^ WHITEBITS) & (ow))); }
 		public static bool isdead(global_State g, GCObject v) { return (isdeadm(otherwhite(g), (v)->gch.marked)); }
 
 		public static void changewhite(GCObject x) { x.gch.marked ^= (byte)WHITEBITS; }
@@ -110,17 +110,17 @@ namespace KopiLua
 		public static void luaC_barrier(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
 			luaC_barrier_(L,obj2gco(p),gcvalue(v)); }
 
-		public static void luaC_barrierback(lua_State L, p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
+		public static void luaC_barrierback(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
 		    luaC_barrierback_(L,p); }
 
 		public static void luaC_objbarrier(lua_State L, object p, object o)
 			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p)))
 				luaC_barrier_(L,obj2gco(p),obj2gco(o)); }
 
-		public static void luaC_objbarrierback(lua_State L, p, object o)
+		public static void luaC_objbarrierback(lua_State L, object p, object o)
 			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p))) luaC_barrierback_(L,p); }
 			
-		public static void luaC_barrierproto(L,p,c)
+		public static void luaC_barrierproto(lua_State L, object p, Closure c)
    			{ if (isblack(obj2gco(p))) luaC_barrierproto_(L,p,c); }
 	
 	}

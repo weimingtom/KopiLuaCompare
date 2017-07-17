@@ -889,5 +889,7 @@ namespace KopiLua
 			//FIXME:not implemented
 			return 0;
 		}
+		
+		public const byte UCHAR_MAX = System.Byte.MaxValue;
 	}
 }

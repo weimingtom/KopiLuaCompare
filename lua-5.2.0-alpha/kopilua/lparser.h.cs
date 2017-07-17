@@ -29,8 +29,8 @@ namespace KopiLua
 		};
 
 	
-		public static bool vkisvar(k) { return (VLOCAL <= (k) && (k) <= VINDEXED);}
-		public static bool vkisinreg(k) { return ((k) == VNONRELOC || (k) == VLOCAL);}
+		public static bool vkisvar(expkind k) { return (VLOCAL <= (k) && (k) <= VINDEXED);}
+		public static bool vkisinreg(expkind k) { return ((k) == VNONRELOC || (k) == VLOCAL);}
 
 		public class expdesc {
 

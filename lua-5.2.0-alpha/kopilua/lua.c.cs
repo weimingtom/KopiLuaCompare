@@ -43,7 +43,7 @@ namespace KopiLua
 		//#endif
 
 		private const string LUA_INITVERSION = 
-			LUA_INIT + "_" + LUA_VERSION_MAJOR + "_" + LUA_VERSION_MINOR;
+			LUA_INIT + "_" + Lua.LUA_VERSION_MAJOR + "_" + Lua.LUA_VERSION_MINOR;
 
 
 		/*

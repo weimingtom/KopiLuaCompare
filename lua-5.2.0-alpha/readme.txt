@@ -149,3 +149,58 @@ lvm.h
 lzio.c
 lzio.h
 				
+
+
+
+-------------------------------------------
+(below not certain)
+
+using lua_Unsigned = System.UInt32; ???
+
+private const int sweepphases = ??? uint???
+
+public static bool isdeadm(int ow, int m) { return (!(((m) ^ WHITEBITS) & (ow))); } ??? int? uint?
+
+llimit.h////FIXME:<----------------------------------removed
+
+public static void changenvalue(TValue o, int x) { //??int??object???
+
+using lua_Unsigned = System.UInt32; ???
+
+using lua_Unsigned = System.UInt32; ???
+
+private static int sweepphases {get{ //FIXME:->getter
+
+private const int MAX_SIZE_T = uint.MaxValue;//(int)(~(uint)0); //FIXME: ???
+
+public const uint MIN_LMEM = (/*(l_mem)*/~((~(lu_mem)0)>>1)); //FIXME:??? = 0x80000000 //FIXME:(l_mem) removed
+
+-------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

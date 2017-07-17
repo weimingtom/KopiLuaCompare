@@ -86,7 +86,7 @@ namespace KopiLua
 		** hierarchy or if you want to install your libraries in
 		** non-conventional directories.
 		*/
-		#if _WIN32 /* { */
+		#if _WIN32 ///* { */
 		/*
 		** In Windows, any exclamation mark ('!') in the path is replaced by the
 		** path of the directory of the executable file of the current process.
@@ -99,7 +99,7 @@ namespace KopiLua
 		public const string LUA_CPATH_DEFAULT =
 							LUA_CDIR + "?.dll;" + LUA_CDIR + "loadall.dll;" + ".\\?.dll";
 
-		#else			/* }{ */
+		#else			///* }{ */
 
 		public const string LUA_VDIR    = LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR + "/";
 		public const string LUA_ROOT	= "/usr/local/";
@@ -110,7 +110,7 @@ namespace KopiLua
 							LUA_CDIR + "?.lua;"  + LUA_CDIR + "?/init.lua;" + "./?.lua";
 		public const string LUA_CPATH_DEFAULT =
 							LUA_CDIR + "?.so;" + LUA_CDIR + "loadall.so;" + "./?.so";
-		#endif			/* } */
+		#endif			///* } */
 
 
 		/*
@@ -221,7 +221,7 @@ namespace KopiLua
 		@@ luai_writestringerror defines how to print error messages.
 		** (A format string with one argument is enough for Lua...)
 		*/
-		public static void luai_writestringerror(s,p) {
+		public static void luai_writestringerror(CharPtr s, object p) {
 			fprintf(stderr, s, p); fflush(stderr); }
 
 
@@ -239,7 +239,7 @@ namespace KopiLua
 		** You can define it to get all options, or change specific options
 		** to fit your specific needs.
 		*/
-		#if LUA_COMPAT_ALL	/* { */
+		#if LUA_COMPAT_ALL	///* { */
 
 		/*
 		@@ LUA_COMPAT_UNPACK controls the presence of global 'unpack'.

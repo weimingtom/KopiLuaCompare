@@ -9,6 +9,7 @@ namespace KopiLua
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
 	using lua_Number = System.Double;
+	using l_mem = System.Int32;
 	
 	/*
 
@@ -190,7 +191,7 @@ namespace KopiLua
 		  public lua_Alloc frealloc;  /* function to reallocate memory */
 		  public object ud;         /* auxiliary data to `frealloc' */
 		  public lu_mem totalbytes;  /* number of bytes currently allocated */
-		  public l_mem GCdebt = ?;  /* when positive, run a GC step */
+		  public l_mem GCdebt;  /* when positive, run a GC step */
 		  public lu_mem lastmajormem;  /* memory in use after last major collection */
 		  public stringtable strt = new stringtable();  /* hash table for strings */
 		  public TValue l_registry = new TValue();

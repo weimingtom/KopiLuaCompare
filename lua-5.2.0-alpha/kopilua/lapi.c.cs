@@ -17,13 +17,13 @@ namespace KopiLua
 	using lua_Integer = System.Int32;
 	using lua_Number = System.Double;
 	using ptrdiff_t = System.Int32;
-
+	using lua_Unsigned = System.UInt32;
 
 	public partial class Lua
 	{
 		public const string lua_ident =
-  "$LuaVersion: " + LUA_COPYRIGHT + " $" + 
-  "$LuaAuthors: " + LUA_AUTHORS + " $";
+		  "$LuaVersion: " + LUA_COPYRIGHT + " $" + 
+		  "$LuaAuthors: " + LUA_AUTHORS + " $";
 
 		public static void api_checkvalidindex(lua_State L, int i)
 		{
@@ -311,49 +311,49 @@ namespace KopiLua
 		}
 
 
-		public static lua_Number lua_tonumberx (lua_State L, int idx, int *isnum) {
+		public static lua_Number lua_tonumberx (lua_State L, int idx, ref int isnum) {
 		  TValue n = new TValue();
 		  TValue o = index2addr(L, idx);
 		  if (tonumber(ref o, n) != 0) {
-            if (isnum) *isnum = 1;
+            /*if (isnum)*/ isnum = 1; //FIXME:changed
 			return nvalue(o);
 		  }
 		  else {
-            if (isnum) *isnum = 0;
+            /*if (isnum)*/ isnum = 0; //FIXME:changed
 			return 0;
 		  }
 		}
 
 
-		public static lua_Integer lua_tointegerx (lua_State L, int idx, int *isnum) {
+		public static lua_Integer lua_tointegerx (lua_State L, int idx, ref int isnum) {
 		  TValue n = new TValue();
 		  TValue o = index2addr(L, idx);
 		  if (tonumber(ref o, n) != 0) {
 			lua_Integer res;
 			lua_Number num = nvalue(o);
 			lua_number2integer(out res, num);
-            if (isnum) *isnum = 1;
+            /*if (isnum)*/ isnum = 1; //FIXME:changed
 			return res;
 		  }
 		  else {
-            if (isnum) *isnum = 0;
+            /*if (isnum)*/ isnum = 0; //FIXME:changed
 			return 0;
 		  }
 		}
 
 
-		public static lua_Unsigned lua_tounsignedx (lua_State L, int idx, int *isnum) {
+		public static lua_Unsigned lua_tounsignedx (lua_State L, int idx, ref int isnum) {
 		  TValue n;
-		  const TValue *o = index2addr(L, idx);
+		  /*const*/ TValue o = index2addr(L, idx);
 		  if (tonumber(o, &n)) {
 		    lua_Unsigned res;
 		    lua_Number num = nvalue(o);
 		    lua_number2unsigned(res, num);
-		    if (isnum) *isnum = 1;
+		    /*if (isnum)*/ isnum = 1; //FIXME:changed
 		    return res;
 		  }
 		  else {
-		    if (isnum) *isnum = 0;
+		    /*if (isnum)*/ isnum = 0; //FIXME:changed
 		    return 0;
 		  }
 		}
@@ -1140,14 +1140,14 @@ namespace KopiLua
 		}
 
 		static CharPtr aux_upvalue (StkId fi, int n, ref TValue val,
-                                    GCObject **owner) {
+                                    ref GCObject owner) {
 		  Closure f;
 		  if (!ttisclosure(fi)) return null;
 		  f = clvalue(fi);
 		  if (f.c.isC != 0) {
 			if (!(1 <= n && n <= f.c.nupvalues)) return null;
 			val = f.c.upvalue[n-1];
-            if (owner) *owner = obj2gco(f);
+            /*if (owner)*/ owner = obj2gco(f); //FIXME: changed
 			return "";
 		  }
 		  else {
@@ -1155,7 +1155,7 @@ namespace KopiLua
 		    Proto *p = f->l.p;
 		    if (!(1 <= n && n <= p->sizeupvalues)) return NULL;
 		    *val = f->l.upvals[n-1]->v;
-		    if (owner) *owner = obj2gco(f->l.upvals[n - 1]);
+		    /*if (owner)*/ owner = obj2gco(f->l.upvals[n - 1]); //FIXME: changed
 		    name = getstr(p->upvalues[n-1].name);
 		    if (name == NULL)  /* no debug information? */
 		      name = "";

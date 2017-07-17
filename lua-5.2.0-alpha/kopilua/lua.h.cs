@@ -244,9 +244,9 @@ namespace KopiLua
 		** ===============================================================
 		*/
 
-		public static void lua_tonumber(L,i) { return lua_tonumberx(L,i,NULL);}
-		public static void lua_tointeger(L,i) { return lua_tointegerx(L,i,NULL);}
-		public static void lua_tounsigned(L,i) { return lua_tounsignedx(L,i,NULL);}
+		public static void lua_tonumber(lua_State L, int i) { return lua_tonumberx(L,i,NULL);}
+		public static void lua_tointeger(lua_State L, int i) { return lua_tointegerx(L,i,NULL);}
+		public static void lua_tounsigned(lua_State L, int i) { return lua_tounsignedx(L,i,NULL);}
 
         public static void lua_pop(lua_State L, int n) { lua_settop(L, -(n)-1); }
 

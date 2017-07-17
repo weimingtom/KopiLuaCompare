@@ -50,7 +50,7 @@ namespace KopiLua
 		** standard negative debt for GC; a reasonable "time" to wait before
 		** starting a new cycle
 		*/
-		private static void stddebt(g) { return (-cast(l_mem, g.totalbytes/100) * g.gcpause); }
+		private static void stddebt(global_State g) { return (-(l_mem)(g.totalbytes/100) * g.gcpause); }
 
 
 		/*
@@ -831,8 +831,8 @@ namespace KopiLua
 		*/
 
 
-		private const void sweepphases =
-			(bitmask(GCSsweepstring) | bitmask(GCSsweepudata) | bitmask(GCSsweep));
+		private static int sweepphases {get{ //FIXME:->getter
+				(bitmask(GCSsweepstring) | bitmask(GCSsweepudata) | bitmask(GCSsweep));}}
 
 		/*
 		** change GC mode

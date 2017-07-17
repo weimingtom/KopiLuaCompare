@@ -352,16 +352,16 @@ namespace KopiLua
 		** whether there is a cached closure with the same upvalues needed by
 		** new closure to be created.
 		*/
-		private static Closure getcached (Proto p, UpVal **encup, StkId base) {
-		  Closure *c = p->cache;
-		  if (c != NULL) {  /* is there a cached closure? */
-		    int nup = p->sizeupvalues;
-		    Upvaldesc *uv = p->upvalues;
+		private static Closure getcached (Proto p, UpVal[] encup, StkId base_) {
+		  Closure c = p.cache;
+		  if (c != null) {  /* is there a cached closure? */
+		    int nup = p.sizeupvalues;
+		    Upvaldesc uv = p.upvalues;
 		    int i;
 		    for (i = 0; i < nup; i++) {  /* check whether it has right upvalues */
-		      TValue *v = uv[i].instack ? base + uv[i].idx : encup[uv[i].idx]->v;
-		      if (c->l.upvals[i]->v != v)
-		        return NULL;  /* wrong upvalue; cannot reuse closure */
+		      TValue v = uv[i].instack ? base_ + uv[i].idx : encup[uv[i].idx].v;
+		      if (c.l.upvals[i].v != v)
+		        return null;  /* wrong upvalue; cannot reuse closure */
 		    }
 		  }
 		  return c;  /* return cached closure (or NULL if no cached closure) */
@@ -374,18 +374,18 @@ namespace KopiLua
 		** before the assignment to 'p->cache', as the function needs the
 		** original value of that field.
 		*/
-		private static void pushclosure (lua_State L, Proto p, UpVal **encup, StkId base,
+		private static void pushclosure (lua_State L, Proto p, UpVal[] encup, StkId base_,
 		                         StkId ra) {
-		  int nup = p->sizeupvalues;
-		  Upvaldesc *uv = p->upvalues;
+		  int nup = p.sizeupvalues;
+		  Upvaldesc uv = p.upvalues;
 		  int i;
-		  Closure *ncl = luaF_newLclosure(L, p);
+		  Closure ncl = luaF_newLclosure(L, p);
 		  setclvalue(L, ra, ncl);  /* anchor new closure in stack */
 		  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
 		    if (uv[i].instack)  /* upvalue refers to local variable? */
-		      ncl->l.upvals[i] = luaF_findupval(L, base + uv[i].idx);
+		      ncl.l.upvals[i] = luaF_findupval(L, base_ + uv[i].idx);
 		    else  /* get upvalue from enclosing function */
-		      ncl->l.upvals[i] = encup[uv[i].idx];
+		      ncl.l.upvals[i] = encup[uv[i].idx];
 		  }
 		  luaC_barrierproto(L, p, ncl);
 		  p->cache = ncl;  /* save it on cache for reuse */

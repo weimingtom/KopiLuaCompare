@@ -23,7 +23,7 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		private const int MAX_SIZE_T = (int)(~(size_t)0); //FIXME: ???
+		private const uint MAX_SIZE_T = uint.MaxValue;//(int)(~(uint)0); //FIXME: ??? == 0xffffffff
 
 
 		/*
