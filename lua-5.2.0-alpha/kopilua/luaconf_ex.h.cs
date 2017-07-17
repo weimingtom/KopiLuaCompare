@@ -29,7 +29,8 @@ namespace KopiLua
 		public static bool isspace(int c) { return ((char)c == ' ') || ((char)c >= (char)0x09 && (char)c <= (char)0x0D); }
 		public static bool isupper(int c) { return Char.IsUpper((char)c); }
 		public static bool isalnum(int c) { return Char.IsLetterOrDigit((char)c); }
-
+		public static bool isxdigit(int c) { return "0123456789ABCDEFabcdef".IndexOf((char)c) >= 0; }
+		
 		public static char tolower(char c) { return Char.ToLower(c); }
 		public static char toupper(char c) { return Char.ToUpper(c); }
 		public static char tolower(int c) { return Char.ToLower((char)c); }
@@ -892,5 +893,10 @@ namespace KopiLua
 		}
 		
 		public const byte UCHAR_MAX = System.Byte.MaxValue;
+		
+		//from https://github.com/xanathar/moonsharp/blob/master/src/MoonSharp.Interpreter/Interop/LuaStateInterop/LuaBase_CLib.cs
+		public static bool isgraph(char c) { return !Char.IsControl(c) && !Char.IsWhiteSpace(c); }
+		public static bool isgraph(int c) { return !Char.IsControl((char)c) && !Char.IsWhiteSpace((char)c); }
+		
 	}
 }

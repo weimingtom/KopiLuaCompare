@@ -47,7 +47,8 @@ namespace KopiLua
 			{
 				public void Copy(_u u)
 				{
-					this.s.Copy(u.s);
+					this.ind.Copy(u.ind);
+					this.info = u.info;
 					this.nval = u.nval;
 				}
 

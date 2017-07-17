@@ -216,7 +216,7 @@ namespace KopiLua
 		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
 		  }
 		  if (list == null)
-		  	list = new RootGCRef(g);  /* standard list for collectable objects */
+		  	list = new PtrRef(g.allgc);  /* standard list for collectable objects */ //FIXME:changed, new PtrRef
 		  gch(o).marked = luaC_white(g);
 		  gch(o).tt = (byte)tt; //FIXME:(byte)
 		  gch(o).next = list.get();
@@ -347,8 +347,11 @@ namespace KopiLua
 
 		private static void traverseweakvalue (global_State g, Table h) {
 		  Node n, limit = gnode(h, sizenode(h));
-		  for (n = gnode(h, 0); n < limit; n++) {
-		    checkdeadkey(n);
+		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
+		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  	n = gnode(h, ni);
+		    
+		  	checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
 		    else {
@@ -373,7 +376,10 @@ namespace KopiLua
 		    }
 		  }
 		  /* traverse hash part */
-		  for (n = gnode(h, 0); n < limit; n++) {
+		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
+		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  	n = gnode(h, ni);		  
+		  	
 		    checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
@@ -399,7 +405,10 @@ namespace KopiLua
 		  int i;
 		  for (i = 0; i < h.sizearray; i++)  /* traverse array part */
 		    markvalue(g, h.array[i]);
-		  for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */
+		  //for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */ //FIXME:changed, see below
+		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  	n = gnode(h, ni);
+		  	
 		    checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
@@ -600,7 +609,10 @@ namespace KopiLua
 			  if (iscleared(o, 0) != 0)  /* value was collected? */
 			    setnilvalue(o);  /* remove value */
 		    }
-			for (n = gnode(h, 0); n < limit; n++) {
+			//for (n = gnode(h, 0); n < limit; n++) {//FIXME:changed, see below
+			for (int ni = 0; ni < sizenode(h); ni++) {
+			  n = gnode(h, ni);		 
+			  
 			  if (!ttisnil(gval(n)) &&  /* non-empty entry? */
 				  (iscleared(gkey(n), 1) != 0 || iscleared(gval(n), 0) != 0)) {
 				setnilvalue(gval(n));  /* remove value ... */

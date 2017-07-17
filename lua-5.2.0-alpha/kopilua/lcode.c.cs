@@ -697,10 +697,10 @@ namespace KopiLua
 
 		public static void luaK_indexed (FuncState fs, expdesc t, expdesc k) {
 		  lua_assert(!hasjumps(t));
-		  t.u.ind.t = (byte)t.u.info; //FIXME:(byte)
-		  t.u.ind.idx = (short)luaK_exp2RK(fs, k); //FIXME:(short)
-		  t.u.ind.vt = (t.k == expkind.VUPVAL) ? expkind.VUPVAL
-			                                 : check_exp(vkisinreg(t.k), expkind.VLOCAL);
+		  t.u.ind.t = (byte)t.u.info; //FIXME:added, (byte)
+		  t.u.ind.idx = (short)luaK_exp2RK(fs, k); //FIXME:added, (short)
+		  t.u.ind.vt = (t.k == expkind.VUPVAL) ? (byte)expkind.VUPVAL //FIXME:added, (byte)
+		  									   : (byte)check_exp(vkisinreg(t.k), expkind.VLOCAL); //FIXME:added, (byte)
 		  t.k = expkind.VINDEXED;
 		}
 

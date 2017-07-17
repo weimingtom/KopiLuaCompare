@@ -348,7 +348,7 @@ namespace KopiLua
 		  if (tonumber(ref o, n)!=0) {
 		    lua_Unsigned res;
 		    lua_Number num = nvalue(o);
-		    lua_number2unsigned(res, num);
+		    lua_number2unsigned(out res, num);
 		    /*if (isnum)*/ isnum = 1; //FIXME:changed
 		    return res;
 		  }

@@ -276,7 +276,7 @@ namespace KopiLua
 			case 's' : res = isspace(c); break;
 			case 'u' : res = isupper(c); break;
 			case 'w' : res = isalnum(c); break;
-			case 'x' : res = isxdigit((char)c); break; //FIXME: ???(char)c???->c
+			case 'x' : res = isxdigit(c); break; //FIXME: ???(char)c???->c
 			case 'z' : res = (c == 0); break;  /* deprecated option */
 			default: return (cl == c) ? 1 : 0;
 		  }

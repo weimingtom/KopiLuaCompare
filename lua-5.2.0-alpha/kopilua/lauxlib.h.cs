@@ -100,7 +100,7 @@ namespace KopiLua
 		}
 
 
-		public static void luaL_addsize(luaL_Buffer B, uint n)	{B.p += n;}
+		public static void luaL_addsize(luaL_Buffer B, uint s)	{B.n += s;}
 
 		public static CharPtr luaL_prepbuffer(luaL_Buffer B) { return luaL_prepbuffsize(B, LUAL_BUFFERSIZE); }
 		/* }====================================================== */

@@ -328,14 +328,35 @@ namespace KopiLua
 		  funcr = savestack(L, func);
 		  if (ttislcf(func)) {  /* light C function? */
 		      f = fvalue(func);  /* get it */
-		      goto isCfunc;  /* go to call it */
+		      //goto isCfunc;  /* go to call it */ //FIXME: see below
+		    
+		    //-----------------------------//FIXME:see below
+		    CallInfo ci;
+		    int n;
+		    luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
+		    ci = next_ci(L);  /* now 'enter' new function */
+		    ci.nresults = (short)nresults; //FIXME:added, (short)
+		    ci.func = restorestack(L, funcr);
+		    ci.top = L.top + LUA_MINSTACK;
+		    lua_assert(ci.top <= L.stack_last);
+		    ci.callstatus = 0;
+		    if ((L.hookmask & LUA_MASKCALL)!=0)
+		      luaD_hook(L, LUA_HOOKCALL, -1);
+		    lua_unlock(L);
+		    n = f(L);  /* do the actual call */
+		    lua_lock(L);
+		    api_checknelems(L, n);
+		    luaD_poscall(L, L.top - n);
+		    return 1;
+		  	//-----------------------------
+		    
 		  }
 		  cl = clvalue(func);
 		  if (cl.c.isC!=0) {  /* C closure? */
 		    CallInfo ci;
 		    int n;
 		    f = cl.c.f;
-		  isCfunc:  /* call C function 'f' */
+		  //isCfunc:  /* call C function 'f' */ //FIXME:see upper
 		    luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
 		    ci = next_ci(L);  /* now 'enter' new function */
 		    ci.nresults = (short)nresults; //FIXME:added, (short)

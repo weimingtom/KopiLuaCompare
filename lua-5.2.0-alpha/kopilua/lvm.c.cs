@@ -599,7 +599,12 @@ namespace KopiLua
 			StkId ra;
 			if ( ((L.hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) != 0) &&
 				(((--L.hookcount) == 0) || ((L.hookmask & LUA_MASKLINE) != 0))) {
-			  Protect(traceexec(L));
+			  //Protect(
+				//L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
+				traceexec(L);
+				base_ = ci.u.l.base_;
+				//);
+		      //L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
 			}
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
@@ -684,7 +689,13 @@ namespace KopiLua
 		        sethvalue(L, ra, t);
 		        if (b != 0 || c != 0)
 		          luaH_resize(L, t, luaO_fb2int(b), luaO_fb2int(c));
-				checkGC(L);
+				//Protect(
+				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
+			      //checkGC(L); //FIXME:changed, see below
+				  luaC_checkGC(L); luai_threadyield(L);
+				  base_ = ci.u.l.base_;
+				  //);
+				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
 				break;
 			  }
 			  case OpCode.OP_SELF: {
@@ -757,7 +768,14 @@ namespace KopiLua
 				L.top = base_ + c + 1;  /* mark the end of concat operands */
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  luaV_concat(L, c-b+1); checkGC(L);
+				  luaV_concat(L, c-b+1); 
+					//Protect(
+					  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
+				      //checkGC(L); //FIXME:changed, see below
+					  luaC_checkGC(L); luai_threadyield(L);
+					  base_ = ci.u.l.base_;
+					  //);
+					//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
 				  base_ = ci.u.l.base_;
 				  //);
 				L.top = ci.top;  /* restore top */
@@ -917,11 +935,11 @@ namespace KopiLua
 		        i = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc);  /* go to next instruction */ //FIXME:++
 		        ra = RA(L, base_, i);
 		        lua_assert(GET_OPCODE(i) == OpCode.OP_TFORLOOP);
-		        goto l_tforloop; //FIXME:???
-				break;
+		        goto case OpCode.OP_TFORLOOP;//goto l_tforloop; //FIXME:changed
+				//break; //FIXME: removed
               }
       		  case OpCode.OP_TFORLOOP: {
-                l_tforloop:
+                //l_tforloop://FIXME:removed
 	  		    if (!ttisnil(ra + 1)) {  /* continue loop? */
 				  setobjs2s(L, ra, ra + 1);  /* save control variable */
 				  dojump(GETARG_sBx(i), ci, L);  /* jump back */
@@ -961,7 +979,13 @@ namespace KopiLua
 		          pushclosure(L, p, cl.upvals, base_, ra);  /* create a new one */
 		        else
 		          setclvalue(L, ra, ncl);  /* push cashed closure */
-		        checkGC(L);
+				//Protect(
+				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
+			      //checkGC(L); //FIXME:changed, see below
+				  luaC_checkGC(L); luai_threadyield(L);
+				  base_ = ci.u.l.base_;
+				  //);
+				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
 				break;
 			  }
 			  case OpCode.OP_VARARG: {

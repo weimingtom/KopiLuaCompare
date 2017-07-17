@@ -62,6 +62,7 @@
     <Compile Include="lcode.c.cs" />
     <Compile Include="lcode.h.cs" />
     <Compile Include="lcode_ex.h.cs" />
+    <Compile Include="lcorolib.c.cs" />
     <Compile Include="lctype.c.cs" />
     <Compile Include="lctype.h.cs" />
     <Compile Include="ldblib.c.cs" />

@@ -20,6 +20,8 @@ namespace KopiLua
 	using l_uacNumber = System.Double;
 	using lua_Number = System.Double;
 	using Instruction = System.UInt32;
+	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 
 	public partial class Lua
 	{
@@ -221,7 +223,7 @@ namespace KopiLua
 		public static void luai_userstateyield(lua_State L, int n)        { /*((void)L)*/ }
 		#endif
 
-		//FIXME:<----------------------------------removed
+		//FIXME:<----------------------------------removed, see below implementations
 		/*
 		** lua_number2int is a macro to convert lua_Number to int.
 		** lua_number2integer is a macro to convert lua_Number to lua_Integer.
@@ -313,8 +315,16 @@ namespace KopiLua
 
 		//#endif						/* } */
 		//FIXME:---------------------------------->
-
-
+		
+		//FIXME:simple implementations for saving time :(
+		private static void lua_number2int(out int i, lua_Number n) { i = (int)n; }
+		private static void lua_number2integer(out lua_Integer i, lua_Number n) { i = (lua_Integer)n; }
+		private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)n; }
+		private static lua_Number lua_unsigned2number(lua_Unsigned u) { return (lua_Number)u; }
+		public static void luai_hashnum(out int i, lua_Number d) { int e;
+		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???
+		  lua_number2int(out i, d); i += e; }
+		
 		/*
 		** macro to control inclusion of some hard tests on stack reallocation
 		*/
