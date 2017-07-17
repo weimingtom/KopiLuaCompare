@@ -700,7 +700,7 @@ namespace KopiLua
 		  t.u.ind.t = (byte)t.u.info; //FIXME:added, (byte)
 		  t.u.ind.idx = (short)luaK_exp2RK(fs, k); //FIXME:added, (short)
 		  t.u.ind.vt = (t.k == expkind.VUPVAL) ? (byte)expkind.VUPVAL //FIXME:added, (byte)
-		  									   : (byte)check_exp(vkisinreg(t.k), expkind.VLOCAL); //FIXME:added, (byte)
+		  	                                   : (byte)check_exp(vkisinreg(t.k), (byte)expkind.VLOCAL); //FIXME:added, (byte)
 		  t.k = expkind.VINDEXED;
 		}
 

@@ -281,8 +281,13 @@ lgc.c: add if and break statement, for stoping overflow
 		
 		
 		
-		
-		
+---------------------------
+
+//NOTE!!!!!!!!!!!!!!!!!!
+
+PtrRef is wrong 
+	
+
 ------------------------------
 
 lapi.c	76

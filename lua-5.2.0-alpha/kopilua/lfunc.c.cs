@@ -37,9 +37,12 @@ namespace KopiLua
 		  c.l.p = p;
 		  c.l.nupvalues = cast_byte(n);
 		  c.l.upvals = new UpVal[n]; //FIXME:added???
+		  /*
 		  for (int i = 0; i < n; i++) //FIXME:added???
 			  c.l.upvals[i] = new UpVal(); //FIXME:??? //FIXME:added???
 		  while (n > 0) c.l.upvals[n] = null; //FIXME:added??? while (n--) c->l.upvals[n] = NULL;
+		  */
+		  while (n-- != 0) c.l.upvals[n] = null;
 		  return c;
 		}
 

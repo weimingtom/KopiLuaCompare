@@ -216,7 +216,7 @@ namespace KopiLua
 		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
 		  }
 		  if (list == null)
-		  	list = new PtrRef(g.allgc);  /* standard list for collectable objects */ //FIXME:changed, new PtrRef
+		  	list = new AllGCRef(g);  /* standard list for collectable objects */ //FIXME:changed, new PtrRef
 		  gch(o).marked = luaC_white(g);
 		  gch(o).tt = (byte)tt; //FIXME:(byte)
 		  gch(o).next = list.get();
@@ -658,14 +658,14 @@ namespace KopiLua
 		*/
 		private static void sweepthread (lua_State L, lua_State L1) {
 		  if (L1.stack == null) return;  /* stack not completely built yet */
-		  sweepwholelist(L, new PtrRef(L1.openupval));  /* sweep open upvalues */ //FIXME:???
+		  sweepwholelist(L, new OpenValRef(L1));  /* sweep open upvalues */ //FIXME:???
 		  luaE_freeCI(L1);  /* free extra CallInfo slots */
 		  /* should not change the stack during an emergency gc cycle */
 		  if (G(L).gckind != KGC_EMERGENCY)
 		      luaD_shrinkstack(L1);
 		}
 
-		private static GCObject nullp = null;
+		//private static GCObject nullp = null; //FIXME:see nullp in global_State
 		
 		/*
 		** sweep at most 'count' elements from a list of GCObjects erasing dead
@@ -705,7 +705,7 @@ namespace KopiLua
 		        sweepthread(L, gco2th(curr));  /* sweep thread's upvalues */
 		      if (testbits((byte)marked, tostop)) { //FIXME:(byte)
 		        //static GCObject *nullp = NULL; //FIXME:moved, see upper
-		        return new PtrRef(nullp);  /* stop sweeping this list */
+		        return new NullpRef(g);  /* stop sweeping this list */
 		      }
 		      /* update marks */
 		      gch(curr).marked = cast_byte((marked & toclear) | toset);
@@ -791,12 +791,12 @@ namespace KopiLua
 		*/
 		public static void luaC_separateudata (lua_State L, int all) {
 		  global_State g = G(L);
-		  GCObjectRef p = new PtrRef(g.udgc);
+		  GCObjectRef p = new UDGCRef(g);
 		  GCObject curr;
-		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????next???
+		  GCObjectRef lastnext = new TobefnzRef(g); //FIXME:??????next???
 		  /* find last 'next' field in 'tobefnz' list (to add elements in its end) */
 		  while (lastnext.get() != null) 
-		    lastnext = new PtrRef(gch(lastnext.get()).next); //FIXME:next???PtrRef???
+		    lastnext = new NextRef(gch(lastnext.get())); //FIXME:next???PtrRef???
 		  while ((curr = p.get()) != null) {  /* traverse all finalizable objects */
 		    lua_assert(gch(curr).tt == LUA_TUSERDATA && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
@@ -807,7 +807,7 @@ namespace KopiLua
 		      p.set(gch(curr).next);  /* remove 'curr' from 'udgc' list */
 		      gch(curr).next = lastnext.get();  /* link at the end of 'tobefnz' list */
 		      lastnext.set(curr);
-		      lastnext = new PtrRef(gch(curr).next);
+		      lastnext = new NextRef(gch(curr));
 		    }
 		  }
 		}
@@ -825,7 +825,7 @@ namespace KopiLua
 		    return;  /* nothing to be done */
 		  else {  /* move 'u' to 'udgc' list */
 		    GCObjectRef p;
-		    for (p = new PtrRef(g.allgc); p.get() != obj2gco(u); p = new NextRef(gch(p.get()))) ;
+		    for (p = new AllGCRef(g); p.get() != obj2gco(u); p = new NextRef(gch(p.get()))) ;
 		    p.set(u.uv.next);  /* remove 'u' from root list */
 		    u.uv.next = g.udgc;  /* link it in list 'udgc' */
 		    g.udgc = obj2gco(u);
@@ -844,8 +844,8 @@ namespace KopiLua
 		*/
 
 
-		private static int sweepphases {get{ //FIXME:->getter
-				return (bitmask(GCSsweepstring) | bitmask(GCSsweepudata) | bitmask(GCSsweep));}}
+		private static readonly int sweepphases =
+				(bitmask(GCSsweepstring) | bitmask(GCSsweepudata) | bitmask(GCSsweep));
 
 		/*
 		** change GC mode
@@ -885,9 +885,9 @@ namespace KopiLua
 		  /* following "white" makes all objects look dead */
 		  g.currentwhite = (byte)WHITEBITS; //FIXME:added, (byte)
 		  g.gckind = KGC_NORMAL;
-		  sweepwholelist(L, new PtrRef(g.udgc)); //FIXME:changed
+		  sweepwholelist(L, new UDGCRef(g)); //FIXME:changed
 		  lua_assert(g.udgc == null);
-		  sweepwholelist(L, new PtrRef(g.allgc)); //FIXME:changed
+		  sweepwholelist(L, new AllGCRef(g)); //FIXME:changed
 		  lua_assert(g.allgc == null);
 		  for (i = 0; i < g.strt.size; i++)  /* free all string lists */
 		    sweepwholelist(L, new ArrayRef(g.strt.hash, i)); //FIXME:changed
@@ -953,7 +953,7 @@ namespace KopiLua
 		        return GCSWEEPCOST;
 		      }
 		      else {  /* no more strings to sweep */
-		  		g.sweepgc = new PtrRef(g.udgc);  /* prepare to sweep userdata */ //FIXME:changed, new PtrRef
+		  		g.sweepgc = new UDGCRef(g);  /* prepare to sweep userdata */ //FIXME:changed, new PtrRef
 		        g.gcstate = GCSsweepudata;
 		        return 0;
 		      }
@@ -964,7 +964,7 @@ namespace KopiLua
 		        return GCSWEEPMAX*GCSWEEPCOST;
 		      }
 		      else {
-		  	    g.sweepgc = new PtrRef(g.allgc);  /* go to next phase */ //FIXME:added, new PtrRef
+		  	    g.sweepgc = new AllGCRef(g);  /* go to next phase */ //FIXME:added, new PtrRef
 		        g.gcstate = GCSsweep;
 		        return GCSWEEPCOST;
 		      }
@@ -976,8 +976,10 @@ namespace KopiLua
 		      }
 		      else {
 		        /* sweep main thread */
-		        GCObject mt = obj2gco(g.mainthread);
-		        sweeplist(L, new PtrRef(mt), 1); //FIXME:changed, new PtrRef
+		        //GCObject mt = obj2gco(g.mainthread);//FIXME:added
+		        g.mt_ = obj2gco(g.mainthread);
+		        sweeplist(L, new MtRef(g), 1); //FIXME:changed, new PtrRef
+		        g.mt_ = null; //FIXME:added
 		        checkSizes(L);
 		        g.gcstate = GCSpause;  /* finish collection */
 		        return GCSWEEPCOST;

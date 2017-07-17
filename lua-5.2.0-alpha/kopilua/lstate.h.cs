@@ -220,6 +220,10 @@ namespace KopiLua
           public TString memerrmsg;  /* memory-error message */
           public TString[] tmname = new TString[(int)TMS.TM_N];  /* array with tag-method names */ //FIXME:???not init with new TString()
 		  public Table[] mt = new Table[LUA_NUMTAGS];  /* metatables for basic types */
+		  
+		  //------------------------
+		  public GCObject mt_ = null; //FIXME: added, only for MtRef
+		  public GCObject nullp = null; //FIXME: added, only for NullpRef
 		};
 
 
@@ -358,14 +362,14 @@ namespace KopiLua
 			lua_State L;
 		}
 		//FIXME:removed, no rootgc
-		/*
-		public class RootGCRef : GCObjectRef
+	
+		public class AllGCRef : GCObjectRef
 		{
-			public RootGCRef(global_State g) { this.g = g; }
-			public void set(GCObject value) { this.g.rootgc = value; }
-			public GCObject get() { return this.g.rootgc; }
+			public AllGCRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.allgc = value; }
+			public GCObject get() { return this.g.allgc; }
 			global_State g;
-		}*/
+		}
 
 		public class NextRef : GCObjectRef
 		{
@@ -381,15 +385,46 @@ namespace KopiLua
 			public GCObject get() { return this.header.next; }
 			GCheader header;
 		}
-
+		/*
 		public class PtrRef : GCObjectRef
 		{
 			public PtrRef(GCObject obj) { this.obj = obj; }
 			public void set(GCObject value) { this.obj = value; }
 			public GCObject get() { return this.obj; }
 			GCObject obj;
+		}*/
+		
+		public class UDGCRef : GCObjectRef
+		{
+			public UDGCRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.udgc = value; }
+			public GCObject get() { return this.g.udgc; }
+			global_State g;
 		}
 		
+		public class TobefnzRef : GCObjectRef
+		{
+			public TobefnzRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.tobefnz = value; }
+			public GCObject get() { return this.g.tobefnz; }
+			global_State g;
+		}
+		
+		public class MtRef : GCObjectRef
+		{
+			public MtRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.mt_ = value; }
+			public GCObject get() { return this.g.mt_; }
+			global_State g;
+		}
+
+		public class NullpRef : GCObjectRef
+		{
+			public NullpRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.nullp = value; }
+			public GCObject get() { return this.g.nullp; }
+			global_State g;
+		}
 		
 		/* macros to convert a GCObject into a specific value */
 		public static TString rawgco2ts(GCObject o) { return (TString)check_exp(o.gch.tt == LUA_TSTRING, o.ts); }
