@@ -108,8 +108,8 @@ namespace KopiLua
 
 		private static int checkend (CharPtr s, CharPtr endptr) {
 		  if (endptr == s) return 0;  /* no characters converted */
-		  while (lisspace((byte)(endptr[0]))) endptr++;
-		  return (*endptr == '\0');  /* OK if no trailing characters */
+		  while (lisspace((byte)(endptr[0]))!=0) /*endptr++*/endptr = endptr + 1; //FIXME:changed, ++
+		  return (endptr[0] == '\0')?1:0;  /* OK if no trailing characters */
 		}
 
 
@@ -145,7 +145,7 @@ namespace KopiLua
 				  if (s == null) //FIXME: changed
 					  s = (string)o; //FIXME: changed
 				  if (s == null) s = "(null)";
-		          pushstr(L, s, strlen(s));
+				  pushstr(L, s, (uint)strlen(s)); //FIXME:changed, (uint)
 		          break;
 		      }
 		      case 'c': {
@@ -166,7 +166,7 @@ namespace KopiLua
 		      }
 		      case 'p': {
 		        CharPtr buff = new char[32]; /* should be enough space for a `%p' */ //FIXME: changed, char buff[4*sizeof(void *) + 8];
-				int l = sprintf(buff, "0x%08x", argp[parm_index++].GetHashCode()); //FIXME: changed, %p->%08x
+		        uint l = (uint)sprintf(buff, "0x%08x", argp[parm_index++].GetHashCode()); //FIXME: changed, %p->%08x  //FIXME:changed, (uint)
 		        pushstr(L, buff, l);
 		        break;
 		      }
@@ -184,7 +184,7 @@ namespace KopiLua
 		    n += 2;
 		    fmt = e+2;
 		  }
-		  pushstr(L, fmt, strlen(fmt));
+		  pushstr(L, fmt, (uint)strlen(fmt)); //FIXME:changed, (uint)
 		  if (n > 0) luaV_concat(L, n+1);
 		  return svalue(L.top - 1);
 		}

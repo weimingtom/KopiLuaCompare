@@ -48,7 +48,7 @@ namespace KopiLua
 
 
 		public static bool gcstopped(global_State g) { return (g.GCdebt == MIN_LMEM); }
-		public static bool stopgc(global_State g) { return (g.GCdebt = MIN_LMEM); }
+		public static void stopgc(global_State g) { g.GCdebt = MIN_LMEM; }
 
 
 		/*
@@ -89,11 +89,11 @@ namespace KopiLua
 
 		/* MOVE OLD rule: whenever an object is moved to the beginning of
 		   a GC list, its old bit must be cleared */
-		public static void resetoldbit(GCObject o) { return resetbit(o.gch.marked, OLDBIT); }
+		public static int resetoldbit(GCObject o) { return resetbit(ref o.gch.marked, OLDBIT); }
 
 		public static int otherwhite(global_State g) { return g.currentwhite ^ WHITEBITS; }
-		public static bool isdeadm(int ow, int m) { return (!(((m) ^ WHITEBITS) & (ow))); }
-		public static bool isdead(global_State g, GCObject v) { return (isdeadm(otherwhite(g), (v)->gch.marked)); }
+		public static bool isdeadm(int ow, int m) { return (((m ^ WHITEBITS) & ow)==0); }
+		public static bool isdead(global_State g, GCObject v) { return (isdeadm(otherwhite(g), v.gch.marked)); }
 
 		public static void changewhite(GCObject x) { x.gch.marked ^= (byte)WHITEBITS; }
 		public static void gray2black(GCObject x) { l_setbit(ref x.gch.marked, BLACKBIT); }
@@ -110,17 +110,17 @@ namespace KopiLua
 		public static void luaC_barrier(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
 			luaC_barrier_(L,obj2gco(p),gcvalue(v)); }
 
-		public static void luaC_barrierback(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
+		public static void luaC_barrierback(lua_State L, GCObject p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
 		    luaC_barrierback_(L,p); }
 
 		public static void luaC_objbarrier(lua_State L, object p, object o)
 			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p)))
 				luaC_barrier_(L,obj2gco(p),obj2gco(o)); }
 
-		public static void luaC_objbarrierback(lua_State L, object p, object o)
+		public static void luaC_objbarrierback(lua_State L, GCObject p, object o)
 			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p))) luaC_barrierback_(L,p); }
 			
-		public static void luaC_barrierproto(lua_State L, object p, Closure c)
+		public static void luaC_barrierproto(lua_State L, Proto p, Closure c)
    			{ if (isblack(obj2gco(p))) luaC_barrierproto_(L,p,c); }
 	
 	}

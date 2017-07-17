@@ -191,7 +191,11 @@ public static int lua_number2str(ref CharPtr s, double n) { s = String.Format("{
 			
 			
 
+//#if LUA_COMPAT_MODULE //remove it
 
+
+
+rng = new Random((int)luaL_checkunsigned(L, 1)); //FIXME:changed - srand(luaL_checkunsigned(L, 1)); //FIXME:added, (int)
 
 
 

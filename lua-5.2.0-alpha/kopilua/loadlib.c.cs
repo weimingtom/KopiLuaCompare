@@ -444,7 +444,7 @@ namespace KopiLua
 		  lua_settop(L, 1);  /* _LOADED table will be at index 2 */
 		  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
 		  lua_getfield(L, 2, name);
-		  if (lua_toboolean(L, -1))  /* is it there? */
+		  if (lua_toboolean(L, -1)!=0)  /* is it there? */
 		    return 1;  /* package is already loaded */
 		  /* else must load it; iterate over available loaders */
 		  lua_getfield(L, lua_upvalueindex(1), "loaders");

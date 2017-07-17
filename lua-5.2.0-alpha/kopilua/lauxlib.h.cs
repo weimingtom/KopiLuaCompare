@@ -2,6 +2,7 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -39,7 +40,7 @@ namespace KopiLua
 
 
 		public static void luaL_newlibtable(lua_State L, luaL_Reg[] l) {
-			return lua_createtable(L, 0, l.Length-1); } //FIXME: changed, sizeof(l)/sizeof((l)[0]) - 1)
+			lua_createtable(L, 0, l.Length-1); } //FIXME: changed, sizeof(l)/sizeof((l)[0]) - 1)
 
 		public static void luaL_newlib(lua_State L, luaL_Reg[] l) { luaL_newlibtable(L,l); luaL_setfuncs(L,l,0); }
 
@@ -72,7 +73,13 @@ namespace KopiLua
 		public static lua_Integer luaL_opt_integer(lua_State L, luaL_opt_delegate_integer f, int n, lua_Number d) {
 			return (lua_Integer)(lua_isnoneornil(L, n) ? d : f(L, (n)));
 		}
-
+		
+		//FIXME:added
+		public delegate lua_Unsigned luaL_opt_delegate_unsigned(lua_State L, int narg);
+		public static lua_Unsigned luaL_opt_unsigned(lua_State L, luaL_opt_delegate_unsigned f, int n, lua_Unsigned u) {
+			return (lua_Unsigned)(lua_isnoneornil(L, n) ? u : f(L, (n)));
+		}
+		
 		/*
 		** {======================================================
 		** Generic Buffer manipulation
@@ -101,7 +108,7 @@ namespace KopiLua
 
 		/* compatibility with old module system */
 
-		public static void luaL_register(lua_State L, CharPtr n, luaL_Reg l) { luaL_openlib(L,n,l,0); }
+		public static void luaL_register(lua_State L, CharPtr n, luaL_Reg[] l) { luaL_openlib(L,n,l,0); }
 
 
 	}

@@ -176,10 +176,11 @@ namespace KopiLua
 			Tools.printf(str.ToString(), argv);
 		}
 
-		public static void sprintf(CharPtr buffer, CharPtr str, params object[] argv)
+		public static int sprintf(CharPtr buffer, CharPtr str, params object[] argv)
 		{
 			string temp = Tools.sprintf(str.ToString(), argv);
 			strcpy(buffer, temp);
+			return strlen(buffer); //FIXME:added
 		}
 
 		public static int fprintf(Stream stream, CharPtr str, params object[] argv)

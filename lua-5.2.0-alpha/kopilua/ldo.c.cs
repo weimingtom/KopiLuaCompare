@@ -331,25 +331,25 @@ namespace KopiLua
 		      goto isCfunc;  /* go to call it */
 		  }
 		  cl = clvalue(func);
-		  if (cl->c.isC) {  /* C closure? */
-		    CallInfo *ci;
+		  if (cl.c.isC!=0) {  /* C closure? */
+		    CallInfo ci;
 		    int n;
-		    f = cl->c.f;
+		    f = cl.c.f;
 		  isCfunc:  /* call C function 'f' */
 		    luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
 		    ci = next_ci(L);  /* now 'enter' new function */
-		    ci->nresults = nresults;
-		    ci->func = restorestack(L, funcr);
-		    ci->top = L->top + LUA_MINSTACK;
-		    lua_assert(ci->top <= L->stack_last);
-		    ci->callstatus = 0;
-		    if (L->hookmask & LUA_MASKCALL)
+		    ci.nresults = (short)nresults; //FIXME:added, (short)
+		    ci.func = restorestack(L, funcr);
+		    ci.top = L.top + LUA_MINSTACK;
+		    lua_assert(ci.top <= L.stack_last);
+		    ci.callstatus = 0;
+		    if ((L.hookmask & LUA_MASKCALL)!=0)
 		      luaD_hook(L, LUA_HOOKCALL, -1);
 		    lua_unlock(L);
-		    n = (*f)(L);  /* do the actual call */
+		    n = f(L);  /* do the actual call */
 		    lua_lock(L);
 		    api_checknelems(L, n);
-		    luaD_poscall(L, L->top - n);
+		    luaD_poscall(L, L.top - n);
 		    return 1;
 		  }
 		  else {  /* Lua function: prepare its call */
@@ -368,7 +368,7 @@ namespace KopiLua
 			else  /* vararg function */
 				base_ = adjust_varargs(L, p, nargs);
 			ci = next_ci(L);  /* now `enter' new function */
-            ci.nresults = nresults;
+			ci.nresults = (short)nresults; //FIXME:added, (short)
 			ci.func = func;
 			ci.u.l.base_ = base_;
 			ci.top = base_ + p.maxstacksize;

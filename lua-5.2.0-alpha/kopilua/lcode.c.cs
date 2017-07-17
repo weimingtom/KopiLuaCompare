@@ -490,7 +490,7 @@ namespace KopiLua
 
 
 		public static void luaK_exp2anyregup (FuncState fs, expdesc e) { //FIXME:public ???
-		  if (e.k != VUPVAL || hasjumps(e))
+		  if (e.k != expkind.VUPVAL || hasjumps(e))
 		    luaK_exp2anyreg(fs, e);
 		}
 
@@ -547,7 +547,7 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VINDEXED: {
-              OpCode op = (var.u.ind.vt == expkind.VLOCAL) ? OpCode.OP_SETTABLE : OpCode.OP_SETTABUP;
+        	  OpCode op = (var.u.ind.vt == (byte)expkind.VLOCAL) ? OpCode.OP_SETTABLE : OpCode.OP_SETTABUP; //FIXME:added, (byte)
 			  int e = luaK_exp2RK(fs, ex);
 			  luaK_codeABC(fs, op, var.u.ind.t, var.u.ind.idx, e);
 			  break;
@@ -679,7 +679,7 @@ namespace KopiLua
 			case expkind.VNONRELOC: {
 			  discharge2anyreg(fs, e);
 			  freeexp(fs, e);
-			  e.u.info = luaK_codeABC(fs, OpCode.OP_NOT, 0, e.u.s.info, 0);
+			  e.u.info = luaK_codeABC(fs, OpCode.OP_NOT, 0, e.u.info, 0);
 			  e.k = expkind.VRELOCABLE;
 			  break;
 			}
@@ -697,8 +697,8 @@ namespace KopiLua
 
 		public static void luaK_indexed (FuncState fs, expdesc t, expdesc k) {
 		  lua_assert(!hasjumps(t));
-		  t.u.ind.t = t.u.info;
-		  t.u.ind.idx = luaK_exp2RK(fs, k);
+		  t.u.ind.t = (byte)t.u.info; //FIXME:(byte)
+		  t.u.ind.idx = (short)luaK_exp2RK(fs, k); //FIXME:(short)
 		  t.u.ind.vt = (t.k == expkind.VUPVAL) ? expkind.VUPVAL
 			                                 : check_exp(vkisinreg(t.k), expkind.VLOCAL);
 		  t.k = expkind.VINDEXED;

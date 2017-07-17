@@ -397,7 +397,7 @@ namespace KopiLua
 		public static lua_CFunction lua_tocfunction (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
 		  if (ttislcf(o)) return fvalue(o);
-		  else if (ttisclosure(o) && clvalue(o).c.isC)
+		  else if (ttisclosure(o) && clvalue(o).c.isC != 0)
 		    return clvalue(o).c.f;
 		  else return null;  /* not a C function */
 		}
@@ -424,7 +424,7 @@ namespace KopiLua
 		  switch (ttype(o)) {
 			case LUA_TTABLE: return hvalue(o);
 			case LUA_TFUNCTION: return clvalue(o);
-			case LUA_TLCF: return (object)(uint)fvalue(o); //FIXME:???size_t to void*
+			case LUA_TLCF: return (object)(lua_CFunction)fvalue(o); //FIXME:???size_t to void*
 			case LUA_TTHREAD: return thvalue(o);
 			case LUA_TUSERDATA:
 			case LUA_TLIGHTUSERDATA:
@@ -548,7 +548,7 @@ namespace KopiLua
 		    cl = luaF_newCclosure(L, n);
 		    cl.c.f = fn;
 		    L.top -= n;
-		    while (n--)
+		    while (n-- != 0)
 		      setobj2n(L, cl.c.upvalue[n], L.top + n);
 		    setclvalue(L, L.top, cl);
 		  }
@@ -796,7 +796,7 @@ namespace KopiLua
 		    uvalue(o).env = hvalue(L.top - 1);
 		    luaC_objbarrier(L, gcvalue(o), hvalue(L.top - 1));
 		  }
-		  L.top--;
+		  lua_TValue.dec(ref L.top);
 		  lua_unlock(L);
 		}
 
@@ -987,7 +987,7 @@ namespace KopiLua
 			case LUA_GCSTEP: {
 		  	  int stopped = gcstopped(g) ? 1 : 0;
 		      if (g.gckind == KGC_GEN) {  /* generational mode? */
-		        res = (g.lastmajormem == 0);  /* 1 if will do major collection */
+		  	  	res = (g.lastmajormem == 0)?1:0;  /* 1 if will do major collection */
 		        luaC_step(L);  /* do a single step */
 		      }
 		      else {

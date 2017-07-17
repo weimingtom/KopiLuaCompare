@@ -289,10 +289,10 @@ namespace KopiLua
 			obj.tt_ = LUA_TNUMBER;
 		}
 
-		public static void setfvalue(TValue obj, lua_Number x) {
-			TValue *i_o=(obj); i_o->value_.f=(x); i_o->tt_=LUA_TLCF; }
+		public static void setfvalue(TValue obj, lua_CFunction x) {
+			TValue i_o=obj; i_o.value_.f=x; i_o.tt_=LUA_TLCF; }
 		
-		public static void changenvalue(TValue o, int x) { return check_exp(o.tt_==LUA_TNUMBER, o.value_.n=(x)); }
+		public static void changenvalue(TValue o, int x) { check_exp(o.tt_==LUA_TNUMBER, o.value_.n=x); }
   
 
 		public static void setpvalue( TValue obj, object x) {
@@ -526,7 +526,7 @@ namespace KopiLua
 		  public TValue v;  /* points to stack or to its own value */
 
 			public class _u {
-				public TValue value = new TValue();  /* the value (when closed) */
+				public TValue value_ = new TValue();  /* the value (when closed) */
 
 				public class _l {  /* double linked list (when open) */
 				  public UpVal prev;
@@ -579,7 +579,7 @@ namespace KopiLua
 			public lu_byte isC { get { return header.isC; } set { header.isC = value; } }
 			public lu_byte nupvalues { get { return header.nupvalues; } set { header.nupvalues = value; } }
 			public GCObject gclist { get { return header.gclist; } set { header.gclist = value; } }
-			public Table env { get { return header.env; } set { header.env = value; } }
+			//public Table env { get { return header.env; } set { header.env = value; } }//FIXME:removed
 		}
 
 		public class CClosure : ClosureType {

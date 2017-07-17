@@ -124,7 +124,7 @@ namespace KopiLua
 
 
 		private static FilePtr newfile (lua_State L) {
-		  FILE **pf = newprefile(L);
+		  FilePtr pf = newprefile(L);
 		  lua_pushvalue(L, lua_upvalueindex(1));  /* set upvalue... */
 		  lua_setuservalue(L, -2);  /* ... as environment for new file */
 		  return pf;
@@ -314,10 +314,10 @@ namespace KopiLua
 		    toclose = 0;  /* do not close it after iteration */
 		  }
 		  else {  /* open a new file */
-		    const char *filename = luaL_checkstring(L, 1);
-		    FILE **pf = newfile(L);
-		    *pf = fopen(filename, "r");
-		    if (*pf == NULL)
+		    CharPtr filename = luaL_checkstring(L, 1);
+		    FilePtr pf = newfile(L);
+		    pf.file = fopen(filename, "r");
+		    if (pf.file == null)
 		      fileerror(L, 1, filename);
 		    lua_replace(L, 1);   /* put file at index 1 */
 		    toclose = 1;  /* close it after iteration */
@@ -368,9 +368,9 @@ namespace KopiLua
 			}
 			l = (uint)strlen(p);
 			if (l == 0 || p[l-1] != '\n')
-			  luaL_addsize(b, (int)l);
+			  luaL_addsize(b, (uint)(int)l); //FIXME:added, (uint)
 			else {
-			  luaL_addsize(&b, l - chop);  /* chop 'eol' if needed */
+			  luaL_addsize(b, (uint)(l - chop));  /* chop 'eol' if needed */ //FIXME:added, (uint)
 			  luaL_pushresult(b);  /* close buffer */
 			  return 1;  /* read at least an `eol' */
 			}
@@ -379,31 +379,31 @@ namespace KopiLua
 
 
 		private static void read_all (lua_State L, Stream f) {
-		  size_t rlen = LUAL_BUFFERSIZE;  /* how much to read in each cycle */
-		  luaL_Buffer b;
-		  luaL_buffinit(L, &b);
+		  uint rlen = LUAL_BUFFERSIZE;  /* how much to read in each cycle */
+		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_buffinit(L, b);
 		  for (;;) {
-		    char *p = luaL_prepbuffsize(&b, rlen);
-		    size_t nr = fread(p, sizeof(char), rlen, f);
-		    luaL_addsize(&b, nr);
+		    CharPtr p = luaL_prepbuffsize(b, rlen);
+		    uint nr = (uint)fread(p, 1/*sizeof(char)*/, (int)rlen, f); //FIXME:changed
+		    luaL_addsize(b, nr);
 		    if (nr < rlen) break;  /* eof? */
 		    else if (rlen <= (MAX_SIZE_T / 4))  /* avoid buffers too large */
 		      rlen *= 2;  /* double buffer size at each iteration */
 		  }
-		  luaL_pushresult(&b);  /* close buffer */
+		  luaL_pushresult(b);  /* close buffer */
 		}
 
 
 		private static int read_chars (lua_State L, Stream f, uint n) {
-		  size_t nr;  /* number of chars actually read */
-		  char *p;
-		  luaL_Buffer b;
-		  luaL_buffinit(L, &b);
-		  p = luaL_prepbuffsize(&b, n);  /* prepare buffer to read whole block */
-		  nr = fread(p, sizeof(char), n, f);  /* try to read 'n' chars */
-		  luaL_addsize(&b, nr);
-		  luaL_pushresult(&b);  /* close buffer */
-		  return (nr > 0);  /* true iff read something */
+		  uint nr;  /* number of chars actually read */
+		  CharPtr p;
+		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_buffinit(L, b);
+		  p = luaL_prepbuffsize(b, n);  /* prepare buffer to read whole block */
+		  nr = (uint)fread(p, 1/*sizeof(char)*/, (int)n, f);  /* try to read 'n' chars */ //FIXME:changed
+		  luaL_addsize(b, nr);
+		  luaL_pushresult(b);  /* close buffer */
+		  return (nr > 0)?1:0;  /* true iff read something */
 		}
 
 
@@ -468,10 +468,10 @@ namespace KopiLua
 
 
 		private static int io_readline (lua_State L) {
-		  FILE *f = *(FILE **)lua_touserdata(L, lua_upvalueindex(1));
+		  Stream f = ((FilePtr)lua_touserdata(L, lua_upvalueindex(1))).file;
 		  int i;
 		  int n = (int)lua_tointeger(L, lua_upvalueindex(2));
-		  if (f == NULL)  /* file is already closed? */
+		  if (f == null)  /* file is already closed? */
 		    luaL_error(L, "file is already closed");
 		  lua_settop(L , 1);
 		  for (i = 1; i <= n; i++)  /* push arguments to 'g_read' */
@@ -484,7 +484,7 @@ namespace KopiLua
 		    if (!lua_isnil(L, -1))  /* is there error information? */
 		      return luaL_error(L, "%s", lua_tostring(L, -1));  /* error */
 		    /* else EOF */
-		    if (lua_toboolean(L, lua_upvalueindex(3))) {  /* generator created file? */
+		    if (lua_toboolean(L, lua_upvalueindex(3))!=0) {  /* generator created file? */
 		      lua_settop(L, 0);
 		      lua_pushvalue(L, lua_upvalueindex(1));
 		      aux_close(L);  /* close it */

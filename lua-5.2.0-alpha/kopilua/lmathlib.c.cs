@@ -231,7 +231,7 @@ namespace KopiLua
 
 
 		private static int math_randomseed (lua_State L) {
-		  rng = new Random(luaL_checkunsigned(L, 1)); //FIXME:changed - srand(luaL_checkunsigned(L, 1));
+		  rng = new Random((int)luaL_checkunsigned(L, 1)); //FIXME:changed - srand(luaL_checkunsigned(L, 1)); //FIXME:added, (int)
 		  rng.Next(); /* discard first value to avoid undesirable correlations */ //FIXME:changed - (void)rand();
 		  return 0;
 		}

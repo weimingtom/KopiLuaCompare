@@ -46,7 +46,7 @@ namespace KopiLua
 
 		public static UpVal luaF_newupval (lua_State L) {
 		  UpVal uv = luaC_newobj<UpVal>(L, LUA_TUPVAL, (uint)GetUnmanagedSize(typeof(UpVal)), null, 0).uv;
-		  uv.v = uv.u.value;
+		  uv.v = uv.u.value_;
 		  setnilvalue(uv.v);
 		  return uv;
 		}
@@ -59,7 +59,7 @@ namespace KopiLua
 		  UpVal uv;
 		  while (pp.get() != null && (p = gco2uv(pp.get())).v >= level) {
             GCObject o = obj2gco(p);
-			lua_assert(p.v != p.u.value);
+			lua_assert(p.v != p.u.value_);
 			if (p.v == level) {  /* found a corresponding upvalue? */
 			  if (isdead(g, o))  /* is it dead? */
 				changewhite(o);  /* ressurrect it */
@@ -88,7 +88,7 @@ namespace KopiLua
 
 
 		public static void luaF_freeupval (lua_State L, UpVal uv) {
-		  if (uv.v != uv.u.value)  /* is it open? */
+		  if (uv.v != uv.u.value_)  /* is it open? */
 			unlinkupval(uv);  /* remove from open list */
 		  luaM_free(L, uv);  /* free upvalue */
 		}
@@ -99,16 +99,16 @@ namespace KopiLua
 		  global_State g = G(L);
 		  while (L.openupval != null && (uv = gco2uv(L.openupval)).v >= level) {
 			GCObject o = obj2gco(uv);
-			lua_assert(!isblack(o) && uv.v != uv.u.value);
+			lua_assert(!isblack(o) && uv.v != uv.u.value_);
 			L.openupval = uv.next;  /* remove from `open' list */
 			if (isdead(g, o))
 			  luaF_freeupval(L, uv);  /* free upvalue */
 			else {
 		  	  unlinkupval(uv);  /* remove upvalue from 'uvhead' list */
-		      setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
-		      uv->v = &uv->u.value;  /* now current value lives here */
-		      gch(o)->next = g->allgc;  /* link upvalue into 'allgc' list */
-		      g->allgc = o;
+		      setobj(L, uv.u.value_, uv.v);  /* move value to upvalue slot */
+		      uv.v = uv.u.value_;  /* now current value lives here */
+		      gch(o).next = g.allgc;  /* link upvalue into 'allgc' list */
+		      g.allgc = o;
 		      luaC_checkupvalcolor(g, uv);
 			}
 		  }
@@ -122,7 +122,7 @@ namespace KopiLua
 		  f.p = null;
 		  f.sizep = 0;
 		  f.code = null;
-          f.cache = NULL;
+          f.cache = null;
 		  f.sizecode = 0;
           f.lineinfo = null;
 		  f.sizelineinfo = 0;

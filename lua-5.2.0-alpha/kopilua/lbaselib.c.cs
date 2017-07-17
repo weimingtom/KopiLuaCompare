@@ -53,13 +53,13 @@ namespace KopiLua
 			ulong n;
             int neg = 0;
 			luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
-		    while (isspace((unsigned char)(*s1))) s1++;  /* skip initial spaces */
-		    if (*s1 == '-') { s1++; neg = 1; }
+			while (isspace((int)(byte)(s1[0]))) /*s1++*/s1=s1+1;  /* skip initial spaces */ //FIXME:added, (int)
+			if (s1[0] == '-') { /*s1++*/s1 = s1 + 1; neg = 1; } //FIXME:changed, ++
 			n = strtoul(s1, out s2, base_);
 			if (s1 != s2) {  /* at least one valid digit? */
 			  while (isspace((byte)(s2[0]))) s2 = s2.next();  /* skip trailing spaces */
 			  if (s2[0] == '\0') {  /* no invalid trailing characters? */
-				lua_pushnumber(L, (neg) ? -(lua_Number)n : (lua_Number)n);
+				lua_pushnumber(L, (neg!=0) ? -(lua_Number)n : (lua_Number)n);
 				return 1;
 			  }
 			}

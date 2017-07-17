@@ -96,7 +96,7 @@ namespace KopiLua
 
 
 		public static TString luaS_new (lua_State L, CharPtr str) {
-		  return luaS_newlstr(L, str, strlen(str));
+		  return luaS_newlstr(L, str, (uint)strlen(str)); //FIXME:added, (uint)
 		}
 
 		//FIXME:here changed

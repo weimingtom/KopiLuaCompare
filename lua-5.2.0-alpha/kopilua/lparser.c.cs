@@ -195,7 +195,7 @@ namespace KopiLua
 
 		private static int searchupvalue (FuncState fs, TString name) {
 		  int i;
-		  Upvaldesc up = fs.f.upvalues;
+		  Upvaldesc[] up = fs.f.upvalues;
 		  for (i = 0; i < fs.nups; i++) {
 		    if (eqstr(up[i].name, name)) return i;
 		  }
@@ -207,10 +207,10 @@ namespace KopiLua
 		  Proto f = fs.f;
 		  int oldsize = f.sizeupvalues;
 		  checklimit(fs, fs.nups + 1, MAXUPVAL, "upvalues");
-		  luaM_growvector(fs.L, f.upvalues, fs.nups, f.sizeupvalues,
-		                  Upvaldesc, MAXUPVAL, "upvalues");
+		  luaM_growvector<Upvaldesc>(fs.L, ref f.upvalues, fs.nups, ref f.sizeupvalues,
+		                  /*Upvaldesc,*/ MAXUPVAL, "upvalues");
 		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = null;
-		  f.upvalues[fs.nups].instack = (v.k == expkind.VLOCAL);
+		  f.upvalues[fs.nups].instack = (byte)((v.k == expkind.VLOCAL)?1:0); //FIXME:added, (byte)
 		  f.upvalues[fs.nups].idx = (byte)(v.u.info); //FIXME:cast_byte
 		  f.upvalues[fs.nups].name = name;
 		  luaC_objbarrier(fs.L, f, name);
@@ -221,7 +221,7 @@ namespace KopiLua
 		private static int searchvar (FuncState fs, TString n) {
 		  int i;
 		  for (i=fs.nactvar-1; i >= 0; i--) {
-			if (eqstr(n, getlocvar(fs, i).varname)
+		  	if (eqstr(n, getlocvar(fs, i).varname))
 			  return i;
 		  }
 		  return -1;  /* not found */
@@ -245,25 +245,25 @@ namespace KopiLua
 		*/
 		private static int singlevaraux(FuncState fs, TString n, expdesc var, int base_) {
 		  if (fs == null)  /* no more levels? */
-			return expkind.VVOID;  /* default is global */
+		    return (int)expkind.VVOID;  /* default is global */ //FIXME:added, (int)
 		  else {
 		    int v = searchvar(fs, n);  /* look up locals at current level */
 		    if (v >= 0) {  /* found? */
 		      init_exp(var, expkind.VLOCAL, v);  /* variable is local */
-		      if (!base_)
+		      if (base_==0)
 		        markupval(fs, v);  /* local will be used as an upval */
-		      return expkind.VLOCAL;
+		      return (int)expkind.VLOCAL;//FIXME:added, (int)
 		    }
 		    else {  /* not found as local at current level; try upvalues */
 		      int idx = searchupvalue(fs, n);  /* try existing upvalues */
 		      if (idx < 0) {  /* not found? */
-		        if (singlevaraux(fs.prev, n, var, 0) == expkind.VVOID) /* try upper levels */
-		          return expkind.VVOID;  /* not found; is a global */
+		      	if (singlevaraux(fs.prev, n, var, 0) == (int)expkind.VVOID) /* try upper levels *///FIXME:added, (int)
+		          return (int)expkind.VVOID;  /* not found; is a global *///FIXME:added, (int)
 		        /* else was LOCAL or UPVAL */
 		        idx  = newupvalue(fs, n, var);  /* will be a new upvalue */
 		      }
 		      init_exp(var, expkind.VUPVAL, idx);
-		      return expkind.VUPVAL;
+		      return (int)expkind.VUPVAL;//FIXME:added, (int)
 		    }
 		  }
 		}
@@ -272,12 +272,12 @@ namespace KopiLua
 		private static void singlevar (LexState ls, expdesc var) {
 		  TString varname = str_checkname(ls);
 		  FuncState fs = ls.fs;
-		  if (singlevaraux(fs, varname, var, 1) == expkind.VVOID) {  /* global name? */
-		    expdesc key;
+		  if (singlevaraux(fs, varname, var, 1) == (int)expkind.VVOID) {  /* global name? */ //FIXME:added, (int)
+		  	expdesc key = new expdesc();
 		    singlevaraux(fs, ls.envn, var, 1);  /* get environment variable */
 		    lua_assert(var.k == expkind.VLOCAL || var.k == expkind.VUPVAL);
-		    codestring(ls, &key, varname);  /* key is variable name */
-		    luaK_indexed(fs, var, &key);  /* env[varname] */
+		    codestring(ls, key, varname);  /* key is variable name */
+		    luaK_indexed(fs, var, key);  /* env[varname] */
 		  }
 		}
 
@@ -344,7 +344,7 @@ namespace KopiLua
 		private static void codeclosure (LexState ls, Proto clp, expdesc v) {
 		  FuncState fs = ls.fs.prev;
 		  Proto f = fs.f;  /* prototype of function creating new closure */
-		  if (fs->np >= f->sizep) {
+		  if (fs.np >= f.sizep) {
 		    int oldsize = f.sizep;
 		    luaM_growvector<Proto>(ls.L, ref f.p, fs.np, ref f.sizep, /*Proto *,*/
 		                  MAXARG_Bx, "functions");
@@ -428,11 +428,11 @@ namespace KopiLua
 		** upvalue named LUA_ENV
 		*/
 		private static void open_mainfunc (LexState ls, FuncState fs) {
-		  expdesc v;
+		  expdesc v = new expdesc();
 		  open_func(ls, fs);
-		  fs->f->is_vararg = 1;  /* main function is always vararg */
-		  init_exp(&v, VLOCAL, 0);
-		  newupvalue(fs, ls->envn, &v);  /* create environment upvalue */
+		  fs.f.is_vararg = 1;  /* main function is always vararg */
+		  init_exp(v, expkind.VLOCAL, 0);
+		  newupvalue(fs, ls.envn, v);  /* create environment upvalue */
 		}
 
 
@@ -446,13 +446,13 @@ namespace KopiLua
 		  lexstate.buff = buff;
           lexstate.varl = varl;
 		  luaX_setinput(L, lexstate, z, tname);
-		  open_mainfunc(&lexstate, &funcstate);
+		  open_mainfunc(lexstate, funcstate);
 		  luaX_next(lexstate);  /* read first token */
 		  chunk(lexstate);  /* read main chunk */
 		  check(lexstate, (int)RESERVED.TK_EOS);
 		  close_func(lexstate);
 		  StkId.dec(ref L.top);  /* pop name */
-		  lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
+		  lua_assert(funcstate.prev==null && funcstate.nups == 1 && lexstate.fs==null);
 		  return funcstate.f;
 		}
 
@@ -995,15 +995,15 @@ namespace KopiLua
 		  int conflict = 0;
 		  for (; lh!=null; lh = lh.prev) {
 			/* conflict in table 't'? */
-		    if (lh.v.u.ind.vt == v.k && lh.v.u.ind.t == v.u.info) {
+			if (lh.v.u.ind.vt == (byte)v.k && lh.v.u.ind.t == v.u.info) { //FIXME:added, (byte)
 		      conflict = 1;
-		      lh.v.u.ind.vt = expkind.VLOCAL;
-		      lh.v.u.ind.t = extra;  /* previous assignment will use safe copy */
+		      lh.v.u.ind.vt = (byte)expkind.VLOCAL; //FIXME:added, (byte)
+		      lh.v.u.ind.t = (byte)extra;  /* previous assignment will use safe copy */ //FIXME:added, (byte)
 		    }
 		    /* conflict in index 'idx'? */
 		    if (v.k == expkind.VLOCAL && lh.v.u.ind.idx == v.u.info) {
 		      conflict = 1;
-		      lh->v.u.ind.idx = extra;  /* previous assignment will use safe copy */
+		      lh.v.u.ind.idx = (short)extra;  /* previous assignment will use safe copy */ //FIXME:added, (short)
 		    }
 		  }
 		  if (conflict != 0) {
@@ -1427,7 +1427,7 @@ namespace KopiLua
 		  enterlevel(ls);
 		  while ((islast==0) && (block_follow(ls.t.token)==0)) {
 			islast = statement(ls);
-            if (islast)
+            if (islast!=0)
 			  testnext(ls, ';');
 			lua_assert(ls.fs.f.maxstacksize >= ls.fs.freereg &&
 					   ls.fs.freereg >= ls.fs.nactvar);

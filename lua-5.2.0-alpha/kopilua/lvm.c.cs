@@ -70,7 +70,7 @@ namespace KopiLua
 		  }
           L.oldpc = ci.u.l.savedpc;
 		  if (L.status == LUA_YIELD) {  /* did hook yield? */
-		    ci.u.l.savedpc--;  /* undo increment (resume will increment it again) */
+          	InstructionPtr.dec(ref ci.u.l.savedpc);  /* undo increment (resume will increment it again) */
 		    luaD_throw(L, LUA_YIELD);
 		  }
 		}

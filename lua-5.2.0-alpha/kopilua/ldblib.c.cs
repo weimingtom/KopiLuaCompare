@@ -157,7 +157,7 @@ namespace KopiLua
 		  int nvar = luaL_checkint(L, arg+2);  /* local-variable index */
 		  if (lua_isfunction(L, arg + 1)) {  /* function argument? */
 		    lua_pushvalue(L, arg + 1);  /* push function */
-		    lua_pushstring(L, lua_getlocal(L, NULL, nvar));  /* push local name */
+		    lua_pushstring(L, lua_getlocal(L, null, nvar));  /* push local name */
 		    return 1;
 		  }
 		  else {  /* stack-level argument */

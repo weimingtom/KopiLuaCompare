@@ -53,7 +53,7 @@ namespace KopiLua
 		  /* call open functions from 'loadedlibs' and set results to global table */
 		  for (int i=0; i<loadedlibs.Length-1; i++) { //FIXME: changed
 			luaL_Reg lib = loadedlibs[i]; //FIXME: added
-			luaL_requiref(L, lib->name, lib.func, 1);
+			luaL_requiref(L, lib.name, lib.func, 1);
 			lua_pop(L, 1);  /* remove lib */
 		  }
 		  /* add open functions from 'preloadedlibs' into 'package.preload' table */

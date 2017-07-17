@@ -69,10 +69,10 @@ namespace KopiLua
 		  uint l, i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  char *p = luaL_buffinitsize(L, &b, l);
+		  CharPtr p = luaL_buffinitsize(L, b, l);
 		  for (i = 0; i < l; i++)
 		    p[i] = s[l - i - 1];
-		  luaL_pushresultsize(&b, l);
+		  luaL_pushresultsize(b, l);
 		  return 1;
 		}
 
@@ -82,7 +82,7 @@ namespace KopiLua
 		  uint i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  char *p = luaL_buffinitsize(L, &b, l);
+		  CharPtr p = luaL_buffinitsize(L, b, l);
 		  for (i=0; i<l; i++)
 			  p[i] = tolower(uchar(s[i]));
 		  luaL_pushresultsize(b, l);
@@ -95,7 +95,7 @@ namespace KopiLua
 		  uint i;
 		  luaL_Buffer b = new luaL_Buffer();
 		  CharPtr s = luaL_checklstring(L, 1, out l);
-		  char *p = luaL_buffinitsize(L, &b, l);
+		  CharPtr p = luaL_buffinitsize(L, b, l);
 		  for (i=0; i<l; i++)
 			  p[i] = toupper(uchar(s[i]));
 		  luaL_pushresultsize(b, l);
@@ -138,13 +138,13 @@ namespace KopiLua
 		  int n = lua_gettop(L);  /* number of arguments */
 		  int i;
 		  luaL_Buffer b = new luaL_Buffer();
-		  CharPtr p = luaL_buffinitsize(L, b, n);
+		  CharPtr p = luaL_buffinitsize(L, b, (uint)n); //FIXME:added, (uint)
 		  for (i=1; i<=n; i++) {
 			int c = luaL_checkint(L, i);
 			luaL_argcheck(L, (byte)(c) == c, i, "invalid value"); //FIXME: uchar()
-			p[i - 1] = (byte)(c); //FIXME: uchar()
+			p[i - 1] = (char)(c); //FIXME: uchar()->(char)
 		  }
-		  luaL_pushresultsize(b, n);
+		  luaL_pushresultsize(b, (uint)n);//FIXME:added, (uint)
 		  return 1;
 		}
 
@@ -319,8 +319,8 @@ namespace KopiLua
 
 		private static CharPtr matchbalance (MatchState ms, CharPtr s,
 										   CharPtr p) {
-		  if (p >= ms->p_end - 1)
-		    luaL_error(ms->L, "malformed pattern " + 
+		  if (p >= ms.p_end - 1)
+		    luaL_error(ms.L, "malformed pattern " + 
 		                      "(missing arguments to " + LUA_QL("%%b") + ")");
 		  if (s[0] != p[0]) return null;
 		  else {
@@ -406,7 +406,7 @@ namespace KopiLua
 		  s = new CharPtr(s); //FIXME:added
 		  p = new CharPtr(p); //FIXME:added
 		  init: /* using goto's to optimize tail recursion */
-		  if (p == ms->p_end)  /* end of pattern? */
+		  if (p == ms.p_end)  /* end of pattern? */
 		    return s;  /* match succeeded */
 		  switch (p[0]) {
 			case '(': {  /* start capture */
@@ -539,9 +539,9 @@ namespace KopiLua
 		private static int nospecials (CharPtr p, uint l) {
 		  uint upto = 0;
 		  do {
-		    if (strpbrk(p + upto, SPECIALS))
+		    if (strpbrk(p + upto, SPECIALS)!=null)
 		      return 0;  /* pattern has a special character */ 
-		    upto += strlen(p + upto) + 1;  /* may have more after \0 */
+		    upto += (uint)strlen(p + upto) + 1;  /* may have more after \0 */ //FIXME:added, (uint)
 		  } while (upto <= l);
 		  return 1;  /* no special chars found */
 		}
@@ -558,7 +558,7 @@ namespace KopiLua
 		    return 1;
 		  }
           /* explicit request or no special characters? */
-		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) || nospecials(p, lp))) {
+		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) || nospecials(p, lp)!=0)) {
 			/* do a plain search */
 			CharPtr s2 = lmemfind(s + init - 1, ls - init + 1, p, lp);
 			if (s2 != null) {
@@ -570,9 +570,9 @@ namespace KopiLua
 		  else {
 			MatchState ms = new MatchState();
 			CharPtr s1 = s + init - 1;
-			int anchor = (p[0] == '^');
+			int anchor = (p[0] == '^')?1:0;
 		    if (anchor != 0) {
-		      p++; lp--;  /* skip anchor character */
+		      /*p++*/p=p+1; lp--;  /* skip anchor character */ //FIXME:changed, ++
 		    }
 			ms.L = L;
 			ms.src_init = s;
@@ -715,8 +715,8 @@ namespace KopiLua
 		                   tr == LUA_TFUNCTION || tr == LUA_TTABLE, 3,
 		                      "string/function/table expected");
 		  luaL_buffinit(L, b);
-		  if (anchor) {
-		    p++; lp--;  /* skip anchor character */
+		  if (anchor!=0) {
+		    /*p++*/p=p+1; lp--;  /* skip anchor character */ //FIXME:changed
 		  }
 		  ms.L = L;
 		  ms.src_init = src;
@@ -851,7 +851,7 @@ namespace KopiLua
 		*/
 		private static void addlenmod (CharPtr form, CharPtr lenmod) {
 		  uint l = (uint)strlen(form);
-          uint lm = strlen(lenmod);
+          uint lm = (uint)strlen(lenmod);//FIXME:added, (uint)
 		  char spec = form[l - 1];
 		  strcpy(form + l - 1, lenmod);
 		  form[l + lm - 1] = spec;
@@ -877,7 +877,7 @@ namespace KopiLua
 			  } else { /* format item */
 				  strfrmt = strfrmt.next();
 				  CharPtr form = new char[MAX_FORMAT];  /* to store the format (`%...') */
-				  CharPtr buff = luaL_prepbuffsize(&b, MAX_ITEM);  /* to put formatted item */
+				  CharPtr buff = luaL_prepbuffsize(b, MAX_ITEM);  /* to put formatted item */
 			      int nb = 0;  /* number of bytes in added item */
 			      if (++arg > top)
 			        luaL_argerror(L, arg, "no value");
@@ -928,7 +928,7 @@ namespace KopiLua
 						                     LUA_QL("format"), strfrmt[-1]);
 					  }
 				  }
-				  luaL_addsize(b, nb);
+				  luaL_addsize(b, (uint)nb); //FIXME:changed, (uint)
 			  }
 		  }
 		  luaL_pushresult(b);

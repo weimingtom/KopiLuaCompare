@@ -162,10 +162,10 @@ namespace KopiLua
 
 
 		private static int getfield (lua_State L, CharPtr key, int d) {
-		  int res, isnum;
+		  int res, isnum=0; //FIXME:added, =0;
 		  lua_getfield(L, -1, key);
-		  res = (int)lua_tointegerx(L, -1, &isnum);
-		  if (!isnum) {
+		  res = (int)lua_tointegerx(L, -1, ref isnum);
+		  if (isnum==0) {
 			if (d < 0)
 			  return luaL_error(L, "field " + LUA_QS + " missing in date table", key);
 			res = d;
@@ -296,7 +296,7 @@ namespace KopiLua
 		private static int os_exit (lua_State L) {
 		  int status;
 		  if (lua_isboolean(L, 1))
-		    status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+		    status = (lua_toboolean(L, 1)!=0 ? EXIT_SUCCESS : EXIT_FAILURE);
 		  else
 		    status = luaL_optint(L, 1, EXIT_SUCCESS);
 		  if (lua_toboolean(L, 2) != 0)

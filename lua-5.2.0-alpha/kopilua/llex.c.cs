@@ -221,9 +221,9 @@ namespace KopiLua
 		  lua_assert(lisdigit(ls.current));
 		  do {
 			save_and_next(ls);
-		  	if (check_next(ls, "EePp"))  /* exponent part? */
+		  	if (check_next(ls, "EePp")!=0)  /* exponent part? */
 			  check_next(ls, "+-");  /* optional exponent sign */
-		  } while (lislalnum(ls.current) || ls.current == '.');
+		  } while (lislalnum(ls.current)!=0 || ls.current == '.');
 		  save(ls, '\0');
 		  buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
 		  if (luaO_str2d(luaZ_buffer(ls.buff), out seminfo.r) == 0)  /* format error? */
@@ -355,7 +355,7 @@ namespace KopiLua
 				  case EOZ: continue;  /* will raise an error next loop */
 		          case '*': {  /* skip following span of spaces */
 		            next(ls);  /* skip the '*' */
-		            while (lisspace(ls.current)) {
+		            while (lisspace(ls.current)!=0) {
 		              if (currIsNewline(ls)) inclinenumber(ls);
 		              else next(ls);
 		            }
@@ -463,7 +463,7 @@ namespace KopiLua
 		      case '0': case '1': case '2': case '3': case '4':
 		      case '5': case '6': case '7': case '8': case '9': {
 		        read_numeral(ls, seminfo);
-		        return TK_NUMBER;
+		        return (int)RESERVED.TK_NUMBER;
               }
 			  case EOZ: {
 				  return (int)RESERVED.TK_EOS;

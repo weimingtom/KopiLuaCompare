@@ -150,7 +150,7 @@ namespace KopiLua
 		private static void DumpDebug(Proto f, DumpState D)
 		{
 		 int i,n;
-         DumpString((D.strip) ? null : f.source,D);
+         DumpString((D.strip!=0) ? null : f.source,D);
 		 n= (D.strip != 0) ? 0 : f.sizelineinfo;
 		 DumpVector(f.lineinfo, n, D);
 		 n= (D.strip != 0) ? 0 : f.sizelocvars;

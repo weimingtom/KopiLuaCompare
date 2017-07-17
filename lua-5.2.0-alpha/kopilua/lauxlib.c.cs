@@ -352,7 +352,7 @@ namespace KopiLua
 
 		public static lua_Unsigned luaL_optunsigned (lua_State L, int narg,
 		                                                        lua_Unsigned def) {
-		  return luaL_opt(L, luaL_checkunsigned, narg, def);
+		  return luaL_opt_unsigned(L, luaL_checkunsigned, narg, def);
 		}
 
         /* }====================================================== */
@@ -368,7 +368,7 @@ namespace KopiLua
 		** check whether buffer is using a userdata on the stack as a temporary
 		** buffer
 		*/
-		private static int buffonstack(luaL_Buffer B)	{return B.b != B.initb;}
+		private static int buffonstack(luaL_Buffer B)	{return (B.b != B.initb)?1:0;}
 
 
 		/*
@@ -385,12 +385,12 @@ namespace KopiLua
 		      luaL_error(L, "buffer too large");
 		    newbuff = (CharPtr)lua_newuserdata(L, newsize);  /* create larger buffer */
 		    memcpy(newbuff, B.b, B.n);  /* move content to new buffer */
-		    if (buffonstack(B))
+		    if (buffonstack(B)!=0)
 		      lua_remove(L, -2);  /* remove old buffer */
 		    B.b = newbuff;
 		    B.size = newsize;
 		  }
-		  return B.b[B.n];
+		  return new CharPtr(B.b, (int)B.n); //FIXME:???B.b[B.n] //FIXME:(int)
 		}
 
 
@@ -409,7 +409,7 @@ namespace KopiLua
 		public static void luaL_pushresult (luaL_Buffer B) {
 		  lua_State L = B.L;
 		  lua_pushlstring(L, B.b, B.n);
-		  if (buffonstack(B))
+		  if (buffonstack(B)!=0)
 		    lua_remove(L, -2);  /* remove old buffer */
 		}
 
@@ -423,7 +423,7 @@ namespace KopiLua
 		public static void luaL_addvalue (luaL_Buffer B) {
 		  lua_State L = B.L;
 		  uint l;
-		  CharPtr s = lua_tolstring(L, -1, l);
+		  CharPtr s = lua_tolstring(L, -1, out l);
 		  if (buffonstack(B)!=0)
 		    lua_insert(L, -2);  /* put value below buffer */
 		  luaL_addlstring(B, s, l);
@@ -509,7 +509,7 @@ namespace KopiLua
 		  LoadF lf = (LoadF)ud;
 		  //(void)L;
 		  if (lf.n > 0) {  /* are there pre-read characters to be read? */
-		    size = lf.n;  /* return them (chars already in buffer) */
+		  	size = (uint)lf.n;  /* return them (chars already in buffer) */ //FIXME:(uint)
 		    lf.n = 0;  /* no more pre-read characters */
 		  }
           else {  /* read a block from file */
@@ -533,16 +533,27 @@ namespace KopiLua
 
 
 		private static int skipBOM (LoadF lf) {
-		  const char *p = "\xEF\xBB\xBF";  /* Utf8 BOM mark */
+		  CharPtr p = "\xEF\xBB\xBF";  /* Utf8 BOM mark */
 		  int c;
-		  lf->n = 0;
+		  lf.n = 0;
 		  do {
-		    c = getc(lf->f);
-		    if (c == EOF || c != *(unsigned char *)p++) return c;
-		    lf->buff[lf->n++] = c;  /* to be read by the parser */
-		  } while (*p != '\0');
-		  lf->n = 0;  /* prefix matched; discard it */
-		  return getc(lf->f);  /* return next character */
+		    c = getc(lf.f);
+		    //if (c == EOF || c != *(unsigned char *)p++) return c; //FIXME:changed
+		    if (c == EOF)
+		    {
+		    	return c;
+		    }
+		    else if (c != (byte)p[0])
+		    {
+		    	p = p + 1;
+		    	return c;
+		    }
+		    p = p + 1;
+		    
+		    lf.buff[lf.n++] = (char)c;  /* to be read by the parser */ //FIXME:added, (char)
+		  } while (p[0] != '\0');
+		  lf.n = 0;  /* prefix matched; discard it */
+		  return getc(lf.f);  /* return next character */
 		}
 
 
@@ -567,7 +578,7 @@ namespace KopiLua
 		public static int luaL_loadfile (lua_State L, CharPtr filename) {
 		  LoadF lf = new LoadF();
 		  int status, readstatus;
-		  int c;
+		  int c = 0; //FIXME: added, =0
 		  int fnameindex = lua_gettop(L) + 1;  /* index of filename on the stack */
 		  if (filename == null) {
 			lua_pushliteral(L, "=stdin");
@@ -578,15 +589,15 @@ namespace KopiLua
 			lf.f = fopen(filename, "r");
 			if (lf.f == null) return errfile(L, "open", fnameindex);
 		  }
-		  if (skipcomment(lf, ref c))  /* read initial portion */
+		  if (skipcomment(lf, ref c)!=0)  /* read initial portion */
 		    lf.buff[lf.n++] = '\n';  /* add line to correct line numbers */
-		  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
+		  if (c == (int)LUA_SIGNATURE[0] && filename!=null) {  /* binary file? */ //FIXME:added, (int)
 		    lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
 		    if (lf.f == null) return errfile(L, "reopen", fnameindex);
 		    skipcomment(lf, ref c);  /* re-read initial portion */
 		  }
 		  if (c != EOF)
-		    lf.buff[lf.n++] = c;  /* 'c' is the first character of the stream */
+		  	lf.buff[lf.n++] = (char)c;  /* 'c' is the first character of the stream */ //FIXME:added, (char)
 		  status = lua_load(L, getF, lf, lua_tostring(L, -1));
 		  readstatus = ferror(lf.f);
 		  if (filename != null) fclose(lf.f);  /* close file (even in case of errors) */
@@ -660,10 +671,10 @@ namespace KopiLua
 
 		public static int luaL_len (lua_State L, int idx) {
 		  int l;
-          int isnum;
+          int isnum = 0; //FIXME:changed, =0
 		  lua_len(L, idx);
-		  l = (int)lua_tointegerx(L, -1, &isnum);
-  		  if (!isnum)
+		  l = (int)lua_tointegerx(L, -1, ref isnum);
+  		  if (isnum==0)
 		    luaL_error(L, "object length is not a number");
 		  lua_pop(L, 1);  /* remove object */
 		  return l;
@@ -698,7 +709,7 @@ namespace KopiLua
 		** Compatibility with 5.1 module functions
 		** =======================================================
 		*/
-		#if LUA_COMPAT_MODULE
+		//#if LUA_COMPAT_MODULE
 
 		private static CharPtr luaL_findtablex (lua_State L, int idx,
 											   CharPtr fname, int szhint) {
@@ -730,9 +741,9 @@ namespace KopiLua
 		/*
 		** Count number of elements in a luaL_Reg list.
 		*/
-		private static int libsize (/*const*/ luaL_Reg l) {
+		private static int libsize (/*const*/ luaL_Reg[] l) {
 		  int size = 0;
-		  for (; l && l->name; l++) size++;
+		  for (int i=0; i < l.Length && l[i].name != null; i++) size++; //FIXME:changed, for (; l && l.name; l++) size++;
 		  return size;
 		}
 
@@ -751,8 +762,8 @@ namespace KopiLua
 		    lua_pop(L, 1);  /* remove previous result */
 		    /* try global variable (and create one if it does not exist) */
 		    lua_pushglobaltable(L);
-		    if (luaL_findtablex(L, 0, modname, sizehint) != NULL)
-		      luaL_error(L, "name conflict for module " LUA_QS, modname);
+		    if (luaL_findtablex(L, 0, modname, sizehint) != null)
+		      luaL_error(L, "name conflict for module " + LUA_QS, modname);
 		    lua_pushvalue(L, -1);
 		    lua_setfield(L, -3, modname);  /* _LOADED[modname] = new table */
 		  }
@@ -761,16 +772,16 @@ namespace KopiLua
 
 
 		public static void luaL_openlib (lua_State L, CharPtr libname,
-		                               /*const*/ luaL_Reg l, int nup) {
+		                                 /*const*/ luaL_Reg[] l, int nup) {
 		  luaL_checkversion(L);
-		  if (libname) {
+		  if (libname != null) {
 		    luaL_pushmodule(L, libname, libsize(l));  /* get/create library table */
 		    lua_insert(L, -(nup + 1));  /* move library table to below upvalues */
 		  }
 		  luaL_setfuncs(L, l, nup);
 		}
 
-		#endif
+		//#endif
 		/* }====================================================== */
 
 		/*
@@ -836,11 +847,11 @@ namespace KopiLua
 		public static CharPtr luaL_gsub (lua_State L, CharPtr s, CharPtr p,
 		                                                         CharPtr r) {
 		  CharPtr wild;
-		  size_t l = strlen(p);
+		  uint l = (uint)strlen(p); //FIXME:added, (uint)
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_buffinit(L, b);
 		  while ((wild = strstr(s, p)) != null) {
-		    luaL_addlstring(b, s, wild - s);  /* push prefix */
+		  	luaL_addlstring(b, s, (uint)(wild - s));  /* push prefix */ //FIXME:added, (uint)
 		    luaL_addstring(b, r);  /* push replacement in place of pattern */
 		    s = wild + l;  /* continue after `p' */
 		  }
@@ -882,8 +893,8 @@ namespace KopiLua
 		  /* check conversions number -> integer types */
 		  lua_pushnumber(L, -(lua_Number)0x1234);
 		  if (lua_tointeger(L, -1) != -0x1234 ||
-		      lua_tounsigned(L, -1) != (lua_Unsigned)-0x1234)
-		    luaL_error(L, "bad conversion number->int;"
+		      lua_tounsigned(L, -1) != (lua_Unsigned)(-0x1234 & 0xffffffff)) //FIXME:added, & 0xffffffff
+		    luaL_error(L, "bad conversion number->int;" +
 		                  " must recompile Lua with proper settings");
 		  lua_pop(L, 1);
 		}
