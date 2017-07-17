@@ -114,15 +114,15 @@ namespace KopiLua
 		}
 
 
-		static void print_usage(char badoption) {
+		static void print_usage(Lua.CharPtr badoption) {
 		  if (badoption[1] == 'e' || badoption[1] == 'l') {
-		    luai_writestringerror("%s: ", progname);
-		    luai_writestringerror("'%s' needs argument\n", badoption);
+		    Lua.luai_writestringerror("%s: ", progname);
+		    Lua.luai_writestringerror("'%s' needs argument\n", badoption);
 		  } else {
-		    luai_writestringerror("%s: ", progname);
-		    luai_writestringerror("unrecognized option '%s'\n", badoption);
+		    Lua.luai_writestringerror("%s: ", progname);
+		    Lua.luai_writestringerror("unrecognized option '%s'\n", badoption);
 		  }
-			luai_writestringerror( //FIXME:???%s
+			Lua.luai_writestringerror( //FIXME:???%s
             "usage: %s [options] [script [args]]\n" +
 			"Available options are:\n" +
 			"  -e stat  execute string " + Lua.LUA_QL("stat").ToString() + "\n" +
@@ -137,8 +137,8 @@ namespace KopiLua
 
 
 		static void l_message(Lua.CharPtr pname, Lua.CharPtr msg) {
-			if (pname) luai_writestringerror("%s: ", pname);
-  			luai_writestringerror("%s\n", msg);
+			if (pname != null) Lua.luai_writestringerror("%s: ", pname);
+  			Lua.luai_writestringerror("%s\n", msg);
 		}
 
 
@@ -232,16 +232,16 @@ namespace KopiLua
 
 		static int dolibrary(Lua.lua_State L, Lua.CharPtr name) {
 		  int status;
-		  lua_pushglobaltable(L);
-		  lua_getfield(L, -1, "require");
-		  lua_pushstring(L, name);
+		  Lua.lua_pushglobaltable(L);
+		  Lua.lua_getfield(L, -1, "require");
+		  Lua.lua_pushstring(L, name);
 		  status = docall(L, 1, 1);
-		  if (status == LUA_OK) {
-		    lua_setfield(L, -2, name);  /* global[name] = require return */
-		    lua_pop(L, 1);  /* remove global table */
+		  if (status == Lua.LUA_OK) {
+		    Lua.lua_setfield(L, -2, name);  /* global[name] = require return */
+		    Lua.lua_pop(L, 1);  /* remove global table */
 		  }
 		  else
-		    lua_remove(L, -2);  /* remove global table (below error msg.) */
+		    Lua.lua_remove(L, -2);  /* remove global table (below error msg.) */
 		  return report(L, status);
 		}
 
@@ -318,7 +318,7 @@ namespace KopiLua
 			Lua.CharPtr oldprogname = progname;
 			progname = null;
 			while ((status = loadline(L)) != -1) {
-				if (status == Lua.LUA_OK) status = docall(L, 0, LUA_MULTRET);
+				if (status == Lua.LUA_OK) status = docall(L, 0, Lua.LUA_MULTRET);
 				report(L, status);
 				if (status == Lua.LUA_OK && Lua.lua_gettop(L) > 0) {  /* any result to print? */
 				    Lua.luaL_checkstack(L, Lua.LUA_MINSTACK, "too many results to print");
@@ -347,7 +347,7 @@ namespace KopiLua
 			status = Lua.luaL_loadfile(L, fname);
 			Lua.lua_insert(L, -(narg + 1));
 			if (status == Lua.LUA_OK)
-				status = docall(L, narg, LUA_MULTRET);
+				status = docall(L, narg, Lua.LUA_MULTRET);
 			else
 				Lua.lua_pop(L, narg);
 			return report(L, status);
@@ -432,10 +432,10 @@ namespace KopiLua
 
 		static int handle_luainit(Lua.lua_State L) {
 		  Lua.CharPtr name = "=" + LUA_INITVERSION;
-		  Lua.CharPtr init = getenv(name + 1);
+		  Lua.CharPtr init = Lua.getenv(name + 1);
 		  if (init == null) {
-		    name = "=" LUA_INIT;
-		    init = getenv(name + 1);  /* try alternative name */
+		    name = "=" + LUA_INIT;
+		    init = Lua.getenv(name + 1);  /* try alternative name */
 		  }
 		  if (init == null) return Lua.LUA_OK;  /* status OK */
 		  else if (init[0] == '@')
@@ -500,7 +500,7 @@ namespace KopiLua
 				return Lua.EXIT_FAILURE;
 			}
 			/* call 'pmain' in protected mode */
-            lua_pushcfunction(L, &pmain);
+            Lua.lua_pushcfunction(L, pmain);
 			Lua.lua_pushinteger(L, argc);  /* 1st argument */
 			Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
 			status = Lua.lua_pcall(L, 2, 1, 0);

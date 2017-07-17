@@ -177,9 +177,19 @@ public const uint MIN_LMEM = (/*(l_mem)*/~((~(lu_mem)0)>>1)); //FIXME:??? = 0x80
 
 -------------------------------------------
 
+public static int lua_number2str(ref CharPtr s, double n) { s = String.Format("{0}", n); return strlen(s); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
 
 
 
+        //FIXME:added
+		public static object lua_newuserdata(lua_State L, Type t)
+		{
+			Udata u;
+			lua_lock(L);
+			luaC_checkGC(L);
+			u = luaS_newudata(L, t, null); //FIXME:???removed, getcurrenv(L)->null
+			
+			
 
 
 

@@ -45,7 +45,7 @@ namespace KopiLua
 		  else {
             CharPtr s = new char[LUAI_MAXNUMBER2STR]; //FIXME:???
 			lua_Number n = nvalue(obj);
-			int l = lua_number2str(s, n); //FIXME:???
+			uint l = (uint)lua_number2str(ref s, n); //FIXME:??? //FIXME: int->uint
 			setsvalue2s(L, obj, luaS_newlstr(L, s, l));
 			return 1;
 		  }
@@ -69,8 +69,8 @@ namespace KopiLua
 			  luaD_hook(L, LUA_HOOKLINE, newline);
 		  }
           L.oldpc = ci.u.l.savedpc;
-		  if (L->status == LUA_YIELD) {  /* did hook yield? */
-		    ci->u.l.savedpc--;  /* undo increment (resume will increment it again) */
+		  if (L.status == LUA_YIELD) {  /* did hook yield? */
+		    ci.u.l.savedpc--;  /* undo increment (resume will increment it again) */
 		    luaD_throw(L, LUA_YIELD);
 		  }
 		}
@@ -181,10 +181,10 @@ namespace KopiLua
 
 		private static int call_orderTM (lua_State L, TValue p1, TValue p2,
 								 TMS event_) {
-		  if (!call_binTM(L, p1, p2, L.top, event_))
+		  if (call_binTM(L, p1, p2, L.top, event_)==0)
 		    return -1;  /* no metamethod */
 		  else
-		    return !l_isfalse(L.top);
+		  	return l_isfalse(L.top)!=0?0:1;
 		}
 
 
@@ -356,10 +356,10 @@ namespace KopiLua
 		  Closure c = p.cache;
 		  if (c != null) {  /* is there a cached closure? */
 		    int nup = p.sizeupvalues;
-		    Upvaldesc uv = p.upvalues;
+		    Upvaldesc[] uv = p.upvalues;
 		    int i;
 		    for (i = 0; i < nup; i++) {  /* check whether it has right upvalues */
-		      TValue v = uv[i].instack ? base_ + uv[i].idx : encup[uv[i].idx].v;
+		      TValue v = uv[i].instack!=0 ? base_ + uv[i].idx : encup[uv[i].idx].v;
 		      if (c.l.upvals[i].v != v)
 		        return null;  /* wrong upvalue; cannot reuse closure */
 		    }
@@ -377,18 +377,18 @@ namespace KopiLua
 		private static void pushclosure (lua_State L, Proto p, UpVal[] encup, StkId base_,
 		                         StkId ra) {
 		  int nup = p.sizeupvalues;
-		  Upvaldesc uv = p.upvalues;
+		  Upvaldesc[] uv = p.upvalues;
 		  int i;
 		  Closure ncl = luaF_newLclosure(L, p);
 		  setclvalue(L, ra, ncl);  /* anchor new closure in stack */
 		  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
-		    if (uv[i].instack)  /* upvalue refers to local variable? */
+		    if (uv[i].instack!=0)  /* upvalue refers to local variable? */
 		      ncl.l.upvals[i] = luaF_findupval(L, base_ + uv[i].idx);
 		    else  /* get upvalue from enclosing function */
 		      ncl.l.upvals[i] = encup[uv[i].idx];
 		  }
 		  luaC_barrierproto(L, p, ncl);
-		  p->cache = ncl;  /* save it on cache for reuse */
+		  p.cache = ncl;  /* save it on cache for reuse */
 		}
 
 
@@ -508,7 +508,7 @@ namespace KopiLua
 		//#define vmdispatch(o)	switch(o)
 		//#define vmcase(l,b)	case l: {b}  break;
 
-        //FIXME:added for debug
+        //FIXME:added for debug //FIXME: not sync
 		internal static void Dump(int pc, Instruction i)
 		{
 			int A = GETARG_A(i);
@@ -561,8 +561,8 @@ namespace KopiLua
 					Console.Write("{0}, {1}", A, Bx);
 					break;
 
-				case OpCode.OP_GETGLOBAL:
-				case OpCode.OP_SETGLOBAL:
+				case OpCode.OP_GETTABUP:
+				case OpCode.OP_SETTABUP:
 				case OpCode.OP_SETLIST:
 				case OpCode.OP_CLOSURE:
 					Console.Write("{0}, {1}", A, Bx);
@@ -589,10 +589,10 @@ namespace KopiLua
 		  StkId base_;
          newframe:  /* reentry point when frame changes (call/return) */
 		  lua_assert(isLua(ci));
-		  lua_assert(ci == L->ci);
-		  cl = &clvalue(ci->func)->l;
-		  k = cl->p->k;
-		  base = ci->u.l.base;
+		  lua_assert(ci == L.ci);
+		  cl = clvalue(ci.func).l;
+		  k = cl.p.k;
+		  base_ = ci.u.l.base_;
 		  /* main loop of interpreter */
 		  for (;;) {
 			Instruction i = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:++
@@ -635,7 +635,12 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_GETTABUP: {
 				int b = GETARG_B(i);
-        		Protect(luaV_gettable(L, cl->upvals[b]->v, RKC(i), ra));
+				//Protect(
+				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
+				  luaV_gettable(L, cl.upvals[b].v, RKC(L, base_, i, k), ra);
+				  base_ = ci.u.l.base_;
+				  //);
+				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
 				break;
 			  }
 			  case OpCode.OP_GETTABLE: {
@@ -649,7 +654,12 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETTABUP: {
 				int a = GETARG_A(i);
-        		Protect(luaV_settable(L, cl->upvals[a]->v, RKB(i), RKC(i)));
+				//Protect(
+				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
+        	      luaV_settable(L, cl.upvals[a].v, RKB(L, base_, i, k), RKC(L, base_, i, k));
+				  base_ = ci.u.l.base_;
+				  //);
+				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???        	      
 				break;
 			  }
 			  case OpCode.OP_SETUPVAL: {
@@ -946,9 +956,9 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_CLOSURE: {
 				Proto p = cl.p.p[GETARG_Bx(i)];
-			  	Closure *ncl = getcached(p, cl->upvals, base);  /* cached closure */
-		        if (ncl == NULL)  /* no match? */
-		          pushclosure(L, p, cl->upvals, base, ra);  /* create a new one */
+			  	Closure ncl = getcached(p, cl.upvals, base_);  /* cached closure */
+		        if (ncl == null)  /* no match? */
+		          pushclosure(L, p, cl.upvals, base_, ra);  /* create a new one */
 		        else
 		          setclvalue(L, ra, ncl);  /* push cashed closure */
 		        checkGC(L);

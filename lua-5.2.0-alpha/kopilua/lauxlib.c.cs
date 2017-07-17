@@ -313,9 +313,9 @@ namespace KopiLua
 
 
 		public static lua_Number luaL_checknumber (lua_State L, int narg) {
-          int isnum;
-		  lua_Number d = lua_tonumberx(L, narg, &isnum);
-		  if (!isnum)
+          int isnum = 0; //FIXME: changed, (empty)-> =0
+		  lua_Number d = lua_tonumberx(L, narg, ref isnum);
+		  if (isnum==0)
 			tag_error(L, narg, LUA_TNUMBER);
 		  return d;
 		}
@@ -327,18 +327,18 @@ namespace KopiLua
 
 
 		public static lua_Integer luaL_checkinteger (lua_State L, int narg) {
-          int isnum;
-		  lua_Integer d = lua_tointegerx(L, narg, &isnum);
-		  if (!isnum)
+          int isnum = 0; //FIXME: changed, =0
+		  lua_Integer d = lua_tointegerx(L, narg, ref isnum);
+		  if (isnum==0)
 			tag_error(L, narg, LUA_TNUMBER);
 		  return d;
 		}
 
 
 		public static lua_Unsigned luaL_checkunsigned (lua_State L, int narg) {
-		  int isnum;
-		  lua_Unsigned d = lua_tounsignedx(L, narg, &isnum);
-		  if (!isnum)
+		  int isnum = 0; //FIXME: changed, =0
+		  lua_Unsigned d = lua_tounsignedx(L, narg, ref isnum);
+		  if (isnum==0)
 		    tag_error(L, narg, LUA_TNUMBER);
 		  return d;
 		}
@@ -368,29 +368,29 @@ namespace KopiLua
 		** check whether buffer is using a userdata on the stack as a temporary
 		** buffer
 		*/
-		private static int buffonstack(luaL_Buffer B)	{return (B)->b != (B)->initb;}
+		private static int buffonstack(luaL_Buffer B)	{return B.b != B.initb;}
 
 
 		/*
 		** returns a pointer to a free area with at least 'sz' bytes
 		*/
 		public static CharPtr luaL_prepbuffsize (luaL_Buffer B, uint sz) {
-		  lua_State *L = B->L;
-		  if (B->size - B->n < sz) {  /* not enough space? */
-		    char *newbuff;
-		    size_t newsize = B->size * 2;  /* double buffer size */
-		    if (newsize - B->n < sz)  /* not bit enough? */
-		      newsize = B->n + sz;
-		    if (newsize < B->n || newsize - B->n < sz)
+		  lua_State L = B.L;
+		  if (B.size - B.n < sz) {  /* not enough space? */
+		    CharPtr newbuff;
+		    uint newsize = B.size * 2;  /* double buffer size */
+		    if (newsize - B.n < sz)  /* not bit enough? */
+		      newsize = B.n + sz;
+		    if (newsize < B.n || newsize - B.n < sz)
 		      luaL_error(L, "buffer too large");
-		    newbuff = (char *)lua_newuserdata(L, newsize);  /* create larger buffer */
-		    memcpy(newbuff, B->b, B->n);  /* move content to new buffer */
+		    newbuff = (CharPtr)lua_newuserdata(L, newsize);  /* create larger buffer */
+		    memcpy(newbuff, B.b, B.n);  /* move content to new buffer */
 		    if (buffonstack(B))
 		      lua_remove(L, -2);  /* remove old buffer */
-		    B->b = newbuff;
-		    B->size = newsize;
+		    B.b = newbuff;
+		    B.size = newsize;
 		  }
-		  return &B->b[B->n];
+		  return B.b[B.n];
 		}
 
 
@@ -407,8 +407,8 @@ namespace KopiLua
 
 
 		public static void luaL_pushresult (luaL_Buffer B) {
-		  lua_State *L = B->L;
-		  lua_pushlstring(L, B->b, B->n);
+		  lua_State L = B.L;
+		  lua_pushlstring(L, B.b, B.n);
 		  if (buffonstack(B))
 		    lua_remove(L, -2);  /* remove old buffer */
 		}
@@ -421,13 +421,13 @@ namespace KopiLua
 
 
 		public static void luaL_addvalue (luaL_Buffer B) {
-		  lua_State *L = B->L;
-		  size_t l;
-		  const char *s = lua_tolstring(L, -1, &l);
-		  if (buffonstack(B))
+		  lua_State L = B.L;
+		  uint l;
+		  CharPtr s = lua_tolstring(L, -1, l);
+		  if (buffonstack(B)!=0)
 		    lua_insert(L, -2);  /* put value below buffer */
 		  luaL_addlstring(B, s, l);
-		  lua_remove(L, (buffonstack(B)) ? -2 : -1);  /* remove value */
+		  lua_remove(L, (buffonstack(B)!=0) ? -2 : -1);  /* remove value */
 		}
 
 
@@ -553,11 +553,11 @@ namespace KopiLua
 		** first "valid" character of the file (after the optional BOM and
 		** a first-line comment).
 		*/
-		private static int skipcomment (LoadF lf, int cp) {
-		  int c = *cp = skipBOM(lf);
+		private static int skipcomment (LoadF lf, ref int cp) {
+		  int c = (cp = skipBOM(lf));
 		  if (c == '#') {  /* first line is a comment (Unix exec. file)? */
-		    while ((c = getc(lf->f)) != EOF && c != '\n') ;  /* skip first line */
-		    *cp = getc(lf->f);  /* skip end-of-line */
+		    while ((c = getc(lf.f)) != EOF && c != '\n') ;  /* skip first line */
+		    cp = getc(lf.f);  /* skip end-of-line */
 		    return 1;  /* there was a comment */
 		  }
 		  else return 0;  /* no comment */
@@ -578,12 +578,12 @@ namespace KopiLua
 			lf.f = fopen(filename, "r");
 			if (lf.f == null) return errfile(L, "open", fnameindex);
 		  }
-		  if (skipcomment(&lf, &c))  /* read initial portion */
+		  if (skipcomment(lf, ref c))  /* read initial portion */
 		    lf.buff[lf.n++] = '\n';  /* add line to correct line numbers */
 		  if (c == LUA_SIGNATURE[0] && filename) {  /* binary file? */
 		    lf.f = freopen(filename, "rb", lf.f);  /* reopen in binary mode */
-		    if (lf.f == NULL) return errfile(L, "reopen", fnameindex);
-		    skipcomment(&lf, &c);  /* re-read initial portion */
+		    if (lf.f == null) return errfile(L, "reopen", fnameindex);
+		    skipcomment(lf, ref c);  /* re-read initial portion */
 		  }
 		  if (c != EOF)
 		    lf.buff[lf.n++] = c;  /* 'c' is the first character of the stream */
@@ -778,14 +778,15 @@ namespace KopiLua
 		** function gets the 'nup' elements at the top as upvalues.
 		** Returns with only the table at the stack.
 		*/
-		public static void luaL_setfuncs (lua_State L, /*const*/ luaL_Reg l, int nup) {
+		public static void luaL_setfuncs (lua_State L, /*const*/ luaL_Reg[] l, int nup) {
 		  luaL_checkstack(L, nup, "too many upvalues");
-		  for (; l && l->name; l++) {  /* fill the table with given functions */
-		    int i;
+		  for (int idxL = 0; idxL < l.Length && l[idxL].name != null; idxL++) {  /* fill the table with given functions */ //FIXME:changed://for (; l != null && l.name; l++) {
+		  	luaL_Reg l_ = l[idxL];
+		  	int i;
 		    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
 		      lua_pushvalue(L, -nup);
-		    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
-		    lua_setfield(L, -(nup + 2), l->name);
+		    lua_pushcclosure(L, l_.func, nup);  /* closure with those upvalues */
+		    lua_setfield(L, -(nup + 2), l_.name);
 		  }
 		  lua_pop(L, nup);  /* remove upvalues */
 		}
@@ -823,7 +824,7 @@ namespace KopiLua
 		  lua_pushvalue(L, -2);  /* make copy of module (call result) */
 		  lua_setfield(L, -2, modname);  /* _LOADED[modname] = module */
 		  lua_pop(L, 1);  /* remove _LOADED table */
-		  if (glb) {
+		  if (glb != 0) {
 		    lua_pushglobaltable(L);
 		    lua_pushvalue(L, -2);  /* copy of 'mod' */
 		    lua_setfield(L, -2, modname);  /* _G[modname] = module */
@@ -833,18 +834,18 @@ namespace KopiLua
 
 
 		public static CharPtr luaL_gsub (lua_State L, CharPtr s, CharPtr p,
-		                                                               CharPtr r) {
-		  const char *wild;
+		                                                         CharPtr r) {
+		  CharPtr wild;
 		  size_t l = strlen(p);
-		  luaL_Buffer b;
-		  luaL_buffinit(L, &b);
-		  while ((wild = strstr(s, p)) != NULL) {
-		    luaL_addlstring(&b, s, wild - s);  /* push prefix */
-		    luaL_addstring(&b, r);  /* push replacement in place of pattern */
+		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_buffinit(L, b);
+		  while ((wild = strstr(s, p)) != null) {
+		    luaL_addlstring(b, s, wild - s);  /* push prefix */
+		    luaL_addstring(b, r);  /* push replacement in place of pattern */
 		    s = wild + l;  /* continue after `p' */
 		  }
-		  luaL_addstring(&b, s);  /* push last suffix */
-		  luaL_pushresult(&b);
+		  luaL_addstring(b, s);  /* push last suffix */
+		  luaL_pushresult(b);
 		  return lua_tostring(L, -1);
 		}
 	

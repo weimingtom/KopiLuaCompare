@@ -195,8 +195,8 @@ namespace KopiLua
 
 		private static int searchupvalue (FuncState fs, TString name) {
 		  int i;
-		  Upvaldesc *up = fs->f->upvalues;
-		  for (i = 0; i < fs->nups; i++) {
+		  Upvaldesc up = fs.f.upvalues;
+		  for (i = 0; i < fs.nups; i++) {
 		    if (eqstr(up[i].name, name)) return i;
 		  }
 		  return -1;  /* not found */
@@ -207,14 +207,14 @@ namespace KopiLua
 		  Proto f = fs.f;
 		  int oldsize = f.sizeupvalues;
 		  checklimit(fs, fs.nups + 1, MAXUPVAL, "upvalues");
-		  luaM_growvector(fs.L, f.upvalues, fs->nups, f->sizeupvalues,
+		  luaM_growvector(fs.L, f.upvalues, fs.nups, f.sizeupvalues,
 		                  Upvaldesc, MAXUPVAL, "upvalues");
-		  while (oldsize < f.sizeupvalues) f->upvalues[oldsize++].name = NULL;
-		  f.upvalues[fs.nups].instack = (v->k == VLOCAL);
-		  f.upvalues[fs.nups].idx = cast_byte(v->u.info);
+		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = null;
+		  f.upvalues[fs.nups].instack = (v.k == expkind.VLOCAL);
+		  f.upvalues[fs.nups].idx = (byte)(v.u.info); //FIXME:cast_byte
 		  f.upvalues[fs.nups].name = name;
-		  luaC_objbarrier(fs->L, f, name);
-		  return fs->nups++;
+		  luaC_objbarrier(fs.L, f, name);
+		  return fs.nups++;
 		}
 
 
@@ -245,25 +245,25 @@ namespace KopiLua
 		*/
 		private static int singlevaraux(FuncState fs, TString n, expdesc var, int base_) {
 		  if (fs == null)  /* no more levels? */
-			return VVOID;  /* default is global */
+			return expkind.VVOID;  /* default is global */
 		  else {
 		    int v = searchvar(fs, n);  /* look up locals at current level */
 		    if (v >= 0) {  /* found? */
-		      init_exp(var, VLOCAL, v);  /* variable is local */
-		      if (!base)
+		      init_exp(var, expkind.VLOCAL, v);  /* variable is local */
+		      if (!base_)
 		        markupval(fs, v);  /* local will be used as an upval */
-		      return VLOCAL;
+		      return expkind.VLOCAL;
 		    }
 		    else {  /* not found as local at current level; try upvalues */
 		      int idx = searchupvalue(fs, n);  /* try existing upvalues */
 		      if (idx < 0) {  /* not found? */
-		        if (singlevaraux(fs->prev, n, var, 0) == VVOID) /* try upper levels */
-		          return VVOID;  /* not found; is a global */
+		        if (singlevaraux(fs.prev, n, var, 0) == expkind.VVOID) /* try upper levels */
+		          return expkind.VVOID;  /* not found; is a global */
 		        /* else was LOCAL or UPVAL */
 		        idx  = newupvalue(fs, n, var);  /* will be a new upvalue */
 		      }
-		      init_exp(var, VUPVAL, idx);
-		      return VUPVAL;
+		      init_exp(var, expkind.VUPVAL, idx);
+		      return expkind.VUPVAL;
 		    }
 		  }
 		}
@@ -272,10 +272,10 @@ namespace KopiLua
 		private static void singlevar (LexState ls, expdesc var) {
 		  TString varname = str_checkname(ls);
 		  FuncState fs = ls.fs;
-		  if (singlevaraux(fs, varname, var, 1) == VVOID) {  /* global name? */
+		  if (singlevaraux(fs, varname, var, 1) == expkind.VVOID) {  /* global name? */
 		    expdesc key;
-		    singlevaraux(fs, ls->envn, var, 1);  /* get environment variable */
-		    lua_assert(var->k == VLOCAL || var->k == VUPVAL);
+		    singlevaraux(fs, ls.envn, var, 1);  /* get environment variable */
+		    lua_assert(var.k == expkind.VLOCAL || var.k == expkind.VUPVAL);
 		    codestring(ls, &key, varname);  /* key is variable name */
 		    luaK_indexed(fs, var, &key);  /* env[varname] */
 		  }
@@ -750,7 +750,7 @@ namespace KopiLua
 		  /* primaryexp .
 				prefixexp { `.' NAME | `[' exp `]' | `:' NAME funcargs | funcargs } */
 		  FuncState fs = ls.fs;
-          int line = ls->linenumber;
+          int line = ls.linenumber;
 		  prefixexp(ls, v);
 		  for (;;) {
 			switch (ls.t.token) {
@@ -913,7 +913,7 @@ namespace KopiLua
 		  enterlevel(ls);
 		  uop = getunopr(ls.t.token);
 		  if (uop != UnOpr.OPR_NOUNOPR) {
-            int line = ls->linenumber;
+            int line = ls.linenumber;
 			luaX_next(ls);
 			subexpr(ls, v, UNARY_PRIORITY);
 			luaK_prefix(ls.fs, uop, v, line);
@@ -924,7 +924,7 @@ namespace KopiLua
 		  while (op != BinOpr.OPR_NOBINOPR && priority[(int)op].left > limit) {
 			expdesc v2 = new expdesc();
 			BinOpr nextop;
-            int line = ls->linenumber;
+            int line = ls.linenumber;
 			luaX_next(ls);
 			luaK_infix(ls.fs, op, v);
 			/* read sub-expression with higher priority */
@@ -995,20 +995,20 @@ namespace KopiLua
 		  int conflict = 0;
 		  for (; lh!=null; lh = lh.prev) {
 			/* conflict in table 't'? */
-		    if (lh->v.u.ind.vt == v->k && lh->v.u.ind.t == v->u.info) {
+		    if (lh.v.u.ind.vt == v.k && lh.v.u.ind.t == v.u.info) {
 		      conflict = 1;
-		      lh->v.u.ind.vt = VLOCAL;
-		      lh->v.u.ind.t = extra;  /* previous assignment will use safe copy */
+		      lh.v.u.ind.vt = expkind.VLOCAL;
+		      lh.v.u.ind.t = extra;  /* previous assignment will use safe copy */
 		    }
 		    /* conflict in index 'idx'? */
-		    if (v->k == VLOCAL && lh->v.u.ind.idx == v->u.info) {
+		    if (v.k == expkind.VLOCAL && lh.v.u.ind.idx == v.u.info) {
 		      conflict = 1;
 		      lh->v.u.ind.idx = extra;  /* previous assignment will use safe copy */
 		    }
 		  }
 		  if (conflict != 0) {
-		    OpCode op = (v->k == VLOCAL) ? OP_MOVE : OP_GETUPVAL;
-		    luaK_codeABC(fs, op, fs->freereg, v->u.info, 0);  /* make copy */
+		    OpCode op = (v.k == expkind.VLOCAL) ? OpCode.OP_MOVE : OpCode.OP_GETUPVAL;
+		    luaK_codeABC(fs, op, fs.freereg, v.u.info, 0);  /* make copy */
 			luaK_reserveregs(fs, 1);
 		  }
 		}
@@ -1016,12 +1016,12 @@ namespace KopiLua
 
 		private static void assignment (LexState ls, LHS_assign lh, int nvars) {
 		  expdesc e = new expdesc();
-		  check_condition(ls, vkisvar(lh->v.k), "syntax error");
+		  check_condition(ls, vkisvar(lh.v.k), "syntax error");
 		  if (testnext(ls, ',') != 0) {  /* assignment . `,' primaryexp assignment */
 			LHS_assign nv = new LHS_assign();
 			nv.prev = lh;
 			primaryexp(ls, nv.v);
-			if (nv.v.k != VINDEXED)
+			if (nv.v.k != expkind.VINDEXED)
 			  check_conflict(ls, lh, nv.v);
 		    checklimit(ls.fs, nvars, LUAI_MAXCCALLS - G(ls.L).nCcalls,
 		                    "variable names");

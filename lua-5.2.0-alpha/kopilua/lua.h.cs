@@ -14,6 +14,7 @@ namespace KopiLua
 {
 	using lua_Number = Double;
 	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -244,9 +245,9 @@ namespace KopiLua
 		** ===============================================================
 		*/
 
-		public static void lua_tonumber(lua_State L, int i) { return lua_tonumberx(L,i,NULL);}
-		public static void lua_tointeger(lua_State L, int i) { return lua_tointegerx(L,i,NULL);}
-		public static void lua_tounsigned(lua_State L, int i) { return lua_tounsignedx(L,i,NULL);}
+		public static lua_Number lua_tonumber(lua_State L, int i) { int null_=0; return lua_tonumberx(L,i,ref null_);} //FIXME: changed
+		public static lua_Integer lua_tointeger(lua_State L, int i) { int null_=0; return lua_tointegerx(L,i,ref null_);} //FIXME: changed
+		public static lua_Unsigned lua_tounsigned(lua_State L, int i) { int null_=0; return lua_tounsignedx(L,i,ref null_);} //FIXME: changed
 
         public static void lua_pop(lua_State L, int n) { lua_settop(L, -(n)-1); }
 
@@ -257,7 +258,7 @@ namespace KopiLua
 			lua_setfield(L, -2, (s)); lua_pop(L, 2); }
 			
 		public static void lua_getglobal(lua_State L, CharPtr s) { 
-			lua_pushglobaltable(L), lua_getfield(L, -1, (s)); lua_remove(L, -2); }
+			lua_pushglobaltable(L); lua_getfield(L, -1, (s)); lua_remove(L, -2); }
 
         public static void lua_register(lua_State L, CharPtr n, lua_CFunction f) { lua_pushcfunction(L, f); lua_setglobal(L, n); }
 
@@ -273,7 +274,7 @@ namespace KopiLua
         public static bool lua_isnoneornil(lua_State L, lua_Number n) { return lua_type(L, (int)n) <= 0; } //FIXME: ???(int)
 
         public static CharPtr lua_pushliteral(lua_State L, CharPtr s) {
-            return lua_pushlstring(L, "" + s, strlen(s)); } //FIXME: changed???       
+        	return lua_pushlstring(L, "" + s, (uint)strlen(s)); } //FIXME: changed???
 
         public static void lua_pushglobaltable(lua_State L) {
             lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS); }

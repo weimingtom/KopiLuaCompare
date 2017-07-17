@@ -38,10 +38,10 @@ namespace KopiLua
 		*/
 
 
-		public static void luaL_newlibtable(lua_State L, luaL_Reg l) {
-		  return lua_createtable(L, 0, sizeof(l)/sizeof((l)[0]) - 1); }
+		public static void luaL_newlibtable(lua_State L, luaL_Reg[] l) {
+			return lua_createtable(L, 0, l.Length-1); } //FIXME: changed, sizeof(l)/sizeof((l)[0]) - 1)
 
-		public static void luaL_newlib(lua_State L, luaL_Reg l) { luaL_newlibtable(L,l); luaL_setfuncs(L,l,0); }
+		public static void luaL_newlib(lua_State L, luaL_Reg[] l) { luaL_newlibtable(L,l); luaL_setfuncs(L,l,0); }
 
 		public static void luaL_argcheck(lua_State L, bool cond, int numarg, string extramsg) {
 			if (!cond)
@@ -88,20 +88,20 @@ namespace KopiLua
 		};
 
 		public static void luaL_addchar(luaL_Buffer B, char c) {
-			((void)((B)->n < (B)->size || luaL_prepbuffsize((B), 1)),
-   				((B)->b[(B)->n++] = (c)))
+			if (!(B.n < B.size)) luaL_prepbuffsize(B, 1);//FIXME: changed, ||->if
+   			B.b[B.n++] = c;
 		}
 
 
-		public static void luaL_addsize(luaL_Buffer B, int n)	{B.p += n;}
+		public static void luaL_addsize(luaL_Buffer B, uint n)	{B.p += n;}
 
-		public static void luaL_prepbuffer(luaL_Buffer B) { return luaL_prepbuffsize(B, LUAL_BUFFERSIZE); }
+		public static CharPtr luaL_prepbuffer(luaL_Buffer B) { return luaL_prepbuffsize(B, LUAL_BUFFERSIZE); }
 		/* }====================================================== */
 
 
 		/* compatibility with old module system */
 
-		public static void luaL_register(lua_State L, CharPtr n, luaL_Reg l) { return (luaL_openlib(L,n,l,0)); }
+		public static void luaL_register(lua_State L, CharPtr n, luaL_Reg l) { luaL_openlib(L,n,l,0); }
 
 
 	}

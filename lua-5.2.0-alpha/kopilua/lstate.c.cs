@@ -103,7 +103,7 @@ namespace KopiLua
 		  L1.top = L1.stack[0];
 		  L1.stack_last = L1.stack[L1.stacksize - EXTRA_STACK];
 		  /* initialize first ci */
-		  ci = &L1.base_ci;
+		  ci = L1.base_ci;
 		  ci.next = ci.previous = null;
 		  ci.callstatus = 0;
 		  ci.func = L1.top;
@@ -135,7 +135,7 @@ namespace KopiLua
 		  setthvalue(L, mt, L);
 		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), mt);
 		  /* registry[LUA_RIDX_GLOBALS] = table of globals */
-  		  sethvalue(L, &mt, luaH_new(L));
+  		  sethvalue(L, mt, luaH_new(L));
 		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), mt);
 		}
 
@@ -152,9 +152,9 @@ namespace KopiLua
 		  luaT_init(L);
 		  luaX_init(L);
 		  /* pre-create memory-error message */
-		  g->memerrmsg = luaS_newliteral(L, MEMERRMSG);
-		  luaS_fix(g->memerrmsg);  /* it should never be collected */
-		  g->GCdebt = 0;
+		  g.memerrmsg = luaS_newliteral(L, MEMERRMSG);
+		  luaS_fix(g.memerrmsg);  /* it should never be collected */
+		  g.GCdebt = 0;
 		}
 
 

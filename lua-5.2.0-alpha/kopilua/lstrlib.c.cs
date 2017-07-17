@@ -138,7 +138,7 @@ namespace KopiLua
 		  int n = lua_gettop(L);  /* number of arguments */
 		  int i;
 		  luaL_Buffer b = new luaL_Buffer();
-		  char *p = luaL_buffinitsize(L, &b, n);
+		  CharPtr p = luaL_buffinitsize(L, b, n);
 		  for (i=1; i<=n; i++) {
 			int c = luaL_checkint(L, i);
 			luaL_argcheck(L, (byte)(c) == c, i, "invalid value"); //FIXME: uchar()
@@ -276,7 +276,7 @@ namespace KopiLua
 			case 's' : res = isspace(c); break;
 			case 'u' : res = isupper(c); break;
 			case 'w' : res = isalnum(c); break;
-			case 'x' : res = isxdigit(c); break; //FIXME: ???(char)c???->c
+			case 'x' : res = isxdigit((char)c); break; //FIXME: ???(char)c???->c
 			case 'z' : res = (c == 0); break;  /* deprecated option */
 			default: return (cl == c) ? 1 : 0;
 		  }
@@ -320,8 +320,8 @@ namespace KopiLua
 		private static CharPtr matchbalance (MatchState ms, CharPtr s,
 										   CharPtr p) {
 		  if (p >= ms->p_end - 1)
-		    luaL_error(ms->L, "malformed pattern "
-		                      "(missing arguments to " LUA_QL("%%b") ")");
+		    luaL_error(ms->L, "malformed pattern " + 
+		                      "(missing arguments to " + LUA_QL("%%b") + ")");
 		  if (s[0] != p[0]) return null;
 		  else {
 			int b = p[0];
@@ -570,8 +570,8 @@ namespace KopiLua
 		  else {
 			MatchState ms = new MatchState();
 			CharPtr s1 = s + init - 1;
-		    int anchor = (*p == '^');
-		    if (anchor) {
+			int anchor = (p[0] == '^');
+		    if (anchor != 0) {
 		      p++; lp--;  /* skip anchor character */
 		    }
 			ms.L = L;

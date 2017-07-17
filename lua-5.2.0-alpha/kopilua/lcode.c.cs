@@ -365,19 +365,19 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VUPVAL: {
-			  e.u.info = luaK_codeABC(fs, OpCode.OP_GETUPVAL, 0, e.u.s.info, 0);
+			  e.u.info = luaK_codeABC(fs, OpCode.OP_GETUPVAL, 0, e.u.info, 0);
 			  e.k = expkind.VRELOCABLE;
 			  break;
 			}
 			case expkind.VINDEXED: {
-		      OpCode op = OP_GETTABUP;  /* assume 't' is in an upvalue */
-		      freereg(fs, e->u.ind.idx);
-		      if (e->u.ind.vt == VLOCAL) {  /* 't' is in a register? */
-		        freereg(fs, e->u.ind.t);
-		        op = OP_GETTABLE;
+		      OpCode op = OpCode.OP_GETTABUP;  /* assume 't' is in an upvalue */
+		      freereg(fs, e.u.ind.idx);
+		      if (e.u.ind.vt == (byte)expkind.VLOCAL) {  /* 't' is in a register? */ //FIXME:changed, (byte)
+		        freereg(fs, e.u.ind.t);
+		        op = OpCode.OP_GETTABLE;
 		      }
-		      e->u.info = luaK_codeABC(fs, op, 0, e->u.ind.t, e->u.ind.idx);
-		      e->k = VRELOCABLE;
+		      e.u.info = luaK_codeABC(fs, op, 0, e.u.ind.t, e.u.ind.idx);
+		      e.k = expkind.VRELOCABLE;
 		      break;
 			}
 			case expkind.VVARARG:
@@ -547,7 +547,7 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VINDEXED: {
-              OpCode op = (var->u.ind.vt == VLOCAL) ? OP_SETTABLE : OP_SETTABUP;
+              OpCode op = (var.u.ind.vt == expkind.VLOCAL) ? OpCode.OP_SETTABLE : OpCode.OP_SETTABUP;
 			  int e = luaK_exp2RK(fs, ex);
 			  luaK_codeABC(fs, op, var.u.ind.t, var.u.ind.idx, e);
 			  break;
@@ -697,10 +697,10 @@ namespace KopiLua
 
 		public static void luaK_indexed (FuncState fs, expdesc t, expdesc k) {
 		  lua_assert(!hasjumps(t));
-		  t.u.ind.t = t->u.info;
+		  t.u.ind.t = t.u.info;
 		  t.u.ind.idx = luaK_exp2RK(fs, k);
-		  t.u.ind.vt = (t.k == VUPVAL) ? VUPVAL
-			                                 : check_exp(vkisinreg(t.k), VLOCAL);
+		  t.u.ind.vt = (t.k == expkind.VUPVAL) ? expkind.VUPVAL
+			                                 : check_exp(vkisinreg(t.k), expkind.VLOCAL);
 		  t.k = expkind.VINDEXED;
 		}
 

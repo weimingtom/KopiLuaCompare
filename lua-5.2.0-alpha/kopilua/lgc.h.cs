@@ -44,7 +44,7 @@ namespace KopiLua
 		** all objects are white again. During a generational collection, the
 		** invariant must be kept all times.
 		*/
-		public static bool keepinvariant(global_State g) { return (isgenerational(g) || g->gcstate <= GCSatomic); }
+		public static bool keepinvariant(global_State g) { return (isgenerational(g) || g.gcstate <= GCSatomic); }
 
 
 		public static bool gcstopped(global_State g) { return (g.GCdebt == MIN_LMEM); }

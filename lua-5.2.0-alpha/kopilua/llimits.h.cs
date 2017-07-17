@@ -39,7 +39,7 @@ namespace KopiLua
 		public const uint MAX_SIZET	= uint.MaxValue - 2; //FIXME:changed
 
 		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2; //FIXME:changed
-		public const uint MIN_LMEM = (/*(l_mem)*/~((~(lu_mem)0)>>1)); //FIXME:??? = 0x80000000 //FIXME:(l_mem) removed 
+		public const l_mem MIN_LMEM = l_mem.MinValue; //((l_mem)(~((~(lu_mem)0)>>1))); //FIXME:??? = 0x80000000 = -0x80000000 //FIXME:(l_mem) removed //FIXME:changed
 
 
 		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */

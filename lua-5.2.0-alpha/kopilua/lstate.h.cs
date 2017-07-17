@@ -357,14 +357,15 @@ namespace KopiLua
 			public GCObject get() { return this.L.openupval; }
 			lua_State L;
 		}
-
+		//FIXME:removed, no rootgc
+		/*
 		public class RootGCRef : GCObjectRef
 		{
 			public RootGCRef(global_State g) { this.g = g; }
 			public void set(GCObject value) { this.g.rootgc = value; }
 			public GCObject get() { return this.g.rootgc; }
 			global_State g;
-		}
+		}*/
 
 		public class NextRef : GCObjectRef
 		{

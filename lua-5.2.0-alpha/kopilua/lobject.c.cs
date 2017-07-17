@@ -108,7 +108,7 @@ namespace KopiLua
 
 		private static int checkend (CharPtr s, CharPtr endptr) {
 		  if (endptr == s) return 0;  /* no characters converted */
-		  while (lisspace(cast(unsigned char, *endptr))) endptr++;
+		  while (lisspace((byte)(endptr[0]))) endptr++;
 		  return (*endptr == '\0');  /* OK if no trailing characters */
 		}
 
@@ -116,8 +116,8 @@ namespace KopiLua
 		public static int luaO_str2d (CharPtr s, out lua_Number result) {
 		  CharPtr endptr;
 		  result = lua_str2number(s, out endptr);
-		  if (checkend(s, endptr)) return 1;  /* conversion OK? */
-		  *result = cast_num(strtoul(s, &endptr, 0)); /* try hexadecimal */
+		  if (checkend(s, endptr)!=0) return 1;  /* conversion OK? */
+		  result = cast_num(strtoul(s, out endptr, 0)); /* try hexadecimal */
 		  return checkend(s, endptr);
 		}
 

@@ -81,7 +81,7 @@ namespace KopiLua
 		}
 		
 		
-		private static int b_shift (lua_State L) {
+		private static int b_shift (lua_State L, b_uint r, int i) {
 		  if (i < 0) {  /* shift right? */
 		    i = -i;
             r = trim(r);
@@ -111,7 +111,7 @@ namespace KopiLua
 		private static int b_arshift (lua_State L) {
 		  b_uint r = getuintarg(L, 1);
 		  int i = luaL_checkint(L, 2);
-		  if (i < 0 || !(r & ((b_uint)1 << (NBITS - 1))))
+		  if (i < 0 || (r & ((b_uint)1 << (NBITS - 1)))==0)
 		    return b_shift(L, r, -i);
 		  else {  /* arithmetic shift for 'negative' number */
 		    if (i >= NBITS) r = ALLONES;

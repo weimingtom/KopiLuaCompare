@@ -254,7 +254,7 @@ namespace KopiLua
 		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), o.value_.gc.u); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
 		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), o.value_.gc.cl);}
-        public static void fvalue(TValue o)	{ return check_exp(ttislcf(o), o.value_.f); }
+		public static lua_CFunction fvalue(TValue o)	{ return (lua_CFunction)check_exp(ttislcf(o), o.value_.f); }
 		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), o.value_.gc.h);}
 		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), o.value_.b);}
 		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), o.value_.gc.th);}

@@ -50,7 +50,7 @@ namespace KopiLua
 		** standard negative debt for GC; a reasonable "time" to wait before
 		** starting a new cycle
 		*/
-		private static void stddebt(global_State g) { return (-(l_mem)(g.totalbytes/100) * g.gcpause); }
+		private static int stddebt(global_State g) { return (-(l_mem)(g.totalbytes/100) * g.gcpause); }
 
 
 		/*
@@ -920,53 +920,53 @@ namespace KopiLua
 		      if (!isgenerational(g))
 		        markroot(L);  /* start a new collection */
 		      /* in any case, root must be marked */
-		      lua_assert(!iswhite(obj2gco(g->mainthread))
-		              && !iswhite(gcvalue(&g->l_registry)));
-		      g->gcstate = GCSpropagate;
+		      lua_assert(!iswhite(obj2gco(g.mainthread))
+		              && !iswhite(gcvalue(g.l_registry)));
+		      g.gcstate = GCSpropagate;
 		      return GCROOTCOST;
 			}
 			case GCSpropagate: {
 			  if (g.gray != null)
 				return propagatemark(g);
 			  else {  /* no more `gray' objects */
-		        g->gcstate = GCSatomic;  /* finish mark phase */
+		        g.gcstate = GCSatomic;  /* finish mark phase */
 		        atomic(L);
 		        return GCATOMICCOST;
 			  }
 			}
 			case GCSsweepstring: {
-		  	  if (g->sweepstrgc < g->strt.size) {
-		        sweepwholelist(L, &g->strt.hash[g->sweepstrgc++]);
+		  	  if (g.sweepstrgc < g.strt.size) {
+		        sweepwholelist(L, g.strt.hash[g.sweepstrgc++]);
 		        return GCSWEEPCOST;
 		      }
 		      else {  /* no more strings to sweep */
-		        g->sweepgc = &g->udgc;  /* prepare to sweep userdata */
-		        g->gcstate = GCSsweepudata;
+		        g.sweepgc = g.udgc;  /* prepare to sweep userdata */
+		        g.gcstate = GCSsweepudata;
 		        return 0;
 		      }
 			}
 			case GCSsweepudata: {
-		      if (*g->sweepgc) {
-		        g->sweepgc = sweeplist(L, g->sweepgc, GCSWEEPMAX);
+		      if (*g.sweepgc) {
+		        g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);
 		        return GCSWEEPMAX*GCSWEEPCOST;
 		      }
 		      else {
-		        g->sweepgc = &g->allgc;  /* go to next phase */
-		        g->gcstate = GCSsweep;
+		        g.sweepgc = g.allgc;  /* go to next phase */
+		        g.gcstate = GCSsweep;
 		        return GCSWEEPCOST;
 		      }
 		    }
 			case GCSsweep: {
-		      if (*g->sweepgc) {
-		        g->sweepgc = sweeplist(L, g->sweepgc, GCSWEEPMAX);
+		      if (*g.sweepgc) {
+		        g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);
 		        return GCSWEEPMAX*GCSWEEPCOST;
 		      }
 		      else {
 		        /* sweep main thread */
-		        GCObject *mt = obj2gco(g->mainthread);
-		        sweeplist(L, &mt, 1);
+		        GCObject mt = obj2gco(g.mainthread);
+		        sweeplist(L, mt, 1);
 		        checkSizes(L);
-		        g->gcstate = GCSpause;  /* finish collection */
+		        g.gcstate = GCSpause;  /* finish collection */
 		        return GCSWEEPCOST;
 		      }
 			}
@@ -987,31 +987,31 @@ namespace KopiLua
 
 
 		private static void generationalcollection (lua_State L) {
-		  global_State *g = G(L);
-		  if (g->lastmajormem == 0) {  /* signal for another major collection? */
+		  global_State g = G(L);
+		  if (g.lastmajormem == 0) {  /* signal for another major collection? */
 		    luaC_fullgc(L, 0);  /* perform a full regular collection */
-		    g->lastmajormem = g->totalbytes;  /* update control */
+		    g.lastmajormem = g.totalbytes;  /* update control */
 		  }
 		  else {
 		    luaC_runtilstate(L, ~bitmask(GCSpause));  /* run complete cycle */
 		    luaC_runtilstate(L, bitmask(GCSpause));
-		    if (g->totalbytes > g->lastmajormem/100 * g->gcmajorinc)
-		      g->lastmajormem = 0;  /* signal for a major collection */
+		    if (g.totalbytes > g.lastmajormem/100 * g.gcmajorinc)
+		      g.lastmajormem = 0;  /* signal for a major collection */
 		  }
-		  g->GCdebt = stddebt(g);
+		  g.GCdebt = stddebt(g);
 		}
 
 
 		private static void step (lua_State L) {
-		  global_State *g = G(L);
-		  l_mem lim = g->gcstepmul;  /* how much to work */
+		  global_State g = G(L);
+		  l_mem lim = g.gcstepmul;  /* how much to work */
 		  do {  /* always perform at least one single step */
 		    lim -= singlestep(L);
-		  } while (lim > 0 && g->gcstate != GCSpause);
-		  if (g->gcstate != GCSpause)
-		    g->GCdebt -= GCSTEPSIZE;
+		  } while (lim > 0 && g.gcstate != GCSpause);
+		  if (g.gcstate != GCSpause)
+		    g.GCdebt -= GCSTEPSIZE;
 		  else
-		    g->GCdebt = stddebt(g);
+		    g.GCdebt = stddebt(g);
 		}
 
 
@@ -1019,7 +1019,7 @@ namespace KopiLua
 		  int i;
 		  if (isgenerational(G(L))) generationalcollection(L);
 		  else step(L);
-		  for (i = 0; i < GCFINALIZENUM && G(L)->tobefnz; i++)
+		  for (i = 0; i < GCFINALIZENUM && G(L).tobefnz; i++)
 		    GCTM(L, 1);  /* Call a few pending finalizers */
 		}
 
