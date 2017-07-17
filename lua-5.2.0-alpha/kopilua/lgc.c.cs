@@ -346,7 +346,7 @@ namespace KopiLua
 		*/
 
 		private static void traverseweakvalue (global_State g, Table h) {
-		  Node n, limit = gnode(h, sizenode(h));
+		  Node n;//, limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
 		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
 		  for (int ni = 0; ni < sizenode(h); ni++) {
 		  	n = gnode(h, ni);
@@ -366,7 +366,7 @@ namespace KopiLua
 		private static int traverseephemeron (global_State g, Table h) {
 		  int marked = 0;  /* true if an object is marked in this traversal */
 		  int hasclears = 0;  /* true if table has unmarked pairs */
-		  Node n, limit = gnode(h, sizenode(h));
+		  Node n;// limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
 		  int i;
 		  /* traverse array part (numeric keys are 'strong') */
 		  for (i = 0; i < h.sizearray; i++) {
@@ -401,7 +401,7 @@ namespace KopiLua
 
 
 		private static void traversestrongtable (global_State g, Table h) {
-          Node n, limit = gnode(h, sizenode(h));
+          Node n;// limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
 		  int i;
 		  for (i = 0; i < h.sizearray; i++)  /* traverse array part */
 		    markvalue(g, h.array[i]);
@@ -602,7 +602,7 @@ namespace KopiLua
 		private static void cleartable (GCObject l) {
 		  for (; l != null; l = gco2t(l).gclist) {
 			Table h = gco2t(l);
-			Node n, limit = gnode(h, sizenode(h));
+			Node n; // limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
 		    int i;
 		    for (i = 0; i < h.sizearray; i++) {
 			  TValue o = h.array[i];
