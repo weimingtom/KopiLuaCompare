@@ -1,0 +1,254 @@
+/*
+** $Id: lundump.c,v 1.67 2010/10/13 21:04:52 lhf Exp $
+** load precompiled Lua chunks
+** See Copyright Notice in lua.h
+*/
+
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Text;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
+using System.Runtime.Serialization;
+
+namespace KopiLua
+{
+	using TValue = Lua.lua_TValue;
+	using lua_Number = System.Double;
+	using lu_byte = System.Byte;
+	using StkId = Lua.lua_TValue;
+	using Instruction = System.UInt32;
+
+	public partial class Lua
+	{
+
+		public class LoadState{
+			public lua_State L;
+			public ZIO Z;
+			public Mbuffer b;
+			public CharPtr name;
+		};
+
+		static void error(LoadState S, CharPtr why)
+		{
+		 luaO_pushfstring(S.L,"%s: %s precompiled chunk",S.name,why);
+		 luaD_throw(S.L,LUA_ERRSYNTAX);
+		}
+
+		public static object LoadMem(LoadState S, Type t) //FIXME: changed
+		{
+			int size = Marshal.SizeOf(t);
+			CharPtr str = new char[size];
+			LoadBlock(S, str, size);
+			byte[] bytes = new byte[str.chars.Length];
+			for (int i = 0; i < str.chars.Length; i++)
+				bytes[i] = (byte)str.chars[i];
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			object b = Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), t);
+			pinnedPacket.Free();
+			return b;
+		}
+
+		public static object LoadMem(LoadState S, Type t, int n) //FIXME: changed
+		{
+			ArrayList array = new ArrayList();
+			for (int i=0; i<n; i++)
+				array.Add(LoadMem(S, t));
+			return array.ToArray(t);
+		}
+		public static lu_byte LoadByte(LoadState S)		{return (lu_byte)LoadChar(S);}
+		public static object LoadVar(LoadState S, Type t) { return LoadMem(S, t); }
+		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);}
+
+		private static void LoadBlock(LoadState S, CharPtr b, int size)
+		{
+		 if (luaZ_read(S.Z, b, (uint)size)!=0) error(S,"corrupted"); //FIXME:(uint)
+		}
+
+		private static int LoadChar(LoadState S) 
+		{
+		 return (char)LoadVar(S, typeof(char)); //FIXME: changed
+		}
+
+		private static int LoadInt(LoadState S)
+		{
+		 int x = (int)LoadVar(S, typeof(int)); //FIXME: changed
+		 return x;
+		}
+
+		private static lua_Number LoadNumber(LoadState S)
+		{
+		 return (lua_Number)LoadVar(S, typeof(lua_Number));
+		}
+
+		private static TString LoadString(LoadState S)
+		{
+		 uint size = (uint)LoadVar(S, typeof(uint));
+		 if (size==0)
+		  return null;
+		 else
+		 {
+		  CharPtr s=luaZ_openspace(S.L,S.b,size);
+		  LoadBlock(S, s, (int)size);
+		  return luaS_newlstr(S.L,s,size-1);		/* remove trailing '\0' */
+		 }
+		}
+
+		private static void LoadCode(LoadState S, Proto f)
+		{
+		 int n=LoadInt(S);
+		 f.code = luaM_newvector<Instruction>(S.L, n);
+		 f.sizecode=n;
+		 f.code = (Instruction[])LoadVector(S, typeof(Instruction), n);
+		}
+
+		private static void LoadConstants(LoadState S, Proto f)
+		{
+		 int i,n;
+		 n=LoadInt(S);
+		 f.k = luaM_newvector<TValue>(S.L, n);
+		 f.sizek=n;
+		 for (i=0; i<n; i++) setnilvalue(f.k[i]);
+		 for (i=0; i<n; i++)
+		 {
+		  TValue o=f.k[i];
+		  int t=LoadChar(S);
+		  switch (t)
+		  {
+		   case LUA_TNIL:
+   			setnilvalue(o);
+			break;
+		   case LUA_TBOOLEAN:
+			setbvalue(o, LoadChar(S)!=0 ? 1 : 0); //FIXME:???!=0->(empty)
+			break;
+		   case LUA_TNUMBER:
+			setnvalue(o, LoadNumber(S));
+			break;
+		   case LUA_TSTRING:
+			setsvalue2n(S.L, o, LoadString(S));
+			break;
+		  }
+		 }
+		 n=LoadInt(S);
+		 f.p=luaM_newvector<Proto>(S.L,n);
+		 f.sizep=n;
+		 for (i=0; i<n; i++) f.p[i]=null;
+		 for (i=0; i<n; i++) f.p[i]=LoadFunction(S);
+		}
+
+		private static void LoadUpvalues(LoadState S, Proto f)
+		{
+		 int i,n;
+		 n=LoadInt(S);
+		 f.upvalues=luaM_newvector<Upvaldesc>(S.L,n);
+		 f.sizeupvalues=n;
+		 for (i=0; i<n; i++) f.upvalues[i].name=null;
+		 for (i=0; i<n; i++)
+		 {
+		  f.upvalues[i].instack=(byte)LoadChar(S); //FIXME:(byte)
+		  f.upvalues[i].idx=(byte)LoadChar(S); //FIXME:(byte)
+		 }
+		}
+
+		private static void LoadDebug(LoadState S, Proto f)
+		{
+		 int i,n;
+         f.source=LoadString(S);
+		 n=LoadInt(S);
+		 f.lineinfo=luaM_newvector<int>(S.L,n);
+		 f.sizelineinfo=n;
+		 f.lineinfo = (int[])LoadVector(S, typeof(int), n);
+		 n=LoadInt(S);
+		 f.locvars=luaM_newvector<LocVar>(S.L,n);
+		 f.sizelocvars=n;
+		 for (i=0; i<n; i++) f.locvars[i].varname=null;
+		 for (i=0; i<n; i++)
+		 {
+		  f.locvars[i].varname=LoadString(S);
+		  f.locvars[i].startpc=LoadInt(S);
+		  f.locvars[i].endpc=LoadInt(S);
+		 }
+		 n=LoadInt(S);
+		 for (i=0; i<n; i++) f.upvalues[i].name=LoadString(S);
+		}
+
+		private static Proto LoadFunction(LoadState S)
+		{
+		 Proto f=luaF_newproto(S.L);
+		 setptvalue2s(S.L,S.L.top,f); incr_top(S.L);
+		 f.linedefined=LoadInt(S);
+		 f.lastlinedefined=LoadInt(S);
+		 f.numparams=LoadByte(S);
+		 f.is_vararg=LoadByte(S);
+		 f.maxstacksize=LoadByte(S);
+		 LoadCode(S,f);
+		 LoadConstants(S,f);
+         LoadUpvalues(S,f);
+		 LoadDebug(S,f);
+		 StkId.dec(ref S.L.top);
+		 return f;
+		}
+
+		private static void LoadHeader(LoadState S)
+		{
+		 CharPtr h = new char[LUAC_HEADERSIZE];
+		 CharPtr s = new char[LUAC_HEADERSIZE];
+		 luaU_header(h);
+		 LoadBlock(S, s, LUAC_HEADERSIZE);
+		 if (memcmp(h, s, LUAC_HEADERSIZE)!=0) error(S,"incompatible");
+		}
+
+		/*
+		** load precompiled chunk
+		*/
+		public static Proto luaU_undump (lua_State L, ZIO Z, Mbuffer buff, CharPtr name)
+		{
+		 LoadState S = new LoadState();
+		 if (name[0] == '@' || name[0] == '=')
+		  S.name = name+1;
+		 else if (name[0]==LUA_SIGNATURE[0])
+		  S.name="binary string";
+		 else
+		  S.name=name;
+		 S.L=L;
+		 S.Z=Z;
+		 S.b=buff;
+		 LoadHeader(S);
+		 return LoadFunction(S);
+		}
+
+		/*
+		* make header
+		* if you make any changes in the header or in LUA_SIGNATURE,
+		* be sure to update LUAC_HEADERSIZE accordingly in lundump.h.
+		*/
+		public static void luaU_header(CharPtr h)
+		{
+		 h = new CharPtr(h); //FIXME:changed
+		 int x=1;
+		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length);
+		 h = h.add(LUA_SIGNATURE.Length);
+		 h[0] = (char)LUAC_VERSION;
+		 h.inc();
+		 h[0] = (char)LUAC_FORMAT;
+		 h.inc();
+		 //*h++=(char)*(char*)&x;				/* endianness */
+		 h[0] = (char)x;						/* endianness */
+		 h.inc();
+		 h[0] = (char)GetUnmanagedSize(typeof(int));
+		 h.inc();
+		 h[0] = (char)GetUnmanagedSize(typeof(uint));
+		 h.inc();
+		 h[0] = (char)GetUnmanagedSize(typeof(Instruction));
+		 h.inc();
+		 h[0] = (char)GetUnmanagedSize(typeof(lua_Number));
+		 h.inc();
+
+		  //(h++)[0] = ((lua_Number)0.5 == 0) ? 0 : 1;		/* is lua_Number integral? */
+		 h[0] = (char)0;	// always 0 on this build
+		}
+
+	}
+}
