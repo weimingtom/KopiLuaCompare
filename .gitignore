@@ -21,8 +21,27 @@ lua-5.2.0-alpha/kopilua/bin/
 lua-5.2.0-alpha/kopilua/obj/
 lua-5.2.0-beta/kopilua/bin/
 lua-5.2.0-beta/kopilua/obj/
+lua-5.2.0/kopilua/bin/
+lua-5.2.0/kopilua/obj/
+lua-5.2.1/kopilua/bin/
+lua-5.2.1/kopilua/obj/
+lua-5.2.2/kopilua/bin/
+lua-5.2.2/kopilua/obj/
+lua-5.2.3/kopilua/bin/
+lua-5.2.3/kopilua/obj/
+lua-5.2.4/kopilua/bin/
+lua-5.2.4/kopilua/obj/
+lua-5.3.0/kopilua/bin/
+lua-5.3.0/kopilua/obj/
+lua-5.3.1/kopilua/bin/
+lua-5.3.1/kopilua/obj/
+lua-5.3.2/kopilua/bin/
+lua-5.3.2/kopilua/obj/
+lua-5.3.3/kopilua/bin/
+lua-5.3.3/kopilua/obj/
 lua-5.3.4/kopilua/bin/
 lua-5.3.4/kopilua/obj/
+
 *.class
 
 # User-specific files
