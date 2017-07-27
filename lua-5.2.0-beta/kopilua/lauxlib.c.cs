@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.226 2010/11/10 17:38:10 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.232 2011/05/03 16:01:57 roberto Exp roberto $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -198,6 +198,64 @@ namespace KopiLua
 		  return lua_error(L);
 		}
 
+
+		public static int luaL_fileresult (lua_State *L, int stat, const char *fname) {
+		  int en = errno;  /* calls to Lua API may change this value */
+		  if (stat) {
+		    lua_pushboolean(L, 1);
+		    return 1;
+		  }
+		  else {
+		    lua_pushnil(L);
+		    if (fname)
+		      lua_pushfstring(L, "%s: %s", fname, strerror(en));
+		    else
+		      lua_pushfstring(L, "%s", strerror(en));
+		    lua_pushinteger(L, en);
+		    return 3;
+		  }
+		}
+
+
+		#if !defined(inspectstat)	/* { */
+
+		#if defined(LUA_USE_POSIX)
+
+		#include <sys/wait.h>
+
+		/*
+		** use appropriate macros to interpret 'pclose' return status
+		*/
+		#define inspectstat(stat,what)  \
+		   if (WIFEXITED(stat)) { stat = WEXITSTATUS(stat); } \
+		   else if (WIFSIGNALED(stat)) { stat = WTERMSIG(stat); what = "signal"; }
+
+		#else
+
+		#define inspectstat(stat,what)  /* no op */
+
+		#endif
+
+		#endif				/* } */
+
+
+		public static int luaL_execresult (lua_State *L, int stat) {
+		  const char *what = "exit";  /* type of termination */
+		  if (stat == -1)  /* error? */
+		    return luaL_fileresult(L, 0, NULL);
+		  else {
+		    inspectstat(stat, what);  /* interpret result */
+		    if (*what == 'e' && stat == 0)  /* successful termination? */
+		      lua_pushboolean(L, 1);
+		    else
+		      lua_pushnil(L);
+		    lua_pushstring(L, what);
+		    lua_pushinteger(L, stat);
+		    return 3;  /* return true/nil,what,code */
+		  }
+}
+
+
 		/* }====================================================== */
 
 
@@ -383,8 +441,10 @@ namespace KopiLua
 		      newsize = B.n + sz;
 		    if (newsize < B.n || newsize - B.n < sz)
 		      luaL_error(L, "buffer too large");
-		    newbuff = (CharPtr)lua_newuserdata(L, newsize);  /* create larger buffer */
-		    memcpy(newbuff, B.b, B.n);  /* move content to new buffer */
+            /* create larger buffer */
+		    newbuff = (CharPtr)lua_newuserdata(L, newsize * 1); //FIXME:changed, sizeof(char)
+            /* move content to new buffer */
+		    memcpy(newbuff, B.b, B.n * 1); //FIXME:changed, sizeof(char)
 		    if (buffonstack(B)!=0)
 		      lua_remove(L, -2);  /* remove old buffer */
 		    B.b = newbuff;
@@ -396,7 +456,7 @@ namespace KopiLua
 
 		public static void luaL_addlstring (luaL_Buffer B, CharPtr s, uint l) {
 		  CharPtr b = luaL_prepbuffsize(B, l);
-		  memcpy(b, s, l);
+		  memcpy(b, s, l * 1); //FIXME:changed, sizeof(char)
 		  luaL_addsize(B, l);
 		}
 
@@ -626,7 +686,7 @@ namespace KopiLua
 		}
 
 
-		public static int luaL_loadbuffer(lua_State L, CharPtr buff, uint size,
+		public static int luaL_loadbuffer (lua_State L, CharPtr buff, uint size,
 										CharPtr name) {
 		  LoadS ls = new LoadS();
 		  ls.s = new CharPtr(buff);
@@ -639,10 +699,10 @@ namespace KopiLua
 		  return luaL_loadbuffer(L, s, (uint)strlen(s), s);
 		}
 
-
-
 		/* }====================================================== */
         //FIXME:-------->
+
+
 		public static int luaL_getmetafield (lua_State L, int obj, CharPtr event_) {
 		  if (lua_getmetatable(L, obj)==0)  /* no metatable? */
 			return 0;
@@ -711,7 +771,7 @@ namespace KopiLua
 		*/
 		//#if LUA_COMPAT_MODULE
 
-		private static CharPtr luaL_findtablex (lua_State L, int idx,
+		private static CharPtr luaL_findtable (lua_State L, int idx,
 											   CharPtr fname, int szhint) {
 		  CharPtr e;
 		  if (idx != 0) lua_pushvalue(L, idx);
@@ -756,13 +816,13 @@ namespace KopiLua
 		*/
 		public static void luaL_pushmodule (lua_State L, CharPtr modname,
 		                                 int sizehint) {
-		  luaL_findtablex(L, LUA_REGISTRYINDEX, "_LOADED", 1);  /* get _LOADED table */
+		  luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED", 1);  /* get _LOADED table */
 		  lua_getfield(L, -1, modname);  /* get _LOADED[modname] */
 		  if (!lua_istable(L, -1)) {  /* not found? */
 		    lua_pop(L, 1);  /* remove previous result */
 		    /* try global variable (and create one if it does not exist) */
 		    lua_pushglobaltable(L);
-		    if (luaL_findtablex(L, 0, modname, sizehint) != null)
+		    if (luaL_findtable(L, 0, modname, sizehint) != null)
 		      luaL_error(L, "name conflict for module " + LUA_QS, modname);
 		    lua_pushvalue(L, -1);
 		    lua_setfield(L, -3, modname);  /* _LOADED[modname] = new table */
@@ -778,7 +838,10 @@ namespace KopiLua
 		    luaL_pushmodule(L, libname, libsize(l));  /* get/create library table */
 		    lua_insert(L, -(nup + 1));  /* move library table to below upvalues */
 		  }
-		  luaL_setfuncs(L, l, nup);
+          if (l)
+		    luaL_setfuncs(L, l, nup);
+		  else
+		    lua_pop(L, nup);  /* remove upvalues */
 		}
 
 		//#endif
@@ -791,8 +854,8 @@ namespace KopiLua
 		*/
 		public static void luaL_setfuncs (lua_State L, /*const*/ luaL_Reg[] l, int nup) {
 		  luaL_checkstack(L, nup, "too many upvalues");
-		  for (int idxL = 0; idxL < l.Length && l[idxL].name != null; idxL++) {  /* fill the table with given functions */ //FIXME:changed://for (; l != null && l.name; l++) {
-		  	luaL_Reg l_ = l[idxL];
+		  for (int idxL = 0; idxL < l.Length && l[idxL].name != null; idxL++) {  /* fill the table with given functions */ //FIXME:changed://for (; l.name != null; l++) {
+		  	luaL_Reg l_ = l[idxL]; //FIXME:added
 		  	int i;
 		    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
 		      lua_pushvalue(L, -nup);
@@ -807,15 +870,16 @@ namespace KopiLua
 		** ensure that stack[idx][fname] has a table and push that table
 		** into the stack
 		*/
-		public static void luaL_findtable (lua_State L, int idx, CharPtr fname) {
+		public static int luaL_getsubtable (lua_State L, int idx, CharPtr fname) {
 		  lua_getfield(L, idx, fname);
-		  if (lua_istable(L, -1)) return;  /* table already there */
+		  if (lua_istable(L, -1)) return 1;  /* table already there */
 		  else {
 		    idx = lua_absindex(L, idx);
 		    lua_pop(L, 1);  /* remove previous result */
 		    lua_newtable(L);
 		    lua_pushvalue(L, -1);  /* copy to be left at top */
 		    lua_setfield(L, idx, fname);  /* assign new table to field */
+            return 0;  /* false, because did not find table there */
 		  }
 		}
 
@@ -831,7 +895,7 @@ namespace KopiLua
 		  lua_pushcfunction(L, openf);
 		  lua_pushstring(L, modname);  /* argument to open function */
 		  lua_call(L, 1, 1);  /* open module */
-		  luaL_findtable(L, LUA_REGISTRYINDEX, "_LOADED");
+		  luaL_getsubtable(L, LUA_REGISTRYINDEX, "_LOADED");
 		  lua_pushvalue(L, -2);  /* make copy of module (call result) */
 		  lua_setfield(L, -2, modname);  /* _LOADED[modname] = module */
 		  lua_pop(L, 1);  /* remove _LOADED table */
