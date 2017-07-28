@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.250 2010/09/07 19:38:36 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.263 2011/07/02 15:56:43 roberto Exp roberto $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -27,44 +27,54 @@ namespace KopiLua
 			lua_call(L, 1, 1);
 			s = lua_tolstring(L, -1, out l);  /* get result */
 			if (s == null)
-			  return luaL_error(L, LUA_QL("tostring") + " must return a string to " +
-								   LUA_QL("print"));
+			  return luaL_error(L, 
+			    LUA_QL("tostring") + " must return a string to " + LUA_QL("print"));
 			if (i > 1) luai_writestring("\t", 1);
 			luai_writestring(s, l);
 			lua_pop(L, 1);  /* pop result */
 		  }
-		  luai_writestring("\n", 1);
+		  luai_writeline();
 		  return 0;
 		}
 
 
+		private static string SPACECHARS = " \f\n\r\t\v";
+
 		private static int luaB_tonumber (lua_State L) {
 		  int base_ = luaL_optint(L, 2, 10);
+          luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
 		  if (base_ == 10) {  /* standard conversion */
 			luaL_checkany(L, 1);
 			if (lua_isnumber(L, 1) != 0) {
 			  lua_pushnumber(L, lua_tonumber(L, 1));
 			  return 1;
-			}
+			}  /* else not a number */
 		  }
 		  else {
-			CharPtr s1 = luaL_checkstring(L, 1);
-			CharPtr s2;
-			ulong n;
-            int neg = 0;
-			luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
-			while (isspace((int)(byte)(s1[0]))) /*s1++*/s1=s1+1;  /* skip initial spaces */ //FIXME:added, (int)
-			if (s1[0] == '-') { /*s1++*/s1 = s1 + 1; neg = 1; } //FIXME:changed, ++
-			n = strtoul(s1, out s2, base_);
-			if (s1 != s2) {  /* at least one valid digit? */
-			  while (isspace((byte)(s2[0]))) s2 = s2.next();  /* skip trailing spaces */
-			  if (s2[0] == '\0') {  /* no invalid trailing characters? */
-				lua_pushnumber(L, (neg!=0) ? -(lua_Number)n : (lua_Number)n);
-				return 1;
-			  }
-			}
+		    uint l;
+		    CharPtr s = luaL_checklstring(L, 1, &l);
+		    CharPtr e = s + l;  /* end point for 's' */
+		    int neg = 0;
+		    s += strspn(s, SPACECHARS);  /* skip initial spaces */
+		    if (s[0] == '-') { s++; neg = 1; }  /* handle signal */
+		    else if (s[0] == '+') s++;
+		    if (isalnum((unsigned char)s[0])) {
+		      lua_Number n = 0;
+		      do {
+		        int digit = (isdigit((unsigned char)*s)) ? *s - '0'
+		                       : toupper((unsigned char)*s) - 'A' + 10;
+		        if (digit >= base) break;  /* invalid numeral; force a fail */
+		        n = n * (lua_Number)base + (lua_Number)digit;
+		        s++;
+		      } while (isalnum((unsigned char)*s));
+		      s += strspn(s, SPACECHARS);  /* skip trailing spaces */
+		      if (s == e) {  /* no invalid trailing characters? */
+		        lua_pushnumber(L, (neg) ? -n : n);
+		        return 1;
+		      }  /* else not a number */
+		    }  /* else not a number */
 		  }
-		  lua_pushnil(L);  /* else not a number */
+		  lua_pushnil(L);  /* not a number */
 		  return 1;
 		}
 
@@ -105,17 +115,19 @@ namespace KopiLua
 		}
 
 
-		private static int luaB_getfenv (lua_State L) {
-		  return luaL_error(L, "getfenv/setfenv deprecated");
-		}
-
-		private static int luaB_setfenv (lua_State L) {return luaB_getfenv(L); }
-
-
 		private static int luaB_rawequal (lua_State L) {
 		  luaL_checkany(L, 1);
 		  luaL_checkany(L, 2);
 		  lua_pushboolean(L, lua_rawequal(L, 1, 2));
+		  return 1;
+		}
+
+
+		private static int luaB_rawlen (lua_State L) {
+		  int t = lua_type(L, 1);
+		  luaL_argcheck(L, t == LUA_TTABLE || t == LUA_TSTRING, 1,
+		                   "table or string expected");
+		  lua_pushinteger(L, lua_rawlen(L, 1));
 		  return 1;
 		}
 
@@ -248,6 +260,19 @@ namespace KopiLua
 		** =======================================================
 		*/
 
+
+		private class loaddata {
+		  public char c;
+		  public CharPtr mode;
+		};
+
+
+		/*
+		** check whether a chunk (prefix in 's') satisfies given 'mode'
+		** ('t' for text, 'b' for binary). Returns error message (also
+		** pushed on the stack) in case of errors.
+		*/
+
 		private static CharPtr checkrights (lua_State L, CharPtr mode, CharPtr s) {
 		  if (strchr(mode, 'b') == null && s[0] == LUA_SIGNATURE[0])
 		    return lua_pushstring(L, "attempt to load a binary chunk");
@@ -258,10 +283,11 @@ namespace KopiLua
 
 
 		/*
-		** reserves a slot, above all arguments, to hold a copy of the returned
-		** string to avoid it being collected while parsed
+		** reserved slot, above all arguments, to hold a copy of the returned
+		** string to avoid it being collected while parsed. 'load' has four
+		** optional arguments (chunk, source name, mode, and environment).
 		*/
-		private const int RESERVEDSLOT = 4;
+		private const int RESERVEDSLOT = 5;
 
 
 		/*
@@ -270,25 +296,20 @@ namespace KopiLua
 		** stack top. Instead, it keeps its resulting string in a
 		** reserved slot inside the stack.
 		*/
-		private class Readstat {  /* reader state */
-		  public int f;  /* position of reader function on stack */
-		  public CharPtr mode;  /* allowed modes (binary/text) */
-		};
-
 		private static CharPtr generic_reader (lua_State L, object ud, out uint size) {
 		  CharPtr s;
-		  Readstat stat = (Readstat)ud;
+		  loaddata ld = (loaddata )ud;
 		  luaL_checkstack(L, 2, "too many nested functions");
-		  lua_pushvalue(L, stat.f);  /* get function */
+		  lua_pushvalue(L, 1);  /* get function */
 		  lua_call(L, 0, 1);  /* call it */
 		  if (lua_isnil(L, -1)) {
 			size = 0;
 			return null;
 		  }
 		  else if ((s = lua_tostring(L, -1)) != null) {
-		  	if (stat.mode != null) {  /* first time? */
-		  	  s = checkrights(L, stat.mode, s);  /* check mode */
-		  	  stat.mode = null;  /* to avoid further checks */
+		    if (ld->mode != NULL) {  /* first time? */
+		      s = checkrights(L, ld->mode, s);  /* check mode */
+		      ld->mode = NULL;  /* to avoid further checks */
 		      if (s != null) luaL_error(L, s);
 		  	}
 			lua_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
@@ -302,53 +323,32 @@ namespace KopiLua
 		}
 
 
-		private static int luaB_load_aux (lua_State L, int farg) {
+		private static int luaB_load (lua_State L) {
 		  int status;
-		  Readstat stat = new Readstat();
-		  uint l;
-		  CharPtr s = lua_tolstring(L, farg, out l);
-		  CharPtr mode = luaL_optstring(L, farg + 2, "bt");
-		  if (s != null) {  /* loading a string? */
-		    CharPtr chunkname = luaL_optstring(L, farg + 1, s);
-		    status = ((checkrights(L, mode, s) != null)
-		              || luaL_loadbuffer(L, s, l, chunkname) != 0) ? 1 : 0;
+		  size_t l;
+		  int top = lua_gettop(L);
+		  const char *s = lua_tolstring(L, 1, &l);
+		  const char *mode = luaL_optstring(L, 3, "bt");
+		  if (s != NULL) {  /* loading a string? */
+		    const char *chunkname = luaL_optstring(L, 2, s);
+			status = (checkrights(L, mode, s) != NULL)
+			       || luaL_loadbuffer(L, s, l, chunkname);
 		  }
 		  else {  /* loading from a reader function */
-			  CharPtr chunkname = luaL_optstring(L, farg + 1, "=(load)");
-			  luaL_checktype(L, farg, LUA_TFUNCTION);
-              stat.f = farg;
-			  lua_settop(L, RESERVEDSLOT);  /* create reserved slot */
-			  status = lua_load(L, generic_reader, stat, chunkname); //FIXME:???
+		    const char *chunkname = luaL_optstring(L, 2, "=(load)");
+			loaddata ld;
+			ld.mode = mode;
+			luaL_checktype(L, 1, LUA_TFUNCTION);
+			lua_settop(L, RESERVEDSLOT);  /* create reserved slot */
+			status = lua_load(L, generic_reader, &ld, chunkname);
 		  }
+		  if (status == LUA_OK && top >= 4) {  /* is there an 'env' argument */
+		    lua_pushvalue(L, 4);  /* environment for loaded function */
+			lua_setupvalue(L, -2, 1);  /* set it as 1st upvalue */
+	      }
 		  return load_aux(L, status);
 		}
 
-
-		private static int luaB_load (lua_State L) {
-		  return luaB_load_aux(L, 1);
-		}
-
-
-		private static int luaB_loadin (lua_State L) {
-		  int n;
-		  luaL_checkany(L, 1);
-		  n = luaB_load_aux(L, 2);
-		  if (n == 1) {  /* success? */
-		    lua_pushvalue(L, 1);  /* environment for loaded function */
-		    if (lua_setupvalue(L, -2, 1) == null)
-      		  luaL_error(L, "loaded chunk does not have an upvalue");
-		  }
-		  return n;
-		}
-
-
-
-		private static int luaB_loadstring (lua_State L) {
-		  lua_settop(L, 2);
-		  lua_pushliteral(L, "tb");
-		  return luaB_load(L);  /* dostring(s, n) == load(s, n, "tb") */
-
-		}
 		/* }====================================================== */
 
 
@@ -390,7 +390,7 @@ namespace KopiLua
 
 
 		private static int pcallcont (lua_State L) {
-		  int errfunc = 0;  /* call has an error function in bottom of the stack */ //FIXME:???not init with 0
+		  int errfunc = 0;  /* =0 to avoid warnings */
 		  int status = lua_getctx(L, ref errfunc);
 		  lua_assert(status != LUA_OK);
 		  lua_pushboolean(L, (status == LUA_YIELD) ? 1 : 0);  /* first result (status) */
@@ -436,55 +436,27 @@ namespace KopiLua
 		}
 
 
-		private static int luaB_newproxy (lua_State L) {
-		  lua_settop(L, 1);
-		  lua_newuserdata(L, 0);  /* create proxy */
-		  if (lua_toboolean(L, 1) == 0)
-			return 1;  /* no metatable */
-		  else if (lua_isboolean(L, 1)) {
-		    lua_createtable(L, 0, 1);  /* create a new metatable `m' ... */
-		    lua_pushboolean(L, 1);
-		    lua_setfield(L, -2, "__gc");  /* ... m.__gc = false (HACK!!)... */
-			lua_pushvalue(L, -1);  /* ... and mark `m' as a valid metatable */
-			lua_pushboolean(L, 1);
-			lua_rawset(L, lua_upvalueindex(1));  /* weaktable[m] = true */
-		  }
-		  else {
-			int validproxy = 0;  /* to check if weaktable[metatable(u)] == true */
-			if (lua_getmetatable(L, 1) != 0) {
-			  lua_rawget(L, lua_upvalueindex(1));
-			  validproxy = lua_toboolean(L, -1);
-			  lua_pop(L, 1);  /* remove value */
-			}
-			luaL_argcheck(L, validproxy!=0, 1, "boolean or proxy expected");
-			lua_getmetatable(L, 1);  /* metatable is valid; get it */
-		  }
-		  lua_setmetatable(L, 2);
-		  return 1;
-		}
-
-
 		private readonly static luaL_Reg[] base_funcs = {
 		  new luaL_Reg("assert", luaB_assert),
 		  new luaL_Reg("collectgarbage", luaB_collectgarbage),
 		  new luaL_Reg("dofile", luaB_dofile),
 		  new luaL_Reg("error", luaB_error),
-		  new luaL_Reg("getfenv", luaB_getfenv),
 		  new luaL_Reg("getmetatable", luaB_getmetatable),
           new luaL_Reg("ipairs", luaB_ipairs),
 		  new luaL_Reg("loadfile", luaB_loadfile),
 		  new luaL_Reg("load", luaB_load),
-          new luaL_Reg("loadin", luaB_loadin),
+#if defined(LUA_COMPAT_LOADSTRING)
 		  new luaL_Reg("loadstring", luaB_loadstring),
+#endif
 		  new luaL_Reg("next", luaB_next),
           new luaL_Reg("pairs", luaB_pairs),
 		  new luaL_Reg("pcall", luaB_pcall),
 		  new luaL_Reg("print", luaB_print),
 		  new luaL_Reg("rawequal", luaB_rawequal),
+          new luaL_Reg("rawlen", luaB_rawlen),
 		  new luaL_Reg("rawget", luaB_rawget),
 		  new luaL_Reg("rawset", luaB_rawset),
 		  new luaL_Reg("select", luaB_select),
-		  new luaL_Reg("setfenv", luaB_setfenv),
 		  new luaL_Reg("setmetatable", luaB_setmetatable),
 		  new luaL_Reg("tonumber", luaB_tonumber),
 		  new luaL_Reg("tostring", luaB_tostring),
@@ -503,14 +475,6 @@ namespace KopiLua
 		  luaL_setfuncs(L, base_funcs, 0);
 		  lua_pushliteral(L, LUA_VERSION);
 		  lua_setfield(L, -2, "_VERSION");  /* set global _VERSION */
-		  /* `newproxy' needs a weaktable as upvalue */
-		  lua_createtable(L, 0, 1);  /* new table `w' */
-		  lua_pushvalue(L, -1);  /* `w' will be its own metatable */
-		  lua_setmetatable(L, -2);
-		  lua_pushliteral(L, "kv");
-		  lua_setfield(L, -2, "__mode");  /* metatable(w).__mode = "kv" */
-		  lua_pushcclosure(L, luaB_newproxy, 1);
-		  lua_setfield(L, -2, "newproxy");  /* set global `newproxy' */
 		  return 1;
 		}
 
