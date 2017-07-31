@@ -13,3 +13,32 @@ lbaselib.c
 
 21:18 2017-07-29
 lbitlib.c
+
+03:51 2017-08-01
+lcode.c
+03:52 2017-08-01
+lcode.h
+lcorolib.c
+03:58 2017-08-01
+lctype.c
+	#if !LUA_USE_CTYPE	///* { */
+04:09 2017-08-01
+lctype.h
+	#define LUA_USE_CTYPE	0
+	#if !defined(LUA_USE_CTYPE)
+04:13 2017-08-01
+ldblib.c
+04:31 2017-08-01
+ldebug.c
+	StkId pos = new StkId()= 0;  /* to avoid warnings */
+	StkId pos = new StkId() = 0;  /* to avoid warnings */
+04:32 2017-08-01
+ldebug.h
+04:45 2017-08-01
+ldo.c
+	Cfunc:
+ldo.h
+
+	
+	
+	

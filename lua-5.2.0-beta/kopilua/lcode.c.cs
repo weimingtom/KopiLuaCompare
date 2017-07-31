@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.48 2010/07/02 20:42:40 roberto Exp roberto $
+** $Id: lcode.c,v 2.55 2011/05/31 18:24:36 roberto Exp roberto $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -30,19 +30,23 @@ namespace KopiLua
 
 		public static void luaK_nil (FuncState fs, int from, int n) {
 		  InstructionPtr previous;
+          int l = from + n - 1;  /* last register to set nil */
 		  if (fs.pc > fs.lasttarget) {  /* no jumps to current position? */
 		    previous = new InstructionPtr(fs.f.code, fs.pc-1);
-		    if (GET_OPCODE(previous) == OpCode.OP_LOADNIL) {
-			  int pfrom = GETARG_A(previous);
-			  int pto = GETARG_B(previous);
-			  if (pfrom <= from && from <= pto+1) {  /* can connect both? */
-			    if (from+n-1 > pto)
-				  SETARG_B(previous, from+n-1);
+		    if (GET_OPCODE(previous) == OpCode.OP_LOADNIL) { //FIXME: no star
+			  int pfrom = GETARG_A(previous); //FIXME: no star
+		      int pl = pfrom + GETARG_B(previous); //FIXME: no star
+		      if ((pfrom <= from && from <= pl + 1) ||
+		          (from <= pfrom && pfrom <= l + 1)) {  /* can connect both? */
+		        if (pfrom < from) from = pfrom;  /* from = min(from, pfrom) */ 
+		        if (pl > l) l = pl;  /* l = max(l, pl) */ 
+		        SETARG_A(previous, from); //FIXME: no star
+		        SETARG_B(previous, l - from); //FIXME: no star
 			    return;
 			  }
-		    }
+		    }  /* else go through */
 		  }
-		  luaK_codeABC(fs, OpCode.OP_LOADNIL, from, from + n - 1, 0);  /* else no optimization */
+		  luaK_codeABC(fs, OpCode.OP_LOADNIL, from, n - 1, 0);  /* else no optimization */
 		}
 
 
@@ -166,14 +170,26 @@ namespace KopiLua
 		}
 
 
+		public static void luaK_patchclose (FuncState fs, int list, int level) {
+		  level++;  /* argument is +1 to reserve 0 as non-op */
+		  while (list != NO_JUMP) {
+		    int next = getjump(fs, list);
+		    lua_assert(GET_OPCODE(fs.f.code[list]) == OP_JMP &&
+		                (GETARG_A(fs.f.code[list]) == 0 ||
+		                 GETARG_A(fs.f.code[list]) >= level));
+		    SETARG_A(fs.f.code[list], level);
+		    list = next;
+		  }
+		}
+
+
 		public static void luaK_patchtohere (FuncState fs, int list) {
 		  luaK_getlabel(fs);
 		  luaK_concat(fs, ref fs.jpc, list);
 		}
 
 
-		public static void luaK_concat(FuncState fs, ref int l1, int l2)
-		{
+		public static void luaK_concat(FuncState fs, ref int l1, int l2) {
 		  if (l2 == NO_JUMP) return;
 		  else if (l1 == NO_JUMP)
 			l1 = l2;
@@ -225,11 +241,11 @@ namespace KopiLua
 		}
 
 
-		public static int luaK_codeABxX (FuncState fs, OpCode o, int reg, int k) {
-		  if (k < MAXARG_Bx)
-		  	return luaK_codeABx(fs, o, reg, (uint)(k + 1)); //FIXME: added (uint)
+		public static int luaK_codek (FuncState fs, int reg, int k) {
+		  if (k <= MAXARG_Bx)
+		  	return luaK_codeABx(fs, OP_LOADK, reg, (uint)(k)); //FIXME: added (uint)
 		  else {
-		    int p = luaK_codeABx(fs, o, reg, 0);
+		    int p = luaK_codeABx(fs, OP_LOADKX, reg, 0);
 		    codeextraarg(fs, k);
 		    return p;
 		  }
@@ -275,7 +291,7 @@ namespace KopiLua
 		  if (ttisnumber(idx)) {
 		    lua_Number n = nvalue(idx);
 		    lua_number2int(out k, n);
-			if (luaO_rawequalObj(f.k[k], v) != 0)
+			if (luaV_rawequalobj(f.k[k], v) != 0)
 		      return k;
 		    /* else may be a collision (e.g., between 0.0 and "\0\0\0\0\0\0\0\0");
 		       go through and create a new entry for this value */
@@ -562,15 +578,15 @@ namespace KopiLua
 
 
 		public static void luaK_self (FuncState fs, expdesc e, expdesc key) {
-		  int func;
+		  int ereg;
 		  luaK_exp2anyreg(fs, e);
+          ereg = e.u.info;  /* register where 'e' was placed */
 		  freeexp(fs, e);
-		  func = fs.freereg;
-		  luaK_codeABC(fs, OpCode.OP_SELF, func, e.u.info, luaK_exp2RK(fs, key));
+		  e.u.info = fs.freereg;  /* base register for op_self */
+		  e.k = VNONRELOC;
+		  luaK_reserveregs(fs, 2);  /* function and 'self' produced by op_self */
+		  luaK_codeABC(fs, OpCode.OP_SELF, e.u.info, ereg, luaK_exp2RK(fs, key));
 		  freeexp(fs, key);
-          luaK_reserveregs(fs, 2);
-		  e.u.info = func;
-		  e.k = expkind.VNONRELOC;
 		}
 
 
@@ -601,23 +617,15 @@ namespace KopiLua
 		  int pc;  /* pc of last jump */
 		  luaK_dischargevars(fs, e);
 		  switch (e.k) {
-			case expkind.VK: case expkind.VKNUM: case expkind.VTRUE: {
-			  pc = NO_JUMP;  /* always true; do nothing */
-			  break;
-			}
 			case expkind.VJMP: {
 			  invertjump(fs, e);
 			  pc = e.u.info;
 			  break;
 			}
-		    case expkind.VFALSE: {
-			  if (!hasjumps(e)) {
-			      pc = luaK_jump(fs);  /* always jump */
-			      break;
-			  }
-			  /* else go through */
-			  goto default; //FIXME:added
-		    }
+		    case expkind.VK: case expkind.VKNUM: case expkind.VTRUE: {
+			  pc = NO_JUMP;  /* always true; do nothing */
+			  break;
+			}
 			default: {
 			  pc = jumponcond(fs, e, 0);
 			  break;
@@ -633,22 +641,14 @@ namespace KopiLua
 		  int pc;  /* pc of last jump */
 		  luaK_dischargevars(fs, e);
 		  switch (e.k) {
-			case expkind.VNIL: case expkind.VFALSE: {
-			  pc = NO_JUMP;  /* always false; do nothing */
-			  break;
-			}
 			case expkind.VJMP: {
 			  pc = e.u.info;
 			  break;
 			}
-			case expkind.VTRUE: {
-                if (!hasjumps(e)) {
-			      pc = luaK_jump(fs);  /* always jump */
-			      break;
-		      }
-		      /* else go through */
-			  goto default;//FIXME:added
-		    }
+			case expkind.VNIL: case expkind.VFALSE: {
+			  pc = NO_JUMP;  /* always false; do nothing */
+			  break;
+			}
 			default: {
 			  pc = jumponcond(fs, e, 1);
 			  break;

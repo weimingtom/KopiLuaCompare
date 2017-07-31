@@ -11,5 +11,10 @@ namespace KopiLua
 		}
 		public static int getfuncline(Proto f, int pc) { return (f.lineinfo != null) ? f.lineinfo[pc] : 0; }
 		public static void resethookcount(lua_State L) { L.hookcount = L.basehookcount; }
+
+		/* Active Lua function (given call info) */
+		public static void ci_func(ci) { return (clLvalue(ci.func)); }
+
+
 	}
 }

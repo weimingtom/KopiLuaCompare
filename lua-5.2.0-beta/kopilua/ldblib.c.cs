@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.125 2010/11/10 18:06:10 roberto Exp roberto $
+** $Id: ldblib.c,v 1.129 2011/01/26 16:30:02 roberto Exp roberto $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -12,6 +12,11 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
+
+		private const string HOOKKEY = "_HKEY";
+
+
+
 		private static int db_getregistry (lua_State L) {
 		  lua_pushvalue(L, LUA_REGISTRYINDEX);
 		  return 1;
@@ -32,8 +37,8 @@ namespace KopiLua
 		  luaL_argcheck(L, t == LUA_TNIL || t == LUA_TTABLE, 2,
 							"nil or table expected");
 		  lua_settop(L, 2);
-		  lua_pushboolean(L, lua_setmetatable(L, 1));
-		  return 1;
+		  lua_setmetatable(L, 1);
+		  return 1;  /* return 1st argument */
 		}
 
 
@@ -243,16 +248,14 @@ namespace KopiLua
 		}
 
 
-		private const string KEY_HOOK = "h";
+		private static void gethooktable(L) { return luaL_getsubtable(L, LUA_REGISTRYINDEX, HOOKKEY); } //FIXME: ';'???
 
 
 
-		private static readonly string[] hooknames =
+		private static readonly string[] hooknames = //FIXME:changed
 			{"call", "return", "line", "count", "tail call"};
-
 		private static void hookf (lua_State L, lua_Debug ar) {
-		  lua_pushlightuserdata(L, KEY_HOOK);
-		  lua_rawget(L, LUA_REGISTRYINDEX);
+		  gethooktable(L);
 		  lua_pushlightuserdata(L, L);
 		  lua_rawget(L, -2);
 		  if (lua_isfunction(L, -1)) {
@@ -283,19 +286,6 @@ namespace KopiLua
 			if ((mask & LUA_MASKLINE) != 0) smask[i++] = 'l';
 			smask[i] = '\0';
 			return smask;
-		}
-
-
-		private static void gethooktable (lua_State L) {
-		  lua_pushlightuserdata(L, KEY_HOOK);
-		  lua_rawget(L, LUA_REGISTRYINDEX);
-		  if (!lua_istable(L, -1)) {
-			lua_pop(L, 1);
-			lua_createtable(L, 0, 1);
-			lua_pushlightuserdata(L, KEY_HOOK);
-			lua_pushvalue(L, -2);
-			lua_rawset(L, LUA_REGISTRYINDEX);
-		  }
 		}
 
 
