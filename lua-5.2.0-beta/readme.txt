@@ -77,11 +77,44 @@ liolib.c
 
 
 
-
-
-
-
-
+02:07 2017-08-03
+llex.c
+	ls.decpoint = '.'; // (cv ? cv.decimal_point[0] : '.'); //getlocaledecpoint() //FIXME:changed
+	UCHAR_MAX
+02:09 2017-08-03
+llex.h
+	public static lua_Number cast_num(i) { return (lua_Number)i; } //FIXME:???remove?
+	public static int cast_int(i) { return (int)i; } //FIXME:???remove?
+	public static byte cast_uchar(i) { return (byte)(i)); } //FIXME:???remove?
+02:24 2017-08-03
+llimits.h
+	//------------------>FIXME: below ignore???, TODO
+	//#define condchangemem(L)  \
+	//	((void)(!(G(L)->gcrunning) || (luaC_fullgc(L, 0), 1)))
+02:28 2017-08-03
+lmathlib.c
+	//#if defined(LUA_COMPAT_LOG10)
+			private static int math_log10 (lua_State L) {
+	#if defined(LUA_COMPAT_LOG10)
+			  new luaL_Reg("log10", math_log10),
+	#endif
+02:29 2017-08-03
+lmem.c
+	//FIXME: not sync, no gc below
+02:30 2017-08-03
+lmem.h
+02:48 2017-08-03
+loadlib.c
+	#if defined(LUA_COMPAT_MODULE)
+			  new luaL_Reg("seeall", ll_seeall),
+	#endif
+	#if defined(LUA_COMPAT_MODULE)
+			  new luaL_Reg("module", ll_module),
+	#endif
+	#if defined(LUA_COMPAT_LOADERS)
+			  lua_pushvalue(L, -1);  /* make a copy of 'searchers' table */
+			  lua_setfield(L, -3, "loaders");  /* put it in field `loaders' */
+	#endif
 
 
 

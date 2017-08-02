@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.40 2010/10/25 12:24:36 roberto Exp roberto $
+** $Id: llex.c,v 2.52 2011/07/08 19:17:30 roberto Exp roberto $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -30,10 +30,10 @@ namespace KopiLua
 		/* ORDER RESERVED */
 		private static readonly string[] luaX_tokens = {
 			"and", "break", "do", "else", "elseif",
-			"end", "false", "for", "function", "if",
+			"end", "false", "for", "function", "goto", "if",
 			"in", "local", "nil", "not", "or", "repeat",
 			"return", "then", "true", "until", "while",
-			"..", "...", "==", ">=", "<=", "~=", "<eof>",
+			"..", "...", "==", ">=", "<=", "~=", "::", "<eof>",
 			"<number>", "<name>", "<string>"
 		};
 
@@ -62,7 +62,6 @@ namespace KopiLua
 		  for (i=0; i<NUM_RESERVED; i++) {
 			TString ts = luaS_new(L, luaX_tokens[i]);
 			luaS_fix(ts);  /* reserved words are never collected */
-			lua_assert(luaX_tokens[i].Length+1 <= TOKEN_LEN);
 			ts.tsv.reserved = cast_byte(i+1);  /* reserved word */
 		  }
 		}
@@ -124,7 +123,7 @@ namespace KopiLua
           TValue o;  /* entry for `str' */
 		  TString ts = luaS_newlstr(L, str, l);  /* create new string */
 		  setsvalue2s(L, StkId.inc(ref L.top), ts);  /* temporarily anchor it in stack */
-		  o = luaH_setstr(L, ls.fs.h, ts); 
+		  o = luaH_setstr(L, ls.fs.h, ts);
 		  if (ttisnil(o)) {
 		    setbvalue(o, 1);  /* t[string] = true */
 		    luaC_checkGC(L);
@@ -149,9 +148,11 @@ namespace KopiLua
 		}
 
 
-		public static void luaX_setinput (lua_State L, LexState ls, ZIO z, TString source) {
+		public static void luaX_setinput (lua_State L, LexState ls, ZIO z, TString source,
+		                                  int firstchar) {
 		  ls.decpoint = '.';
 		  ls.L = L;
+          ls->current = firstchar;
 		  ls.lookahead.token = (int)RESERVED.TK_EOS;  /* no look-ahead token */
 		  ls.z = z;
 		  ls.fs = null;
@@ -161,7 +162,6 @@ namespace KopiLua
 		  ls.envn = luaS_new(L, LUA_ENV);  /* create env name */
 		  luaS_fix(ls.envn);  /* never collect this name */
 		  luaZ_resizebuffer(ls.L, ls.buff, LUA_MINBUFFER);  /* initialize buffer */
-		  next(ls);  /* read first char */
 		}
 
 
@@ -173,6 +173,7 @@ namespace KopiLua
 		*/
 
 
+
 		private static int check_next (LexState ls, CharPtr set) {
 		  if ((char)ls.current == '\0' || strchr(set, (char)ls.current) == null)
 			return 0;
@@ -181,7 +182,7 @@ namespace KopiLua
 		}
 
 
-		/* 
+		/*
 		** change all characters 'from' in buffer to 'to'
 		*/
 		private static void buffreplace (LexState ls, char from, char to) {
@@ -197,6 +198,9 @@ namespace KopiLua
 		//#define getlocaledecpoint()	(localeconv()->decimal_point[0])
 		//#endif
 
+
+		private static int buff2d(b, out e) { return luaO_str2d(luaZ_buffer(b), luaZ_bufflen(b) - 1, e);}
+
 		/*
 		** in case of format error, try to change decimal point separator to
 		** the one defined in the current locale and check again
@@ -207,8 +211,7 @@ namespace KopiLua
 			char old = ls.decpoint;
 			ls.decpoint = '.'; // (cv ? cv.decimal_point[0] : '.'); //getlocaledecpoint() //FIXME:changed
 			buffreplace(ls, old, ls.decpoint);  /* try new decimal separator */
-			if (luaO_str2d(luaZ_buffer(ls.buff), out seminfo.r) == 0)
-			{
+			if (buff2d(ls.buff, out seminfo.r) == 0) {
 				/* format error with correct decimal point: no more options */
 				buffreplace(ls, ls.decpoint, '.');  /* undo change (for error message) */
 				lexerror(ls, "malformed number", (int)RESERVED.TK_NUMBER);
@@ -285,45 +288,51 @@ namespace KopiLua
 		  }
 		}
 
-		private static int hexavalue (int c) {
-		  if (lisdigit(c) != 0) return c - '0';
-		  else if (lisupper(c) != 0) return c - 'A' + 10;
-		  else return c - 'a' + 10;
+		private static void escerror (LexState ls, int *c, int n, CharPtr msg) {
+		  int i;
+		  luaZ_resetbuffer(ls.buff);  /* prepare error message */
+		  save(ls, '\\');
+		  for (i = 0; i < n && c[i] != EOZ; i++)
+		    save(ls, c[i]);
+		  lexerror(ls, msg, TK_STRING);
 		}
 
 
 		private static int readhexaesc (LexState ls) {
-		  int c1, c2 = EOZ;
-		  if (lisxdigit(c1 = next(ls))==0 || lisxdigit(c2 = next(ls))==0) {
-		    luaZ_resetbuffer(ls.buff);  /* prepare error message */
-		    save(ls, '\\'); save(ls, 'x');
-		    if (c1 != EOZ) save(ls, c1);
-		    if (c2 != EOZ) save(ls, c2);
-		    lexerror(ls, "hexadecimal digit expected", (int)RESERVED.TK_STRING);
+		  int[] c = new int[3];  /* keep input for error message */
+		  int i = 2;  /* at least 'x?' will go to error message */
+		  c[0] = 'x';
+		  c[1] = next(ls);  /* first hexa digit */
+		  if (lisxdigit(c[1])) {
+		    c[i++] = next(ls);  /* second hexa digit */
+		    if (lisxdigit(c[2]))
+		      return (luaO_hexavalue(c[1]) << 4) + luaO_hexavalue(c[2]);
+		    /* else go through to error */
 		  }
-		  return (hexavalue(c1) << 4) + hexavalue(c2);
+		  escerror(ls, c, i, "hexadecimal digit expected");
+		  return 0;  /* to avoid warnings */
 		}
 
 
 		private static int readdecesc (LexState ls) {
-		  int c1 = ls.current, c2, c3;
-		  int c = c1 - '0';
-		  if (lisdigit(c2 = next(ls)) != 0) {
-		    c = 10*c + c2 - '0';
-		    if (lisdigit(c3 = next(ls)) != 0) {
-		      c = 10*c + c3 - '0';
-		      if (c > System.Byte.MaxValue) {
-		        luaZ_resetbuffer(ls.buff);  /* prepare error message */
-		        save(ls, '\\');
-		        save(ls, c1); save(ls, c2); save(ls, c3);
-		        lexerror(ls, "decimal escape too large", (int)RESERVED.TK_STRING);
-		      }
-		      return c;
+		  int[] c = new int[3]; int r;
+		  int i = 2;  /* at least two chars will be read */
+		  c[0] = ls.current;  /* first char must be a digit */
+		  c[1] = next(ls);  /* read second char */
+		  r = c[0] - '0';  /* partial result */
+		  if (lisdigit(c[1])) {
+		    c[i++] = next(ls);  /* read third char */
+		    r = 10*r + c[1] - '0';  /* update result */
+		    if (lisdigit(c[2])) {
+		      r = 10*r + c[2] - '0';  /* update result */
+		      if (r > UCHAR_MAX)
+		        escerror(ls, c, i, "decimal escape too large");
+		      return r;
 		    }
 		  }
 		  /* else, has read one character that was not a digit */
 		  zungetc(ls.z);  /* return it to input stream */
-		  return c;
+		  return r;
 		}
 
 
@@ -352,9 +361,10 @@ namespace KopiLua
                   case 'x': c = readhexaesc(ls); break;
 				  case '\n':  /* go through */
 				  case '\r': save(ls, '\n'); inclinenumber(ls); continue;
+                  case '\\': case '\"': case '\'': c = ls.current; break;
 				  case EOZ: continue;  /* will raise an error next loop */
-		          case '*': {  /* skip following span of spaces */
-		            next(ls);  /* skip the '*' */
+		          case 'z': {  /* zap following span of spaces */
+		            next(ls);  /* skip the 'z' */
 		            while (lisspace(ls.current)!=0) {
 		              if (currIsNewline(ls)) inclinenumber(ls);
 		              else next(ls);
@@ -363,9 +373,9 @@ namespace KopiLua
 		          }
 				  default: {
 			            if (lisdigit(ls.current)==0)
-			              c = ls.current;  /* handles \\, \", \', and \? */
-			            else  /* digital escape \ddd */
-			              c = readdecesc(ls);
+			              escerror(ls, &ls->current, 1, "invalid escape sequence");
+			            /* digital escape \ddd */
+			            c = readdecesc(ls);
 			            break;
 				  }
 				}
@@ -445,6 +455,11 @@ namespace KopiLua
 				if (ls.current != '=') return '~';
 				else { next(ls); return (int)RESERVED.TK_NE; }
 			  }
+			  case ':': {
+		        next(ls);
+		        if (ls.current != ':') return ':';
+		        else { next(ls); return TK_DBCOLON; }
+		      }
 			  case '"': case '\'': {  /* short literal strings */
 				read_string(ls, ls.current, seminfo);
 				return (int)RESERVED.TK_STRING;

@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.78 2010/11/12 15:47:34 roberto Exp roberto $
+** $Id: lmathlib.c,v 1.79 2010/11/18 18:38:27 roberto Exp roberto $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -132,15 +132,12 @@ namespace KopiLua
 		  return 1;
 		}
 
+//#if defined(LUA_COMPAT_LOG10)
 		private static int math_log10 (lua_State L) {
-//#if !LUA_COMPAT_LOG10 //FIXME:???
-//		  return luaL_error(L, "function " + LUA_QL("log10") + 
-//		                " is deprecated; use log(x, 10) instead");
-//#else
 		  lua_pushnumber(L, Math.Log10(luaL_checknumber(L, 1)));
 		  return 1;
-//#endif
 		}
+//#endif
 
 		private static int math_exp (lua_State L) {
 		  lua_pushnumber(L, Math.Exp(luaL_checknumber(L, 1)));
@@ -252,7 +249,9 @@ namespace KopiLua
 		  new luaL_Reg("fmod",   math_fmod),
 		  new luaL_Reg("frexp", math_frexp),
 		  new luaL_Reg("ldexp", math_ldexp),
+#if defined(LUA_COMPAT_LOG10)
 		  new luaL_Reg("log10", math_log10),
+#endif
 		  new luaL_Reg("log",   math_log),
 		  new luaL_Reg("max",   math_max),
 		  new luaL_Reg("min",   math_min),

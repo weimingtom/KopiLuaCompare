@@ -1,7 +1,7 @@
 //#define lua_assert
 
 /*
-** $Id: llimits.h,v 1.83 2010/11/03 15:16:17 roberto Exp roberto $
+** $Id: llimits.h,v 1.89 2011/05/05 19:43:14 roberto Exp roberto $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -83,6 +83,9 @@ namespace KopiLua
 		public static object check_exp(bool c, object e)		{lua_assert(c); return e;}
 		public static object check_exp(int c, object e) { lua_assert(c != 0); return e; }
 
+		/* to avoid problems with conditions too long */
+		public static void lua_longassert(bool c)	{ if (!c) lua_assert(0); }
+		public static void lua_longassert(int c)	{ if (c==0) lua_assert(0); }
 #else
 
 		[Conditional("DEBUG")]
@@ -98,16 +101,23 @@ namespace KopiLua
 		public static object check_exp(bool c, object e) { return e; }
 		public static object check_exp(int c, object e) { return e; }
 
+		/* to avoid problems with conditions too long */
+		public static void lua_longassert(bool c)	{ /* empty */ }
+		public static void lua_longassert(int c)	{ /* empty */ }
 #endif
 
 		/*
 		** assertion for checking API calls
 		*/
+		//#if !defined(luai_apicheck)
+
 		//#if defined(LUA_USE_APICHECK)
 		//#include <assert.h>
-		//#define luai_apicheck(L,e)	{ (void)L; assert(e); }
-		//#elif !defined(luai_apicheck)
+		//#define luai_apicheck(L,e)	assert(e)
+		//#else
 		//#define luai_apicheck(L,e)	lua_assert(e)
+		//#endif
+
 		//#endif
 		//FIXME:???
 		[Conditional("DEBUG")]
@@ -120,15 +130,22 @@ namespace KopiLua
 		[Conditional("DEBUG")]
 		public static void api_check(object l, int e, string msg) { luai_apicheck(l,e!=0,msg); }
 
+        //#if !defined(UNUSED)
 		//#define UNUSED(x)	((void)(x))	/* to avoid warnings */
+        //#endif
 
+
+		//#define cast(t, exp)	((t)(exp))
 
 		public static lu_byte cast_byte(int i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(long i) { return (lu_byte)(int)i; }
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
 		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(object i) { return (lu_byte)(int)(i); }
-
+		public static lua_Number cast_num(i) { return (lua_Number)i; } //FIXME:???remove?
+		public static int cast_int(i) { return (int)i; } //FIXME:???remove?
+        public static byte cast_uchar(i) { return (byte)(i)); } //FIXME:???remove?
+		
 		/*
 		** maximum depth for nested C calls and syntactical nested non-terminals
 		** in a program. (Value must fit in an unsigned short int.)
@@ -229,6 +246,9 @@ namespace KopiLua
 		** lua_number2integer is a macro to convert lua_Number to lua_Integer.
 		** lua_number2unsigned is a macro to convert a lua_Number to a lua_Unsigned.
 		** lua_unsigned2number is a macro to convert a lua_Unsigned to a lua_Number.
+		** luai_hashnum is a macro to hash a lua_Number value into an integer.
+		** The hash must be deterministic and give reasonable values for
+		** both small and large values (outside the range of integers).
 		*/
 
 		//#if defined(MS_ASMTRICK)	/* { */
@@ -258,6 +278,10 @@ namespace KopiLua
 		//  { LUAI_EXTRAIEEE \
 		//    volatile union luai_Cast u; u.l_d = (n) + 6755399441055744.0; \
 		//    (i) = (t)u.l_p[LUA_IEEEENDIAN]; }
+
+		//#define luai_hashnum(i,n)  \
+		//  { volatile union luai_Cast u; u.l_d = (n) + 1.0;  /* avoid -0 */ \
+		//    (i) = u.l_p[0] + u.l_p[1]; }  /* add double bits for his hash */
 
 		//#define lua_number2int(i,n)		lua_number2int32(i, n, int)
 		//#define lua_number2integer(i,n)		lua_number2int32(i, n, lua_Integer)
@@ -297,14 +321,8 @@ namespace KopiLua
 		//#endif
 
 
-		/*
-		** luai_hashnum is a macro do hash a lua_Number value into an integer.
-		** The hash must be deterministic and give reasonable values for
-		** both small and large values (outside the range of integers).
-		** It is used only in ltable.c.
-		*/
 
-		//#if !defined(luai_hashnum)	/* { */
+		//#if (defined(ltable_c) || defined(luaall_c)) && !defined(luai_hashnum)
 
 		//#include <float.h>
 		//#include <math.h>
@@ -313,7 +331,7 @@ namespace KopiLua
 		//  n = frexp(n, &e) * (lua_Number)(INT_MAX - DBL_MAX_EXP);  \
 		//  lua_number2int(i, n); i += e; }
 
-		//#endif						/* } */
+		//#endif
 		//FIXME:---------------------------------->
 		
 		//FIXME:simple implementations for saving time :(
@@ -340,7 +358,7 @@ namespace KopiLua
 		//#define condchangemem(L)	condmovestack(L)
 		//#else
 		//#define condchangemem(L)  \
-		//	((void)(gcstopped(G(L)) || (luaC_fullgc(L, 0), 1)))
+		//	((void)(!(G(L)->gcrunning) || (luaC_fullgc(L, 0), 1)))
 		//#endif
 
 	}
