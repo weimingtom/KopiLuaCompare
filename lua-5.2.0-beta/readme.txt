@@ -53,7 +53,27 @@ lgc.h
 15:32 2017/8/2
 linit.c
 
-
+20:36 2017-08-02
+liolib.c
+	LStream p = (LStream)lua_newuserdata(L, typeof(LStream));->typeof(LStream)
+	private static int read_number (lua_State L, Stream f) {
+	  //lua_Number d; //FIXME:???
+	  object[] parms = { (object)(double)0.0 }; //FIXME:???
+	private const int MAX_SIZE_T = (~(size_t)0);
+	//
+	int[] mode = { SEEK_SET, SEEK_CUR, SEEK_END }; //FIXME: ???static const???
+	CharPtr[] modenames = { "set", "cur", "end", null }; //FIXME: ???static const???
+	//Flush->fflush()
+	private static int io_flush (lua_State L) {
+		int result = 1;//FIXME: added
+		try {getiofile(L, IO_OUTPUT).Flush();} catch {result = 0;}//FIXME: added
+	  return luaL_fileresult(L, result, null); //FIXME: changed
+	}
+	private static int f_flush (lua_State L) {
+		int result = 1;//FIXME: added
+		try {tofile(L).Flush();} catch {result = 0;} //FIXME: added
+		return luaL_fileresult(L, result, null); //FIXME: changed
+	}	
 
 
 
