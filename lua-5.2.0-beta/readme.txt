@@ -39,6 +39,50 @@ ldo.c
 	Cfunc:
 ldo.h
 
+15:03 2017/8/2
+ldump.c
+lfunc.c
+lfunc.h
+15:25 2017/8/2
+lgc.c
+15:31 2017/8/2
+lgc.h
+	public static void luaC_condGC(L,c) {
+			{if (G(L).GCdebt > 0) {c;}; condchangemem(L);} } //FIXME:???macro
+		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, ()=>{luaC_step(L);}} 		//FIXME: macro in {}
+15:32 2017/8/2
+linit.c
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
 	
 	

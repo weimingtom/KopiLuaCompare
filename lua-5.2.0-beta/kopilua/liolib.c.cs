@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.94 2010/11/09 16:57:49 roberto Exp roberto $
+** $Id: liolib.c,v 2.100 2011/06/21 13:43:48 roberto Exp roberto $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -23,39 +23,39 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		private const uint MAX_SIZE_T = uint.MaxValue;//(int)(~(uint)0); //FIXME: ??? == 0xffffffff
-
 
 		/*
 		** lua_popen spawns a new process connected to the current one through
 		** the file streams.
 		*/
-		//#if !defined(lua_popen)
+		//#if !defined(lua_popen)	/* { */
 
-		//#if defined(LUA_USE_POPEN)
+		//#if defined(LUA_USE_POPEN)	/* { */
 
 		//#define lua_popen(L,c,m)        ((void)L, fflush(NULL), popen(c,m))
 		//#define lua_pclose(L,file)      ((void)L, pclose(file))
 
-		//#elif defined(LUA_WIN)
+		//#elif defined(LUA_WIN)		/* }{ */
 
 		private static Stream lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
 		private static int lua_pclose(lua_State L, Stream file)  { /*(void)L,*/ return _pclose(file); }
 
-		//#else
+
+		//#else				/* }{ */
 
 		//#define lua_popen(L,c,m)        ((void)((void)c, m),  \
 		//                luaL_error(L, LUA_QL("popen") " not supported"), (FILE*)0)
 		//#define lua_pclose(L,file)              ((void)((void)L, file), -1)
 
-		//#endif
 
-		//#endif
+		//#endif				/* } */
+
+		//#endif			/* } */
 
 
-
-		public const int IO_INPUT	= 1;
-		public const int IO_OUTPUT	= 2;
+		public const string IO_PREFIX = "_IO_";
+		public const string IO_INPUT	= (IO_PREFIX + "input")
+		public const string IO_OUTPUT	= (IO_PREFIX + "output");
 
 		private static readonly string[] fnames = { "input", "output" };
 

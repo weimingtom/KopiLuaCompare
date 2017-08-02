@@ -47,10 +47,6 @@ namespace KopiLua
 		public static bool keepinvariant(global_State g) { return (isgenerational(g) || g.gcstate <= GCSatomic); }
 
 
-		public static bool gcstopped(global_State g) { return (g.GCdebt == MIN_LMEM); }
-		public static void stopgc(global_State g) { g.GCdebt = MIN_LMEM; }
-
-
 		/*
 		** some useful bit tricks
 		*/
@@ -71,8 +67,8 @@ namespace KopiLua
 		public const int WHITE0BIT		= 0;  /* object is white (type 0) */
 		public const int WHITE1BIT		= 1;  /* object is white (type 1) */
 		public const int BLACKBIT		= 2;  /* object is black */
-		public const int FINALIZEDBIT	= 3;  /* for userdata: has been finalized */
-		public const int SEPARATED		= 4;  /*  "    ": it's in 'udgc' list or in 'tobefnz' */
+		public const int FINALIZEDBIT	= 3;  /* object has been separated for finalization */
+		public const int SEPARATED		= 4;  /* object is in 'finobj' list or in 'tobefnz' */
 		public const int FIXEDBIT		= 5;  /* object is fixed (should not be collected) */
 		public const int OLDBIT		= 6;  /* object is old (only in generational mode) */
 		/* bit 7 is currently used by tests (luaL_checkmemory) */
@@ -103,8 +99,9 @@ namespace KopiLua
 		public static byte luaC_white(global_State g) { return (byte)(g.currentwhite & WHITEBITS); }
 
 
-        //FIXME:empty-> //condchangemem(L);
-		public static void luaC_checkGC(lua_State L) {/*condchangemem(L);*/ if (G(L).GCdebt > 0) luaC_step(L);} //FIXME: macro in {}
+		public static void luaC_condGC(L,c) {
+			{if (G(L).GCdebt > 0) {c;}; condchangemem(L);} } //FIXME:???macro
+		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, ()=>{luaC_step(L);}} //FIXME: macro in {}
 
 
 		public static void luaC_barrier(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))

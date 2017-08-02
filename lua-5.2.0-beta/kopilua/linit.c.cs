@@ -1,16 +1,16 @@
 /*
-** $Id: linit.c,v 1.29 2010/10/25 14:32:36 roberto Exp roberto $
-** Initialization of libraries for lua.c and other clients        
+** $Id: linit.c,v 1.31 2011/01/26 16:30:02 roberto Exp roberto $
+** Initialization of libraries for lua.c and other clients
 ** See Copyright Notice in lua.h
 */
 
 
-/*                                                           
+/*
 ** If you embed Lua in your program and need to open the standard
 ** libraries, call luaL_openlibs in your program. If you need a
 ** different set of libraries, copy this file to your project and edit
 ** it to suit your needs.
-*/                                                              
+*/
 
 using System;
 using System.Collections.Generic;
@@ -57,7 +57,7 @@ namespace KopiLua
 			lua_pop(L, 1);  /* remove lib */
 		  }
 		  /* add open functions from 'preloadedlibs' into 'package.preload' table */
-          luaL_findtable(L, LUA_REGISTRYINDEX, "_PRELOAD");
+          luaL_getsubtable(L, LUA_REGISTRYINDEX, "_PRELOAD");
 		  for (int i=0; i<preloadedlibs.Length-1; i++) { //FIXME: changed
 		    luaL_Reg lib = preloadedlibs[i]; //FIXME: added
 		    lua_pushcfunction(L, lib.func);
