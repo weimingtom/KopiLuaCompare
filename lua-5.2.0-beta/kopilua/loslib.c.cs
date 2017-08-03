@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.31 2010/07/02 12:01:53 roberto Exp roberto $
+** $Id: loslib.c,v 1.34 2011/03/03 16:34:46 roberto Exp roberto $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -22,7 +22,7 @@ namespace KopiLua
 	{
 
 		/*
-		** list of valid conversion specifiers @* for the 'strftime' function
+		** list of valid conversion specifiers for the 'strftime' function
 		*/
 		//#if !defined(LUA_STRFTIMEOPTIONS)
 
@@ -60,74 +60,50 @@ namespace KopiLua
 
 
 
-		private static int os_pushresult (lua_State L, int i, CharPtr filename) {
-		  int en = errno();  /* calls to Lua API may change this value */
-		  if (i != 0) {
-			lua_pushboolean(L, 1);
-			return 1;
-		  }
-		  else {
-			lua_pushnil(L);
-			lua_pushfstring(L, "%s: %s", filename, strerror(en));
-			lua_pushinteger(L, en);
-			return 3;
-		  }
-		}
-
-
 		private static int os_execute (lua_State L) {
-			CharPtr strCmdLine = "/C regenresx " + luaL_optstring(L, 1, null);
-			System.Diagnostics.Process proc = new System.Diagnostics.Process();
-			proc.EnableRaisingEvents=false;
-			proc.StartInfo.FileName = "CMD.exe";
-			proc.StartInfo.Arguments = strCmdLine.ToString();
-			proc.Start();
-			proc.WaitForExit();
-			lua_pushinteger(L, proc.ExitCode);
-			return 1;
+		  CharPtr cmd = luaL_optstring(L, 1, NULL);
+		  int stat = system(cmd);
+		  if (cmd != NULL)
+		    return luaL_execresult(L, stat);
+		  else {
+		    lua_pushboolean(L, stat);  /* true if there is a shell */
+		    return 1;
+		  }
 		}
 
 
 		private static int os_remove (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
-		  int result = 1;
-		  try {File.Delete(filename.ToString());} catch {result = 0;}
-		  return os_pushresult(L, result, filename);
+		  return luaL_fileresult(L, remove(filename) == 0, filename);
 		}
 
 
 		private static int os_rename (lua_State L) {
-			CharPtr fromname = luaL_checkstring(L, 1);
+		  CharPtr fromname = luaL_checkstring(L, 1);
 		  CharPtr toname = luaL_checkstring(L, 2);
-		  int result;
-		  try
-		  {
-			  File.Move(fromname.ToString(), toname.ToString());
-			  result = 0;
-		  }
-		  catch
-		  {
-			  result = 1; // todo: this should be a proper error code
-		  }
-		  return os_pushresult(L, result, fromname);
+		  return luaL_fileresult(L, rename(fromname, toname) == 0, fromname);
 		}
 
 
 		private static int os_tmpname (lua_State L) {
-		  lua_pushstring(L, Path.GetTempFileName()); //FIXME: changed
+		  CharPtr buff = new char[LUA_TMPNAMBUFSIZE];
+		  int err;
+		  lua_tmpnam(buff, err);
+		  if (err)
+		    return luaL_error(L, "unable to generate a unique filename");
+		  lua_pushstring(L, buff);
 		  return 1;
 		}
 
 
 		private static int os_getenv (lua_State L) {
-		  lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if null push nil */
+		  lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
 		  return 1;
 		}
 
 
 		private static int os_clock (lua_State L) {
-		  long ticks = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-		  lua_pushnumber(L, ((lua_Number)ticks)/(lua_Number)1000);
+		  lua_pushnumber(L, ((lua_Number)clock())/(lua_Number)CLOCKS_PER_SEC);
 		  return 1;
 		}
 

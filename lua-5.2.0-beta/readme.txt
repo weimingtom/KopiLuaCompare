@@ -152,13 +152,35 @@ lopcodes.c
 10:50 2017/8/3
 lopcodes.h
 
-	
-	
-
-
-
-
-
+13:15 2017/8/3
+loslib.c	
+		private static int os_execute (lua_State L) {
+		  CharPtr cmd = luaL_optstring(L, 1, NULL);
+		  int stat = system(cmd);
+		private static int os_remove (lua_State L) {
+		  CharPtr filename = luaL_checkstring(L, 1);
+		  return luaL_fileresult(L, remove(filename) == 0, filename);		  	
+		private static int os_rename (lua_State L) {
+		  CharPtr fromname = luaL_checkstring(L, 1);
+		  CharPtr toname = luaL_checkstring(L, 2);
+		  return luaL_fileresult(L, rename(fromname, toname) == 0, fromname);
+		private static int os_clock (lua_State L) {
+		  lua_pushnumber(L, ((lua_Number)clock())/(lua_Number)CLOCKS_PER_SEC);
+		private static int os_date (lua_State L) {
+				  CharPtr s = luaL_optstring(L, 1, "%c");
+17:05 2017/8/3
+lparser.c 
+	//------------------------------
+			MAX_INT->Int32.MaxValue
+	//------------------------------
+	lastfunc = f; //FIXME:added, ???
+	//------------------------------
+		  for (int i = 0; i < f.p.Length; i++) //FIXME:added
+		  {
+			  f.p[i].protos = f.p;
+			  f.p[i].index = i;
+		  }
+	//------------------------------
 
 
 
