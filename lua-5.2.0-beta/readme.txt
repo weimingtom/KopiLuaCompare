@@ -184,7 +184,38 @@ lparser.c
 
 
 
-
+20:53 2017-08-03
+lparser.h
+21:00 2017-08-03
+lstate.c
+		//FIXME:???not implemented
+        private static LX fromstate(lua_State L) { 
+		 throw new Exception("not implemented"); //FIXME:???
+		 return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+21:04 2017-08-03
+lstate.h
+21:09 2017-08-03
+lstring.c
+lstring.h
+21:21 2017-08-03
+lstrlib.c
+	if ((uint)(p - strfrmt) >= (FLAGS.Length+1)) //FIXME:???sizeof(FLAGS)/sizeof(char)
+	if ((uint)(p - strfrmt) >= (FLAGS.Length)) //FIXME:???sizeof(FLAGS)/sizeof(char), ?+1
+21:27 2017-08-03
+ltable.c
+	/* else go through */
+	//FIXME:added ???this is not beautiful, use goto default
+ltable.h
+21:33 2017-08-03
+ltablib.c
+21:35 2017-08-03
+ltm.c
+21:36 2017-08-03
+ltm.h
+21:40 2017-08-03
+lua.c
+21:42 2017-08-03
+lua.h
 
 
 

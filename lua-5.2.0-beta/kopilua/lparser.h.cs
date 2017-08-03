@@ -75,8 +75,8 @@ namespace KopiLua
 		};
 
 
-
-		public class vardesc : ArrayElement {
+		/* description of active local variable */
+		public class Vardesc : ArrayElement {
 			//-----------------------------------
 			//FIXME:ArrayElement added
 			private vardesc[] values = null; 
@@ -93,31 +93,47 @@ namespace KopiLua
 				Debug.Assert(this.values != null);
 			}
 			//------------------------------------------
-		  public ushort idx;
+		  public ushort idx;  /* variable index in stack */
 		};
 
 
 
-		/* list of all active local variables */
-		public struct Varlist {
-		  public vardesc[] actvar;
-		  public int nactvar;
-		  public int actvarsize;
+		/* description of pending goto statements and label statements */
+		public class Labeldesc {
+		  public TString name;  /* label identifier */
+		  public int pc;  /* position in code */
+		  public int line;  /* line where it appeared */
+		  public lu_byte nactvar;  /* local level where it appears in current block */
 		};
 
 
+		/* list of labels or gotos */
+		public class Labellist {
+		  Labeldesc arr;  /* array */
+		  int n;  /* number of entries in use */
+		  int size;  /* array size */
+		};
 
+
+		/* dynamic structures used by the parser */
+		public class Dyndata {
+		  public class actvar_ {  /* list of active local variables */
+		    public Vardesc arr;
+		    public int n;
+		    public int size;
+		  };
+		  public actvar_ actvar = new actvar_();
+		  public Labellist gt = new Labellist();  /* list of pending gotos */
+		  public Labellist label = new Labellist();   /* list of active labels */
+		};
+
+
+		/* control of blocks */
+		//struct BlockCnt;  /* defined in lparser.c */
 
 
 		/* state needed to generate code for a given function */
 		public class FuncState {
-		  public FuncState()
-		  {
-		  	//FIXME:removed
-		  	//for (int i=0; i<this.upvalues.Length; i++)
-			//	  this.upvalues[i] = new upvaldesc();
-		  }
-
 		  public Proto f;  /* current function header */
 		  public Table h;  /* table to find (and reuse) elements in `k' */
 		  public FuncState prev;  /* enclosing function */

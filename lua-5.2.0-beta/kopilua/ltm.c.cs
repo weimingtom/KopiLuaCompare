@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.c,v 2.11 2010/01/13 16:18:25 roberto Exp roberto $
+** $Id: ltm.c,v 2.13 2011/02/28 17:32:10 roberto Exp roberto $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -16,11 +16,11 @@ namespace KopiLua
 	{
 		private static CharPtr udatatypename = "userdata";
 
-		public readonly static CharPtr[] luaT_typenames_ = {
+		public readonly static CharPtr[] luaT_typenames_ = { //FIXME:changed, LUA_TOTALTAGS
           "no value",
 		  "nil", "boolean", udatatypename, "number",
 		  "string", "table", "function", udatatypename, "thread",
-		  "proto", "upval"
+		  "proto", "upval"  /* these last two cases are used for tests only */
 		};
 
 		private readonly static CharPtr[] luaT_eventname = {  /* ORDER TM */
@@ -57,7 +57,7 @@ namespace KopiLua
 
 		public static TValue luaT_gettmbyobj (lua_State L, TValue o, TMS event_) {
 		  Table mt;
-		  switch (ttype(o)) {
+		  switch (ttypenv(o)) {
 			case LUA_TTABLE:
 			  mt = hvalue(o).metatable;
 			  break;

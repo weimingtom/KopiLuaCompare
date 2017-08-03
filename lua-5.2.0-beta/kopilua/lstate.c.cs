@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.85 2010/04/30 18:36:22 roberto Exp roberto $
+** $Id: lstate.c,v 2.88 2010/12/20 18:17:46 roberto Exp roberto $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -60,16 +60,20 @@ namespace KopiLua
 
         //FIXME:???not implemented
         private static LX fromstate(lua_State L) { 
-        	throw new Exception("not implemented"); //FIXME:???
-        	return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+		 throw new Exception("not implemented"); //FIXME:???
+		 return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
         } 
 
 
 
 		/*
-		** maximum number of nested calls made by error-handling function
+		** set GCdebt to a new value keeping the value (totalbytes + GCdebt)
+		** invariant
 		*/
-		public const int LUAI_EXTRACALLS = 10;
+		private static void luaE_setdebt (global_State g, l_mem debt) {
+		  g.totalbytes -= (debt - g.GCdebt);
+		  g.GCdebt = debt;
+		}
 
 
 		public static CallInfo luaE_extendCI (lua_State L) {
@@ -154,7 +158,7 @@ namespace KopiLua
 		  /* pre-create memory-error message */
 		  g.memerrmsg = luaS_newliteral(L, MEMERRMSG);
 		  luaS_fix(g.memerrmsg);  /* it should never be collected */
-		  g.GCdebt = 0;
+		  g.gcrunning = 1;  /* allow gc */
 		}
 
 
@@ -187,7 +191,7 @@ namespace KopiLua
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);
-		  lua_assert(g.totalbytes == GetUnmanagedSize(typeof(LG)));
+		  lua_assert(gettotalbytes(g) == GetUnmanagedSize(typeof(LG))); //FIXME:changed, sizeof(LG)
 		  //g.frealloc(g.ud, fromstate(L), (uint)GetUnmanagedSize(typeof(LG)), 0); //FIXME:???deleted
 		}
 
@@ -243,7 +247,7 @@ namespace KopiLua
 		  g.mainthread = L;
 		  g.uvhead.u.l.prev = g.uvhead;
 		  g.uvhead.u.l.next = g.uvhead;
-		  stopgc(g);  /* no GC while building state */
+		  g.gcrunning = 0;  /* no GC while building state */
   		  g.lastmajormem = 0;
 		  g.strt.size = 0;
 		  g.strt.nuse = 0;
@@ -254,11 +258,12 @@ namespace KopiLua
           g.version = lua_version(null);
 		  g.gcstate = GCSpause;
 		  g.allgc = null;
-  		  g.udgc = null;
+  		  g.finobj = null;
 		  g.tobefnz = null;
 		  g.gray = g.grayagain = null;
 		  g.weak = g.ephemeron = g.allweak = null;
 		  g.totalbytes = (uint)GetUnmanagedSize(typeof(LG));
+          g.GCdebt = 0;
 		  g.gcpause = LUAI_GCPAUSE;
           g.gcmajorinc = LUAI_GCMAJOR;
 		  g.gcstepmul = LUAI_GCMUL;

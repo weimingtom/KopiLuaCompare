@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.193 2010/10/18 16:06:33 roberto Exp roberto $
+** $Id: lua.c,v 1.199 2011/05/26 16:09:40 roberto Exp roberto $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -115,14 +115,12 @@ namespace KopiLua
 
 
 		static void print_usage(Lua.CharPtr badoption) {
+		  Lua.luai_writestringerror("%s: ", progname);
 		  if (badoption[1] == 'e' || badoption[1] == 'l') {
-		    Lua.luai_writestringerror("%s: ", progname);
 		    Lua.luai_writestringerror("'%s' needs argument\n", badoption);
-		  } else {
-		    Lua.luai_writestringerror("%s: ", progname);
+		  else
 		    Lua.luai_writestringerror("unrecognized option '%s'\n", badoption);
-		  }
-			Lua.luai_writestringerror( //FIXME:???%s
+		  Lua.luai_writestringerror( //FIXME:???%s
             "usage: %s [options] [script [args]]\n" +
 			"Available options are:\n" +
 			"  -e stat  execute string " + Lua.LUA_QL("stat").ToString() + "\n" +
@@ -194,7 +192,8 @@ namespace KopiLua
 
 
 		static void print_version() {
-			Lua.printf("%s\n", Lua.LUA_COPYRIGHT);
+		  luai_writestring(LUA_COPYRIGHT, strlen(LUA_COPYRIGHT));
+		  luai_writeline();
 		}
 
 
@@ -256,14 +255,14 @@ namespace KopiLua
 		}
 
 		/* mark in error messages for incomplete statements */
-		private static Lua.CharPtr mark	= "<eof>";
-		private static int marklen = mark.chars.Length - 1; //FIXME:???
+		private static Lua.CharPtr EOFMARK	= "<eof>";
+		private static int marklen = EOFMARK.chars.Length - 1; //FIXME:changed, (sizeof(EOFMARK)/sizeof(char) - 1), ???
 
 		static int incomplete(Lua.lua_State L, int status) {
 			if (status == Lua.LUA_ERRSYNTAX) {
 				uint lmsg;
 				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
-				if (lmsg >= marklen && Lua.strcmp(msg + lmsg - marklen, mark) == 0) {
+				if (lmsg >= marklen && Lua.strcmp(msg + lmsg - marklen, EOFMARK) == 0) {
 					Lua.lua_pop(L, 1);
 					return 1;
 				}
@@ -331,7 +330,7 @@ namespace KopiLua
 				}
 			}
 			Lua.lua_settop(L, 0);  /* clear stack */
-			Lua.luai_writestring("\n", 1);
+			Lua.luai_writeline();
 			progname = oldprogname;
 		}
 
