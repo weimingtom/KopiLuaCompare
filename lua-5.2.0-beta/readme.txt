@@ -218,7 +218,81 @@ lua.c
 lua.h
 
 
+02:10 2017-08-04
+luaconf.h
+		//--------------
+		public static int lua_number2str(ref CharPtr s, double n) { s = String.Format("{0}", n); return strlen(s); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
+		->
+		public static int lua_number2str(ref CharPtr s, double n) { return sprintf(s, LUA_NUMBER_FMT, n); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
+		//---------------
+		public static double lua_str2number(CharPtr s, out CharPtr end)
+		{			
+			end = new CharPtr(s.chars, s.index);
+			string str = "";
+			while (end[0] == ' ')
+				end = end.next();
+			while (number_chars.IndexOf(end[0]) >= 0)
+			{
+				str += end[0];
+				end = end.next();
+			}
 
+			try
+			{
+				return Convert.ToDouble(str.ToString());
+			}
+			catch (System.OverflowException)
+			{
+				// this is a hack, fix it - mjf
+				if (str[0] == '-')
+					return System.Double.NegativeInfinity;
+				else
+					return System.Double.PositiveInfinity;
+			}
+			catch
+			{
+				end = new CharPtr(s.chars, s.index);
+				return 0;
+			}
+		}
+		->
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
+		#if defined(LUA_USE_STRTODHEX)
+				public static double lua_strx2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
+		#endif
+		//-----------------
+		#define LUA_NANTRICKLE
+		//-----------------
+		public delegate lua_Number op_delegate(lua_State L, lua_Number a, lua_Number b); //FIXME:added ???
+		//-----------------
+02:14 2017-08-04
+lualib.h		
+		#if !defined(lua_assert)
+		#define lua_assert(x)	((void)0)
+		#endif
+02:31 2017-08-04
+lundump.c
+		LoadVar(S,x);
+		->
+		x = (int)LoadVar(S, typeof(int)); //FIXME: changed
+		//-------------
+		public static void luaU_header(lu_byte[] h) //FIXME:changed, lu_byte*
+		{
+		 int x=1;
+		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char) 
+		 h = h.add(LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char);
+		 h[0] = (byte)LUAC_VERSION; h.inc();
+		 h[0] = (byte)LUAC_FORMAT; h.inc();
+		 h[0] = (byte)x; h.inc();				/* endianness */ //FIXME:changed, *h++=cast_byte(*(char*)&x);
+		 h[0] = (byte)GetUnmanagedSize(typeof(int)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(uint)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(Instruction)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(lua_Number)); h.inc();
+         h[0] = (byte)(((lua_Number)0.5)==0 ? 1 : 0); h.inc();		/* is lua_Number integral? */ //FIXME:???always 0 on this build
+		 memcpy(h,LUAC_TAIL,sizeof(LUAC_TAIL)-sizeof(char));
+		}
+02:34 2017-08-04
+lundump.h
 
 
 	

@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 1.67 2010/10/13 21:04:52 lhf Exp $
+** $Id: lundump.c,v 1.69 2011/05/06 13:35:17 lhf Exp $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -62,6 +62,10 @@ namespace KopiLua
 		public static object LoadVar(LoadState S, Type t) { return LoadMem(S, t); }
 		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);}
 
+		//#if !defined(luai_verifycode)
+		public static void luai_verifycode(L,b,f) { return f; }
+		//#endif
+
 		private static void LoadBlock(LoadState S, CharPtr b, int size)
 		{
 		 if (luaZ_read(S.Z, b, (uint)size)!=0) error(S,"corrupted"); //FIXME:(uint)
@@ -74,7 +78,9 @@ namespace KopiLua
 
 		private static int LoadInt(LoadState S)
 		{
-		 int x = (int)LoadVar(S, typeof(int)); //FIXME: changed
+		 int x;
+		 x = (int)LoadVar(S, typeof(int)); //FIXME: changed
+		 if (x<0) error(S,"corrupted");
 		 return x;
 		}
 
@@ -91,7 +97,7 @@ namespace KopiLua
 		 else
 		 {
 		  CharPtr s=luaZ_openspace(S.L,S.b,size);
-		  LoadBlock(S, s, (int)size);
+		  LoadBlock(S, s, (int)size*1); //FIXME:changed, sizeof(char)
 		  return luaS_newlstr(S.L,s,size-1);		/* remove trailing '\0' */
 		 }
 		}
@@ -191,13 +197,23 @@ namespace KopiLua
 		 return f;
 		}
 
+		/* the code below must be consistent with the code in luaU_header */
+		private const int N0 = LUAC_HEADERSIZE;
+		private const int N1 = (sizeof(LUA_SIGNATURE)-sizeof(char));
+		private const int N2 = N1+2;
+		private const int N3 = N2+6;
+
 		private static void LoadHeader(LoadState S)
 		{
-		 CharPtr h = new char[LUAC_HEADERSIZE];
-		 CharPtr s = new char[LUAC_HEADERSIZE];
+		 CharPtr h = new lu_byte[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
+		 CharPtr s = new lu_byte[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
 		 luaU_header(h);
-		 LoadBlock(S, s, LUAC_HEADERSIZE);
-		 if (memcmp(h, s, LUAC_HEADERSIZE)!=0) error(S,"incompatible");
+		 memcpy(s,h,sizeof(char));			/* first char already read */
+		 LoadBlock(S,s+sizeof(char),LUAC_HEADERSIZE-sizeof(char));
+		 if (memcmp(h,s,N0)==0) return;
+		 if (memcmp(h,s,N1)!=0) error(S,"not a");
+		 if (memcmp(h,s,N2)!=0) error(S,"version mismatch in");
+		 if (memcmp(h,s,N3)!=0) error(S,"incompatible"); else error(S,"corrupted");
 		}
 
 		/*
@@ -216,38 +232,32 @@ namespace KopiLua
 		 S.Z=Z;
 		 S.b=buff;
 		 LoadHeader(S);
-		 return LoadFunction(S);
+		 return luai_verifycode(L,buff,LoadFunction(&S));
 		}
 
-		/*
-		* make header
-		* if you make any changes in the header or in LUA_SIGNATURE,
-		* be sure to update LUAC_HEADERSIZE accordingly in lundump.h.
-		*/
-		public static void luaU_header(CharPtr h)
-		{
-		 h = new CharPtr(h); //FIXME:changed
-		 int x=1;
-		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length);
-		 h = h.add(LUA_SIGNATURE.Length);
-		 h[0] = (char)LUAC_VERSION;
-		 h.inc();
-		 h[0] = (char)LUAC_FORMAT;
-		 h.inc();
-		 //*h++=(char)*(char*)&x;				/* endianness */
-		 h[0] = (char)x;						/* endianness */
-		 h.inc();
-		 h[0] = (char)GetUnmanagedSize(typeof(int));
-		 h.inc();
-		 h[0] = (char)GetUnmanagedSize(typeof(uint));
-		 h.inc();
-		 h[0] = (char)GetUnmanagedSize(typeof(Instruction));
-		 h.inc();
-		 h[0] = (char)GetUnmanagedSize(typeof(lua_Number));
-		 h.inc();
+		private static int MYINT(s) { return (s[0]-'0'); }
+		private const int VERSION = MYINT(LUA_VERSION_MAJOR)*16+MYINT(LUA_VERSION_MINOR);
+		private const int FORMAT = 0;		/* this is the official format */
 
-		  //(h++)[0] = ((lua_Number)0.5 == 0) ? 0 : 1;		/* is lua_Number integral? */
-		 h[0] = (char)0;	// always 0 on this build
+		/*
+		* make header for precompiled chunks
+		* if you change the code below be sure to update LoadHeader and FORMAT above
+		* and LUAC_HEADERSIZE in lundump.h
+		*/
+		public static void luaU_header(lu_byte[] h) //FIXME:changed, lu_byte*
+		{
+		 int x=1;
+		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char) 
+		 h = h.add(LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char);
+		 h[0] = (byte)LUAC_VERSION; h.inc();
+		 h[0] = (byte)LUAC_FORMAT; h.inc();
+		 h[0] = (byte)x; h.inc();				/* endianness */ //FIXME:changed, *h++=cast_byte(*(char*)&x);
+		 h[0] = (byte)GetUnmanagedSize(typeof(int)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(uint)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(Instruction)); h.inc();
+		 h[0] = (byte)GetUnmanagedSize(typeof(lua_Number)); h.inc();
+         h[0] = (byte)(((lua_Number)0.5)==0 ? 1 : 0); h.inc();		/* is lua_Number integral? */ //FIXME:???always 0 on this build
+		 memcpy(h,LUAC_TAIL,sizeof(LUAC_TAIL)-sizeof(char));
 		}
 
 	}

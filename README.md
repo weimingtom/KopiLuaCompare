@@ -19,6 +19,9 @@
 * lua-5.2.0-alpha (done, 2017-07-17 update)  
 * lua-5.3.4 (pending)    
 
+## Compare Tool  
+* Beyond Compare Version 3.0.11  
+
 ## Ref  
 * https://github.com/lua/lua  
 * https://github.com/gerich-home/kopilua  

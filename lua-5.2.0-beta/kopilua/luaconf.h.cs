@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.150 2010/11/10 17:38:10 roberto Exp roberto $
+** $Id: luaconf.h,v 1.160 2011/06/28 17:14:12 roberto Exp roberto $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -44,7 +44,8 @@ namespace KopiLua
 		//#endif
 
 		//#if defined(LUA_WIN)
-		//#include <windows.h>
+		//#define LUA_DL_DLL
+		//#define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
 		//#endif
 
 
@@ -53,12 +54,18 @@ namespace KopiLua
 		//#define LUA_USE_POSIX
 		//#define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
 		//#define LUA_USE_READLINE	/* needs some extra libraries */
+		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hexa formats */
+		//#define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
+		//#define LUA_USE_LONGLONG	/* assume support for long long */
 		//#endif
 
 		//#if defined(LUA_USE_MACOSX)
 		//#define LUA_USE_POSIX
 		//#define LUA_USE_DLOPEN    /* does not need -ldl */
 		//#define LUA_USE_READLINE	/* needs an extra library: -lreadline */
+		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hexa formats */
+		//#define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
+		//#define LUA_USE_LONGLONG	/* assume support for long long */
 		//#endif
 
 
@@ -212,10 +219,11 @@ namespace KopiLua
 
 
 		/*
-		@@ luai_writestring defines how 'print' prints its results.
+		@@ luai_writestring/luai_writeline define how 'print' prints its results.
 		*/
         //#include <stdio.h>
 		public static void luai_writestring(CharPtr s, uint l) { fwrite(s, 1/*sizeof(char)*/, (int)l, stdout); }
+		public static void luai_writeline() { luai_writestring("\n", 1); fflush(stdout); }
 
 		/*
 		@@ luai_writestringerror defines how to print error messages.
@@ -248,20 +256,19 @@ namespace KopiLua
 		//#define LUA_COMPAT_UNPACK
 
 		/*
+		@@ LUA_COMPAT_LOADERS controls the presence of table 'package.loaders'.
+		** You can replace it with 'package.searchers'.
+		*/
+		//#define LUA_COMPAT_LOADERS
+
+		/*
 		@@ macro 'lua_cpcall' emulates deprecated function lua_cpcall.
 		** You can call your C function directly (with light C functions).
 		*/
-		//#define lua_cpcall(L,f,u)  \
-		//	(lua_pushcfunction(L, (f)), \
-		//	 lua_pushlightuserdata(L,(u)), \
-		//	 lua_pcall(L,1,0,0))
-
-		/*
-		@@ LUA_COMPAT_FENV controls the presence of functions 'setfenv/getfenv'.
-		** You can replace them with lexical environments, 'loadin', or the
-		** debug library.
-		*/
-		//#define LUA_COMPAT_FENV
+		public static void lua_cpcall(L,f,u)
+			{lua_pushcfunction(L, (f)); 
+			 lua_pushlightuserdata(L,(u));
+			 return lua_pcall(L,1,0,0); }
 
 
 		/*
@@ -269,6 +276,12 @@ namespace KopiLua
 		** You can rewrite 'log10(x)' as 'log(x, 10)'.
 		*/
 		//#define LUA_COMPAT_LOG10
+
+		/*
+		@@ LUA_COMPAT_LOADSTRING defines the function 'loadstring' in the base
+		** library. You can rewrite 'loadstring(s)' as 'load(s)'.
+		*/
+		//#define LUA_COMPAT_LOADSTRING
 
 		/*
 		@@ LUA_COMPAT_MAXN defines the function 'maxn' in the table library.
@@ -391,44 +404,26 @@ namespace KopiLua
 		@@ LUA_NUMBER_FMT is the format for writing numbers.
 		@@ lua_number2str converts a number to a string.
 		@@ LUAI_MAXNUMBER2STR is maximum size of previous conversion.
-		@@ lua_str2number converts a string to a number.
 		*/
 		public const string LUA_NUMBER_SCAN = "%lf";
 		public const string LUA_NUMBER_FMT = "%.14g";
-		public static int lua_number2str(ref CharPtr s, double n) { s = String.Format("{0}", n); return strlen(s); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
+		public static int lua_number2str(ref CharPtr s, double n) { return sprintf(s, LUA_NUMBER_FMT, n); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
 		public const int LUAI_MAXNUMBER2STR = 32; /* 16 digits, sign, point, and \0 */
 
-		private const string number_chars = "0123456789+-eE.";
-		public static double lua_str2number(CharPtr s, out CharPtr end)
-		{			
-			end = new CharPtr(s.chars, s.index);
-			string str = "";
-			while (end[0] == ' ')
-				end = end.next();
-			while (number_chars.IndexOf(end[0]) >= 0)
-			{
-				str += end[0];
-				end = end.next();
-			}
 
-			try
-			{
-				return Convert.ToDouble(str.ToString());
-			}
-			catch (System.OverflowException)
-			{
-				// this is a hack, fix it - mjf
-				if (str[0] == '-')
-					return System.Double.NegativeInfinity;
-				else
-					return System.Double.PositiveInfinity;
-			}
-			catch
-			{
-				end = new CharPtr(s.chars, s.index);
-				return 0;
-			}
-		}
+		/*
+		@@ lua_str2number converts a decimal numeric string to a number.
+		@@ lua_strx2number converts an hexadecimal numeric string to a number.
+		** In C99, 'strtod' do both conversions. C89, however, has no function
+		** to convert floating hexadecimal strings to numbers. For these
+		** systems, you can leave 'lua_strx2number' undefined and Lua will
+		** provide its own implementation.
+		*/
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
+
+#if defined(LUA_USE_STRTODHEX)
+		public static double lua_strx2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
+#endif
 
 
 		/*
@@ -491,11 +486,11 @@ namespace KopiLua
 
 		/*
 		@@ LUA_IEEEENDIAN is the endianness of doubles in your machine
-		@@ (0 for little endian, 1 for big endian); if not defined, Lua will
-		@@ check it dynamically.
+		** (0 for little endian, 1 for big endian); if not defined, Lua will
+		** check it dynamically.
 		*/
 		/* check for known architectures */
-		//#if defined(__i386__) || defined(__i386) || defined(i386) || \
+		//#if defined(__i386__) || defined(__i386) || defined(__X86__) || \
 		//    defined (__x86_64)
 		//#define LUA_IEEEENDIAN	0
 		//#elif defined(__POWERPC__) || defined(__ppc__)
@@ -509,6 +504,28 @@ namespace KopiLua
 		//#endif			/* } */
         //FIXME:--------------------->removed
 		/* }================================================================== */
+
+
+		/*
+		@@ LUA_NANTRICKLE/LUA_NANTRICKBE controls the use of a trick to pack all
+		** types into a single double value, using NaN values to represent
+		** non-number values. The trick only works on 32-bit machines (ints and
+		** pointers are 32-bit values) with numbers represented as IEEE 754-2008
+		** doubles with conventional endianess (12345678 or 87654321), in CPUs
+		** that do not produce signaling NaN values (all NaNs are quiet).
+		*/
+		//#if defined(LUA_CORE) && \
+		//    defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)	/* { */
+
+		/* little-endian architectures that satisfy those conditions */
+		//#if defined(__i386__) || defined(__i386) || defined(__X86__) || \
+		//    defined(_M_IX86)
+
+		//#define LUA_NANTRICKLE
+
+		//#endif
+
+		//#endif							/* } */
 
 
 
