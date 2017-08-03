@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.42 2010/10/29 11:13:14 roberto Exp roberto $
+** $Id: lobject.c,v 2.51 2011/06/23 16:01:06 roberto Exp roberto $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -69,28 +69,6 @@ namespace KopiLua
 		  return l + log_2[x];
 		}
 
-        
-		public static int luaO_rawequalObj (TValue t1, TValue t2) {
-		  if (ttype(t1) != ttype(t2)) return 0;
-		  else switch (ttype(t1)) {
-			case LUA_TNIL:
-			  return 1;
-			case LUA_TNUMBER:
-			  return luai_numeq(nvalue(t1), nvalue(t2)) ? 1 : 0;
-			case LUA_TBOOLEAN:
-			  return bvalue(t1) == bvalue(t2) ? 1 : 0;  /* boolean true must be 1 !! */
-			case LUA_TLIGHTUSERDATA:
-				return pvalue(t1) == pvalue(t2) ? 1 : 0;
-		    case LUA_TSTRING:
-		      return rawtsvalue(t1) == rawtsvalue(t2) ? 1 : 0;
-		    case LUA_TLCF:
-		      return fvalue(t1) == fvalue(t2) ? 1 : 0;
-			default:
-			  lua_assert(iscollectable(t1));
-			  return gcvalue(t1) == gcvalue(t2) ? 1 : 0;
-		  }
-		}
-
 
 		public static lua_Number luaO_arith (int op, lua_Number v1, lua_Number v2) {
 		  switch (op) {
@@ -106,19 +84,86 @@ namespace KopiLua
 		}
 
 
-		private static int checkend (CharPtr s, CharPtr endptr) {
-		  if (endptr == s) return 0;  /* no characters converted */
-		  while (lisspace((byte)(endptr[0]))!=0) /*endptr++*/endptr = endptr + 1; //FIXME:changed, ++
-		  return (endptr[0] == '\0')?1:0;  /* OK if no trailing characters */
+		private static int luaO_hexavalue (int c) {
+		  if (lisdigit(c)) return c - '0';
+		  else return ltolower(c) - 'a' + 10;
 		}
+
+
+		#if !defined(lua_strx2number)
+
+		//#include <math.h>
+
+
+		private static int isneg (const char **s) {
+		  if (**s == '-') { (*s)++; return 1; }
+		  else if (**s == '+') (*s)++;
+		  return 0;
+		}
+
+
+		private static lua_Number readhexa (const char **s, lua_Number r, int *count) {
+		  while (lisxdigit(cast_uchar(**s))) {  /* read integer part */
+		    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(*(*s)++)));
+		    (*count)++;
+		  }
+		  return r;
+		}
+
+
+		/*
+		** convert an hexadecimal numeric string to a number, following
+		** C99 specification for 'strtod'
+		*/
+		private static lua_Number lua_strx2number (const char *s, char **endptr) {
+		  lua_Number r = 0.0;
+		  int e = 0, i = 0;
+		  int neg = 0;  /* 1 if number is negative */
+		  *endptr = cast(char *, s);  /* nothing is valid yet */
+		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
+		  neg = isneg(&s);  /* check signal */
+		  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
+		    return 0.0;  /* invalid format (no '0x') */
+		  s += 2;  /* skip '0x' */
+		  r = readhexa(&s, r, &i);  /* read integer part */
+		  if (*s == '.') {
+		    s++;  /* skip dot */
+		    r = readhexa(&s, r, &e);  /* read fractional part */
+		  }
+		  if (i == 0 && e == 0)
+		    return 0.0;  /* invalid format (no digit) */
+		  e *= -4;  /* each fractional digit divides value by 2^-4 */
+		  *endptr = cast(char *, s);  /* valid up to here */
+		  if (*s == 'p' || *s == 'P') {  /* exponent part? */
+		    int exp1 = 0;
+		    int neg1;
+		    s++;  /* skip 'p' */
+		    neg1 = isneg(&s);  /* signal */
+		    if (!lisdigit(cast_uchar(*s)))
+		      goto ret;  /* must have at least one digit */
+		    while (lisdigit(cast_uchar(*s)))  /* read exponent */
+		      exp1 = exp1 * 10 + *(s++) - '0';
+		    if (neg1) exp1 = -exp1;
+		    e += exp1;
+		  }
+		  *endptr = cast(char *, s);  /* valid up to here */
+		 ret:
+		  if (neg) r = -r;
+		  return ldexp(r, e);
+		}
+
+		#endif
 
 
 		public static int luaO_str2d (CharPtr s, out lua_Number result) {
 		  CharPtr endptr;
-		  result = lua_str2number(s, out endptr);
-		  if (checkend(s, endptr)!=0) return 1;  /* conversion OK? */
-		  result = cast_num(strtoul(s, out endptr, 0)); /* try hexadecimal */
-		  return checkend(s, endptr);
+		  if (strpbrk(s, "xX"))  /* hexa? */
+		    result = lua_strx2number(s, &endptr);
+		  else
+		    result = lua_str2number(s, &endptr);
+		  if (endptr == s) return 0;  /* nothing recognized */
+		  while (lisspace(cast_uchar(*endptr))) endptr++;
+		  return (endptr == s + len);  /* OK if no trailing characters */
 		}
 
 
@@ -200,18 +245,21 @@ namespace KopiLua
 		}
 
 
-		private static uint LL(string x) { return (uint)x.Length; }
+		/* number of chars of a literal string without the ending \0 */
+		private static uint LL(string x) { return (uint)x.Length; } //FIXME:sizeof(x)/sizeof(char) - 1
+
+
 		private const string RETS = "...";
 		private const string PRE = "[string \"";
 		private const string POS = "\"]";
 
-		public static void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l); a += (l); }
+		public static void addstr(CharPtr a, CharPtr b, uint l) { memcpy(a,b,l * 1); a += l; } //FIXME: * sizeof(char)
 
 		public static void luaO_chunkid (CharPtr out_, CharPtr source, uint bufflen) {
 		  uint l = (uint)strlen(source);
 		  if (source[0] == '=') {  /* 'literal' source */
 		    if (l <= bufflen)  /* small enough? */
-		      memcpy(out_, source + 1, l);
+		      memcpy(out_, source + 1, l * 1); //FIXME: * sizeof(char)
 		    else {  /* truncate it */
 		      addstr(out_, source + 1, bufflen - 1);
 		      out_ = "";//FIXME:???//*out_ = '\0';
@@ -219,11 +267,11 @@ namespace KopiLua
 		  }
 		  else if (source[0] == '@') {  /* file name */
 		    if (l <= bufflen)  /* small enough? */
-		      memcpy(out_, source + 1, l);
+		      memcpy(out_, source + 1, l * 1); //FIXME:* sizeof(char)
 		    else {  /* add '...' before rest of name */
 		      addstr(out_, RETS, LL(RETS));
 		      bufflen -= LL(RETS);
-		      memcpy(out_, source + 1 + l - bufflen, bufflen);
+		      memcpy(out_, source + 1 + l - bufflen, bufflen * 1); //FIXME:* sizeof(char)
 		    }
 		  }
 		  else {  /* string; format as [string "source"] */
@@ -239,7 +287,7 @@ namespace KopiLua
 		      addstr(out_, source, l);
 		      addstr(out_, RETS, LL(RETS));
 		    }
-		    memcpy(out_, POS, LL(POS) + 1);
+		    memcpy(out_, POS, (LL(POS) + 1) * 1); //FIXME:* sizeof(char)
 		  }
 		}
 	}

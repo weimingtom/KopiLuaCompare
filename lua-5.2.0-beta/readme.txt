@@ -118,10 +118,42 @@ loadlib.c
 
 
 
+8:45 2017/8/3
+lobject.c
+10:45 2017/8/3
+lobject.h
+	/*
+	** Union of all Lua values
+	*/
+	typedef union Value Value;
+	#define numfield	lua_Number n;    /* numbers */
+	/*
+	** Tagged Values. This is the basic representation of values in Lua,
+	** an actual value plus a tag with its type.
+	*/
+	#define TValuefields	Value value_; int tt_
+	typedef struct lua_TValue TValue;
+	//-----------------------
+	//struct lua_TValue {
+	//  TValuefields;
+	//};
+	//typedef TValue *StkId;  /* index to stack elements */	
+	//------------------------
+	public CharPtr str; //FIXME:added = new CharPtr()???;
+	public override string ToString() { return str.ToString(); } // for debugging
+	//------------------------
+	// in the original C code this was allocated alongside the structure memory. it would probably
+	// be possible to still do that by allocating memory and pinning it down, but we can do the
+	// same thing just as easily by allocating a seperate byte array for it instead.
+	public object user_data;
+	//--------------------------
+10:47 2017/8/3
+lopcodes.c
+10:50 2017/8/3
+lopcodes.h
 
-
-
-
+	
+	
 
 
 

@@ -20,13 +20,38 @@ namespace KopiLua
 		public const int LUA_TUPVAL	= (LUA_NUMTAGS+1);
 		public const int LUA_TDEADKEY	= (LUA_NUMTAGS+2);
 
+		/*
+		** number of all possible tags (including LUA_TNONE but excluding DEADKEY)
+		*/
+		public const int LUA_TOTALTAGS = (LUA_TUPVAL+2);
 
 
 		/*
-		** Variant tag for light C functions (negative to be considered
-		** non collectable by 'iscollectable')
+		** tags for Tagged Values have the following use of bits:
+		** bits 0-3: actual tag (a LUA_T* value)
+		** bits 4-5: variant bits
+		** bit 6: whether value is collectable
 		*/
-		public const int LUA_TLCF = (~0x0F | LUA_TFUNCTION); //FIXME:???
+
+		/*
+		** LUA_TFUNCTION variants:
+		** 0 - Lua function
+		** 1 - light C function
+		** 2 - regular C function (closure)
+		*/
+
+		/* Variant tags for functions */
+		public const int LUA_TLCL = (LUA_TFUNCTION | (0 << 4));  /* Lua closure */
+		public const int LUA_TLCF = (LUA_TFUNCTION | (1 << 4));  /* light C function */
+		public const int LUA_TCCL = (LUA_TFUNCTION | (2 << 4));  /* C closure */
+
+
+		/* Bit mark for collectable types */
+		public const int BIT_ISCOLLECTABLE = (1 << 6);
+
+		/* mark a tag as collectable */
+		public static int ctb(t) { return ((t) | BIT_ISCOLLECTABLE); }
+
 
 		public interface ArrayElement //FIXME:added
 		{
@@ -34,18 +59,17 @@ namespace KopiLua
 			void set_array(object array);
 		}
 
+		/*
+		** Union of all collectable objects
+		*/
+		//typedef union GCObject GCObject;
 
 
 		/*
 		** Common Header for all collectable objects (in macro form, to be
 		** included in other objects)
 		*/
-		public class CommonHeader
-		{
-			public GCObject next;
-			public lu_byte tt;
-			public lu_byte marked;
-		}
+		public class CommonHeader { public GCObject next; public lu_byte tt; public lu_byte marked;}
 
 
 		/*
@@ -59,13 +83,11 @@ namespace KopiLua
 		/*
 		** Union of all Lua values
 		*/
-		public struct Value {
-		  public GCObject gc;     /* collectable objects */
-		  public object p;        /* light userdata */
-		  public lua_Number n;    /* numbers */
-		  public int b;           /* booleans */
-		  public lua_CFunction f; /* light C functions */
-		};
+		//typedef union Value Value;
+
+
+		//#define numfield	lua_Number n;    /* numbers */		//FIXME:remove, see below
+
 
 
 		/*
@@ -74,6 +96,8 @@ namespace KopiLua
 		*/
 
 		//#define TValuefields	Value value; int tt
+
+        //typedef struct lua_TValue TValue;
 
 		public class lua_TValue : ArrayElement //FIXME:changed
 		{
@@ -215,140 +239,139 @@ namespace KopiLua
 
 
 		/* macro defining a nil value */
-		//#define NILCONSTANT    {NULL}, LUA_TNIL //FIXME:removed
+		//#define NILCONSTANT {NULL}, LUA_TNIL //FIXME:removed
 
 
-		/*
-		** type tag of a TValue
-		*/
-		public static int ttype(TValue o) { return o.tt_; }
+		public static void val_(o) { return o.value_; }
+		public static void num_(o) { return val_(o).n; }
 
 
-		/*
-		** type tag of a TValue with no variants
-		*/
-		public static int ttypenv(TValue o) { return (ttype(o) & 0x0F); }
+		/* raw type tag of a TValue */
+		public static int rttype(TValue o) { return o.tt_; }
 
+		/* type tag of a TValue (bits 0-3 for tags + variant bits 4-5) */
+		public static int ttype(TValue o) { return (rttype(o) & 0x3F); }
+
+
+		/* type tag of a TValue with no variants (bits 0-3) */
+		public static int ttypenv(TValue o) { return (rttype(o) & 0x0F); }
 
 
 		/* Macros to test type */
-		public static bool ttisnil(TValue o)	{return (ttype(o) == LUA_TNIL);}
-		public static bool ttisnumber(TValue o)	{return (ttype(o) == LUA_TNUMBER);}
-		public static bool ttisstring(TValue o)	{return (ttype(o) == LUA_TSTRING);}
-		public static bool ttistable(TValue o)	{return (ttype(o) == LUA_TTABLE);}
+		public static bool checktag(TValue o,t)	    {return (rttype(o) == t);}
+		public static bool ttisnumber(TValue o)		{return checktag(o, LUA_TNUMBER);}		
+		public static bool ttisnil(TValue o)	{return checktag(o, LUA_TNIL);}
+		public static bool ttisboolean(TValue o)	{return checktag(o, LUA_TBOOLEAN);}
+		public static bool ttislightuserdata(TValue o)	{return checktag(o, LUA_TLIGHTUSERDATA);}
+		public static bool ttisstring(TValue o)	{return (checktag(o, ctb(LUA_TSTRING));}
+		public static bool ttistable(TValue o)	{return (checktag(o, ctb(LUA_TTABLE));}
 		public static bool ttisfunction(TValue o)	{return (ttypenv(o) == LUA_TFUNCTION);}
-		public static bool ttisclosure(TValue o) { return (ttype(o) == LUA_TFUNCTION);}
-		public static bool ttislcf(TValue o) { return (ttype(o) == LUA_TLCF);}
-		public static bool ttisboolean(TValue o)	{return (ttype(o) == LUA_TBOOLEAN);}
-		public static bool ttisuserdata(TValue o)	{return (ttype(o) == LUA_TUSERDATA);}
-		public static bool ttisthread(TValue o)	{return (ttype(o) == LUA_TTHREAD);}
-		public static bool ttislightuserdata(TValue o)	{return (ttype(o) == LUA_TLIGHTUSERDATA);}
-        public static bool ttisdeadkey(TValue o) { return (ttype(o) == LUA_TDEADKEY);}
+		public static bool ttisclosure(TValue o) {return ((rttype(o) & 0x1F) == LUA_TFUNCTION);}
+		public static bool ttisCclosure(TValue o) {return checktag(o, ctb(LUA_TCCL));}
+		public static bool ttisLclosure(TValue o) {return checktag((o), ctb(LUA_TLCL));}
+		public static bool ttislcf(TValue o) {return checktag((o), LUA_TLCF);}
+		public static bool ttisuserdata(TValue o)	{return checktag(o, ctb(LUA_TUSERDATA));}
+		public static bool ttisthread(TValue o)	{return checktag(o, ctb(LUA_TTHREAD));}
+        public static bool ttisdeadkey(TValue o) {return checktag(o, ctb(LUA_TDEADKEY));}
 		
+        public static bool ttisequal(TValue o1, TValue o2)	{return (rttype(o1) == rttype(o2));}
+
 		/* Macros to access values */
-		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), o.value_.gc); }
-		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), o.value_.p); }
-		public static lua_Number nvalue(TValue o) { return (lua_Number)check_exp(ttisnumber(o), o.value_.n); }
-		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), o.value_.gc.ts); }
+        public static lua_Numbernvalue(o) { return (lua_Number)check_exp(ttisnumber(o), num_(o)); }
+		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), val_(o).gc); }
+		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), val_(o).p); }
+		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), val_(o).gc.ts); }
 		public static TString_tsv tsvalue(TValue o) { return rawtsvalue(o).tsv; }
-		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), o.value_.gc.u); }
+		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), val_(o).gc.u); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
-		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), o.value_.gc.cl);}
-		public static lua_CFunction fvalue(TValue o)	{ return (lua_CFunction)check_exp(ttislcf(o), o.value_.f); }
-		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), o.value_.gc.h);}
-		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), o.value_.b);}
-		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), o.value_.gc.th);}
+		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), val_(o).gc.cl);}
+		public static void clLvalue(o) {return check_exp(ttisLclosure(o), val_(o).gc.cl.l);}
+		public static void clCvalue(o) {return check_exp(ttisCclosure(o), val_(o).gc.cl.c);}		
+		public static lua_CFunction fvalue(TValue o)	{ return (lua_CFunction)check_exp(ttislcf(o), val_(o).f); }
+		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), val_(o).gc.h);}
+		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), val_(o).b);}
+		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), val_(o).gc.th);}
 
 		public static int l_isfalse(TValue o) { return ((ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))) ? 1 : 0; }
 
 		
-		public static bool iscollectable(TValue o)	{ return (ttype(o) >= LUA_TSTRING); }
+		public static bool iscollectable(TValue o)	{ return (rttype(o) & BIT_ISCOLLECTABLE) != 0; }
 
 
 		/* Macros for internal tests */
-		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt); }
-		
-		public static void checkconsistency(TValue obj)
-		{
-			lua_assert(!iscollectable(obj) || righttt(obj));
-		}
+		public static bool righttt(TValue obj) { return (ttypenv(obj) == gcvalue(obj).gch.tt); }
 
-		public static void checkliveness(global_State g, TValue obj)
-		{
-			lua_assert(!iscollectable(obj) || (righttt(obj) && !isdead(g, gcvalue(obj))));
-		}
+		public static void checkliveness(global_State g, TValue obj) {
+			lua_longassert(!iscollectable(obj) || 
+					(righttt(obj) && !isdead(g, gcvalue(obj))));}
 
 
 		/* Macros to set values */
-		public static void setnilvalue(TValue obj) {
-			obj.tt_=LUA_TNIL;
-		}
+		public static void settt_(TValue o, t) {obj.tt_=t;}
 
-		public static void setnvalue(TValue obj, lua_Number x) {
-			obj.value_.n = x;
-			obj.tt_ = LUA_TNUMBER;
-		}
+		public static void setnvalue(TValue obj, lua_Number x)
+		  { TValue io=obj; num_(io) = x; settt_(io, LUA_TNUMBER);}
 
-		public static void setfvalue(TValue obj, lua_CFunction x) {
-			TValue i_o=obj; i_o.value_.f=x; i_o.tt_=LUA_TLCF; }
+		public static void changenvalue(o,x) { return check_exp(ttisnumber(o), num_(o)=x);}
+
+		public static void setnilvalue(obj) { return settt_(obj, LUA_TNIL);}
+
+		public static void setfvalue(TValue obj, lua_CFunction x) 
+		  { TValue io=obj; val_(io).f=x; settt_(io, LUA_TLCF); }
 		
-		public static void changenvalue(TValue o, lua_Number x) { check_exp(o.tt_==LUA_TNUMBER, o.value_.n=x); }
-  
+		public static void setpvalue( TValue obj, object x) 
+		  { TValue io=obj; val_(io).p=x; settt_(o, LUA_TLIGHTUSERDATA);}
 
-		public static void setpvalue( TValue obj, object x) {
-			obj.value_.p = x;
-			obj.tt_ = LUA_TLIGHTUSERDATA;
-		}
+		public static void setbvalue(TValue obj, int x) 
+		  { TValue io=obj; val_(io).b=x; settt_(io, LUA_TBOOLEAN); }
 
-		public static void setbvalue(TValue obj, int x) {
-			obj.value_.b = x;
-			obj.tt_ = LUA_TBOOLEAN;
-		}
+		public static void setgcovalue(L, TValue obj, GCObject x)
+		  { TValue io=obj; GCObject i_g=x;
+		    val_(io).gc=i_g; settt_(io, ctb(gch(i_g).tt)); }
+	
+		public static void setsvalue(lua_State L, TValue obj, x) 
+		  {  TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TSTRING));
+			 checkliveness(G(L),io); }
 
-		public static void setsvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TSTRING;
-			checkliveness(G(L), obj);
-		}
+		public static void setuvalue(lua_State L, TValue obj, GCObject x) 
+		  { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TUSERDATA));
+			 checkliveness(G(L),io); }
 
-		public static void setuvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TUSERDATA;
-			checkliveness(G(L), obj);
-		}
+		public static void setthvalue(lua_State L, TValue obj, GCObject x) 
+		  { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TTHREAD));
+			 checkliveness(G(L),io); }
 
-		public static void setthvalue(lua_State L, TValue obj, GCObject x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TTHREAD;
-			checkliveness(G(L), obj);
-		}
+		public static void setclLvalue(lua_State L, TValue obj,x) \
+	      { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TLCL));
+			 checkliveness(G(L),io); }
 
-		public static void setclvalue(lua_State L, TValue obj, Closure x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TFUNCTION;
-			checkliveness(G(L), obj);
-		}
+		public static void setclCvalue(lua_State L, TValue obj,x) \
+		  { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TCCL));
+			 checkliveness(G(L),io); }
 
 		public static void sethvalue(lua_State L, TValue obj, Table x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TTABLE;
-			checkliveness(G(L), obj);
-		}
+		  { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TTABLE));
+			 checkliveness(G(L),io); }
 
 		public static void setptvalue(lua_State L, TValue obj, Proto x) {
-			obj.value_.gc = x;
-			obj.tt_ = LUA_TPROTO;
-			checkliveness(G(L), obj);
-		}
+		  { TValue io=obj; 
+		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TPROTO));
+			 checkliveness(G(L),io); }
 		
-		public static void setdeadvalue(TValue obj) { obj.tt_=LUA_TDEADKEY; }
+		public static void setdeadvalue(TValue obj) { settt_(obj, ctb(LUA_TDEADKEY)); }
 
 
-		public static void setobj(lua_State L, TValue obj1, TValue obj2) {
-			obj1.value_ = obj2.value_;
-			obj1.tt_ = obj2.tt_;
-			checkliveness(G(L), obj1);
-		}
+
+		public static void setobj(lua_State L, TValue obj1, TValue obj2) 
+		    { TValue io2=(obj2); TValue io1=(obj1);
+			  io1.value_ = io2.value_; io1.tt_ = io2.tt_;
+			  checkliveness(G(L), io1);}
 
 
 		/*
@@ -389,29 +412,141 @@ namespace KopiLua
 
 
 
+
+		/*
+		** {======================================================
+		** NaN Trick
+		** =======================================================
+		*/
+
+		#if defined(LUA_NANTRICKLE) || defined(LUA_NANTRICKBE)
+
+		/*
+		** numbers are represented in the 'd_' field. All other values have the
+		** value (NNMARK | tag) in 'tt_'. A number with such pattern would be
+		** a "signaled NaN", which is never generated by regular operations by
+		** the CPU (nor by 'strtod')
+		*/
+		#if !defined(NNMARK)
+		#define NNMARK		0x7FF7A500
+		#endif
+
+		#undef TValuefields
+		#undef NILCONSTANT
+		#if defined(LUA_NANTRICKLE)
+		/* little endian */
+		#define TValuefields  \
+			union { struct { Value v_; int tt_; } i; double d_; } u
+		#define NILCONSTANT	{{{NULL}, tag2tt(LUA_TNIL)}}
+		#else
+		/* big endian */
+		#define TValuefields  \
+			union { struct { int tt_; Value v_; } i; double d_; } u
+		#define NILCONSTANT	{{tag2tt(LUA_TNIL), {NULL}}}
+		#endif
+
+		#undef numfield
+		#define numfield	/* no such field; numbers are the entire struct */
+
+		/* basic check to distinguish numbers from non-numbers */
+		#undef ttisnumber
+		#define ttisnumber(o)	(((o)->u.i.tt_ & 0x7fffff00) != NNMARK)
+
+		#define tag2tt(t)	(NNMARK | (t))
+
+		#undef val_
+		#define val_(o)		((o)->u.i.v_)
+		#undef num_
+		#define num_(o)		((o)->u.d_)
+
+		#undef rttype
+		#define rttype(o)	(ttisnumber(o) ? LUA_TNUMBER : (o)->u.i.tt_ & 0xff)
+
+		#undef settt_
+		#define settt_(o,t)	((o)->u.i.tt_=tag2tt(t))
+
+		#undef setnvalue
+		#define setnvalue(obj,x) \
+			{ TValue *io_=(obj); num_(io_)=(x); lua_assert(ttisnumber(io_)); }
+
+		#undef setobj
+		#define setobj(L,obj1,obj2) \
+			{ const TValue *o2_=(obj2); TValue *o1_=(obj1); \
+			  o1_->u = o2_->u; \
+			  checkliveness(G(L),o1_); }
+
+
+		/*
+		** these redefinitions are not mandatory, but these forms are more efficient
+		*/
+
+		#undef checktag
+		#define checktag(o,t)	((o)->u.i.tt_ == tag2tt(t))
+
+		#undef ttisequal
+		#define ttisequal(o1,o2)  \
+			(ttisnumber(o1) ? ttisnumber(o2) : ((o1)->u.i.tt_ == (o2)->u.i.tt_))
+
+
+
+		#define luai_checknum(L,o,c)	{ if (!ttisnumber(o)) c; }
+
+
+		#else
+
+		#define luai_checknum(L,o,c)	{ /* empty */ }
+
+		#endif
+		/* }====================================================== */
+
+
+
+		/*
+		** {======================================================
+		** types and prototypes
+		** =======================================================
+		*/
+
+
+		public struct Value {
+		  public GCObject gc;     /* collectable objects */
+		  public object p;        /* light userdata */
+		  public int b;           /* booleans */
+		  public lua_CFunction f; /* light C functions */
+		  public lua_Number n;    /* numbers */ //FIXME:changed, numfield
+		};
+
+
+		//struct lua_TValue {
+		//  TValuefields;
+		//};
+
+
 		//typedef TValue *StkId;  /* index to stack elements */
-		
+
+
+
+
 		/*
 		** Header for string value; string bytes follow the end of this structure
 		*/
-		public class TString_tsv : GCObject //FIXME:added
-		{
+		public class TString_tsv : GCObject { //FIXME:added
+            //CommonHeader;
 			public lu_byte reserved;
 			public uint hash;
-			public uint len;
-		};
+			public uint len;  /* number of characters in string */
+		};	
 		public class TString : TString_tsv {
-			//public L_Umaxalign dummy;  /* ensures maximum alignment for strings */			
+			//public L_Umaxalign dummy;  /* ensures maximum alignment for strings */
+			//struct {
+			//    CommonHeader;
+			//    lu_byte reserved;
+			//    unsigned int hash;
+			//    size_t len;  /* number of characters in string */
+			//} tsv;
 			public TString_tsv tsv { get { return this; } }
-
-			public TString()
-			{
-				
-			}
-			//public TString(CharPtr str) { this.str = str; } //FIXME:removed
-
+			public TString() { }
 			public CharPtr str; //FIXME:added = new CharPtr()???;
-
 			public override string ToString() { return str.ToString(); } // for debugging
 		};
 
@@ -426,21 +561,21 @@ namespace KopiLua
 		/*
 		** Header for userdata; memory area follows the end of this structure
 		*/
-		public class Udata_uv : GCObject //FIXME:added
-		{
+		public class Udata_uv : GCObject { //FIXME:added
 			public Table metatable;
 			public Table env;
-			public uint len;
+			public uint len;  /* number of bytes */
 		};
-
-		public class Udata : Udata_uv
-		{
-			public Udata() { this.uv = this; }
-
-			public new Udata_uv uv;
-
+		public class Udata : Udata_uv {
 			//public L_Umaxalign dummy;  /* ensures maximum alignment for `local' udata */
-
+			public Udata() { this.uv = this; }
+			//struct {
+			//    CommonHeader;
+			//    struct Table *metatable;
+			//    struct Table *env;
+			//    size_t len;  /* number of bytes */
+			//} uv;
+			public new Udata_uv uv;
 			// in the original C code this was allocated alongside the structure memory. it would probably
 			// be possible to still do that by allocating memory and pinning it down, but we can do the
 			// same thing just as easily by allocating a seperate byte array for it instead.
@@ -564,10 +699,7 @@ namespace KopiLua
 		*/
 
 		public class ClosureHeader : GCObject {
-			public lu_byte isC;
-			public lu_byte nupvalues;
-			public GCObject gclist;
-		};
+			/*CommonHeader; */public lu_byte isC; public lu_byte nupvalues; public GCObject gclist;};
 
 		public class ClosureType {
 
@@ -608,9 +740,9 @@ namespace KopiLua
 		};
 
 
-		public static bool isLfunction(TValue o) { return (ttisclosure(o) && (clvalue(o).c.isC==0)); }
+		public static bool isLfunction(TValue o) { return ttisLclosure(o); }
 
-        public static Proto getproto(TValue o) { return (clvalue(o).l.p); }
+        public static Proto getproto(TValue o) { return (clLvalue(o).p); }
 
 
 		/*
@@ -761,8 +893,6 @@ namespace KopiLua
 
 		public static int twoto(int x) { return 1 << x; }
 		public static int sizenode(Table t)	{return twoto(t.lsizenode);}
-
-
 
 
         //FIXME:??? move to lobject.c
