@@ -183,12 +183,59 @@ lparser.c
 	//------------------------------
 
 
-
-
-
-
-
-
+15:57 2017/8/4
+lvm.c
+	//----------------------
+	if (mybuff == null) //FIXME:added
+		mybuff = buffer; //FIXME:added
+	//----------------------
+	//???????macro
+	/* execute a jump instruction */
+		#define dojump(ci,i,e) \
+		  { int a = GETARG_A(i); \
+		    if (a > 0) luaF_close(L, ci->u.l.base + a - 1); \
+		    ci->u.l.savedpc += GETARG_sBx(i) + e; }
+	//---------------------
+	//????????macro
+	//#define checkGC(L,c)	Protect(luaC_checkGC(L); luai_threadyield(L);) //FIXME:
+	//------------------------
+		OP_NEWTABLE
+		//
+	        checkGC(L,
+          L->top = ra + 1;  /* limit of live values */
+          luaC_step(L);
+          L->top = ci->top;  /* restore top */
+    //-------------------------
+		OP_CONCAT
+		//
+        ra = RA(i);  /* 'luav_concat' may invoke TMs and move the stack */
+        rb = b + base;
+        setobjs2s(L, ra, rb);
+        checkGC(L,
+          L->top = (ra >= rb ? ra + 1 : rb);  /* limit of live values */
+          luaC_step(L);
+        )
+    //-----------------------
+	vmcase->add this line:InstructionPtr.inc(ref ci.u.l.savedpc);
+	???
+	//----------------------
+	OP_CLOSURE
+				checkGC(L,
+		          L->top = ra + 1;  /* limit of live values */
+		          luaC_step(L);
+		          L->top = ci->top;  /* restore top */
+		        )
+	//----------------------
+16:00 2017/8/4
+lvm.h
+16:02 2017/8/4
+lzio.c
+16:07 2017/8/4
+lzio.h
+			public static void luaZ_resizebuffer(lua_State L, Mbuffer buff, int size) {
+			if (buff.buffer == null) //FIXME:added
+				buff.buffer = new CharPtr(); //FIXME:added
+	
 
 	
 	
