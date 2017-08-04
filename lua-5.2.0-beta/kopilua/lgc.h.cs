@@ -99,7 +99,7 @@ namespace KopiLua
 		public static byte luaC_white(global_State g) { return (byte)(g.currentwhite & WHITEBITS); }
 
 
-		public static void luaC_condGC(L,c) {
+		public static void luaC_condGC(lua_State L,c) {
 			{if (G(L).GCdebt > 0) {c;}; condchangemem(L);} } //FIXME:???macro
 		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, ()=>{luaC_step(L);}} //FIXME: macro in {}
 

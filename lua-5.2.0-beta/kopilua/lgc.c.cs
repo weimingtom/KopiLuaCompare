@@ -66,13 +66,13 @@ namespace KopiLua
 
 		public static void stringmark(TString s) {if (s != null) resetbits(ref s.tsv.marked, WHITEBITS);} //FIXME: &&->if
 
-		public static bool isfinalized(x) { return testbit(gch(x).marked, FINALIZEDBIT); }
+		public static bool isfinalized(GCObject x) { return testbit(gch(x).marked, FINALIZEDBIT); }
         public static bool isfinalized(GCheader u) { return testbit(u.marked, FINALIZEDBIT); } //FIXME:added
 
 		public static void checkdeadkey(Node n) { lua_assert(!ttisdeadkey(gkey(n)) || ttisnil(gval(n)));} 
 
 
-		private static void checkconsistency(obj) {
+		private static void checkconsistency(TValue obj) {
   			return lua_longassert(!iscollectable(obj) || righttt(obj)); }
 
 

@@ -9,9 +9,9 @@ namespace KopiLua
 
 		public static int tonumber(ref StkId o, TValue n) { return (ttisnumber(o) || ((o = luaV_tonumber(o, n)) != null)) ? 1 : 0; }
 
-		public static bool equalobj(L,o1,o2)  { return (ttisequal(o1, o2) && luaV_equalobj_(L, o1, o2)); }
+		public static bool equalobj(lua_State L, TValue o1, TValue o2)  { return (ttisequal(o1, o2) && luaV_equalobj_(L, o1, o2)); }
 
-		public static int luaV_rawequalobj(t1, t2)
+		public static int luaV_rawequalobj(TValue t1, TValue t2)
 			     { return (ttisequal(t1,t2) && luaV_equalobj_(null,t1,t2)) ? 1 : 0; }
 	}
 }

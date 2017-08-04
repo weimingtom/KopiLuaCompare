@@ -199,9 +199,9 @@ namespace KopiLua
 		}
 
 
-		public static int luaL_fileresult (lua_State *L, int stat, const char *fname) {
+		public static int luaL_fileresult (lua_State L, int stat, CharPtr fname) {
 		  int en = errno;  /* calls to Lua API may change this value */
-		  if (stat) {
+		  if (stat != 0) {
 		    lua_pushboolean(L, 1);
 		    return 1;
 		  }
@@ -217,26 +217,26 @@ namespace KopiLua
 		}
 
 
-		#if !defined(inspectstat)	/* { */
+		//#if !defined(inspectstat)	/* { */
 
-		#if defined(LUA_USE_POSIX)
+		//#if defined(LUA_USE_POSIX)
 
-		#include <sys/wait.h>
+		//#include <sys/wait.h>
 
 		/*
 		** use appropriate macros to interpret 'pclose' return status
 		*/
-		#define inspectstat(stat,what)  \
-		   if (WIFEXITED(stat)) { stat = WEXITSTATUS(stat); } \
-		   else if (WIFSIGNALED(stat)) { stat = WTERMSIG(stat); what = "signal"; }
+		//#define inspectstat(stat,what)  \
+		//   if (WIFEXITED(stat)) { stat = WEXITSTATUS(stat); } \
+		//   else if (WIFSIGNALED(stat)) { stat = WTERMSIG(stat); what = "signal"; }
 
-		#else
+		//#else
 
-		#define inspectstat(stat,what)  /* no op */
+		private static void inspectstat(int stat, ref CharPtr what) { /* no op */ }
 
-		#endif
+		//#endif
 
-		#endif				/* } */
+		//#endif				/* } */
 
 
 		public static int luaL_execresult (lua_State *L, int stat) {

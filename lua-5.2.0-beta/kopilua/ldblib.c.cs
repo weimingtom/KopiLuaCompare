@@ -248,7 +248,7 @@ namespace KopiLua
 		}
 
 
-		private static void gethooktable(L) { return luaL_getsubtable(L, LUA_REGISTRYINDEX, HOOKKEY); } //FIXME: ';'???
+		private static void gethooktable(lua_State L) { return luaL_getsubtable(L, LUA_REGISTRYINDEX, HOOKKEY); } //FIXME: ';'???
 
 
 

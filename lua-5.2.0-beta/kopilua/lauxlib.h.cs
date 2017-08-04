@@ -107,11 +107,11 @@ namespace KopiLua
 
 
 		/* compatibility with old module system */
-        #if defined(LUA_COMPAT_MODULE)
+        //#if defined(LUA_COMPAT_MODULE)
 
 		public static void luaL_register(lua_State L, CharPtr n, luaL_Reg[] l) { luaL_openlib(L,n,l,0); }
 
-        #endif
+        //#endif
 
 	}
 }

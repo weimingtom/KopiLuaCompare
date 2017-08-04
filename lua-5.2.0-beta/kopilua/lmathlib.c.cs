@@ -249,9 +249,9 @@ namespace KopiLua
 		  new luaL_Reg("fmod",   math_fmod),
 		  new luaL_Reg("frexp", math_frexp),
 		  new luaL_Reg("ldexp", math_ldexp),
-#if defined(LUA_COMPAT_LOG10)
+//#if defined(LUA_COMPAT_LOG10)
 		  new luaL_Reg("log10", math_log10),
-#endif
+//#endif
 		  new luaL_Reg("log",   math_log),
 		  new luaL_Reg("max",   math_max),
 		  new luaL_Reg("min",   math_min),

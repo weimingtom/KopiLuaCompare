@@ -142,9 +142,9 @@ namespace KopiLua
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
 		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(object i) { return (lu_byte)(int)(i); }
-		public static lua_Number cast_num(i) { return (lua_Number)i; } //FIXME:???remove?
-		public static int cast_int(i) { return (int)i; } //FIXME:???remove?
-        public static byte cast_uchar(i) { return (byte)(i)); } //FIXME:???remove?
+		public static lua_Number cast_num(object i) { return (lua_Number)i; } //FIXME:???remove?
+		public static int cast_int(object i) { return (int)i; } //FIXME:???remove?
+        public static byte cast_uchar(object i) { return (byte)(i)); } //FIXME:???remove?
 		
 		/*
 		** maximum depth for nested C calls and syntactical nested non-terminals

@@ -445,9 +445,9 @@ namespace KopiLua
           new luaL_Reg("ipairs", luaB_ipairs),
 		  new luaL_Reg("loadfile", luaB_loadfile),
 		  new luaL_Reg("load", luaB_load),
-#if defined(LUA_COMPAT_LOADSTRING)
+//#if defined(LUA_COMPAT_LOADSTRING)
 		  new luaL_Reg("loadstring", luaB_loadstring),
-#endif
+//#endif
 		  new luaL_Reg("next", luaB_next),
           new luaL_Reg("pairs", luaB_pairs),
 		  new luaL_Reg("pcall", luaB_pcall),

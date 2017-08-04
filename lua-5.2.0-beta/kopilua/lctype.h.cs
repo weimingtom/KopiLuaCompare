@@ -70,7 +70,7 @@ namespace KopiLua
 		/*
 		** this 'ltolower' only works for alphabetic characters
 		*/
-		public static int ltolower(c) { return ((c) | ('A' ^ 'a')); }
+		public static int ltolower(int c) { return ((c) | ('A' ^ 'a')); }
 
 
 		/* two more entries for 0 and -1 (EOZ) */
@@ -97,7 +97,7 @@ namespace KopiLua
 
 #endif			///* } */
 
-#endif
+
 
 	}
 }

@@ -603,17 +603,17 @@ namespace KopiLua
 		private readonly static luaL_Reg[] pk_funcs = {
 		  new luaL_Reg("loadlib", ll_loadlib),
           new luaL_Reg("searchpath", ll_searchpath),
-#if defined(LUA_COMPAT_MODULE)
+//#if defined(LUA_COMPAT_MODULE)
 		  new luaL_Reg("seeall", ll_seeall),
-#endif
+//#endif
 		  new luaL_Reg(null, null)
 		};
 
 
 		private readonly static luaL_Reg[] ll_funcs = {
-#if defined(LUA_COMPAT_MODULE)
+//#if defined(LUA_COMPAT_MODULE)
 		  new luaL_Reg("module", ll_module),
-#endif
+//#endif
 		  new luaL_Reg("require", ll_require),
 		  new luaL_Reg(null, null)
 		};
@@ -639,10 +639,10 @@ namespace KopiLua
 		    lua_pushcclosure(L, searchers[i], 1);
 			lua_rawseti(L, -2, i+1);
 		  }
-#if defined(LUA_COMPAT_LOADERS)
+//#if defined(LUA_COMPAT_LOADERS)
 		  lua_pushvalue(L, -1);  /* make a copy of 'searchers' table */
 		  lua_setfield(L, -3, "loaders");  /* put it in field `loaders' */
-#endif
+//#endif
 		  lua_setfield(L, -2, "searchers");  /* put it in field 'searchers' */
 		  /* set field 'path' */
 		  setpath(L, "path", LUA_PATHVERSION, LUA_PATH, LUA_PATH_DEFAULT);

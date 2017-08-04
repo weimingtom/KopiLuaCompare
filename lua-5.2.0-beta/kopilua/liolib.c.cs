@@ -54,7 +54,7 @@ namespace KopiLua
 
 
 		public const string IO_PREFIX = "_IO_";
-		public const string IO_INPUT	= (IO_PREFIX + "input")
+		public const string IO_INPUT	= (IO_PREFIX + "input");
 		public const string IO_OUTPUT	= (IO_PREFIX + "output");
 
 
@@ -72,7 +72,7 @@ namespace KopiLua
 
 		public static LStream tolstream(lua_State L) { return (LStream)luaL_checkudata(L, 1, LUA_FILEHANDLE); }
 
-        public static bool isclosed(p) { return (p.closef == null); }
+        public static bool isclosed(LStream p) { return (p.closef == null); }
 
 
 		private static int io_type (lua_State L) {

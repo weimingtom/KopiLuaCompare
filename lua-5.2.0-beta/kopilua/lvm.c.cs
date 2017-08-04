@@ -492,9 +492,9 @@ namespace KopiLua
 			return k[(GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(InstructionPtr.inc(ref ci.u.l.savedpc)[0]))]; }
 
 		/* execute a jump instruction */
-		public static void dojump(CallInfo ci,i,e) \
+		public static void dojump(CallInfo ci,i,e)
 		  { int a = GETARG_A(i);
-		    if (a > 0) luaF_close(L, ci->u.l.base + a - 1);
+		    if (a > 0) luaF_close(L, ci.u.l.base_ + a - 1);
 		    ci.u.l.savedpc += GETARG_sBx(i) + e; }
 
 		/* for test instructions, execute the jump instruction that follows it */
