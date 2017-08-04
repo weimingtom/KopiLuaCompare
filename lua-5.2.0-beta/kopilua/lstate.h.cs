@@ -29,9 +29,9 @@ namespace KopiLua
 	** when traversing the respective threads, but the thread may already be
 	** dead, while the upvalue is still accessible through closures.)
 	**
-	** Userdata with finalizers are kept in the list g->udgc.
+	** Objects with finalizers are kept in the list g->finobj.
 	**
-	** The list g->tobefnz links all userdata being finalized.
+	** The list g->tobefnz links all objects being finalized.
 
 	*/
 	public partial class Lua
@@ -180,7 +180,6 @@ namespace KopiLua
 		public const int CIST_TAIL = (1<<6); /* call was tail called */
 
 
-		public static Closure ci_func(CallInfo ci) { return (clvalue(ci.func)); }
 		public static int isLua(CallInfo ci)	{return ((ci.callstatus & CIST_LUA) != 0) ? 1 : 0;}
 
 
@@ -190,8 +189,8 @@ namespace KopiLua
 		public class global_State {
 		  public lua_Alloc frealloc;  /* function to reallocate memory */
 		  public object ud;         /* auxiliary data to `frealloc' */
-		  public lu_mem totalbytes;  /* number of bytes currently allocated */
-		  public l_mem GCdebt;  /* when positive, run a GC step */
+		  public lu_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
+		  public l_mem GCdebt;  /* bytes allocated not yet compensated by the collector */
 		  public lu_mem lastmajormem;  /* memory in use after last major collection */
 		  public stringtable strt = new stringtable();  /* hash table for strings */
 		  public TValue l_registry = new TValue();
@@ -199,9 +198,10 @@ namespace KopiLua
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
           public lu_byte gckind;  /* kind of GC running */
+          public lu_byte gcrunning;  /* true if GC is running */
 		  public int sweepstrgc;  /* position of sweep in `strt' */
 		  public GCObject allgc;  /* list of all collectable objects */
-		  public GCObject udgc;  /* list of collectable userdata with finalizers */
+		  public GCObject finobj;  /* list of collectable objects with finalizers */
 		  public GCObjectRef sweepgc;  /* current position of sweep */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
@@ -439,6 +439,10 @@ namespace KopiLua
 
 		/* macro to convert any Lua object into a GCObject */
 		public static GCObject obj2gco(object v)	{return (GCObject)v;}
+
+
+		/* actual number of total bytes allocated */
+		public static int gettotalbytes(g) { return (g.totalbytes + g.GCdebt); }
 
 	}
 }

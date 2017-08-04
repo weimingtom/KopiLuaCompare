@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.158 2010/11/16 20:39:41 roberto Exp roberto $
+** $Id: lstrlib.c,v 1.169 2011/06/16 14:14:05 roberto Exp roberto $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -46,7 +46,7 @@ namespace KopiLua
         /* translate a relative string position: negative means back from end */
 		private static uint posrelat (ptrdiff_t pos, uint len) {
 		  if (pos >= 0) return (uint)pos;
-		  else if (pos == -pos || (uint)-pos > len) return 0;
+		  else if (0u - (uint)pos > len) return 0;
 		  else return len - ((uint)-pos) + 1;
 		}
 
@@ -102,15 +102,29 @@ namespace KopiLua
 		  return 1;
 		}
 
+		/* reasonable limit to avoid arithmetic overflow */
+		private static int MAXSIZE = ((~(uint)0) >> 1);
+
+
 		private static int str_rep (lua_State L) {
-		  uint l;
-		  luaL_Buffer b = new luaL_Buffer();
-		  CharPtr s = luaL_checklstring(L, 1, out l);
+		  uint l, lsep;
+		  CharPtr s = luaL_checklstring(L, 1, &l);
 		  int n = luaL_checkint(L, 2);
-		  luaL_buffinit(L, b);
-		  while (n-- > 0)
-			luaL_addlstring(b, s, l);
-		  luaL_pushresult(b);
+		  CharPtr sep = luaL_optlstring(L, 3, "", &lsep);
+		  if (n <= 0) lua_pushliteral(L, "");
+		  else if (l + lsep < l || l + lsep >= MAXSIZE / n)  /* may overflow? */
+		    return luaL_error(L, "resulting string too large");
+		  else {
+		    size_t totallen = n * l + (n - 1) * lsep;
+		    luaL_Buffer b;
+		    CharPtr p = luaL_buffinitsize(L, &b, totallen);
+		    while (n-- > 1) {  /* first n-1 copies (followed by separator) */
+		      memcpy(p, s, l * sizeof(char)); p += l;
+		      memcpy(p, sep, lsep * sizeof(char)); p += lsep;
+		    }
+		    memcpy(p, s, l * sizeof(char));  /* last copy (not followed by separator) */
+		    luaL_pushresultsize(&b, totallen);
+		  }
 		  return 1;
 		}
 
@@ -126,7 +140,7 @@ namespace KopiLua
 		  if (posi > pose) return 0;  /* empty interval; return no values */
 		  n = (int)(pose -  posi + 1);
 		  if (posi + n <= pose)  /* overflow? */
-			luaL_error(L, "string slice too long");
+			return luaL_error(L, "string slice too long");
 		  luaL_checkstack(L, n, "string slice too long");
 		  for (i=0; i<n; i++)
 			  lua_pushinteger(L, (byte)(s[posi + i - 1]));
@@ -176,7 +190,7 @@ namespace KopiLua
 		  lua_settop(L, 1);
 		  luaL_buffinit(L,b);
 		  if (lua_dump(L, writer, b) != 0)
-			luaL_error(L, "unable to dump given function");
+			return luaL_error(L, "unable to dump given function");
 		  luaL_pushresult(b);
 		  return 1;
 		}
@@ -540,7 +554,7 @@ namespace KopiLua
 		  uint upto = 0;
 		  do {
 		    if (strpbrk(p + upto, SPECIALS)!=null)
-		      return 0;  /* pattern has a special character */ 
+		      return 0;  /* pattern has a special character */
 		    upto += (uint)strlen(p + upto) + 1;  /* may have more after \0 */ //FIXME:added, (uint)
 		  } while (upto <= l);
 		  return 1;  /* no special chars found */
@@ -763,7 +777,7 @@ namespace KopiLua
 		** the previous length
 		*/
 		//#if !defined(LUA_INTFRMLEN)	/* { */
-		//#if defined(LUA_USELONGLONG)
+		//#if defined(LUA_USE_LONGLONG)
 
 		//#define LUA_INTFRMLEN           "ll"
 		//#define LUA_INTFRM_T            long long
@@ -826,7 +840,7 @@ namespace KopiLua
 		private static CharPtr scanformat (lua_State L, CharPtr strfrmt, CharPtr form) {
 		  CharPtr p = strfrmt;
 		  while (p[0] != '\0' && strchr(FLAGS, p[0]) != null) p = p.next();  /* skip flags */
-		  if ((uint)(p - strfrmt) >= (FLAGS.Length+1))
+		  if ((uint)(p - strfrmt) >= (FLAGS.Length)) //FIXME:???sizeof(FLAGS)/sizeof(char), ?+1
 			luaL_error(L, "invalid format (repeated flags)");
 		  if (isdigit((byte)(p[0]))) p = p.next();  /* skip width */
 		  if (isdigit((byte)(p[0]))) p = p.next();  /* (2 digits at most) */
@@ -837,9 +851,8 @@ namespace KopiLua
 		  }
 		  if (isdigit((byte)(p[0])))
 			luaL_error(L, "invalid format (width or precision too long)");
-		  form[0] = '%';
-		  form = form.next();
-		  memcpy(form, strfrmt, p - strfrmt + 1);
+		  form[0] = '%'; form = form.next();
+		  memcpy(form, strfrmt, (p - strfrmt + 1) * 1); //FIXME: * sizeof(char)
 		  form += p - strfrmt + 1;
 		  form[0] = '\0';
 		  return p;
@@ -899,6 +912,9 @@ namespace KopiLua
 					    break;
 					  }
 					  case 'e':  case 'E':  case 'f':
+#if defined(LUA_USE_AFORMAT)
+                      case 'a': case 'A':
+#endif
 					  case 'g':  case 'G':  {
                         addlenmod(form, LUA_FLTFRMLEN);
 					    nb = sprintf(buff, form, (LUA_FLTFRM_T)luaL_checknumber(L, arg));
@@ -910,16 +926,16 @@ namespace KopiLua
 					  }
 					  case 's': {
 					    uint l;
-						CharPtr s = luaL_checklstring(L, arg, out l);
+						CharPtr s = luaL_tolstring(L, arg, out l);
 						if ((strchr(form, '.') == null) && l >= 100) {
 						  /* no precision and string is too long to be formatted;
 						     keep original string */
-						  lua_pushvalue(L, arg);
 						  luaL_addvalue(b);
 						  break;
 					    }
 						else {
 						  nb = sprintf(buff, form, s);
+                          lua_pop(L, 1);  /* remove result from 'luaL_tolstring' */
 						  break;
 						}
 					  }
@@ -958,13 +974,13 @@ namespace KopiLua
 
 
 		private static void createmetatable (lua_State L) {
-		  lua_createtable(L, 0, 1);  /* create metatable for strings */
+		  lua_createtable(L, 0, 1);  /* table to be metatable for strings */
 		  lua_pushliteral(L, "");  /* dummy string */
-		  lua_pushvalue(L, -2);
-		  lua_setmetatable(L, -2);  /* set string metatable */
+		  lua_pushvalue(L, -2);  /* copy table */
+		  lua_setmetatable(L, -2);  /* set table as metatable for strings */
 		  lua_pop(L, 1);  /* pop dummy string */
-		  lua_pushvalue(L, -2);  /* string library... */
-		  lua_setfield(L, -2, "__index");  /* ...is the __index metamethod */
+		  lua_pushvalue(L, -2);  /* get string library */
+		  lua_setfield(L, -2, "__index");  /* metatable.__index = string */
 		  lua_pop(L, 1);  /* pop metatable */
 		}
 

@@ -2,13 +2,11 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
-		/* for header of binary files -- this is Lua 5.1 */
-		public const int LUAC_VERSION		= 0x51;
 
-		/* for header of binary files -- this is the official format */
-		public const int LUAC_FORMAT		= 0;
+		/* data to catch conversion errors */
+		public const string LUAC_TAIL = "\x19\x93\r\n\x1a\n";
 
-		/* size of header of binary files */
-		public const int LUAC_HEADERSIZE		= 12;
+		/* size in bytes of header of binary files */
+		public const int LUAC_HEADERSIZE		= (sizeof(LUA_SIGNATURE)-sizeof(char)+2+6+sizeof(LUAC_TAIL)-sizeof(char));
 	}
 }

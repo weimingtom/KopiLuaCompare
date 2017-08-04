@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.52 2010/06/25 12:18:10 roberto Exp roberto $
+** $Id: ltable.c,v 2.59 2011/06/09 18:23:27 roberto Exp roberto $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -89,8 +89,9 @@ namespace KopiLua
 		  int i;
 		  luai_hashnum(out i, n);
 		  if (i < 0) {
+		    if ((uint)(i) == 0u - i)  /* use unsigned to avoid overflows */
+		      i = 0;  /* handle INT_MIN */
 		     i = -i;  /* must be a positive value */
-		     if (i < 0) i = 0;  /* handle INT_MIN */
 		  }
 		  return hashmod(t, i);
 		}
@@ -150,8 +151,8 @@ namespace KopiLua
 			Node n = mainposition(t, key);
 			do {  /* check whether `key' is somewhere in the chain */
 			  /* key may be dead already, but it is ok to use it in `next' */
-			  if ((luaO_rawequalObj(gkey(n), key) != 0) ||
-					(ttype(gkey(n)) == LUA_TDEADKEY && iscollectable(key) &&
+			  if ((luaV_rawequalobj(gkey(n), key) != 0) ||
+					(ttisdeadkey(gkey(n)) && iscollectable(key) &&
 					 gcvalue(gkey(n)) == gcvalue(key))) {
 				i = cast_int(n - gnode(t, 0));  /* key index in hash table */
 				/* hash elements are numbered after array ones */
@@ -339,7 +340,7 @@ namespace KopiLua
 
 		private static void rehash (lua_State L, Table t, TValue ek) {
 		  int nasize, na;
-		  int[] nums = new int[MAXBITS+1];  /* nums[i] = number of keys between 2^(i-1) and 2^i */
+		  int[] nums = new int[MAXBITS+1];  /* nums[i] = number of keys with 2^(i-1) < k <= 2^i */
 		  int i;
 		  int totaluse;
 		  for (i=0; i<=MAXBITS; i++) nums[i] = 0;  /* reset counts */
@@ -472,7 +473,7 @@ namespace KopiLua
 		** main search function
 		*/
 		public static TValue luaH_get (Table t, TValue key) {
-		  switch (ttype(key)) {
+		  switch (ttypenv(key)) {
 			case LUA_TNIL: return luaO_nilobject;
 			case LUA_TSTRING: return luaH_getstr(t, rawtsvalue(key));
 			case LUA_TNUMBER: {
@@ -487,7 +488,7 @@ namespace KopiLua
 				Node node = mainposition(t, key);//FIXME: n->node
 				do
 				{  /* check whether `key' is somewhere in the chain */
-					if (luaO_rawequalObj(gkey(node), key) != 0)//FIXME: n->node
+					if (luaV_rawequalobj(gkey(node), key) != 0)//FIXME: n->node
 						return gval(node);  /* that's it *///FIXME: n->node
 					else node = gnext(node);//FIXME: n->node
 				} while (node != null);//FIXME: n->node
@@ -496,7 +497,7 @@ namespace KopiLua
 			default: {
 				Node node = mainposition(t, key); //FIXME: n->node
 			  do {  /* check whether `key' is somewhere in the chain */
-				if (luaO_rawequalObj(gkey(node), key) != 0)//FIXME: n->node
+				if (luaV_rawequalobj(gkey(node), key) != 0)//FIXME: n->node
 				  return gval(node);  /* that's it *///FIXME: n->node
 				else node = gnext(node);//FIXME: n->node
 			  } while (node != null);//FIXME: n->node
