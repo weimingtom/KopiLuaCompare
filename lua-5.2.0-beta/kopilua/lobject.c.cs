@@ -85,85 +85,85 @@ namespace KopiLua
 
 
 		private static int luaO_hexavalue (int c) {
-		  if (lisdigit(c)) return c - '0';
+		  if (lisdigit(c)!=0) return c - '0';
 		  else return ltolower(c) - 'a' + 10;
 		}
 
 
-		#if !defined(lua_strx2number)
+		//#if !defined(lua_strx2number)
 
 		//#include <math.h>
 
 
-		private static int isneg (const char **s) {
-		  if (**s == '-') { (*s)++; return 1; }
-		  else if (**s == '+') (*s)++;
-		  return 0;
-		}
+		//private static int isneg (const char **s) {
+		//  if (**s == '-') { (*s)++; return 1; }
+		//  else if (**s == '+') (*s)++;
+		//  return 0;
+		//}
 
 
-		private static lua_Number readhexa (const char **s, lua_Number r, int *count) {
-		  while (lisxdigit(cast_uchar(**s))) {  /* read integer part */
-		    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(*(*s)++)));
-		    (*count)++;
-		  }
-		  return r;
-		}
+		//private static lua_Number readhexa (const char **s, lua_Number r, int *count) {
+		//  while (lisxdigit(cast_uchar(**s))) {  /* read integer part */
+		//    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(*(*s)++)));
+		//    (*count)++;
+		//  }
+		//  return r;
+		//}
 
 
 		/*
 		** convert an hexadecimal numeric string to a number, following
 		** C99 specification for 'strtod'
 		*/
-		private static lua_Number lua_strx2number (const char *s, char **endptr) {
-		  lua_Number r = 0.0;
-		  int e = 0, i = 0;
-		  int neg = 0;  /* 1 if number is negative */
-		  *endptr = cast(char *, s);  /* nothing is valid yet */
-		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-		  neg = isneg(&s);  /* check signal */
-		  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
-		    return 0.0;  /* invalid format (no '0x') */
-		  s += 2;  /* skip '0x' */
-		  r = readhexa(&s, r, &i);  /* read integer part */
-		  if (*s == '.') {
-		    s++;  /* skip dot */
-		    r = readhexa(&s, r, &e);  /* read fractional part */
-		  }
-		  if (i == 0 && e == 0)
-		    return 0.0;  /* invalid format (no digit) */
-		  e *= -4;  /* each fractional digit divides value by 2^-4 */
-		  *endptr = cast(char *, s);  /* valid up to here */
-		  if (*s == 'p' || *s == 'P') {  /* exponent part? */
-		    int exp1 = 0;
-		    int neg1;
-		    s++;  /* skip 'p' */
-		    neg1 = isneg(&s);  /* signal */
-		    if (!lisdigit(cast_uchar(*s)))
-		      goto ret;  /* must have at least one digit */
-		    while (lisdigit(cast_uchar(*s)))  /* read exponent */
-		      exp1 = exp1 * 10 + *(s++) - '0';
-		    if (neg1) exp1 = -exp1;
-		    e += exp1;
-		  }
-		  *endptr = cast(char *, s);  /* valid up to here */
-		 ret:
-		  if (neg) r = -r;
-		  return ldexp(r, e);
-		}
+//		private static lua_Number lua_strx2number (const char *s, char **endptr) {
+//		  lua_Number r = 0.0;
+//		  int e = 0, i = 0;
+//		  int neg = 0;  /* 1 if number is negative */
+//		  *endptr = cast(char *, s);  /* nothing is valid yet */
+//		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
+//		  neg = isneg(&s);  /* check signal */
+//		  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
+//		    return 0.0;  /* invalid format (no '0x') */
+//		  s += 2;  /* skip '0x' */
+//		  r = readhexa(&s, r, &i);  /* read integer part */
+//		  if (*s == '.') {
+//		    s++;  /* skip dot */
+//		    r = readhexa(&s, r, &e);  /* read fractional part */
+//		  }
+//		  if (i == 0 && e == 0)
+//		    return 0.0;  /* invalid format (no digit) */
+//		  e *= -4;  /* each fractional digit divides value by 2^-4 */
+//		  *endptr = cast(char *, s);  /* valid up to here */
+//		  if (*s == 'p' || *s == 'P') {  /* exponent part? */
+//		    int exp1 = 0;
+//		    int neg1;
+//		    s++;  /* skip 'p' */
+//		    neg1 = isneg(&s);  /* signal */
+//		    if (!lisdigit(cast_uchar(*s)))
+//		      goto ret;  /* must have at least one digit */
+//		    while (lisdigit(cast_uchar(*s)))  /* read exponent */
+//		      exp1 = exp1 * 10 + *(s++) - '0';
+//		    if (neg1) exp1 = -exp1;
+//		    e += exp1;
+//		  }
+//		  *endptr = cast(char *, s);  /* valid up to here */
+//		 ret:
+//		  if (neg) r = -r;
+//		  return ldexp(r, e);
+//		}
+//
+//		#endif
 
-		#endif
 
-
-		public static int luaO_str2d (CharPtr s, out lua_Number result) {
+		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {
 		  CharPtr endptr;
-		  if (strpbrk(s, "xX"))  /* hexa? */
-		    result = lua_strx2number(s, &endptr);
+		  if (strpbrk(s, "xX")!=null)  /* hexa? */
+		    result = lua_strx2number(s, out endptr);
 		  else
-		    result = lua_str2number(s, &endptr);
+		    result = lua_str2number(s, out endptr);
 		  if (endptr == s) return 0;  /* nothing recognized */
-		  while (lisspace(cast_uchar(*endptr))) endptr++;
-		  return (endptr == s + len);  /* OK if no trailing characters */
+		  while (lisspace((byte)(endptr[0]))!=0) endptr.inc(); //FIXME:changed, ++
+		  return (endptr == s + len)?1:0;  /* OK if no trailing characters */
 		}
 
 

@@ -368,8 +368,8 @@ namespace KopiLua
 		}
 
 
-		private static int checkload (lua_State L, CharPtr filename) {
-		  if (stat) {  /* module loaded successfully? */
+		private static int checkload (lua_State L, int stat, CharPtr filename) {
+		  if (stat!=0) {  /* module loaded successfully? */
 		    lua_pushstring(L, filename);  /* will be 2nd argument to module */
 			return 2;  /* return open function and file name */
 		  }
@@ -385,7 +385,7 @@ namespace KopiLua
 		  CharPtr name = luaL_checkstring(L, 1);
 		  filename = findfile(L, name, "path");
 		  if (filename == null) return 1;  /* module not found in this path */
-		  return checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
+		  return checkload(L, (luaL_loadfile(L, filename) == LUA_OK)?1:0, filename);
 		}
 
 
@@ -411,7 +411,7 @@ namespace KopiLua
 		  CharPtr name = luaL_checkstring(L, 1);
 		  CharPtr filename = findfile(L, name, "cpath");
 		  if (filename == null) return 1;  /* module not found in this path */
-		  return checkload(L, (loadfunc(L, filename, name) == 0), filename);
+		  return checkload(L, (loadfunc(L, filename, name) == 0)?1:0, filename);
 		}
 
 
@@ -500,7 +500,7 @@ namespace KopiLua
 		** 'module' function
 		** =======================================================
 		*/
-#if LUA_COMPAT_MODULE //FIXME:???
+//#if LUA_COMPAT_MODULE //FIXME:???
 		
 		/*
 		** changes the environment variable of calling function
@@ -573,7 +573,7 @@ namespace KopiLua
 		  return 0;
 		}
 
-#endif
+//#endif
 		/* }====================================================== */
 
 

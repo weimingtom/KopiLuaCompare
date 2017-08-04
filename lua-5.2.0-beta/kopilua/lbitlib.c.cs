@@ -28,7 +28,7 @@ namespace KopiLua
 
 
 		/* builds a number with 'n' ones (1 <= n <= LUA_NBITS) */
-		private static void mask(int n) { return (~((ALLONES << 1) << ((n) - 1))); } //FIXME:???
+		private static int mask(int n) { return (int)(~((ALLONES << 1) << ((n) - 1))); } //FIXME:???//FIXME:(int)
 
 
 		//typedef unsigned LUA_INT32 b_uint;
@@ -151,14 +151,14 @@ namespace KopiLua
 		** get field and width arguments for field-manipulation functions,
 		** checking whether they are valid
 		*/
-		private static int fieldargs (lua_State L, int farg, int *width) {
+		private static int fieldargs (lua_State L, int farg, out int width) {
 		  int f = luaL_checkint(L, farg);
 		  int w = luaL_optint(L, farg + 1, 1);
 		  luaL_argcheck(L, 0 <= f, farg, "field cannot be negative");
 		  luaL_argcheck(L, 0 < w, farg + 1, "width must be positive");
 		  if (f + w > LUA_NBITS)
 		    luaL_error(L, "trying to access non-existent bits");
-		  *width = w;
+		  width = w;
 		  return f;
 		}
 
@@ -166,8 +166,8 @@ namespace KopiLua
 		private static int b_extract (lua_State L) {
 		  int w;
 		  b_uint r = luaL_checkunsigned(L, 1);
-		  int f = fieldargs(L, 2, &w);
-		  r = (r >> f) & mask(w);
+		  int f = fieldargs(L, 2, out w);
+		  r = (uint)((r >> f) & mask(w)); //FIXME:changed, (uint)
 		  lua_pushunsigned(L, r);
 		  return 1;
 		}
@@ -177,10 +177,10 @@ namespace KopiLua
 		  int w;
 		  b_uint r = luaL_checkunsigned(L, 1);
 		  b_uint v = luaL_checkunsigned(L, 2);
-		  int f = fieldargs(L, 3, &w);
+		  int f = fieldargs(L, 3, out w);
 		  int m = mask(w);
-		  v &= m;  /* erase bits outside given width */
-		  r = (r & ~(m << f)) | (v << f);
+		  v &= (uint)m;  /* erase bits outside given width */ //FIXME:changed, (uint)
+		  r = (uint)((r & ~(m << f)) | (v << f)); //FIXME:changed, (uint)
 		  lua_pushunsigned(L, r);
 		  return 1;
 		}

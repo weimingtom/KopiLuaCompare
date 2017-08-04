@@ -54,7 +54,7 @@ namespace KopiLua
 		        return n;  /* no more input; return number of missing bytes */
 		      else {
 		        z.n++;  /* luaZ_fill consumed first byte; put it back */
-		        z.p--;
+		        z.p.dec(); //FIXME:--
 		      }
 		    }
 			m = (n <= z.n) ? n : z.n;  // min. between n and z.n

@@ -6,6 +6,7 @@ using AT.MIN;
 namespace KopiLua
 {
 	using lua_Number = System.Double;
+	using clock_t = System.Int64;
 	
 	public partial class Lua
 	{
@@ -198,10 +199,12 @@ namespace KopiLua
 		public const int EXIT_SUCCESS = 0;
 		public const int EXIT_FAILURE = 1;
 
-		public static int errno()
-		{
-			return -1;	// todo: fix this - mjf
-		}
+		public static int errno = -1;
+		//FIXME:changed, see upper
+//		public static int errno()
+//		{
+//			return -1;	// todo: fix this - mjf
+//		}
 
 		public static CharPtr strerror(int error)
 		{
@@ -849,7 +852,7 @@ namespace KopiLua
 				return 4;
 			else if (t == typeof(Single))
 				return 4;
-			else if (t == typeof(vardesc))
+			else if (t == typeof(Vardesc))
 				return 2;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
@@ -898,5 +901,113 @@ namespace KopiLua
 		public static bool isgraph(char c) { return !Char.IsControl(c) && !Char.IsWhiteSpace(c); }
 		public static bool isgraph(int c) { return !Char.IsControl((char)c) && !Char.IsWhiteSpace((char)c); }
 		
+		public static int system(CharPtr cmd) 
+		{
+			CharPtr strCmdLine = "/C regenresx " + cmd;
+			System.Diagnostics.Process proc = new System.Diagnostics.Process();
+			proc.EnableRaisingEvents=false;
+			proc.StartInfo.FileName = "CMD.exe";
+			proc.StartInfo.Arguments = strCmdLine.ToString();
+			proc.Start();
+			proc.WaitForExit();
+			return proc.ExitCode;
+		}
+		
+		public static int remove(CharPtr filename)
+		{
+		  	int result = 1;
+		  	try 
+		  	{
+		  		File.Delete(filename.ToString());
+		  	} 
+		  	catch 
+		  	{
+		  		result = 0;
+		  	}
+		  	return result;
+		}
+		
+		public static int rename(CharPtr fromname, CharPtr toname)
+		{
+			int result;
+			try
+			{
+				File.Move(fromname.ToString(), toname.ToString());
+				result = 0;
+			}
+			catch
+			{
+				result = 1; // todo: this should be a proper error code
+			}
+		  	return result;
+		}
+		
+		public const int L_tmpnam = 256; //FIXME:???
+		public static CharPtr tmpnam(CharPtr name) 
+		{
+			return strcpy(name, Path.GetTempFileName());
+		}
+		
+		private const string number_chars = "0123456789+-eE.";
+		public static double strtod(CharPtr s, out CharPtr end)
+		{
+			end = new CharPtr(s.chars, s.index);
+			string str = "";
+			while (end[0] == ' ')
+				end = end.next();
+			while (number_chars.IndexOf(end[0]) >= 0)
+			{
+				str += end[0];
+				end = end.next();
+			}
+
+			try
+			{
+				return Convert.ToDouble(str.ToString());
+			}
+			catch (System.OverflowException)
+			{
+				// this is a hack, fix it - mjf
+				if (str[0] == '-')
+					return System.Double.NegativeInfinity;
+				else
+					return System.Double.PositiveInfinity;
+			}
+			catch
+			{
+				end = new CharPtr(s.chars, s.index);
+				return 0;
+			}
+		}
+		
+		public static uint strspn (CharPtr s, CharPtr accept)
+		{
+			int p;//s
+		    int a;//accept
+		    uint count = 0;
+		    for (p = 0; s[p] != '\0'; ++p)
+		    {
+		    	for (a = 0; accept[a] != '\0'; ++a)
+		        {
+		    		if (s[p] == accept[a])
+		            {
+		                ++count;
+		                break;
+		            }
+		        }
+		    	if (accept[a] == '\0')
+		        {
+		            return count;
+		        }
+		    }
+		    return count;
+		}
+		
+		public const clock_t CLOCKS_PER_SEC = (clock_t)1000;
+		public static clock_t clock()
+		{
+			long ticks = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+			return ticks;
+		}
 	}
 }

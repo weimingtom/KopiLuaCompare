@@ -82,12 +82,12 @@ namespace KopiLua
 		}
 
 
-		private static CharPtr findvararg (CallInfo ci, int n, StkId *pos) {
+		private static CharPtr findvararg (CallInfo ci, int n, ref StkId pos) {
 		  int nparams = clLvalue(ci.func).p.numparams;
-		  if (n >= ci.u.l.base - ci.func - nparams)
+		  if (n >= ci.u.l.base_ - ci.func - nparams)
 		    return null;  /* no such vararg */
 		  else {
-		    *pos = ci.func + nparams + n;
+		    pos = ci.func + nparams + n;
 		    return "(*vararg)";  /* generic name for any vararg */
 		  }
 		}
@@ -99,7 +99,7 @@ namespace KopiLua
 		  StkId base_;
 		  if (isLua(ci) != 0) {
 			if (n < 0)  /* access to vararg values? */
-		      return findvararg(ci, -n, pos);
+		      return findvararg(ci, -n, ref pos);
 		    else {
 		      base_ = ci.u.l.base_;
 		      name = luaF_getlocalname(ci_func(ci).p, n, currentpc(ci));
@@ -129,7 +129,7 @@ namespace KopiLua
 		      name = luaF_getlocalname(clLvalue(L.top - 1).p, n, 0);
 		  }
 		  else {  /* active function; get information through 'ar' */
-		  	StkId pos = new StkId()= 0;  /* to avoid warnings */
+		  	StkId pos = null;  /* to avoid warnings */
 		    name = findlocal(L, ar.i_ci, n, ref pos);
 		    if (name != null) {
 		      setobj2s(L, L.top, pos);
@@ -142,7 +142,7 @@ namespace KopiLua
 
 
 		public static CharPtr lua_setlocal (lua_State L, lua_Debug ar, int n) {
-		  StkId pos = new StkId() = 0;  /* to avoid warnings */
+		  StkId pos = null;  /* to avoid warnings */
 		  CharPtr name = findlocal(L, ar.i_ci, n, ref pos);
 		  lua_lock(L);
 		  if (name != null)
@@ -281,23 +281,23 @@ namespace KopiLua
 		*/
 		private static void kname (lua_State L, CallInfo ci, int c, int oreg, 
 		                           CharPtr what, ref CharPtr name) {
-		  if (ISK(c)) {  /* is 'c' a constant? */
-		    TValue *kvalue = &ci_func(ci)->p->k[INDEXK(c)];
+		  if (ISK(c)!=0) {  /* is 'c' a constant? */
+		    TValue kvalue = ci_func(ci).p.k[INDEXK(c)];
 		    if (ttisstring(kvalue)) {  /* literal constant? */
-		      *name = svalue(kvalue);  /* it is its own name */
+		      name = svalue(kvalue);  /* it is its own name */
 		      return;
 		    }
 		    /* else no reasonable name found */
 		  }
 		  else {  /* 'c' is a register */
 		    if (c != oreg)  /* not the original register? */
-		      what = getobjname(L, ci, c, name); /* search for 'c' */
-		    if (what && *what == 'c') {  /* found a constant name? */
+		      what = getobjname(L, ci, c, ref name); /* search for 'c' */
+		    if (what != null && what[0] == 'c') {  /* found a constant name? */
 		      return;  /* 'name' already filled */
 		    }
 		    /* else no reasonable name found */
 		  }
-		  *name = "?";  /* no reasonable name found */
+		  name = "?";  /* no reasonable name found */
 		}
 
 
@@ -350,7 +350,7 @@ namespace KopiLua
 		      case OpCode.OP_LOADK: 
 			  case OpCode.OP_LOADKX: {
 		        if (reg == a) {
-		          int b = (op == OP_LOADK) ? GETARG_Bx(i)
+		          int b = (op == OpCode.OP_LOADK) ? GETARG_Bx(i)
                                            : GETARG_Ax(p.code[pc + 1]);
 		          if (ttisstring(p.k[b])) {
 		            what = "constant";

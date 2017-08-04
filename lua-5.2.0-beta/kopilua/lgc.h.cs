@@ -98,10 +98,10 @@ namespace KopiLua
 
 		public static byte luaC_white(global_State g) { return (byte)(g.currentwhite & WHITEBITS); }
 
-
-		public static void luaC_condGC(lua_State L,c) {
-			{if (G(L).GCdebt > 0) {c;}; condchangemem(L);} } //FIXME:???macro
-		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, ()=>{luaC_step(L);}} //FIXME: macro in {}
+		public delegate void c_func(lua_State L); //FIXME: added
+		public static void luaC_condGC(lua_State L, c_func c) {
+			{if (G(L).GCdebt > 0) {c(L);}; condchangemem(L);} } //FIXME:???macro
+		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, luaC_step); } //FIXME: macro in {}
 
 
 		public static void luaC_barrier(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))

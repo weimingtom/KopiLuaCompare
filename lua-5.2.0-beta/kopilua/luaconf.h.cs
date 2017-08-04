@@ -419,11 +419,11 @@ namespace KopiLua
 		** systems, you can leave 'lua_strx2number' undefined and Lua will
 		** provide its own implementation.
 		*/
-		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
 
-#if defined(LUA_USE_STRTODHEX)
-		public static double lua_strx2number(CharPtr s, out CharPtr p) { return strtod(s, p); }
-#endif
+//#if defined(LUA_USE_STRTODHEX)
+		public static double lua_strx2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
+//#endif
 
 
 		/*

@@ -142,9 +142,10 @@ namespace KopiLua
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
 		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(object i) { return (lu_byte)(int)(i); }
-		public static lua_Number cast_num(object i) { return (lua_Number)i; } //FIXME:???remove?
-		public static int cast_int(object i) { return (int)i; } //FIXME:???remove?
-        public static byte cast_uchar(object i) { return (byte)(i)); } //FIXME:???remove?
+		//FIXME: see below
+		//public static lua_Number cast_num(object i) { return (lua_Number)i; } //FIXME:???remove?
+		//public static int cast_int(object i) { return (int)i; } //FIXME:???remove?
+        public static byte cast_uchar(object i) { return (byte)(i); } //FIXME:???remove?
 		
 		/*
 		** maximum depth for nested C calls and syntactical nested non-terminals
@@ -160,7 +161,8 @@ namespace KopiLua
 		*/
 		public const int MAXUPVAL = UCHAR_MAX; //FIXME:UCHAR_MAX???
 
-
+		//--------------------------------
+		//FIXME: added
 		public static int cast_int(int i) { return (int)i; }
 		public static int cast_int(long i) { return (int)(int)i; }
 		public static int cast_int(bool i) { return i ? (int)1 : (int)0; }
@@ -173,6 +175,9 @@ namespace KopiLua
 		public static lua_Number cast_num(bool i) { return i ? (lua_Number)1 : (lua_Number)0; }
 		public static lua_Number cast_num(object i) { Debug.Assert(false, "Can't convert number."); return Convert.ToSingle(i); }
 
+		//
+		//--------------------------------
+		
 		/*
 		** type for virtual-machine instructions
 		** must be an unsigned with (at least) 4 bytes (see details in lopcodes.h)
@@ -360,6 +365,7 @@ namespace KopiLua
 		//#define condchangemem(L)  \
 		//	((void)(!(G(L)->gcrunning) || (luaC_fullgc(L, 0), 1)))
 		//#endif
-
+		//FIXME: added, see upper
+		public static void condchangemem(lua_State L) {}
 	}
 }

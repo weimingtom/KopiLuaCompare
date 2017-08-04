@@ -152,7 +152,7 @@ namespace KopiLua
 		                                  int firstchar) {
 		  ls.decpoint = '.';
 		  ls.L = L;
-          ls->current = firstchar;
+          ls.current = firstchar;
 		  ls.lookahead.token = (int)RESERVED.TK_EOS;  /* no look-ahead token */
 		  ls.z = z;
 		  ls.fs = null;
@@ -199,7 +199,7 @@ namespace KopiLua
 		//#endif
 
 
-		private static int buff2d(b, out e) { return luaO_str2d(luaZ_buffer(b), luaZ_bufflen(b) - 1, e);}
+		private static int buff2d(Mbuffer b, out lua_Number e) { return luaO_str2d(luaZ_buffer(b), luaZ_bufflen(b) - 1, out e);}
 
 		/*
 		** in case of format error, try to change decimal point separator to
@@ -229,7 +229,7 @@ namespace KopiLua
 		  } while (lislalnum(ls.current)!=0 || ls.current == '.');
 		  save(ls, '\0');
 		  buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
-		  if (luaO_str2d(luaZ_buffer(ls.buff), out seminfo.r) == 0)  /* format error? */
+		  if (buff2d(ls.buff, out seminfo.r) == 0)  /* format error? */
 			trydecpoint(ls, seminfo); /* try to update decimal point separator */
 		}
 
@@ -288,13 +288,13 @@ namespace KopiLua
 		  }
 		}
 
-		private static void escerror (LexState ls, int *c, int n, CharPtr msg) {
+		private static void escerror (LexState ls, int[] c, int n, CharPtr msg) {
 		  int i;
 		  luaZ_resetbuffer(ls.buff);  /* prepare error message */
 		  save(ls, '\\');
 		  for (i = 0; i < n && c[i] != EOZ; i++)
 		    save(ls, c[i]);
-		  lexerror(ls, msg, TK_STRING);
+		  lexerror(ls, msg, (int)RESERVED.TK_STRING);
 		}
 
 
@@ -303,9 +303,9 @@ namespace KopiLua
 		  int i = 2;  /* at least 'x?' will go to error message */
 		  c[0] = 'x';
 		  c[1] = next(ls);  /* first hexa digit */
-		  if (lisxdigit(c[1])) {
+		  if (lisxdigit(c[1])!=0) {
 		    c[i++] = next(ls);  /* second hexa digit */
-		    if (lisxdigit(c[2]))
+		    if (lisxdigit(c[2])!=0)
 		      return (luaO_hexavalue(c[1]) << 4) + luaO_hexavalue(c[2]);
 		    /* else go through to error */
 		  }
@@ -320,10 +320,10 @@ namespace KopiLua
 		  c[0] = ls.current;  /* first char must be a digit */
 		  c[1] = next(ls);  /* read second char */
 		  r = c[0] - '0';  /* partial result */
-		  if (lisdigit(c[1])) {
+		  if (lisdigit(c[1])!=0) {
 		    c[i++] = next(ls);  /* read third char */
 		    r = 10*r + c[1] - '0';  /* update result */
-		    if (lisdigit(c[2])) {
+		    if (lisdigit(c[2])!=0) {
 		      r = 10*r + c[2] - '0';  /* update result */
 		      if (r > UCHAR_MAX)
 		        escerror(ls, c, i, "decimal escape too large");
@@ -373,7 +373,7 @@ namespace KopiLua
 		          }
 				  default: {
 			            if (lisdigit(ls.current)==0)
-			              escerror(ls, &ls->current, 1, "invalid escape sequence");
+			              escerror(ls, new int[]{ls.current}, 1, "invalid escape sequence"); //FIXME:changed, new int[]{}
 			            /* digital escape \ddd */
 			            c = readdecesc(ls);
 			            break;
@@ -458,7 +458,7 @@ namespace KopiLua
 			  case ':': {
 		        next(ls);
 		        if (ls.current != ':') return ':';
-		        else { next(ls); return TK_DBCOLON; }
+		        else { next(ls); return (int)RESERVED.TK_DBCOLON; }
 		      }
 			  case '"': case '\'': {  /* short literal strings */
 				read_string(ls, ls.current, seminfo);

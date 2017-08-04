@@ -394,11 +394,11 @@ namespace KopiLua
 			GCObject obj;
 		}*/
 		
-		public class UDGCRef : GCObjectRef
+		public class FinobjRef : GCObjectRef
 		{
-			public UDGCRef(global_State g) { this.g = g; }
-			public void set(GCObject value) { this.g.udgc = value; }
-			public GCObject get() { return this.g.udgc; }
+			public FinobjRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.finobj = value; }
+			public GCObject get() { return this.g.finobj; }
 			global_State g;
 		}
 		
@@ -442,7 +442,7 @@ namespace KopiLua
 
 
 		/* actual number of total bytes allocated */
-		public static int gettotalbytes(g) { return (g.totalbytes + g.GCdebt); }
+		public static uint gettotalbytes(global_State g) { return (uint)(g.totalbytes + g.GCdebt); } //FIXME:(uint)
 
 	}
 }

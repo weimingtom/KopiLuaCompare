@@ -73,7 +73,7 @@ namespace KopiLua
 
 
 		private static void checkconsistency(TValue obj) {
-  			return lua_longassert(!iscollectable(obj) || righttt(obj)); }
+  			lua_longassert(!iscollectable(obj) || righttt(obj)); }
 
 
 		public static void markvalue(global_State g, TValue o)  { checkconsistency(o);
@@ -765,7 +765,7 @@ namespace KopiLua
 		  /*const*/ TValue tm;
 		  TValue v = new TValue();
 		  setgcovalue(L, v, udata2finalize(g));
-		  tm = luaT_gettmbyobj(L, v, TM_GC);
+		  tm = luaT_gettmbyobj(L, v, TMS.TM_GC);
 		  if (tm != null && ttisfunction(tm)) {  /* is there a finalizer? */
             int status;
 			lu_byte oldah = L.allowhook;
@@ -777,7 +777,7 @@ namespace KopiLua
 			L.top += 2;  /* and (next line) call the finalizer */
 		    status = luaD_pcall(L, dothecall, null, savestack(L, L.top - 2), 0);
 		    L.allowhook = oldah;  /* restore hooks */
-		    g.gcrunning = running;  /* restore state */
+		    g.gcrunning = (byte)running;  /* restore state */ //FIXME:changed, (byte)
 		    if (status != LUA_OK && propagateerrors != 0) {  /* error while running __gc? */
 		      if (status == LUA_ERRRUN) {  /* is there an error msg.? */
 		        luaO_pushfstring(L, "error in __gc tag method (%s)",
@@ -796,7 +796,7 @@ namespace KopiLua
 		*/
 		public static void luaC_separateudata (lua_State L, int all) {
 		  global_State g = G(L);
-		  GCObject **p = &g->finobj;
+		  GCObjectRef p = new FinobjRef(g);
 		  GCObject curr;
 		  GCObjectRef lastnext = new TobefnzRef(g); //FIXME:??????next???
 		  /* find last 'next' field in 'tobefnz' list (to add elements in its end) */
@@ -893,7 +893,7 @@ namespace KopiLua
 		  /* following "white" makes all objects look dead */
 		  g.currentwhite = (byte)WHITEBITS; //FIXME:added, (byte)
 		  g.gckind = KGC_NORMAL;
-		  sweepwholelist(L, &g->finobj); //FIXME:changed
+		  sweepwholelist(L, new FinobjRef(g)); //FIXME:changed
 		  lua_assert(g.finobj == null);
 		  sweepwholelist(L, new AllGCRef(g)); //FIXME:changed
 		  lua_assert(g.allgc == null);
@@ -961,7 +961,7 @@ namespace KopiLua
 		        return GCSWEEPCOST;
 		      }
 		      else {  /* no more strings to sweep */
-		  		g.sweepgc = &g->finobj;  /* prepare to sweep finalizable objects */
+		  		g.sweepgc = new FinobjRef(g);  /* prepare to sweep finalizable objects */
 		        g.gcstate = GCSsweepudata;
 		        return 0;
 		      }
@@ -1055,7 +1055,7 @@ namespace KopiLua
 		** performs a basic GC step only if collector is running
 		*/
 		private static void luaC_step (lua_State L) {
-		  if (G(L).gcrunning) luaC_forcestep(L);
+		  if (G(L).gcrunning!=0) luaC_forcestep(L);
 		}
 
 

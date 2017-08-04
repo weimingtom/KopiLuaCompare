@@ -79,7 +79,7 @@ namespace KopiLua
 		public class Vardesc : ArrayElement {
 			//-----------------------------------
 			//FIXME:ArrayElement added
-			private vardesc[] values = null; 
+			private Vardesc[] values = null; 
 			private int index = -1;
 
 			public void set_index(int index)
@@ -89,7 +89,7 @@ namespace KopiLua
 
 			public void set_array(object array)
 			{
-				this.values = (vardesc[])array;
+				this.values = (Vardesc[])array;
 				Debug.Assert(this.values != null);
 			}
 			//------------------------------------------
@@ -109,16 +109,16 @@ namespace KopiLua
 
 		/* list of labels or gotos */
 		public class Labellist {
-		  Labeldesc arr;  /* array */
-		  int n;  /* number of entries in use */
-		  int size;  /* array size */
+		  public Labeldesc[] arr;  /* array */
+		  public int n;  /* number of entries in use */
+		  public int size;  /* array size */
 		};
 
 
 		/* dynamic structures used by the parser */
 		public class Dyndata {
 		  public class actvar_ {  /* list of active local variables */
-		    public Vardesc arr;
+			public Vardesc[] arr;
 		    public int n;
 		    public int size;
 		  };

@@ -53,17 +53,18 @@ namespace KopiLua
 
 		//#elif !defined(lua_tmpnam)
 
-		//#define LUA_TMPNAMBUFSIZE       L_tmpnam
-		//#define lua_tmpnam(b,e)         { e = (tmpnam(b) == NULL); }
+		public const int LUA_TMPNAMBUFSIZE = L_tmpnam;
+		public static void lua_tmpnam(CharPtr b, out int e)         { e = (tmpnam(b) == null)?1:0; }
 
 		//#endif
 
 
 
+
 		private static int os_execute (lua_State L) {
-		  CharPtr cmd = luaL_optstring(L, 1, NULL);
+		  CharPtr cmd = luaL_optstring(L, 1, null);
 		  int stat = system(cmd);
-		  if (cmd != NULL)
+		  if (cmd != null)
 		    return luaL_execresult(L, stat);
 		  else {
 		    lua_pushboolean(L, stat);  /* true if there is a shell */
@@ -74,22 +75,22 @@ namespace KopiLua
 
 		private static int os_remove (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
-		  return luaL_fileresult(L, remove(filename) == 0, filename);
+		  return luaL_fileresult(L, (remove(filename) == 0)?1:0, filename);
 		}
 
 
 		private static int os_rename (lua_State L) {
 		  CharPtr fromname = luaL_checkstring(L, 1);
 		  CharPtr toname = luaL_checkstring(L, 2);
-		  return luaL_fileresult(L, rename(fromname, toname) == 0, fromname);
+		  return luaL_fileresult(L, (rename(fromname, toname) == 0)?1:0, fromname);
 		}
 
 
 		private static int os_tmpname (lua_State L) {
 		  CharPtr buff = new char[LUA_TMPNAMBUFSIZE];
 		  int err;
-		  lua_tmpnam(buff, err);
-		  if (err)
+		  lua_tmpnam(buff, out err);
+		  if (err != 0)
 		    return luaL_error(L, "unable to generate a unique filename");
 		  lua_pushstring(L, buff);
 		  return 1;

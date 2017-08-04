@@ -103,27 +103,27 @@ namespace KopiLua
 		}
 
 		/* reasonable limit to avoid arithmetic overflow */
-		private static int MAXSIZE = ((~(uint)0) >> 1);
+		private static int MAXSIZE = int.MaxValue; //FIXME:changed, ((~(uint)0) >> 1);
 
 
 		private static int str_rep (lua_State L) {
 		  uint l, lsep;
-		  CharPtr s = luaL_checklstring(L, 1, &l);
+		  CharPtr s = luaL_checklstring(L, 1, out l);
 		  int n = luaL_checkint(L, 2);
-		  CharPtr sep = luaL_optlstring(L, 3, "", &lsep);
+		  CharPtr sep = luaL_optlstring(L, 3, "", out lsep);
 		  if (n <= 0) lua_pushliteral(L, "");
 		  else if (l + lsep < l || l + lsep >= MAXSIZE / n)  /* may overflow? */
 		    return luaL_error(L, "resulting string too large");
 		  else {
-		    size_t totallen = n * l + (n - 1) * lsep;
-		    luaL_Buffer b;
-		    CharPtr p = luaL_buffinitsize(L, &b, totallen);
+		    uint totallen = (uint)(n * l + (n - 1) * lsep); //FIXME:changed, (uint)
+		    luaL_Buffer b = new luaL_Buffer();
+		    CharPtr p = luaL_buffinitsize(L, b, totallen);
 		    while (n-- > 1) {  /* first n-1 copies (followed by separator) */
-		      memcpy(p, s, l * sizeof(char)); p += l;
-		      memcpy(p, sep, lsep * sizeof(char)); p += lsep;
+		      memcpy(p, s, l * 1); p += l; //FIXME:changed, sizeof(char)
+		      memcpy(p, sep, lsep * 1); p += lsep; //FIXME:changed, sizeof(char)
 		    }
 		    memcpy(p, s, l * sizeof(char));  /* last copy (not followed by separator) */
-		    luaL_pushresultsize(&b, totallen);
+		    luaL_pushresultsize(b, totallen);
 		  }
 		  return 1;
 		}
@@ -912,9 +912,9 @@ namespace KopiLua
 					    break;
 					  }
 					  case 'e':  case 'E':  case 'f':
-#if defined(LUA_USE_AFORMAT)
+//#if defined(LUA_USE_AFORMAT)
                       case 'a': case 'A':
-#endif
+//#endif
 					  case 'g':  case 'G':  {
                         addlenmod(form, LUA_FLTFRMLEN);
 					    nb = sprintf(buff, form, (LUA_FLTFRM_T)luaL_checknumber(L, arg));

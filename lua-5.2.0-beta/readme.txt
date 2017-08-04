@@ -354,3 +354,17 @@ lzio.h
 				buff.buffer = new CharPtr(); //FIXME:added
 
 
+
+
+
+
+
+-------------------------------------------------------------
+
+
+public static int L_tmpnam = 256; //FIXME:???
+
+
+-----------------------
+lparser,lvm
+-----------------------

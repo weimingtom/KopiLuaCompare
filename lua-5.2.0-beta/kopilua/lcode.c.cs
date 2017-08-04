@@ -174,7 +174,7 @@ namespace KopiLua
 		  level++;  /* argument is +1 to reserve 0 as non-op */
 		  while (list != NO_JUMP) {
 		    int next = getjump(fs, list);
-		    lua_assert(GET_OPCODE(fs.f.code[list]) == OP_JMP &&
+		    lua_assert(GET_OPCODE(fs.f.code[list]) == OpCode.OP_JMP &&
 		                (GETARG_A(fs.f.code[list]) == 0 ||
 		                 GETARG_A(fs.f.code[list]) >= level));
 		    SETARG_A(fs.f.code[list], level);
@@ -243,9 +243,9 @@ namespace KopiLua
 
 		public static int luaK_codek (FuncState fs, int reg, int k) {
 		  if (k <= MAXARG_Bx)
-		  	return luaK_codeABx(fs, OP_LOADK, reg, (uint)(k)); //FIXME: added (uint)
+		  	return luaK_codeABx(fs, OpCode.OP_LOADK, reg, (uint)(k)); //FIXME: added (uint)
 		  else {
-		    int p = luaK_codeABx(fs, OP_LOADKX, reg, 0);
+		    int p = luaK_codeABx(fs, OpCode.OP_LOADKX, reg, 0);
 		    codeextraarg(fs, k);
 		    return p;
 		  }
@@ -583,7 +583,7 @@ namespace KopiLua
           ereg = e.u.info;  /* register where 'e' was placed */
 		  freeexp(fs, e);
 		  e.u.info = fs.freereg;  /* base register for op_self */
-		  e.k = VNONRELOC;
+		  e.k = expkind.VNONRELOC;
 		  luaK_reserveregs(fs, 2);  /* function and 'self' produced by op_self */
 		  luaK_codeABC(fs, OpCode.OP_SELF, e.u.info, ereg, luaK_exp2RK(fs, key));
 		  freeexp(fs, key);

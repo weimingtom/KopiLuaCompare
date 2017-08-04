@@ -18,6 +18,7 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using TValue = Lua.lua_TValue;
+	using lu_byte = System.Byte;
 
 	public partial class Lua
 	{
@@ -181,9 +182,9 @@ namespace KopiLua
 
 		private static void DumpHeader(DumpState D)
 		{
-		 CharPtr h = new lu_byte[LUAC_HEADERSIZE]; //FIXME:???CharPtr
+		 CharPtr h = new char[LUAC_HEADERSIZE]; //FIXME:???CharPtr //FIXME:changed, lu_byte->char
 		 luaU_header(h);
-		 DumpBlock(h,LUAC_HEADERSIZE,D);
+		 DumpBlock(h,(uint)LUAC_HEADERSIZE,D); //FIXME:changed, (uint)
 		}
 
 		/*

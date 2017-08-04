@@ -13,7 +13,7 @@ namespace KopiLua
 		public static void resethookcount(lua_State L) { L.hookcount = L.basehookcount; }
 
 		/* Active Lua function (given call info) */
-		public static void ci_func(ci) { return (clLvalue(ci.func)); }
+		public static LClosure ci_func(CallInfo ci) { return (clLvalue(ci.func)); }
 
 
 	}

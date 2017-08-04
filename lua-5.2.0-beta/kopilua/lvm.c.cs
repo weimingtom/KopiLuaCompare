@@ -467,7 +467,7 @@ namespace KopiLua
 		*/
 
 		//#if !defined luai_runtimecheck
-		public static void luai_runtimecheck(L, c) { /* void */ }
+		public static void luai_runtimecheck(lua_State L, bool c) { /* void */ }
 		//#endif
 
 
@@ -492,7 +492,7 @@ namespace KopiLua
 			return k[(GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(InstructionPtr.inc(ref ci.u.l.savedpc)[0]))]; }
 
 		/* execute a jump instruction */
-		public static void dojump(CallInfo ci,i,e)
+		public static void dojump(CallInfo ci, uint i, int e)
 		  { int a = GETARG_A(i);
 		    if (a > 0) luaF_close(L, ci.u.l.base_ + a - 1);
 		    ci.u.l.savedpc += GETARG_sBx(i) + e; }
@@ -542,10 +542,6 @@ namespace KopiLua
 			Console.Write("{0,-10}\t", luaP_opnames[(int)GET_OPCODE(i)]);
 			switch (GET_OPCODE(i))
 			{
-				case OpCode.OP_CLOSE:
-					Console.Write("{0}", A);
-					break;
-
 				case OpCode.OP_MOVE:
 				case OpCode.OP_LOADNIL:
 				case OpCode.OP_GETUPVAL:
@@ -855,7 +851,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_TESTSET: {
 				TValue rb = RB(L, base_, i);
-				if (GETARG_C(i) != 0 ? l_isfalse(rb) != 0 : l_isfalse(rb) == 0) {
+				if (GETARG_C(i) != 0 ? l_isfalse(rb) != 0 : l_isfalse(rb) == 0)
                   ci->u.l.savedpc++;
                 else {
 				  setobjs2s(L, ra, rb);
@@ -1043,6 +1039,6 @@ namespace KopiLua
 		      }
 			}
 		  }
-		}
-	}
+	  }
+   }
 }

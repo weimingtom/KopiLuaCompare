@@ -327,10 +327,26 @@ namespace KopiLua
 		  switch (ttype(func)) {
 		    case LUA_TLCF:  /* light C function */
 		      f = fvalue(func);
-		      goto Cfunc;
+		      //goto Cfunc; //FIXME:removed, see below
+		      luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
+		      ci = next_ci(L);  /* now 'enter' new function */
+		      ci.nresults = (short)nresults; //FIXME:added, (short)
+		      ci.func = restorestack(L, funcr);
+		      ci.top = L.top + LUA_MINSTACK;
+		      lua_assert(ci.top <= L.stack_last);
+		      ci.callstatus = 0;
+		      if ((L.hookmask & LUA_MASKCALL)!=0)
+		        luaD_hook(L, LUA_HOOKCALL, -1);
+		      lua_unlock(L);
+		      n = f(L);  /* do the actual call */
+		      lua_lock(L);
+		      api_checknelems(L, n);
+		      luaD_poscall(L, L.top - n);
+		      return 1;
+		      
 		    case LUA_TCCL: {  /* C closure */
-		      f = clCvalue(func)->f;
-		     Cfunc:
+		      f = clCvalue(func).f;
+		     //Cfunc: //FIXME:removed, see upper
 		      luaD_checkstack(L, LUA_MINSTACK);  /* ensure minimum stack size */
 		      ci = next_ci(L);  /* now 'enter' new function */
 		      ci.nresults = (short)nresults; //FIXME:added, (short)
@@ -353,9 +369,9 @@ namespace KopiLua
 			  luaD_checkstack(L, p.maxstacksize);
 			  func = restorestack(L, funcr);
 		      n = cast_int(L.top - func) - 1;  /* number of real arguments */
-		      for (; n < p->numparams; n++)
+		      for (; n < p.numparams; n++)
 		        setnilvalue(lua_TValue.inc(ref L.top));  /* complete missing arguments */
-              base_ = (!p->is_vararg) ? func + 1 : adjust_varargs(L, p, n);
+              base_ = (p.is_vararg==0) ? func + 1 : adjust_varargs(L, p, n);
 			  ci = next_ci(L);  /* now `enter' new function */
 			  ci.nresults = (short)nresults; //FIXME:added, (short)
 			  ci.func = func;
@@ -668,15 +684,15 @@ namespace KopiLua
 		  int status;
           L.nny++;  /* cannot yield during parsing */
 		  p.z = z; p.name = new CharPtr(name); //FIXME:
-          p.dyd.actvar.arr = NULL; p.dyd.actvar.size = 0;
-		  p.dyd.gt.arr = NULL; p.dyd.gt.size = 0;
-		  p.dyd.label.arr = NULL; p.dyd.label.size = 0;
+          p.dyd.actvar.arr = null; p.dyd.actvar.size = 0;
+		  p.dyd.gt.arr = null; p.dyd.gt.size = 0;
+		  p.dyd.label.arr = null; p.dyd.label.size = 0;
 		  luaZ_initbuffer(L, p.buff);
 		  status = luaD_pcall(L, f_parser, p, savestack(L, L.top), L.errfunc);
 		  luaZ_freebuffer(L, p.buff);
-		  luaM_freearray<vardesc>(L, p.dyd.actvar.arr/*, p.dyd.actvar.size*/);
-		  luaM_freearray<vardesc>(L, p.dyd.gt.arr/*, p.dyd.gt.size*/);
-		  luaM_freearray<vardesc>(L, p.dyd.label.arr/*, p.dyd.label.size*/);
+		  luaM_freearray<Vardesc>(L, p.dyd.actvar.arr/*, p.dyd.actvar.size*/);
+		  luaM_freearray<Labeldesc>(L, p.dyd.gt.arr/*, p.dyd.gt.size*/);
+		  luaM_freearray<Labeldesc>(L, p.dyd.label.arr/*, p.dyd.label.size*/);
 		  L.nny--;
 		  return status;
 		}

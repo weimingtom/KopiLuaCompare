@@ -63,7 +63,7 @@ namespace KopiLua
 		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);}
 
 		//#if !defined(luai_verifycode)
-		public static void luai_verifycode(L,b,f) { return f; }
+		public static Proto luai_verifycode(lua_State L, Mbuffer b, Proto f) { return f; }
 		//#endif
 
 		private static void LoadBlock(LoadState S, CharPtr b, int size)
@@ -198,15 +198,15 @@ namespace KopiLua
 		}
 
 		/* the code below must be consistent with the code in luaU_header */
-		private const int N0 = LUAC_HEADERSIZE;
-		private const int N1 = (sizeof(LUA_SIGNATURE)-sizeof(char));
-		private const int N2 = N1+2;
-		private const int N3 = N2+6;
+		private readonly static int N0 = LUAC_HEADERSIZE;
+		private readonly static int N1 = LUA_SIGNATURE.Length; //FIXME:changed, (sizeof(LUA_SIGNATURE)-sizeof(char));
+		private readonly static int N2 = N1+2;
+		private readonly static int N3 = N2+6;
 
 		private static void LoadHeader(LoadState S)
 		{
-		 CharPtr h = new lu_byte[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
-		 CharPtr s = new lu_byte[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
+		 CharPtr h = new char[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
+		 CharPtr s = new char[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
 		 luaU_header(h);
 		 memcpy(s,h,sizeof(char));			/* first char already read */
 		 LoadBlock(S,s+sizeof(char),LUAC_HEADERSIZE-sizeof(char));
@@ -232,11 +232,11 @@ namespace KopiLua
 		 S.Z=Z;
 		 S.b=buff;
 		 LoadHeader(S);
-		 return luai_verifycode(L,buff,LoadFunction(&S));
+		 return luai_verifycode(L,buff,LoadFunction(S));
 		}
 
-		private static int MYINT(s) { return (s[0]-'0'); }
-		private const int VERSION = MYINT(LUA_VERSION_MAJOR)*16+MYINT(LUA_VERSION_MINOR);
+		private static int MYINT(CharPtr s) { return (s[0]-'0'); }
+		private readonly static int VERSION = MYINT(LUA_VERSION_MAJOR)*16+MYINT(LUA_VERSION_MINOR);
 		private const int FORMAT = 0;		/* this is the official format */
 
 		/*
@@ -244,20 +244,20 @@ namespace KopiLua
 		* if you change the code below be sure to update LoadHeader and FORMAT above
 		* and LUAC_HEADERSIZE in lundump.h
 		*/
-		public static void luaU_header(lu_byte[] h) //FIXME:changed, lu_byte*
+		public static void luaU_header(CharPtr h) //FIXME:changed, lu_byte*
 		{
 		 int x=1;
-		 memcpy(h, LUA_SIGNATURE, LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char) 
+		 memcpy(h, LUA_SIGNATURE, (uint)LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char)
 		 h = h.add(LUA_SIGNATURE.Length); //FIXME:changed, sizeof(LUA_SIGNATURE)-sizeof(char);
-		 h[0] = (byte)LUAC_VERSION; h.inc();
-		 h[0] = (byte)LUAC_FORMAT; h.inc();
-		 h[0] = (byte)x; h.inc();				/* endianness */ //FIXME:changed, *h++=cast_byte(*(char*)&x);
-		 h[0] = (byte)GetUnmanagedSize(typeof(int)); h.inc();
-		 h[0] = (byte)GetUnmanagedSize(typeof(uint)); h.inc();
-		 h[0] = (byte)GetUnmanagedSize(typeof(Instruction)); h.inc();
-		 h[0] = (byte)GetUnmanagedSize(typeof(lua_Number)); h.inc();
-         h[0] = (byte)(((lua_Number)0.5)==0 ? 1 : 0); h.inc();		/* is lua_Number integral? */ //FIXME:???always 0 on this build
-		 memcpy(h,LUAC_TAIL,sizeof(LUAC_TAIL)-sizeof(char));
+		 h[0] = (char)(byte)VERSION; h.inc(); //FIXME:changed, (char)
+		 h[0] = (char)(byte)FORMAT; h.inc(); //FIXME:changed, (char)
+		 h[0] = (char)(byte)x; h.inc();				/* endianness */ //FIXME:changed, *h++=cast_byte(*(char*)&x); //FIXME:changed, (char)
+		 h[0] = (char)(byte)GetUnmanagedSize(typeof(int)); h.inc(); //FIXME:changed, (char)
+		 h[0] = (char)(byte)GetUnmanagedSize(typeof(uint)); h.inc(); //FIXME:changed, (char)
+		 h[0] = (char)(byte)GetUnmanagedSize(typeof(Instruction)); h.inc(); //FIXME:changed, (char)
+		 h[0] = (char)(byte)GetUnmanagedSize(typeof(lua_Number)); h.inc(); //FIXME:changed, (char)
+         h[0] = (char)(byte)(((lua_Number)0.5)==0 ? 1 : 0); h.inc();		/* is lua_Number integral? */ //FIXME:???always 0 on this build //FIXME:changed, (char)
+         memcpy(h,LUAC_TAIL,(uint)LUAC_TAIL.Length); //FIXME:changed, sizeof(LUAC_TAIL)-sizeof(char)
 		}
 
 	}

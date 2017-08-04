@@ -116,7 +116,7 @@ namespace KopiLua
 
 		static void print_usage(Lua.CharPtr badoption) {
 		  Lua.luai_writestringerror("%s: ", progname);
-		  if (badoption[1] == 'e' || badoption[1] == 'l') {
+		  if (badoption[1] == 'e' || badoption[1] == 'l')
 		    Lua.luai_writestringerror("'%s' needs argument\n", badoption);
 		  else
 		    Lua.luai_writestringerror("unrecognized option '%s'\n", badoption);
@@ -192,8 +192,8 @@ namespace KopiLua
 
 
 		static void print_version() {
-		  luai_writestring(LUA_COPYRIGHT, strlen(LUA_COPYRIGHT));
-		  luai_writeline();
+		  Lua.luai_writestring(Lua.LUA_COPYRIGHT, (uint)Lua.strlen(Lua.LUA_COPYRIGHT)); //FIXME:changed, (uint)
+		  Lua.luai_writeline();
 		}
 
 

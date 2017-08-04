@@ -19,6 +19,7 @@ namespace KopiLua
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
 	using Instruction = System.UInt32;
+	using l_mem = System.Int32; 
 
 	public partial class Lua
 	{
@@ -71,7 +72,7 @@ namespace KopiLua
 		** invariant
 		*/
 		private static void luaE_setdebt (global_State g, l_mem debt) {
-		  g.totalbytes -= (debt - g.GCdebt);
+		  g.totalbytes -= (uint)(debt - g.GCdebt); //FIXME:(uint)
 		  g.GCdebt = debt;
 		}
 

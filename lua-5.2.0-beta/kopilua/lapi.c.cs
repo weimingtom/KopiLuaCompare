@@ -271,7 +271,7 @@ namespace KopiLua
 		  StkId o1 = index2addr(L, index1);
 		  StkId o2 = index2addr(L, index2);
 		  return (o1 == luaO_nilobject || o2 == luaO_nilobject) ? 0
-				 : luaO_rawequalObj(o1, o2);
+				 : luaV_rawequalobj(o1, o2);
 		}
 
 
@@ -283,8 +283,8 @@ namespace KopiLua
 		    api_checknelems(L, 2);
 		  else {  /* for unary minus, add fake 2nd operand */
 		    api_checknelems(L, 1);
-		    setobjs2s(L, L->top, L->top - 1);
-		    L.top++;
+		    setobjs2s(L, L.top, L.top - 1);
+		    lua_TValue.inc(ref L.top); //FIXME:++
 		  }
 		  o1 = L.top - 2;
 		  o2 = L.top - 1;
@@ -307,7 +307,7 @@ namespace KopiLua
 		  if (o1 == luaO_nilobject || o2 == luaO_nilobject)
 		    i = 0;
 		  else switch (op) {
-		    case LUA_OPEQ: i = equalobj(L, o1, o2); break;
+		  	case LUA_OPEQ: i = equalobj(L, o1, o2) ? 1 : 0; break;
 		    case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
 		    case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
 		    default: api_check(L, 0, "invalid option"); i = 0; break; //FIXME:break added
@@ -1223,16 +1223,16 @@ namespace KopiLua
 		  StkId fi = index2addr(L, fidx);
 		  switch (ttype(fi)) {
 		    case LUA_TLCL: {  /* lua closure */
-		      return *getupvalref(L, fidx, n, NULL);
+		  	  return getupvalref(L, fidx, n, null).get();
 		    }
 		    case LUA_TCCL: {  /* C closure */
 		      CClosure f = clCvalue(fi);
 		      api_check(L, 1 <= n && n <= f.nupvalues, "invalid upvalue index");
-		      return &f.upvalue[n - 1];
+		      return f.upvalue[n - 1];
 		    }
 		    default: {
 		      api_check(L, 0, "closure expected");
-		      return NULL;
+		      return null;
 		    }
 		  }
 		}

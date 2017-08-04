@@ -38,7 +38,7 @@ namespace KopiLua
 		}
 
 
-		private static string SPACECHARS = " \f\n\r\t\v";
+		private const string SPACECHARS = " \f\n\r\t\v";
 
 		private static int luaB_tonumber (lua_State L) {
 		  int base_ = luaL_optint(L, 2, 10);
@@ -52,24 +52,24 @@ namespace KopiLua
 		  }
 		  else {
 		    uint l;
-		    CharPtr s = luaL_checklstring(L, 1, &l);
+		    CharPtr s = luaL_checklstring(L, 1, out l);
 		    CharPtr e = s + l;  /* end point for 's' */
 		    int neg = 0;
 		    s += strspn(s, SPACECHARS);  /* skip initial spaces */
-		    if (s[0] == '-') { s++; neg = 1; }  /* handle signal */
-		    else if (s[0] == '+') s++;
-		    if (isalnum((unsigned char)s[0])) {
+		    if (s[0] == '-') { s.inc(); neg = 1; }  /* handle signal */ //FIXME:changed, s++;
+		    else if (s[0] == '+') s.inc();//FIXME:changed, s++;
+		    if (isalnum((byte)s[0])) {
 		      lua_Number n = 0;
 		      do {
-		        int digit = (isdigit((unsigned char)*s)) ? *s - '0'
-		                       : toupper((unsigned char)*s) - 'A' + 10;
-		        if (digit >= base) break;  /* invalid numeral; force a fail */
-		        n = n * (lua_Number)base + (lua_Number)digit;
-		        s++;
-		      } while (isalnum((unsigned char)*s));
+		      	int digit = (isdigit((byte)s[0])) ? s[0] - '0'
+		      				: toupper((byte)s[0]) - 'A' + 10;
+		        if (digit >= base_) break;  /* invalid numeral; force a fail */
+		        n = n * (lua_Number)base_ + (lua_Number)digit;
+		        s.inc(); //FIXME:changed, s++;
+		      } while (isalnum((byte)s[0]));
 		      s += strspn(s, SPACECHARS);  /* skip trailing spaces */
 		      if (s == e) {  /* no invalid trailing characters? */
-		        lua_pushnumber(L, (neg) ? -n : n);
+		        lua_pushnumber(L, (neg!=0) ? -n : n);
 		        return 1;
 		      }  /* else not a number */
 		    }  /* else not a number */
@@ -127,7 +127,7 @@ namespace KopiLua
 		  int t = lua_type(L, 1);
 		  luaL_argcheck(L, t == LUA_TTABLE || t == LUA_TSTRING, 1,
 		                   "table or string expected");
-		  lua_pushinteger(L, lua_rawlen(L, 1));
+		  lua_pushinteger(L, (int)lua_rawlen(L, (int)1)); //FIXME:added, (int), (int)
 		  return 1;
 		}
 
@@ -307,9 +307,9 @@ namespace KopiLua
 			return null;
 		  }
 		  else if ((s = lua_tostring(L, -1)) != null) {
-		    if (ld->mode != NULL) {  /* first time? */
-		      s = checkrights(L, ld->mode, s);  /* check mode */
-		      ld->mode = NULL;  /* to avoid further checks */
+		    if (ld.mode != null) {  /* first time? */
+		      s = checkrights(L, ld.mode, s);  /* check mode */
+		      ld.mode = null;  /* to avoid further checks */
 		      if (s != null) luaL_error(L, s);
 		  	}
 			lua_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
@@ -325,22 +325,22 @@ namespace KopiLua
 
 		private static int luaB_load (lua_State L) {
 		  int status;
-		  size_t l;
+		  uint l;
 		  int top = lua_gettop(L);
-		  const char *s = lua_tolstring(L, 1, &l);
-		  const char *mode = luaL_optstring(L, 3, "bt");
-		  if (s != NULL) {  /* loading a string? */
-		    const char *chunkname = luaL_optstring(L, 2, s);
-			status = (checkrights(L, mode, s) != NULL)
-			       || luaL_loadbuffer(L, s, l, chunkname);
+		  CharPtr s = lua_tolstring(L, 1, out l);
+		  CharPtr mode = luaL_optstring(L, 3, "bt");
+		  if (s != null) {  /* loading a string? */
+		    CharPtr chunkname = luaL_optstring(L, 2, s);
+			status = ((checkrights(L, mode, s) != null)
+		              || luaL_loadbuffer(L, s, l, chunkname)!=0) ? 1 : 0;
 		  }
 		  else {  /* loading from a reader function */
-		    const char *chunkname = luaL_optstring(L, 2, "=(load)");
-			loaddata ld;
+		    CharPtr chunkname = luaL_optstring(L, 2, "=(load)");
+		    loaddata ld = new loaddata();
 			ld.mode = mode;
 			luaL_checktype(L, 1, LUA_TFUNCTION);
 			lua_settop(L, RESERVEDSLOT);  /* create reserved slot */
-			status = lua_load(L, generic_reader, &ld, chunkname);
+			status = lua_load(L, generic_reader, ld, chunkname);
 		  }
 		  if (status == LUA_OK && top >= 4) {  /* is there an 'env' argument */
 		    lua_pushvalue(L, 4);  /* environment for loaded function */
@@ -446,7 +446,7 @@ namespace KopiLua
 		  new luaL_Reg("loadfile", luaB_loadfile),
 		  new luaL_Reg("load", luaB_load),
 //#if defined(LUA_COMPAT_LOADSTRING)
-		  new luaL_Reg("loadstring", luaB_loadstring),
+		  new luaL_Reg("loadstring", luaB_load),
 //#endif
 		  new luaL_Reg("next", luaB_next),
           new luaL_Reg("pairs", luaB_pairs),

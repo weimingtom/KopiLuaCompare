@@ -65,7 +65,7 @@ namespace KopiLua
 
 
 		private static void fileerror (lua_State L, int arg, CharPtr filename) {
-		  lua_pushfstring(L, "%s: %s", filename, strerror(errno()));
+		  lua_pushfstring(L, "%s: %s", filename, strerror(errno));
 		  luaL_argerror(L, arg, lua_tostring(L, -1));
 		}
 
@@ -103,7 +103,7 @@ namespace KopiLua
 		  LStream p = tolstream(L);
 		  if (isclosed(p))
 			luaL_error(L, "attempt to use a closed file");
-          lua_assert(p.f);
+          lua_assert(p.f!=null);
 		  return p.f;
 		}
 
@@ -151,11 +151,11 @@ namespace KopiLua
 		private static int io_fclose (lua_State L) {
 		  LStream p = tolstream(L);
 		  int res = fclose(p.f);
-		  return luaL_fileresult(L, (res == 0), null);
+		  return luaL_fileresult(L, (res == 0)?1:0, null);
 		}
 
 
-		private static LStream *newfile (lua_State L) {
+		private static LStream newfile (lua_State L) {
 		  LStream p = newprefile(L);
 		  p.f = null;
 		  p.closef = io_fclose;
@@ -344,7 +344,7 @@ namespace KopiLua
 		}
 
 
-		private const int MAX_SIZE_T = (~(size_t)0);
+		private const int MAX_SIZE_T = MAX_INT;//(~(size_t)0); //FIXME:changed;
 
 		private static void read_all (lua_State L, Stream f) {
 		  uint rlen = LUAL_BUFFERSIZE;  /* how much to read in each cycle */
@@ -496,8 +496,8 @@ namespace KopiLua
 		}
 		
 
-		private const int[] f_seek_mode = { SEEK_SET, SEEK_CUR, SEEK_END }; //FIXME: ???static const???
-		private const CharPtr[] f_seek_modenames = { "set", "cur", "end", null }; //FIXME: ???static const???
+		private readonly static int[] f_seek_mode = { SEEK_SET, SEEK_CUR, SEEK_END }; //FIXME: ???static const???
+		private readonly static CharPtr[] f_seek_modenames = { "set", "cur", "end", null }; //FIXME: ???static const???
 		private static int f_seek (lua_State L) {
 		  Stream f = tofile(L);
 		  int op = luaL_checkoption(L, 2, "cur", f_seek_modenames);
@@ -511,8 +511,8 @@ namespace KopiLua
 		  }
 		}
 
-		private const int[] f_setvbuf_mode = {_IONBF, _IOFBF, _IOLBF}; //FIXME: ???static const???
-		private const CharPtr[] f_setvbuf_modenames = {"no", "full", "line", null}; //FIXME: ???static const???
+		private readonly static int[] f_setvbuf_mode = {_IONBF, _IOFBF, _IOLBF}; //FIXME: ???static const???
+		private readonly static CharPtr[] f_setvbuf_modenames = {"no", "full", "line", null}; //FIXME: ???static const???
 		private static int f_setvbuf (lua_State L) {
 		  Stream f = tofile(L);
 		  int op = luaL_checkoption(L, 2, null, f_setvbuf_modenames);

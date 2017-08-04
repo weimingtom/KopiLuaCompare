@@ -207,7 +207,7 @@ namespace KopiLua
 		  }
 		  else {
 		    lua_pushnil(L);
-		    if (fname)
+		    if (fname != null)
 		      lua_pushfstring(L, "%s: %s", fname, strerror(en));
 		    else
 		      lua_pushfstring(L, "%s", strerror(en));
@@ -239,13 +239,13 @@ namespace KopiLua
 		//#endif				/* } */
 
 
-		public static int luaL_execresult (lua_State *L, int stat) {
-		  const char *what = "exit";  /* type of termination */
+		public static int luaL_execresult (lua_State L, int stat) {
+		  CharPtr what = "exit";  /* type of termination */
 		  if (stat == -1)  /* error? */
-		    return luaL_fileresult(L, 0, NULL);
+		    return luaL_fileresult(L, 0, null);
 		  else {
-		    inspectstat(stat, what);  /* interpret result */
-		    if (*what == 'e' && stat == 0)  /* successful termination? */
+		    inspectstat(stat, ref what);  /* interpret result */
+		    if (what[0] == 'e' && stat == 0)  /* successful termination? */
 		      lua_pushboolean(L, 1);
 		    else
 		      lua_pushnil(L);
@@ -584,7 +584,7 @@ namespace KopiLua
 
 
 		private static int errfile (lua_State L, CharPtr what, int fnameindex) {
-		  CharPtr serr = strerror(errno());
+		  CharPtr serr = strerror(errno);
 		  CharPtr filename = lua_tostring(L, fnameindex) + 1;
 		  lua_pushfstring(L, "cannot %s %s: %s", what, filename, serr);
 		  lua_remove(L, fnameindex);
@@ -838,7 +838,7 @@ namespace KopiLua
 		    luaL_pushmodule(L, libname, libsize(l));  /* get/create library table */
 		    lua_insert(L, -(nup + 1));  /* move library table to below upvalues */
 		  }
-          if (l)
+          if (l != null)
 		    luaL_setfuncs(L, l, nup);
 		  else
 		    lua_pop(L, nup);  /* remove upvalues */

@@ -171,7 +171,7 @@ namespace KopiLua
 		  int reg = registerlocalvar(ls, name);
 		  checklimit(fs, dyd.actvar.n + 1 - fs.firstlocal,
 		                  MAXVARS, "local variables");
-		  luaM_growvector<vardesc>(ls.L, ref dyd.actvar.arr, dyd.actvar.n + 1,
+		  luaM_growvector<Vardesc>(ls.L, ref dyd.actvar.arr, dyd.actvar.n + 1,
 		                  ref dyd.actvar.size/*, Vardesc*/, MAX_INT, "local variables"); //FIXME:changed
 		  dyd.actvar.arr[dyd.actvar.n++].idx = (ushort)(reg);
 		}
@@ -329,21 +329,21 @@ namespace KopiLua
 
 		private static void closegoto (LexState ls, int g, Labeldesc label) {
 		  int i;
-		  FuncState *fs = ls->fs;
-		  Labellist *gl = &ls->dyd->gt;
-		  Labeldesc *gt = &gl->arr[g];
-		  lua_assert(eqstr(gt->name, label->name));
-		  if (gt->nactvar < label->nactvar) {
-		    const char *msg = luaO_pushfstring(ls->L,
-		      "<goto %s> at line %d jumps into the scope of local " LUA_QS,
-		      getstr(gt->name), gt->line, getstr(getlocvar(fs, gt->nactvar)->varname));
+		  FuncState fs = ls.fs;
+		  Labellist gl = ls.dyd.gt;
+		  Labeldesc gt = gl.arr[g];
+		  lua_assert(eqstr(gt.name, label.name));
+		  if (gt.nactvar < label.nactvar) {
+		    CharPtr msg = luaO_pushfstring(ls.L,
+		      "<goto %s> at line %d jumps into the scope of local " + LUA_QS,
+		      getstr(gt.name), gt.line, getstr(getlocvar(fs, gt.nactvar).varname));
 		    semerror(ls, msg);
 		  }
-		  luaK_patchlist(fs, gt->pc, label->pc);
+		  luaK_patchlist(fs, gt.pc, label.pc);
 		  /* remove goto from pending list */
-		  for (i = g; i < gl->n - 1; i++)
-		    gl->arr[i] = gl->arr[i + 1];
-		  gl->n--;
+		  for (i = g; i < gl.n - 1; i++)
+		    gl.arr[i] = gl.arr[i + 1];
+		  gl.n--;
 		}
 
 
@@ -352,16 +352,16 @@ namespace KopiLua
 		*/
 		private static int findlabel (LexState ls, int g) {
 		  int i;
-		  BlockCnt *bl = ls->fs->bl;
-		  Dyndata *dyd = ls->dyd;
-		  Labeldesc *gt = &dyd->gt.arr[g];
+		  BlockCnt bl = ls.fs.bl;
+		  Dyndata dyd = ls.dyd;
+		  Labeldesc gt = dyd.gt.arr[g];
 		  /* check labels in current block for a match */
-		  for (i = bl->firstlabel; i < dyd->label.n; i++) {
-		    Labeldesc *lb = &dyd->label.arr[i];
-		    if (eqstr(lb->name, gt->name)) {  /* correct label? */
-		      if (gt->nactvar > lb->nactvar &&
-		          (bl->upval || dyd->label.n > bl->firstlabel))
-		        luaK_patchclose(ls->fs, gt->pc, lb->nactvar);
+		  for (i = bl.firstlabel; i < dyd.label.n; i++) {
+		    Labeldesc lb = dyd.label.arr[i];
+		    if (eqstr(lb.name, gt.name)) {  /* correct label? */
+		      if (gt.nactvar > lb.nactvar &&
+		          (bl.upval!=0 || dyd.label.n > bl.firstlabel))
+		        luaK_patchclose(ls.fs, gt.pc, lb.nactvar);
 		      closegoto(ls, g, lb);  /* close it */
 		      return 1;
 		    }
@@ -372,13 +372,13 @@ namespace KopiLua
 
 		private static int newlabelentry (LexState ls, Labellist l, TString name,
 		                          int line, int pc) {
-		  int n = l->n;
-		  luaM_growvector(ls->L, l->arr, n, l->size, Labeldesc, MAX_INT, "labels");
-		  l->arr[n].name = name;
-		  l->arr[n].line = line;
-		  l->arr[n].nactvar = ls->fs->nactvar;
-		  l->arr[n].pc = pc;
-		  l->n++;
+		  int n = l.n;
+		  luaM_growvector<Labeldesc>(ls.L, ref l.arr, n, ref l.size, /*Labeldesc,*/ MAX_INT, "labels");
+		  l.arr[n].name = name;
+		  l.arr[n].line = line;
+		  l.arr[n].nactvar = ls.fs.nactvar;
+		  l.arr[n].pc = pc;
+		  l.n++;
 		  return n;
 		}
 
@@ -388,10 +388,10 @@ namespace KopiLua
 		** block; solves forward jumps
 		*/
 		private static void findgotos (LexState ls, Labeldesc lb) {
-		  Labellist *gl = &ls->dyd->gt;
-		  int i = ls->fs->bl->firstgoto;
-		  while (i < gl->n) {
-		    if (eqstr(gl->arr[i].name, lb->name))
+		  Labellist gl = ls.dyd.gt;
+		  int i = ls.fs.bl.firstgoto;
+		  while (i < gl.n) {
+		    if (eqstr(gl.arr[i].name, lb.name))
 		      closegoto(ls, i, lb);
 		    else
 		      i++;
@@ -406,18 +406,18 @@ namespace KopiLua
 		** upvalue), close those variables being exited.
 		*/
 		private static void movegotosout (FuncState fs, BlockCnt bl) {
-		  int i = bl->firstgoto;
-		  Labellist *gl = &fs->ls->dyd->gt;
+		  int i = bl.firstgoto;
+		  Labellist gl = fs.ls.dyd.gt;
 		  /* correct pending gotos to current block and try to close it
 		     with visible labels */ 
-		  while (i < gl->n) {
-		    Labeldesc *gt = &gl->arr[i];
-		    if (gt->nactvar > bl->nactvar) {
-		      if (bl->upval)
-		        luaK_patchclose(fs, gt->pc, bl->nactvar);
-		      gt->nactvar = bl->nactvar;
+		  while (i < gl.n) {
+		    Labeldesc gt = gl.arr[i];
+		    if (gt.nactvar > bl.nactvar) {
+		      if (bl.upval!=0)
+		        luaK_patchclose(fs, gt.pc, bl.nactvar);
+		      gt.nactvar = bl.nactvar;
 		    }
-		    if (!findlabel(fs->ls, i))
+		    if (findlabel(fs.ls, i)==0)
 		      i++;  /* move to next one */
 		  }
 		}
@@ -425,7 +425,7 @@ namespace KopiLua
 
 		private static void enterblock (FuncState fs, BlockCnt bl, lu_byte isloop) {
 		  bl.isloop = isloop;
-		  bl.nactvar = fs->nactvar;
+		  bl.nactvar = fs.nactvar;
 		  bl.firstlabel = fs.ls.dyd.label.n;
 		  bl.firstgoto = fs.ls.dyd.gt.n;
 		  bl.upval = 0;
@@ -440,7 +440,7 @@ namespace KopiLua
 		*/
 		private static void breaklabel (LexState ls) {
 		  TString n = luaS_new(ls.L, "break");
-		  int l = newlabelentry(ls, ls.dyd.label, n, 0, ls->fs->pc);
+		  int l = newlabelentry(ls, ls.dyd.label, n, 0, ls.fs.pc);
 		  findgotos(ls, ls.dyd.label.arr[l]);
 		}
 
@@ -451,7 +451,7 @@ namespace KopiLua
 		private static void undefgoto (LexState ls, Labeldesc gt) {
 		  /*const*/ CharPtr msg = (gt.name.tsv.reserved > 0)
 		                    ? "<%s> at line %d not inside a loop"
-		                    : "no visible label " LUA_QS " for <goto> at line %d";
+		                    : "no visible label " + LUA_QS + " for <goto> at line %d";
 		  msg = luaO_pushfstring(ls.L, msg, getstr(gt.name), gt.line);
 		  semerror(ls, msg);
 		}
@@ -460,20 +460,20 @@ namespace KopiLua
 		private static void leaveblock (FuncState fs) {
 		  BlockCnt bl = fs.bl;
 		  LexState ls = fs.ls;
-		  if (bl.previous && bl.upval) {
+		  if (bl.previous != null && bl.upval != 0) {
 		    /* create a 'jump to here' to close upvalues */
 		    int j = luaK_jump(fs);
 		    luaK_patchclose(fs, j, bl.nactvar);
 		    luaK_patchtohere(fs, j);
 		  }
-		  if (bl.isloop)
+		  if (bl.isloop!=0)
 		    breaklabel(ls);  /* close pending breaks */
 		  fs.bl = bl.previous;
 		  removevars(fs, bl.nactvar);
 		  lua_assert(bl.nactvar == fs.nactvar);
 		  fs.freereg = fs.nactvar;  /* free registers */
 		  ls.dyd.label.n = bl.firstlabel;  /* remove local labels */
-		  if (bl.previous)  /* inner block? */
+		  if (bl.previous!=null)  /* inner block? */
 		    movegotosout(fs, bl);  /* update pending gotos to outer block */
 		  else if (bl.firstgoto < ls.dyd.gt.n)  /* pending gotos in outer block? */
 		    undefgoto(ls, ls.dyd.gt.arr[bl.firstgoto]);  /* error */
@@ -594,10 +594,10 @@ namespace KopiLua
 		*/
 		private static int block_follow (LexState ls, int withuntil) {
 		  switch (ls.t.token) {
-		    case TK_ELSE: case TK_ELSEIF:
-		    case TK_END: case TK_EOS:
+			case (int)RESERVED.TK_ELSE: case (int)RESERVED.TK_ELSEIF:
+		    case (int)RESERVED.TK_END: case (int)RESERVED.TK_EOS:
 		      return 1;
-		    case TK_UNTIL: return withuntil;
+		    case (int)RESERVED.TK_UNTIL: return withuntil;
 		    default: return 0;
 		  }
 		}
@@ -605,8 +605,8 @@ namespace KopiLua
 
 		private static void statlist (LexState ls) {
 		  /* statlist -> { stat [`;'] } */
-		  while (!block_follow(ls, 1)) {
-		    if (ls->t.token == TK_RETURN) {
+		  while (block_follow(ls, 1)==0) {
+		    if (ls.t.token == (int)RESERVED.TK_RETURN) {
 		      statement(ls);
 		      return;  /* 'return' must be last statement */
 		    }
@@ -1201,7 +1201,7 @@ namespace KopiLua
 
 		private static void gotostat (LexState ls, TString label, int line) {
 		  /* create new entry for this goto */
-		  int g = newlabelentry(ls, &ls->dyd->gt, label, line, luaK_jump(ls->fs));
+		  int g = newlabelentry(ls, ls.dyd.gt, label, line, luaK_jump(ls.fs));
 		  findlabel(ls, g);
 		}
 
@@ -1209,12 +1209,12 @@ namespace KopiLua
 		/* check for repeated labels on the same block */
 		private static void checkrepeated (FuncState fs, Labellist ll, TString label) {
 		  int i;
-		  for (i = fs->bl->firstlabel; i < ll->n; i++) {
-		    if (eqstr(label, ll->arr[i].name)) {
-		      const char *msg = luaO_pushfstring(fs->ls->L, 
-		                          "label " LUA_QS " already defined on line %d",
-		                          getstr(label), ll->arr[i].line);
-		      semerror(fs->ls, msg);
+		  for (i = fs.bl.firstlabel; i < ll.n; i++) {
+		    if (eqstr(label, ll.arr[i].name)) {
+		      CharPtr msg = luaO_pushfstring(fs.ls.L, 
+		                          "label " + LUA_QS + " already defined on line %d",
+		                          getstr(label), ll.arr[i].line);
+		      semerror(fs.ls, msg);
 		    }
 		  }
 		}
@@ -1222,21 +1222,21 @@ namespace KopiLua
 
 		private static void labelstat (LexState ls, TString label, int line) {
 		  /* label -> '::' NAME '::' */
-		  FuncState *fs = ls->fs;
-		  Labellist *ll = &ls->dyd->label;
+		  FuncState fs = ls.fs;
+		  Labellist ll = ls.dyd.label;
 		  int l;  /* index of new label being created */
 		  checkrepeated(fs, ll, label);  /* check for repeated labels */
-		  checknext(ls, TK_DBCOLON);  /* skip double colon */
+		  checknext(ls, (int)RESERVED.TK_DBCOLON);  /* skip double colon */
 		  /* create new entry for this label */
-		  l = newlabelentry(ls, ll, label, line, fs->pc);
+		  l = newlabelentry(ls, ll, label, line, fs.pc);
 		  /* skip other no-op statements */
-		  while (ls->t.token == ';' || ls->t.token == TK_DBCOLON)
+		  while (ls.t.token == ';' || ls.t.token == (int)RESERVED.TK_DBCOLON)
 		    statement(ls);
-		  if (block_follow(ls, 0)) {  /* label is last no-op statement in the block? */
+		  if (block_follow(ls, 0)!=0) {  /* label is last no-op statement in the block? */
 		    /* assume that locals are already out of scope */
-		    ll->arr[l].nactvar = fs->bl->nactvar;
+		    ll.arr[l].nactvar = fs.bl.nactvar;
 		  }
-		  findgotos(ls, &ll->arr[l]);
+		  findgotos(ls, ll.arr[l]);
 		}
 
 
@@ -1495,7 +1495,7 @@ namespace KopiLua
 		  FuncState fs = ls.fs;
 		  expdesc e = new expdesc();
 		  int first, nret;  /* registers with returned values */
-		  if (block_follow(ls, 1)!=0) || ls.t.token == ';')
+		  if ((block_follow(ls, 1)!=0) || ls.t.token == ';')
 			first = nret = 0;  /* return no values */
 		  else {
 			nret = explist(ls, e);  /* optional return values */
@@ -1565,7 +1565,7 @@ namespace KopiLua
 				localstat(ls);
 			  break;
 			}
-		    case TK_DBCOLON: {  /* stat -> label */
+          	case (int)RESERVED.TK_DBCOLON: {  /* stat -> label */
 		      luaX_next(ls);  /* skip double colon */
 		      labelstat(ls, str_checkname(ls), line);
 		      break;
@@ -1578,7 +1578,7 @@ namespace KopiLua
 			case (int)RESERVED.TK_BREAK: {  /* stat -> breakstat */
 			  luaX_next(ls);  /* skip BREAK */
 		      /* code it as "goto 'break'" */
-		      gotostat(ls, luaS_new(ls->L, "break"), line);
+		      gotostat(ls, luaS_new(ls.L, "break"), line);
 		      break;
 			}
 		    case (int)RESERVED.TK_GOTO: {  /* stat -> 'goto' NAME */
@@ -1612,13 +1612,13 @@ namespace KopiLua
 		  lexstate.dyd = dyd;
 		  dyd.actvar.n = dyd.gt.n = dyd.label.n = 0;
 		  luaX_setinput(L, lexstate, z, tname, firstchar);
-		  open_mainfunc(lexstate, funcstate, &bl);
+		  open_mainfunc(lexstate, funcstate, bl);
 		  luaX_next(lexstate);  /* read first token */
 		  statlist(lexstate);  /* main body */
-		  check(lexstate, TK_EOS);
+		  check(lexstate, (int)RESERVED.TK_EOS);
 		  close_func(lexstate);
-		  L.top--;  /* pop name */
-		  lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
+		  StkId.dec(ref L.top);  /* pop name */ //FIXME:--
+		  lua_assert(funcstate.prev==null && funcstate.nups == 1 && lexstate.fs==null);
 		  return funcstate.f;
 		  /* all scopes should be correctly finished */
 		  lua_assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);

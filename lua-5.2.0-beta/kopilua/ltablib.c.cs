@@ -20,7 +20,7 @@ namespace KopiLua
 
 
 
-#if LUA_COMPAT_MAXN
+//#if LUA_COMPAT_MAXN
 		private static int maxn (lua_State L) {
 		  lua_Number max = 0;
 		  luaL_checktype(L, 1, LUA_TTABLE);
@@ -35,7 +35,7 @@ namespace KopiLua
 		  lua_pushnumber(L, max);
 		  return 1;
 		}
-#endif
+//#endif
 
 
 		private static int tinsert (lua_State L) {
@@ -272,9 +272,9 @@ namespace KopiLua
 
 		private readonly static luaL_Reg[] tab_funcs = {
 		  new luaL_Reg("concat", tconcat),
-#if defined(LUA_COMPAT_MAXN)
+//#if defined(LUA_COMPAT_MAXN)
 		  new luaL_Reg("maxn", maxn),
-#endif
+//#endif
 		  new luaL_Reg("insert", tinsert),
 		  new luaL_Reg("pack", pack),
 		  new luaL_Reg("unpack", unpack),
