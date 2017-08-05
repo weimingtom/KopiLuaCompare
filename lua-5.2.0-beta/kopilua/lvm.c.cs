@@ -492,13 +492,13 @@ namespace KopiLua
 			return k[(GETARG_Bx(i) != 0 ? GETARG_Bx(i) - 1 : GETARG_Ax(InstructionPtr.inc(ref ci.u.l.savedpc)[0]))]; }
 
 		/* execute a jump instruction */
-		public static void dojump(CallInfo ci, uint i, int e)
+		public static void dojump(CallInfo ci, Instruction i, int e, lua_State L) //FIXME:???Instruction???InstructionPtr???
 		  { int a = GETARG_A(i);
 		    if (a > 0) luaF_close(L, ci.u.l.base_ + a - 1);
-		    ci.u.l.savedpc += GETARG_sBx(i) + e; }
+		    InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i) + e); }
 
 		/* for test instructions, execute the jump instruction that follows it */
-		public static void donextjump(CallInfo ci)	{ i = *ci.u.l.savedpc; dojump(ci, i, 1); }
+		public static void donextjump(CallInfo ci, ref Instruction i, lua_State L)	{ i = ci.u.l.savedpc[0]; dojump(ci, i, 1, L); }
 
 
 		//#define Protect(x)	{ {x;}; base = ci->u.l.base_; } //FIXME:
@@ -631,14 +631,14 @@ namespace KopiLua
 				break;
 			  }
 			  case OpCode.OP_LOADK: {
-		        TValue rb = k + GETARG_Bx(i);
+				TValue rb = k[GETARG_Bx(i)];
 		        setobj2s(L, ra, rb);
 				break;
 			  }
 		      case OpCode.OP_LOADKX: {
 		        TValue rb;
-		        lua_assert(GET_OPCODE(*ci.u.l.savedpc) == OP_EXTRAARG);
-		        rb = k + GETARG_Ax(*ci.u.l.savedpc++);
+		        lua_assert(GET_OPCODE(ci.u.l.savedpc[0]) == OpCode.OP_EXTRAARG);
+		        rb = k[GETARG_Ax(ci.u.l.savedpc[0])]; InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 		        setobj2s(L, ra, rb);
 				break;
 		      }
@@ -650,8 +650,8 @@ namespace KopiLua
 			  case OpCode.OP_LOADNIL: {
 				int b = GETARG_B(i);
 				do {
-					setnilvalue(ra++);
-				} while (b--);
+					setnilvalue(ra); lua_TValue.inc(ref ra); //FIXME:changed, ra++
+				if (b==0) {break;}b--;} while(true); //FIXME:changed,} while (b--);
 				break;
 			  }
 			  case OpCode.OP_GETUPVAL: {
@@ -710,10 +710,14 @@ namespace KopiLua
 		        sethvalue(L, ra, t);
 		        if (b != 0 || c != 0)
 		          luaH_resize(L, t, luaO_fb2int(b), luaO_fb2int(c));
-		        checkGC(L,
-		          L->top = ra + 1;  /* limit of live values */
-		          luaC_step(L);
-		          L->top = ci->top;  /* restore top */
+		        //Protect(
+		        	luaC_condGC(L, delegate() {
+                    	L.top = ra + 1;  /* limit of live values */
+			          	luaC_step(L);
+			          	L.top = ci.top;  /* restore top */
+                    }); luai_threadyield(L);
+		        base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_SELF: {
@@ -792,18 +796,21 @@ namespace KopiLua
 
 				  base_ = ci.u.l.base_;
 				  //);
-		        ra = RA(i);  /* 'luav_concat' may invoke TMs and move the stack */
-		        rb = b + base;
+		        ra = RA(L, base_, i);  /* 'luav_concat' may invoke TMs and move the stack */
+		        rb = b + base_;
 		        setobjs2s(L, ra, rb);
-		        checkGC(L,
-		          L->top = (ra >= rb ? ra + 1 : rb);  /* limit of live values */
-		          luaC_step(L);
-		        )				  
+		        //Protect(
+		        	luaC_condGC(L, delegate() {
+                    	L.top = (ra >= rb ? ra + 1 : rb);  /* limit of live values */
+		          		luaC_step(L);
+                    }); luai_threadyield(L);
+		        base_ = ci.u.l.base_;
+				//};
 				L.top = ci.top;  /* restore top */
 				break;
 			  }
 			  case OpCode.OP_JMP: {
-				dojump(ci, i, 0);
+				dojump(ci, i, 0, L);
 				break;
 			  }
 			  case OpCode.OP_EQ: {
@@ -811,8 +818,10 @@ namespace KopiLua
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
-				  if (equalobj(L, rb, rc) == GETARG_A(i))
-					dojump(GETARG_sBx(ci.u.l.savedpc[0]), ci, L);
+				  if ((equalobj(L, rb, rc)?1:0) == GETARG_A(i))
+				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
+				  else
+				  	donextjump(ci, ref i, L);
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
@@ -822,9 +831,9 @@ namespace KopiLua
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  if (luaV_lessthan(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) != GETARG_A(i))
-				    ci->u.l.savedpc++;
+				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
-					donextjump(ci);
+					donextjump(ci, ref i, L);
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
@@ -834,9 +843,9 @@ namespace KopiLua
 				//Protect(
 				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  if (luaV_lessequal(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) != GETARG_A(i))
-				  	ci->u.l.savedpc++;
+				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
-				    donextjump(ci);
+				    donextjump(ci, ref i, L);
 				  base_ = ci.u.l.base_;
 				//);
 				InstructionPtr.inc(ref ci.u.l.savedpc);
@@ -844,18 +853,18 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_TEST: {
 				if (GETARG_C(i) != 0 ? l_isfalse(ra) != 0 : l_isfalse(ra) == 0)
-				  ci->u.l.savedpc++;
+				  InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++;
 				else
-				  donextjump(ci);
+				  donextjump(ci, ref i, L);
 				break;
 			  }
 			  case OpCode.OP_TESTSET: {
 				TValue rb = RB(L, base_, i);
 				if (GETARG_C(i) != 0 ? l_isfalse(rb) != 0 : l_isfalse(rb) == 0)
-                  ci->u.l.savedpc++;
+				  InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++;
                 else {
 				  setobjs2s(L, ra, rb);
-				  donextjump(ci);
+				  donextjump(ci, ref i, L);
 				}
 				InstructionPtr.inc(ref ci.u.l.savedpc);
 				break;
@@ -927,7 +936,7 @@ namespace KopiLua
 				lua_Number limit = nvalue(ra+1);
 				if (luai_numlt(L, 0, step) ? luai_numle(L, idx, limit)
 										: luai_numle(L, limit, idx)) {
-				  dojump(GETARG_sBx(i), ci, L);  /* jump back */
+				  InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));  /* jump back */ //FIXME:changed, +=
 				  setnvalue(ra, idx);  /* update internal index... */
 				  setnvalue(ra+3, idx);  /* ...and external index */
 				}
@@ -944,7 +953,7 @@ namespace KopiLua
 				else if (tonumber(ref pstep, ra+2)  == 0)
 				  luaG_runerror(L, LUA_QL("for") + " step must be a number");
 				setnvalue(ra, luai_numsub(L, nvalue(ra), nvalue(pstep)));
-				ci.u.l.savedpc += GETARG_sBx(i);
+				InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i)); //FIXME:changed, +=
 				break;
 			  }
 			  case OpCode.OP_TFORCALL: {
@@ -969,7 +978,7 @@ namespace KopiLua
                 //l_tforloop://FIXME:removed
 	  		    if (!ttisnil(ra + 1)) {  /* continue loop? */
 				  setobjs2s(L, ra, ra + 1);  /* save control variable */
-				  ci->u.l.savedpc += GETARG_sBx(i);  /* jump back */
+				  InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));  /* jump back */ //FIXME:changed, +=
 				}
 				break;
 			  }
@@ -1003,11 +1012,15 @@ namespace KopiLua
 		          pushclosure(L, p, cl.upvals, base_, ra);  /* create a new one */
 		        else
 		          setclLvalue(L, ra, ncl);  /* push cashed closure */
-				checkGC(L,
-		          L->top = ra + 1;  /* limit of live values */
-		          luaC_step(L);
-		          L->top = ci->top;  /* restore top */
-		        )
+		        //Protect(
+		        	luaC_condGC(L, delegate() {
+			          	L.top = ra + 1;  /* limit of live values */
+			          	luaC_step(L);
+			          	L.top = ci.top;  /* restore top */
+                    }); luai_threadyield(L);
+		        base_ = ci.u.l.base_;
+				//};
+				break;
 			  }
 			  case OpCode.OP_VARARG: {
 				int b = GETARG_B(i) - 1;

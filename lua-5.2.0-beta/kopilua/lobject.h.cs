@@ -412,7 +412,8 @@ namespace KopiLua
 
 
 
-
+		//----------------------------------
+		//FIXME:removed, see below
 		/*
 		** {======================================================
 		** NaN Trick
@@ -498,7 +499,10 @@ namespace KopiLua
 
 		//#endif
 		/* }====================================================== */
-
+		//FIXME:removed, see upper
+		//----------------------------------
+		public delegate void luai_checknum_func();
+		public static void luai_checknum(lua_State L, StkId o, luai_checknum_func c)  { /* empty */ }
 
 
 		/*

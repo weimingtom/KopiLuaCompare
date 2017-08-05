@@ -177,7 +177,7 @@ namespace KopiLua
 		    lua_assert(GET_OPCODE(fs.f.code[list]) == OpCode.OP_JMP &&
 		                (GETARG_A(fs.f.code[list]) == 0 ||
 		                 GETARG_A(fs.f.code[list]) >= level));
-		    SETARG_A(fs.f.code[list], level);
+		    SETARG_A(new InstructionPtr(fs.f.code, list), level);
 		    list = next;
 		  }
 		}

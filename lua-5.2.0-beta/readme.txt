@@ -368,3 +368,6 @@ public static int L_tmpnam = 256; //FIXME:???
 -----------------------
 lparser,lvm
 -----------------------
+
+public static void dojump(CallInfo ci, Instruction i, int e, lua_State L) //FIXME:???Instruction???InstructionPtr???
+
