@@ -99,7 +99,23 @@ namespace KopiLua
 
 
 		/* description of pending goto statements and label statements */
-		public class Labeldesc {
+		public class Labeldesc : ArrayElement {
+			//-----------------------------------
+			//FIXME:ArrayElement added
+			private Labeldesc[] values = null; 
+			private int index = -1;
+
+			public void set_index(int index)
+			{
+				this.index = index;
+			}
+
+			public void set_array(object array)
+			{
+				this.values = (Labeldesc[])array;
+				Debug.Assert(this.values != null);
+			}
+			//------------------------------------------			
 		  public TString name;  /* label identifier */
 		  public int pc;  /* position in code */
 		  public int line;  /* line where it appeared */

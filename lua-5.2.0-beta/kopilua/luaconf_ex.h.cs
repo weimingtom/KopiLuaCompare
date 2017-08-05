@@ -855,6 +855,10 @@ namespace KopiLua
 				return 4;
 			else if (t == typeof(Vardesc))
 				return 2;
+			else if (t == typeof(LStream))
+				return 8;
+			else if (t == typeof(Labeldesc))
+				return 8;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}

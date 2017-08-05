@@ -17,6 +17,7 @@
 * lua-5.2.0-20090702 (done, 2017-06-17 update)  
 * lua-5.2.0-20100206 (done, 2017-07-05 update)  
 * lua-5.2.0-alpha (done, 2017-07-17 update)  
+* lua-5.2.0-beta (done, 2017-08-05 update)  
 * lua-5.3.4 (pending)    
 
 ## Compare Tool  

@@ -244,7 +244,7 @@ namespace KopiLua
 
 		public static Value val_(TValue o) { return o.value_; }
 		public static lua_Number num_(TValue o) { return val_(o).n; }
-		public static lua_Number setNum_(TValue o, lua_Number x) { return (val_(o).n = x); } //FIXME:added
+		public static lua_Number setNum_(TValue o, lua_Number x) { return (o.value_.n = x); } //FIXME:added //FIXME:changed, val_(o)
 
 		/* raw type tag of a TValue */
 		public static int rttype(TValue o) { return o.tt_; }
@@ -317,51 +317,51 @@ namespace KopiLua
 		public static void setnilvalue(TValue obj) { settt_(obj, LUA_TNIL);}
 
 		public static void setfvalue(TValue obj, lua_CFunction x) 
-		  { TValue io=obj; val_(io).f=x; settt_(io, LUA_TLCF); }
+		  { TValue io=obj; io.value_.f=x; settt_(io, LUA_TLCF); } //FIXME:chagned, val_(io)
 		
 		public static void setpvalue( TValue obj, object x) 
-		  { TValue io=obj; val_(io).p=x; settt_(io, LUA_TLIGHTUSERDATA);}
+		  { TValue io=obj; io.value_.p=x; settt_(io, LUA_TLIGHTUSERDATA);} //FIXME:chagned, val_(io)
 
 		public static void setbvalue(TValue obj, int x) 
-		  { TValue io=obj; val_(io).b=x; settt_(io, LUA_TBOOLEAN); }
+		  { TValue io=obj; io.value_.b=x; settt_(io, LUA_TBOOLEAN); } //FIXME:chagned, val_(io)
 
 		public static void setgcovalue(lua_State L, TValue obj, GCObject x)
 		  { TValue io=obj; GCObject i_g=x;
-		    val_(io).gc=i_g; settt_(io, ctb(gch(i_g).tt)); }
+		    io.value_.gc=i_g; settt_(io, ctb(gch(i_g).tt)); } //FIXME:chagned, val_(io)
 	
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) 
 		  {  TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TSTRING));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TSTRING)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setuvalue(lua_State L, TValue obj, GCObject x) 
 		  { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TUSERDATA));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TUSERDATA)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setthvalue(lua_State L, TValue obj, GCObject x) 
 		  { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TTHREAD));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TTHREAD)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setclLvalue(lua_State L, TValue obj, GCObject x)
 	      { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TLCL));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TLCL)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setclCvalue(lua_State L, TValue obj, GCObject x)
 		  { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TCCL));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TCCL)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void sethvalue(lua_State L, TValue obj, Table x)
 		  { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TTABLE));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TTABLE)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setptvalue(lua_State L, TValue obj, Proto x)
 		  { TValue io=obj; 
-		     val_(io).gc=(GCObject)x; settt_(io, ctb(LUA_TPROTO));
+		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TPROTO)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 		
 		public static void setdeadvalue(TValue obj) { settt_(obj, ctb(LUA_TDEADKEY)); }
@@ -512,7 +512,7 @@ namespace KopiLua
 		*/
 
 
-		public class Value {
+		public struct Value { //FIXME:!!!WARNING!!! Don't make struct to class 
 		  public GCObject gc;     /* collectable objects */
 		  public object p;        /* light userdata */
 		  public int b;           /* booleans */
