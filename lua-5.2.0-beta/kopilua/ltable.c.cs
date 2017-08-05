@@ -482,17 +482,8 @@ namespace KopiLua
 			  lua_number2int(out k, n);
 			  if (luai_numeq(cast_num(k), nvalue(key))) /* index is int? */
 				return luaH_getint(t, k);  /* use specialized version */
-				/* else go through */
-			    //FIXME:added ???this is not beautiful, use goto default
-				/* else go through ... actually on second thoughts don't, because this is C#*/
-				Node node = mainposition(t, key);//FIXME: n->node
-				do
-				{  /* check whether `key' is somewhere in the chain */
-					if (luaV_rawequalobj(gkey(node), key) != 0)//FIXME: n->node
-						return gval(node);  /* that's it *///FIXME: n->node
-					else node = gnext(node);//FIXME: n->node
-				} while (node != null);//FIXME: n->node
-				return luaO_nilobject;
+			  /* else go through */
+			  goto default;
 			}
 			default: {
 				Node node = mainposition(t, key); //FIXME: n->node

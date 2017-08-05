@@ -51,7 +51,7 @@ namespace KopiLua
 			return b;
 		}
 
-		public static object LoadMem(LoadState S, Type t, int n) //FIXME: changed
+		public static object LoadMem(LoadState S, Type t, int n) //FIXME: changed, ref->return
 		{
 			ArrayList array = new ArrayList();
 			for (int i=0; i<n; i++)
@@ -59,8 +59,8 @@ namespace KopiLua
 			return array.ToArray(t);
 		}
 		public static lu_byte LoadByte(LoadState S)		{return (lu_byte)LoadChar(S);}
-		public static object LoadVar(LoadState S, Type t) { return LoadMem(S, t); }
-		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);}
+		public static object LoadVar(LoadState S, Type t) { return LoadMem(S, t); } //FIXME:changed, ref->return
+		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);} //FIXME:changed, ref->return
 
 		//#if !defined(luai_verifycode)
 		public static Proto luai_verifycode(lua_State L, Mbuffer b, Proto f) { return f; }

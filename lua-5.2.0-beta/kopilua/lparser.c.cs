@@ -532,13 +532,10 @@ namespace KopiLua
           enterblock(fs, bl, 0);
 		}
 
-		static Proto lastfunc; //FIXME: added
-
 		private static void close_func (LexState ls) {
 		  lua_State L = ls.L;
 		  FuncState fs = ls.fs;
 		  Proto f = fs.f;
-		  lastfunc = f; //FIXME:added, ???
 		  luaK_ret(fs, 0, 0);  /* final return */
 		  leaveblock(fs);
 		  luaM_reallocvector(L, ref f.code, f.sizecode, fs.pc/*, typeof(Instruction)*/);

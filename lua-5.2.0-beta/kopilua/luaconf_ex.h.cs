@@ -649,11 +649,12 @@ namespace KopiLua
 
 			return fopen(filename, mode);
 		}
-
-		public static void fflush(Stream stream)
-		{
-			stream.Flush();
-		}
+		
+		//see below
+//		public static void fflush(Stream stream)
+//		{
+//			stream.Flush();
+//		}
 
 		public static int ferror(Stream stream)
 		{
@@ -942,7 +943,7 @@ namespace KopiLua
 		  	return result;
 		}
 		
-		public const int L_tmpnam = 256; //FIXME:???
+		public const int L_tmpnam = 16;
 		public static CharPtr tmpnam(CharPtr name) 
 		{
 			return strcpy(name, Path.GetTempFileName());
@@ -1008,6 +1009,35 @@ namespace KopiLua
 		{
 			long ticks = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
 			return ticks;
+		}
+		
+		public static int fflush(Stream stream)
+		{
+			int result = 0;
+			try 
+			{
+				stream.Flush();
+			} 
+			catch 
+			{
+				result = 1;
+			}
+			return result;
+		}
+		
+		public class lconv 
+		{
+			public CharPtr decimal_point;
+			
+			public lconv()
+			{
+				decimal_point = ".";
+			}
+		}
+		public static lconv _lconv = new lconv();
+		public static lconv localeconv()
+		{
+			return _lconv;
 		}
 	}
 }

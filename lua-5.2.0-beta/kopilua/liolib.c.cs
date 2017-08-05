@@ -524,16 +524,12 @@ namespace KopiLua
 
 
 		private static int io_flush (lua_State L) {
-			int result = 1;//FIXME: added
-			try {getiofile(L, IO_OUTPUT).Flush();} catch {result = 0;}//FIXME: added
-		  return luaL_fileresult(L, result, null); //FIXME: changed
+		  return luaL_fileresult(L, (fflush(getiofile(L, IO_OUTPUT))==0)?1:0, null);
 		}
 
 
 		private static int f_flush (lua_State L) {
-			int result = 1;//FIXME: added
-			try {tofile(L).Flush();} catch {result = 0;} //FIXME: added
-			return luaL_fileresult(L, result, null); //FIXME: changed
+			return luaL_fileresult(L, (fflush(tofile(L))==0)?1:0, null);
 		}
 
 

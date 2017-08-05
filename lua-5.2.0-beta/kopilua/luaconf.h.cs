@@ -440,7 +440,6 @@ namespace KopiLua
 
 		/* these are quite standard operations */
 		#if LUA_CORE
-		public delegate lua_Number op_delegate(lua_State L, lua_Number a, lua_Number b); //FIXME:added ???
 		public static lua_Number luai_numadd(lua_State L, lua_Number a, lua_Number b) { return ((a) + (b)); }
 		public static lua_Number luai_numsub(lua_State L, lua_Number a, lua_Number b) { return ((a) - (b)); }
 		public static lua_Number luai_nummul(lua_State L, lua_Number a, lua_Number b) { return ((a) * (b)); }

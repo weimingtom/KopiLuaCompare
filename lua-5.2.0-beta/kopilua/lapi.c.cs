@@ -1208,13 +1208,13 @@ namespace KopiLua
 		}
 
 
-		private static UpValRef getupvalref (lua_State L, int fidx, int n, LClosure[] pf) { //FIXME:???ref ? array ?
+		private static UpValRef getupvalref (lua_State L, int fidx, int n, ref LClosure pf) { //FIXME:???ref ? array ?
 		  LClosure f;
 		  StkId fi = index2addr(L, fidx);
 		  api_check(L, ttisLclosure(fi), "Lua function expected");
 		  f = clLvalue(fi);
 		  api_check(L, (1 <= n && n <= f.p.sizeupvalues), "invalid upvalue index");
-		  if (pf != null) pf[0] = f;
+		  pf = f; //FIXME:changed, no if (pf != null)
 		  return new UpValRef(f.upvals, n - 1);  /* get its upvalue pointer */
 		}
 
@@ -1223,7 +1223,8 @@ namespace KopiLua
 		  StkId fi = index2addr(L, fidx);
 		  switch (ttype(fi)) {
 		    case LUA_TLCL: {  /* lua closure */
-		  	  return getupvalref(L, fidx, n, null).get();
+		  	  LClosure null_ = null; //FIXME:added
+		  	  return getupvalref(L, fidx, n, ref null_).get();
 		    }
 		    case LUA_TCCL: {  /* C closure */
 		      CClosure f = clCvalue(fi);
@@ -1241,10 +1242,9 @@ namespace KopiLua
 		public static void lua_upvaluejoin (lua_State L, int fidx1, int n1,
 		                                            int fidx2, int n2) {
 		  LClosure f1 = null;
-		  LClosure[] f1Ref = new LClosure[] {f1}; //FIXME:added
-		  UpValRef up1 = getupvalref(L, fidx1, n1, f1Ref);
-		  f1 = f1Ref[0]; //FIXME:added
-		  UpValRef up2 = getupvalref(L, fidx2, n2, null);
+		  LClosure null_=null;//FIXME:added
+		  UpValRef up1 = getupvalref(L, fidx1, n1, ref f1);
+		  UpValRef up2 = getupvalref(L, fidx2, n2, ref null_);
 		  up1.set(up2.get());
 		  luaC_objbarrier(L, f1, up2.get());
 		}

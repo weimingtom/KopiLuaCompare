@@ -193,9 +193,8 @@ namespace KopiLua
 		}
 
 
-        //FIXME:
 		//#if !defined(getlocaledecpoint)
-		//#define getlocaledecpoint()	(localeconv()->decimal_point[0])
+		private static char getlocaledecpoint() { return localeconv().decimal_point[0];}
 		//#endif
 
 
@@ -209,7 +208,7 @@ namespace KopiLua
 			// todo: add proper support for localeconv - mjf
 			//lconv cv = localeconv(); //FIXME:???removed???
 			char old = ls.decpoint;
-			ls.decpoint = '.'; // (cv ? cv.decimal_point[0] : '.'); //getlocaledecpoint() //FIXME:changed
+			ls.decpoint = getlocaledecpoint();
 			buffreplace(ls, old, ls.decpoint);  /* try new decimal separator */
 			if (buff2d(ls.buff, out seminfo.r) == 0) {
 				/* format error with correct decimal point: no more options */

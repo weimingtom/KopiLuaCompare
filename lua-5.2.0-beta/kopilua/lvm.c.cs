@@ -504,7 +504,7 @@ namespace KopiLua
 		//#define Protect(x)	{ {x;}; base = ci->u.l.base_; } //FIXME:
 
 		//#define checkGC(L,c)	Protect(luaC_condGC(L, c); luai_threadyield(L);) //FIXME:
-
+		public delegate lua_Number op_delegate(lua_State L, lua_Number a, lua_Number b); //FIXME:added
 		public static void arith_op(lua_State L, op_delegate op, TMS tm, StkId base_, Instruction i, TValue[] k, StkId ra/*, InstructionPtr pc*/, CallInfo ci) {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
@@ -614,11 +614,9 @@ namespace KopiLua
 			if ( ((L.hookmask & (LUA_MASKLINE | LUA_MASKCOUNT)) != 0) &&
 				(((--L.hookcount) == 0) || ((L.hookmask & LUA_MASKLINE) != 0))) {
 			  //Protect(
-				//L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
 				traceexec(L);
-				base_ = ci.u.l.base_;
-				//);
-		      //L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
+			  base_ = ci.u.l.base_;
+			  //);
 			}
 			/* warning!! several calls may realloc the stack and invalidate `ra' */
 			ra = RA(L, base_, i);
@@ -662,30 +660,24 @@ namespace KopiLua
 			  case OpCode.OP_GETTABUP: {
 				int b = GETARG_B(i);
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
 				  luaV_gettable(L, cl.upvals[b].v, RKC(L, base_, i, k), ra);
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_GETTABLE: {
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
 				  luaV_gettable(L, RB(L, base_, i), RKC(L, base_, i, k), ra);
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_SETTABUP: {
 				int a = GETARG_A(i);
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME: 
         	      luaV_settable(L, cl.upvals[a].v, RKB(L, base_, i, k), RKC(L, base_, i, k));
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc);//FIXME:???        	      
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_SETUPVAL: {
@@ -696,11 +688,9 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETTABLE: {
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  luaV_settable(L, ra, RKB(L, base_, i, k), RKC(L, base_, i, k));
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_NEWTABLE: {
@@ -711,7 +701,7 @@ namespace KopiLua
 		        if (b != 0 || c != 0)
 		          luaH_resize(L, t, luaO_fb2int(b), luaO_fb2int(c));
 		        //Protect(
-		        	luaC_condGC(L, delegate() {
+		        	luaC_condGC(L, delegate() {//checkGC()
                     	L.top = ra + 1;  /* limit of live values */
 			          	luaC_step(L);
 			          	L.top = ci.top;  /* restore top */
@@ -724,11 +714,9 @@ namespace KopiLua
 				StkId rb = RB(L, base_, i);
 				setobjs2s(L, ra + 1, rb);
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  luaV_gettable(L, rb, RKC(L, base_, i, k), ra);
-				  base_ = ci.u.l.base_;
-				  //);
-				//L.savedpc = InstructionPtr.Assign(pc); //FIXME:???
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_ADD: {
@@ -765,9 +753,8 @@ namespace KopiLua
 				  //Protect(
 					//L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 					luaV_arith(L, ra, rb, rb, TMS.TM_UNM);
-					base_ = ci.u.l.base_;
-					//);
-				  //L.savedpc = InstructionPtr.Assign(pc);//FIXME:???
+			      base_ = ci.u.l.base_;
+				  //);
 				}
 				break;
 			  }
@@ -779,10 +766,9 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_LEN: {
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  luaV_objlen(L, ra, RB(L, base_, i));
-				  base_ = ci.u.l.base_; //FIXME:???
-				//)
+				base_ = ci.u.l.base_;
+				//);
 				break;
 			  }
 			  case OpCode.OP_CONCAT: {
@@ -791,16 +777,14 @@ namespace KopiLua
                 StkId rb;
 				L.top = base_ + c + 1;  /* mark the end of concat operands */
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  luaV_concat(L, c-b+1); 
-
-				  base_ = ci.u.l.base_;
-				  //);
+				base_ = ci.u.l.base_;
+				//);
 		        ra = RA(L, base_, i);  /* 'luav_concat' may invoke TMs and move the stack */
 		        rb = b + base_;
 		        setobjs2s(L, ra, rb);
 		        //Protect(
-		        	luaC_condGC(L, delegate() {
+		        	luaC_condGC(L, delegate() {//checkGC()
                     	L.top = (ra >= rb ? ra + 1 : rb);  /* limit of live values */
 		          		luaC_step(L);
                     }); luai_threadyield(L);
@@ -817,38 +801,32 @@ namespace KopiLua
 				TValue rb = RKB(L, base_, i, k);
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  if ((equalobj(L, rb, rc)?1:0) == GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 				  	donextjump(ci, ref i, L);
-				  base_ = ci.u.l.base_;
+				base_ = ci.u.l.base_;
 				//);
-				InstructionPtr.inc(ref ci.u.l.savedpc);
 				break;
 			  }
 			  case OpCode.OP_LT: {
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  if (luaV_lessthan(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) != GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 					donextjump(ci, ref i, L);
-				  base_ = ci.u.l.base_;
+				base_ = ci.u.l.base_;
 				//);
-				InstructionPtr.inc(ref ci.u.l.savedpc);
 				break;
 			  }
 			  case OpCode.OP_LE: {
 				//Protect(
-				  //L.savedpc = InstructionPtr.Assign(pc); //FIXME:
 				  if (luaV_lessequal(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) != GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 				    donextjump(ci, ref i, L);
-				  base_ = ci.u.l.base_;
+				base_ = ci.u.l.base_;
 				//);
-				InstructionPtr.inc(ref ci.u.l.savedpc);
 				break;
 			  }
 			  case OpCode.OP_TEST: {
@@ -866,7 +844,6 @@ namespace KopiLua
 				  setobjs2s(L, ra, rb);
 				  donextjump(ci, ref i, L);
 				}
-				InstructionPtr.inc(ref ci.u.l.savedpc);
 				break;
 			  }
 			  case OpCode.OP_CALL: {
@@ -963,10 +940,9 @@ namespace KopiLua
 				setobjs2s(L, cb, ra);
 				L.top = cb+3;  /* func. + 2 args (state and index) */
 				//Protect(
-					//L.savedpc = InstructionPtr.Assign(pc);//FIXME:
-					luaD_call(L, cb, GETARG_C(i), 1);
-					base_ = ci.u.l.base_;
-				  //);
+				  luaD_call(L, cb, GETARG_C(i), 1);
+				base_ = ci.u.l.base_;
+				//);
 				L.top = ci.top;
 		        i = ci.u.l.savedpc[0]; InstructionPtr.inc(ref ci.u.l.savedpc);  /* go to next instruction */ //FIXME:++
 		        ra = RA(L, base_, i);
@@ -1013,7 +989,7 @@ namespace KopiLua
 		        else
 		          setclLvalue(L, ra, ncl);  /* push cashed closure */
 		        //Protect(
-		        	luaC_condGC(L, delegate() {
+		        	luaC_condGC(L, delegate() {//CheckGC()
 			          	L.top = ra + 1;  /* limit of live values */
 			          	luaC_step(L);
 			          	L.top = ci.top;  /* restore top */
@@ -1029,10 +1005,9 @@ namespace KopiLua
 		        if (b < 0) {  /* B == 0? */
 		          b = n;  /* get all var. arguments */
 				  //Protect(
-					//L.savedpc = InstructionPtr.Assign(pc);//FIXME:
-					  luaD_checkstack(L, n);
-					base_ = ci.u.l.base_;
-					//);
+					 luaD_checkstack(L, n);
+				  base_ = ci.u.l.base_;
+				  //);
 				  ra = RA(L, base_, i);  /* previous call may change the stack */
 				  L.top = ra + n;
 				}
