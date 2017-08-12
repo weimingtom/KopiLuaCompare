@@ -80,6 +80,8 @@ namespace KopiLua
 			return (lua_Unsigned)(lua_isnoneornil(L, n) ? u : f(L, (n)));
 		}
 		
+		public static luaL_loadbuffer(L,s,sz,n)	{ return luaL_loadbufferx(L,s,sz,n,null); }
+		
 		/*
 		** {======================================================
 		** Generic Buffer manipulation
@@ -104,6 +106,31 @@ namespace KopiLua
 
 		public static CharPtr luaL_prepbuffer(luaL_Buffer B) { return luaL_prepbuffsize(B, LUAL_BUFFERSIZE); }
 		/* }====================================================== */
+
+
+
+		/*
+		** {======================================================
+		** File handles for IO library
+		** =======================================================
+		*/
+
+		/*
+		** A file handle is a userdata with metatable 'LUA_FILEHANDLE' and
+		** initial structure 'luaL_Stream' (it may contain other fields
+		** after that initial structure).
+		*/
+
+		public static const string LUA_FILEHANDLE = "FILE*";
+
+
+		public static class luaL_Stream {
+		  Stream f;  /* stream (NULL for incompletely created streams) */
+		  lua_CFunction closef;  /* to close stream (NULL for closed streams) */
+		};
+
+		/* }====================================================== */
+
 
 
 		/* compatibility with old module system */

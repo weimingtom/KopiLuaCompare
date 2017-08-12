@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.263 2011/07/02 15:56:43 roberto Exp roberto $
+** $Id: lbaselib.c,v 1.273 2011/11/30 13:03:24 roberto Exp $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -41,20 +41,22 @@ namespace KopiLua
 		private const string SPACECHARS = " \f\n\r\t\v";
 
 		private static int luaB_tonumber (lua_State L) {
-		  int base_ = luaL_optint(L, 2, 10);
-          luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
-		  if (base_ == 10) {  /* standard conversion */
-			luaL_checkany(L, 1);
-			if (lua_isnumber(L, 1) != 0) {
-			  lua_pushnumber(L, lua_tonumber(L, 1));
-			  return 1;
-			}  /* else not a number */
+		  if (lua_isnoneornil(L, 2)) {  /* standard conversion */
+		    int isnum;
+		    lua_Number n = lua_tonumberx(L, 1, &isnum);
+		    if (isnum) {
+		      lua_pushnumber(L, n);
+		      return 1;
+		    }  /* else not a number; must be something */
+		    luaL_checkany(L, 1);
 		  }
 		  else {
 		    uint l;
 		    CharPtr s = luaL_checklstring(L, 1, out l);
 		    CharPtr e = s + l;  /* end point for 's' */
+            int base = luaL_checkint(L, 2);
 		    int neg = 0;
+            luaL_argcheck(L, 2 <= base && base <= 36, 2, "base out of range");
 		    s += strspn(s, SPACECHARS);  /* skip initial spaces */
 		    if (s[0] == '-') { s.inc(); neg = 1; }  /* handle signal */ //FIXME:changed, s++;
 		    else if (s[0] == '+') s.inc();//FIXME:changed, s++;
@@ -154,7 +156,7 @@ namespace KopiLua
 
 		public static readonly CharPtr[] opts = {"stop", "restart", "collect",
 			"count", "step", "setpause", "setstepmul",
-            "setmajorinc", "isrunning", "gen", "inc", null};
+            "setmajorinc", "isrunning", "generational", "incremental", null};
 		public readonly static int[] optsnum = {LUA_GCSTOP, LUA_GCRESTART, LUA_GCCOLLECT,
 			LUA_GCCOUNT, LUA_GCSTEP, LUA_GCSETPAUSE, LUA_GCSETSTEPMUL,
 		    LUA_GCSETMAJORINC, LUA_GCISRUNNING, LUA_GCGEN, LUA_GCINC};
@@ -250,7 +252,14 @@ namespace KopiLua
 
 		private static int luaB_loadfile (lua_State L) {
 		  CharPtr fname = luaL_optstring(L, 1, null);
-		  return load_aux(L, luaL_loadfile(L, fname));
+		  CharPtr mode = luaL_optstring(L, 2, null);
+		  int env = !lua_isnone(L, 3);  /* 'env' parameter? */
+		  int status = luaL_loadfilex(L, fname, mode);
+		  if (status == LUA_OK && env) {  /* 'env' parameter? */
+		    lua_pushvalue(L, 3);
+		    lua_setupvalue(L, -2, 1);  /* set it as 1st upvalue of loaded chunk */
+		  }
+		  return load_aux(L, status);
 		}
 
 
@@ -259,27 +268,6 @@ namespace KopiLua
 		** Generic Read function
 		** =======================================================
 		*/
-
-
-		private class loaddata {
-		  public char c;
-		  public CharPtr mode;
-		};
-
-
-		/*
-		** check whether a chunk (prefix in 's') satisfies given 'mode'
-		** ('t' for text, 'b' for binary). Returns error message (also
-		** pushed on the stack) in case of errors.
-		*/
-
-		private static CharPtr checkrights (lua_State L, CharPtr mode, CharPtr s) {
-		  if (strchr(mode, 'b') == null && s[0] == LUA_SIGNATURE[0])
-		    return lua_pushstring(L, "attempt to load a binary chunk");
-		  if (strchr(mode, 't') == null && s[0] != LUA_SIGNATURE[0])
-		    return lua_pushstring(L, "attempt to load a text chunk");
-		  return null;  /* chunk in allowed format */
-		}
 
 
 		/*
@@ -297,8 +285,7 @@ namespace KopiLua
 		** reserved slot inside the stack.
 		*/
 		private static CharPtr generic_reader (lua_State L, object ud, out uint size) {
-		  CharPtr s;
-		  loaddata ld = (loaddata )ud;
+		  //(void)(ud);  /* not used */
 		  luaL_checkstack(L, 2, "too many nested functions");
 		  lua_pushvalue(L, 1);  /* get function */
 		  lua_call(L, 0, 1);  /* call it */
@@ -306,20 +293,10 @@ namespace KopiLua
 			size = 0;
 			return null;
 		  }
-		  else if ((s = lua_tostring(L, -1)) != null) {
-		    if (ld.mode != null) {  /* first time? */
-		      s = checkrights(L, ld.mode, s);  /* check mode */
-		      ld.mode = null;  /* to avoid further checks */
-		      if (s != null) luaL_error(L, s);
-		  	}
-			lua_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
-			return lua_tolstring(L, RESERVEDSLOT, out size);
-		  }
-		  else {
-			  luaL_error(L, "reader function must return a string");
-			  size = 0; //FIXME:added
-		      return null;  /* to avoid warnings */
-		  }
+		  else if (!lua_isstring(L, -1))
+    		luaL_error(L, "reader function must return a string");
+		  lua_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
+		  return lua_tolstring(L, RESERVEDSLOT, out size);
 		}
 
 
@@ -331,16 +308,13 @@ namespace KopiLua
 		  CharPtr mode = luaL_optstring(L, 3, "bt");
 		  if (s != null) {  /* loading a string? */
 		    CharPtr chunkname = luaL_optstring(L, 2, s);
-			status = ((checkrights(L, mode, s) != null)
-		              || luaL_loadbuffer(L, s, l, chunkname)!=0) ? 1 : 0;
+			status = luaL_loadbufferx(L, s, l, chunkname, mode);
 		  }
 		  else {  /* loading from a reader function */
 		    CharPtr chunkname = luaL_optstring(L, 2, "=(load)");
-		    loaddata ld = new loaddata();
-			ld.mode = mode;
 			luaL_checktype(L, 1, LUA_TFUNCTION);
 			lua_settop(L, RESERVEDSLOT);  /* create reserved slot */
-			status = lua_load(L, generic_reader, ld, chunkname);
+			status = lua_load(L, generic_reader, null, chunkname, mode);
 		  }
 		  if (status == LUA_OK && top >= 4) {  /* is there an 'env' argument */
 		    lua_pushvalue(L, 4);  /* environment for loaded function */
@@ -389,27 +363,32 @@ namespace KopiLua
 		}
 
 
-		private static int pcallcont (lua_State L) {
-		  int errfunc = 0;  /* =0 to avoid warnings */
-		  int status = lua_getctx(L, ref errfunc);
-		  lua_assert(status != LUA_OK);
-		  lua_pushboolean(L, (status == LUA_YIELD) ? 1 : 0);  /* first result (status) */
-		  if (errfunc != 0)  /* came from xpcall? */
-		    lua_replace(L, 1);  /* put first result in place of error function */
-		  else  /* came from pcall */
-		    lua_insert(L, 1);  /* open space for first result */
+		private static int finishpcall (lua_State L, int status) {
+		  if (!lua_checkstack(L, 1)) {  /* no space for extra boolean? */
+		    lua_settop(L, 0);  /* create space for return values */
+		    lua_pushboolean(L, 0);
+		    lua_pushstring(L, "stack overflow");
+		    return 2;  /* return false, msg */
+		  }
+		  lua_pushboolean(L, status);  /* first result (status) */
+		  lua_replace(L, 1);  /* put first result in first slot */
 		  return lua_gettop(L);
+		}
+
+
+		private static int pcallcont (lua_State L) {
+		  int status = lua_getctx(L, NULL);
+  		  return finishpcall(L, (status == LUA_YIELD));
 		}
 
 
 		private static int luaB_pcall (lua_State L) {
 		  int status;
 		  luaL_checkany(L, 1);
-		  status = lua_pcallk(L, lua_gettop(L) - 1, LUA_MULTRET, 0, 0, pcallcont);
-          luaL_checkstack(L, 1, null);
-		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
-		  lua_insert(L, 1);
-		  return lua_gettop(L);  /* return status + all results */
+		  lua_pushnil(L);
+		  lua_insert(L, 1);  /* create space for status result */
+		  status = lua_pcallk(L, lua_gettop(L) - 2, LUA_MULTRET, 0, 0, pcallcont);
+		  return finishpcall(L, (status == LUA_OK));
 		}
 
 
@@ -420,11 +399,8 @@ namespace KopiLua
 		  lua_pushvalue(L, 1);  /* exchange function... */
 		  lua_copy(L, 2, 1);  /* ...and error handler */
 		  lua_replace(L, 2);
-		  status = lua_pcallk(L, n - 2, LUA_MULTRET, 1, 1, pcallcont);
-          luaL_checkstack(L, 1, null);
-		  lua_pushboolean(L, (status == LUA_OK) ? 1 : 0);
-		  lua_replace(L, 1);
-		  return lua_gettop(L);  /* return status + all results */
+		  status = lua_pcallk(L, n - 2, LUA_MULTRET, 1, 0, pcallcont);
+          return finishpcall(L, (status == LUA_OK));
 		}
 
 

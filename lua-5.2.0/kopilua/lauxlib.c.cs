@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.232 2011/05/03 16:01:57 roberto Exp roberto $
+** $Id: lauxlib.c,v 1.240 2011/12/06 16:33:55 roberto Exp $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -36,11 +36,10 @@ namespace KopiLua
 		** return 1 + string at top if find a good name.
 		*/
 		private static int findfield (lua_State L, int objidx, int level) {
-		  int found = 0;
 		  if (level == 0 || !lua_istable(L, -1))
 		    return 0;  /* not found */
 		  lua_pushnil(L);  /* start 'next' loop */
-		  while (found==0 && lua_next(L, -2) != 0) {  /* for each pair in table */
+		  while (lua_next(L, -2) != 0) {  /* for each pair in table */
 		    if (lua_type(L, -2) == LUA_TSTRING) {  /* ignore non-string keys */
 		      if (lua_rawequal(L, objidx, -1) != 0) {  /* found object? */
 		        lua_pop(L, 1);  /* remove value (but keep name) */
@@ -81,7 +80,7 @@ namespace KopiLua
 		    lua_pushfstring(L, "function " + LUA_QS, ar.name);
 		  else if (ar.what[0] == 'm')  /* main? */
 		      lua_pushfstring(L, "main chunk");
-		  else if (ar.what[0] == 'C' || ar.what[0] == 't') {
+		  else if (ar.what[0] == 'C') {
 		    if (pushglobalfuncname(L, ar) != 0) {
 		      lua_pushfstring(L, "function " + LUA_QS, lua_tostring(L, -1));
 		      lua_remove(L, -2);  /* remove name */
@@ -268,7 +267,7 @@ namespace KopiLua
 
 
 		public static int luaL_newmetatable (lua_State L, CharPtr tname) {
-		  lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get registry.name */
+		  luaL_getmetatable(L, tname);  /* try to get metatable */
 		  if (!lua_isnil(L, -1))  /* name already in use? */
 			return 0;  /* leave previous value on top, but return 0 */
 		  lua_pop(L, 1);
@@ -289,7 +288,7 @@ namespace KopiLua
 		  object p = lua_touserdata(L, ud);
 		  if (p != null) {  /* value is a userdata? */
 			if (lua_getmetatable(L, ud) != 0) {  /* does it have a metatable? */
-			  lua_getfield(L, LUA_REGISTRYINDEX, tname);  /* get correct metatable */
+			  luaL_getmetatable(L, tname);  /* get correct metatable */
 			  if (lua_rawequal(L, -1, -2) == 0)  /* not the same? */
                 p = null;  /* value is a userdata with wrong metatable */
 			  lua_pop(L, 2);  /* remove both metatables */
@@ -329,7 +328,9 @@ namespace KopiLua
 
 
 		public static void luaL_checkstack (lua_State L, int space, CharPtr msg) {
-		  if (lua_checkstack(L, space)==0) {
+		  /* keep some extra space to run error routines, if needed */
+		  /*const */int extra = LUA_MINSTACK;
+		  if (lua_checkstack(L, space + extra)==0) {
 		    if (msg != null)
 		      luaL_error(L, "stack overflow (%s)", msg);
 		    else
@@ -567,7 +568,7 @@ namespace KopiLua
 		public static CharPtr getF (lua_State L, object ud, out uint size) {
 		  size = 0; //FIXME:added
 		  LoadF lf = (LoadF)ud;
-		  //(void)L;
+		  //(void)L;  /* not used */
 		  if (lf.n > 0) {  /* are there pre-read characters to be read? */
 		  	size = (uint)lf.n;  /* return them (chars already in buffer) */ //FIXME:(uint)
 		    lf.n = 0;  /* no more pre-read characters */
@@ -635,7 +636,8 @@ namespace KopiLua
 		}
 
 
-		public static int luaL_loadfile (lua_State L, CharPtr filename) {
+		public static int luaL_loadfilex (lua_State L, CharPtr filename,
+		                                               CharPtr mode) {
 		  LoadF lf = new LoadF();
 		  int status, readstatus;
 		  int c = 0; //FIXME: added, =0
@@ -658,7 +660,7 @@ namespace KopiLua
 		  }
 		  if (c != EOF)
 		  	lf.buff[lf.n++] = (char)c;  /* 'c' is the first character of the stream */ //FIXME:added, (char)
-		  status = lua_load(L, getF, lf, lua_tostring(L, -1));
+		  status = lua_load(L, getF, lf, lua_tostring(L, -1), mode);
 		  readstatus = ferror(lf.f);
 		  if (filename != null) fclose(lf.f);  /* close file (even in case of errors) */
 		  if (readstatus != 0) {
@@ -678,7 +680,7 @@ namespace KopiLua
 
 		static CharPtr getS (lua_State L, object ud, out uint size) {
 		  LoadS ls = (LoadS)ud;
-		  //(void)L;
+		  //(void)L;  /* not used */
 		  //if (ls.size == 0) return null;
 		  size = ls.size;
 		  ls.size = 0;
@@ -686,12 +688,12 @@ namespace KopiLua
 		}
 
 
-		public static int luaL_loadbuffer (lua_State L, CharPtr buff, uint size,
-										CharPtr name) {
+		public static int luaL_loadbufferx (lua_State L, CharPtr buff, uint size,
+										    CharPtr name, CharPtr mode) {
 		  LoadS ls = new LoadS();
 		  ls.s = new CharPtr(buff);
 		  ls.size = size;
-		  return lua_load(L, getS, ls, name);
+		  return lua_load(L, getS, ls, name, mode);
 		}
 
 
@@ -952,7 +954,7 @@ namespace KopiLua
 		  if (v != lua_version(null))
 		    luaL_error(L, "multiple Lua VMs detected");
 		  else if (v[0] != ver)
-		    luaL_error(L, "version mismatch: app. needs %d, Lua core provides %f",
+		    luaL_error(L, "version mismatch: app. needs %f, Lua core provides %f",
 		                  ver, v[0]);
 		  /* check conversions number -> integer types */
 		  lua_pushnumber(L, -(lua_Number)0x1234);

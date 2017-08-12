@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.148 2011/06/02 19:31:40 roberto Exp roberto $
+** $Id: lapi.c,v 2.159 2011/11/30 12:32:05 roberto Exp $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -25,10 +25,14 @@ namespace KopiLua
 		  "$LuaVersion: " + LUA_COPYRIGHT + " $" + 
 		  "$LuaAuthors: " + LUA_AUTHORS + " $";
 
-		public static void api_checkvalidindex(lua_State L, int i)
-		{
-			api_check(L, (i) != luaO_nilobject, "invalid index");
-		}
+
+		/* value at a non-valid index */
+		private static readonly TValue NONVALIDVALUE = (TValue)(luaO_nilobject);
+
+		/* corresponding test */
+		private static bool isvalid(o) { return (o != luaO_nilobject); }
+
+		public static void api_checkvalidindex(lua_State L, int i) { api_check(L, isvalid(i), "invalid index"); }
 
 
 		static TValue index2addr (lua_State L, int idx) {
@@ -36,7 +40,7 @@ namespace KopiLua
 		  if (idx > 0) {
 			TValue o = ci.func + idx;
 			api_check(L, idx <= ci.top - (ci.func + 1), "unacceptable index");
-			if (o >= L.top) return luaO_nilobject;
+			if (o >= L.top) return NONVALIDVALUE;
 			else return o;
 		  }
 		  else if (idx > LUA_REGISTRYINDEX) {
@@ -49,12 +53,10 @@ namespace KopiLua
 		    idx = LUA_REGISTRYINDEX - idx;
 		    api_check(L, idx <= MAXUPVAL + 1, "upvalue index too large");
 		    if (ttislcf(ci.func))  /* light C function? */
-		    return (TValue)(luaO_nilobject);  /* it has no upvalues */
+		    return NONVALIDVALUE;  /* it has no upvalues */
 		    else {
 		      CClosure func = clCvalue(ci.func);
-		      return (idx <= func.nupvalues)
-		             ? func.upvalue[idx-1]
-		      		 : (TValue)(luaO_nilobject);
+		      return (idx <= func.nupvalues) ? func.upvalue[idx-1] : NONVALIDVALUE;
 		    }
 		  }
 		}
@@ -232,7 +234,7 @@ namespace KopiLua
 
 		public static int lua_type (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
-		  return (o == luaO_nilobject) ? LUA_TNONE : ttypenv(o);
+		  return (isvalid(o) ? ttypenv(o) : LUA_TNONE);
 		}
 
 
@@ -270,8 +272,7 @@ namespace KopiLua
 		public static int lua_rawequal (lua_State L, int index1, int index2) {
 		  StkId o1 = index2addr(L, index1);
 		  StkId o2 = index2addr(L, index2);
-		  return (o1 == luaO_nilobject || o2 == luaO_nilobject) ? 0
-				 : luaV_rawequalobj(o1, o2);
+		  return (isvalid(o1) && isvalid(o2)) ? luaV_rawequalobj(o1, o2) : 0;
 		}
 
 
@@ -300,17 +301,17 @@ namespace KopiLua
 
 		public static int lua_compare (lua_State L, int index1, int index2, int op) {
 		  StkId o1, o2;
-		  int i;
+		  int i = 0;
 		  lua_lock(L);  /* may call tag method */
 		  o1 = index2addr(L, index1);
 		  o2 = index2addr(L, index2);
-		  if (o1 == luaO_nilobject || o2 == luaO_nilobject)
-		    i = 0;
-		  else switch (op) {
-		  	case LUA_OPEQ: i = equalobj(L, o1, o2) ? 1 : 0; break;
-		    case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
-		    case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
-		    default: api_check(L, 0, "invalid option"); i = 0; break; //FIXME:break added
+		  if (isvalid(o1) && isvalid(o2)) {
+		    switch (op) {
+		  	  case LUA_OPEQ: i = equalobj(L, o1, o2) ? 1 : 0; break;
+		      case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
+		      case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
+		      default: api_check(L, 0, "invalid option"); break; //FIXME:break added
+			}
 		  }
 		  lua_unlock(L);
 		  return i;
@@ -597,6 +598,17 @@ namespace KopiLua
 		*/
 
 
+		public static void lua_getglobal (lua_State L, CharPtr var) {
+		  Table reg = hvalue(&G(L).l_registry);
+		  const TValue *gt;  /* global table */
+		  lua_lock(L);
+		  gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
+		  setsvalue2s(L, L.top++, luaS_new(L, var));
+		  luaV_gettable(L, gt, L.top - 1, L.top - 1);
+		  lua_unlock(L);
+		}
+
+
 		public static void lua_gettable (lua_State L, int idx) {
 		  StkId t;
 		  lua_lock(L);
@@ -630,11 +642,24 @@ namespace KopiLua
 
 
 		public static void lua_rawgeti (lua_State L, int idx, int n) {
-		  StkId o;
+		  StkId t;
 		  lua_lock(L);
-		  o = index2addr(L, idx);
-		  api_check(L, ttistable(o), "table expected");
-		  setobj2s(L, L.top, luaH_getint(hvalue(o), n));
+		  t = index2addr(L, idx);
+		  api_check(L, ttistable(t), "table expected");
+		  setobj2s(L, L.top, luaH_getint(hvalue(t), n));
+		  api_incr_top(L);
+		  lua_unlock(L);
+		}
+
+
+		public static void lua_rawgetp (lua_State L, int idx, object p) {
+		  StkId t;
+		  TValue k;
+		  lua_lock(L);
+		  t = index2addr(L, idx);
+		  api_check(L, ttistable(t), "table expected");
+		  setpvalue(&k, cast(void *, p));
+		  setobj2s(L, L.top, luaH_get(hvalue(t), &k));
 		  api_incr_top(L);
 		  lua_unlock(L);
 		}
@@ -702,6 +727,19 @@ namespace KopiLua
 		*/
 
 
+		public static void lua_setglobal (lua_State L, CharPtr var) {
+		  Table reg = hvalue(&G(L).l_registry);
+		  /*const */TValue gt;  /* global table */
+		  lua_lock(L);
+		  api_checknelems(L, 1);
+		  gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
+		  setsvalue2s(L, L.top++, luaS_new(L, var));
+		  luaV_settable(L, gt, L.top - 1, L.top - 2);
+		  L.top -= 2;  /* pop value and key */
+		  lua_unlock(L);
+		}
+
+
 		public static void lua_settable (lua_State L, int idx) {
 		  StkId t;
 		  lua_lock(L);
@@ -734,6 +772,7 @@ namespace KopiLua
 		  t = index2addr(L, idx);
 		  api_check(L, ttistable(t), "table expected");
 		  setobj2t(L, luaH_set(L, hvalue(t), L.top-2), L.top-1);
+          invalidateTMcache(hvalue(t));
 		  luaC_barrierback(L, gcvalue(t), L.top-1);
 		  L.top -= 2;
 		  lua_unlock(L);
@@ -741,14 +780,29 @@ namespace KopiLua
 
 
 		public static void lua_rawseti (lua_State L, int idx, int n) {
-		  StkId o;
+		  StkId t;
 		  lua_lock(L);
 		  api_checknelems(L, 1);
-		  o = index2addr(L, idx);
-		  api_check(L, ttistable(o), "table expected");
-		  setobj2t(L, luaH_setint(L, hvalue(o), n), L.top-1);
-		  luaC_barrierback(L, gcvalue(o), L.top-1);
+		  t = index2addr(L, idx);
+		  api_check(L, ttistable(t), "table expected");
+		  luaH_setint(L, hvalue(t), n, L.top - 1);
+		  luaC_barrierback(L, gcvalue(t), L.top-1);
 		  StkId.dec(ref L.top);
+		  lua_unlock(L);
+		}
+
+
+		public static void lua_rawsetp (lua_State L, int idx, object p) {
+		  StkId t;
+		  TValue k;
+		  lua_lock(L);
+		  api_checknelems(L, 1);
+		  t = index2addr(L, idx);
+		  api_check(L, ttistable(t), "table expected");
+		  setpvalue(&k, cast(void *, p));
+		  setobj2t(L, luaH_set(L, hvalue(t), &k), L.top - 1);
+		  luaC_barrierback(L, gcvalue(t), L.top - 1);
+		  L.top--;
 		  lua_unlock(L);
 		}
 
@@ -920,13 +974,13 @@ namespace KopiLua
 
 
 		public static int lua_load (lua_State L, lua_Reader reader, object data,
-							  CharPtr chunkname) {
+							  CharPtr chunkname, CharPtr mode) {
 		  ZIO z = new ZIO();
 		  int status;
 		  lua_lock(L);
 		  if (chunkname == null) chunkname = "?";
 		  luaZ_init(L, z, reader, data);
-		  status = luaD_protectedparser(L, z, chunkname);
+		  status = luaD_protectedparser(L, z, chunkname, mode);
 		  if (status == LUA_OK) {  /* no errors? */
 		    LClosure f = clLvalue(L.top - 1);  /* get newly created function */
 		    if (f.nupvalues == 1) {  /* does it have one upvalue? */
@@ -1159,15 +1213,13 @@ namespace KopiLua
 		    }
 		    case LUA_TLCL: {  /* Lua closure */
       		  LClosure f = clLvalue(fi);
-		      CharPtr name;
+		      TString name;
 		      Proto p = f.p;
 		      if (!(1 <= n && n <= p.sizeupvalues)) return null;
 		      val = f.upvals[n-1].v;
 		      /*if (owner)*/ owner = obj2gco(f.upvals[n - 1]); //FIXME: changed
-		      name = getstr(p.upvalues[n-1].name);
-		      if (name == null)  /* no debug information? */
-		        name = "";
-		      return name;
+		      name = p.upvalues[n-1].name;
+		      return (name == null) ? "" : getstr(name);  /* no debug information? */
 		    }
             default: return null;  /* not a closure */
 		  }
@@ -1176,7 +1228,7 @@ namespace KopiLua
 
 		public static CharPtr lua_getupvalue (lua_State L, int funcindex, int n) {
 		  CharPtr name;
-		  TValue val = new TValue();
+		  TValue val = null;  /* to avoid warnings */
 		  lua_lock(L);
 		  GCObject null_ = new GCObject(); //FIXME:added
 		  name = aux_upvalue(index2addr(L, funcindex), n, ref val, ref null_); //FIXME:changed
@@ -1191,8 +1243,8 @@ namespace KopiLua
 
 		public static CharPtr lua_setupvalue (lua_State L, int funcindex, int n) {
 		  CharPtr name;
-		  TValue val = new TValue();
-		  GCObject owner = new GCObject();
+		  TValue val = null;  /* to avoid warnings */
+		  GCObject owner = null;  /* to avoid warnings */
 		  StkId fi;
 		  lua_lock(L);
 		  fi = index2addr(L, funcindex);
