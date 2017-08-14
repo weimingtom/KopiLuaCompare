@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.c,v 2.97 2011/06/20 16:36:03 roberto Exp roberto $
+** $Id: ldo.c,v 2.102 2011/11/29 15:55:08 roberto Exp $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -103,7 +103,7 @@ namespace KopiLua
 		}
 
 
-		public static void luaD_throw (lua_State L, int errcode) {
+		public static void/*l_noret*/ luaD_throw (lua_State L, int errcode) {
 		  if (L.errorJmp != null) {  /* thread has an error handler? */
 		    L.errorJmp.status = errcode;  /* set status */
 		    LUAI_THROW(L, L.errorJmp);  /* jump to it */
@@ -126,7 +126,7 @@ namespace KopiLua
 
 
 		public static int luaD_rawrunprotected (lua_State L, Pfunc f, object ud) {
-          ushort oldnCcalls = G(L).nCcalls;
+          ushort oldnCcalls = L.nCcalls;
 		  lua_longjmp lj = new lua_longjmp();
 		  lj.status = LUA_OK;
 		  lj.previous = L.errorJmp;  /* chain new error handler */
@@ -151,7 +151,7 @@ namespace KopiLua
 		  }
 #endif
 		  L.errorJmp = lj.previous;  /* restore old error handler */
-          G(L).nCcalls = oldnCcalls;
+          L.nCcalls = oldnCcalls;
 		  return lj.status;
 		}
 
@@ -387,7 +387,7 @@ namespace KopiLua
 			}
 		    default: {  /* not a function */
 		      func = tryfuncTM(L, func);  /* retry with 'function' tag method */
-		      return luaD_precall(L, func, nresults);
+		      return luaD_precall(L, func, nresults);  /* now it must be a function */
 		    }
 		  }
 		}
@@ -429,18 +429,17 @@ namespace KopiLua
 		** function position.
 		*/ 
 		private static void luaD_call (lua_State L, StkId func, int nResults, int allowyield) {
-		  global_State g = G(L);
-		  if (++g.nCcalls >= LUAI_MAXCCALLS) {
-			if (g.nCcalls == LUAI_MAXCCALLS)
+		  if (++L.nCcalls >= LUAI_MAXCCALLS) {
+			if (L.nCcalls == LUAI_MAXCCALLS)
 			  luaG_runerror(L, "C stack overflow");
-			else if (g.nCcalls >= (LUAI_MAXCCALLS + (LUAI_MAXCCALLS>>3)))
+			else if (L.nCcalls >= (LUAI_MAXCCALLS + (LUAI_MAXCCALLS>>3)))
 			  luaD_throw(L, LUA_ERRERR);  /* error while handing stack error */
 		  }
           if (allowyield==0) L.nny++;
 		  if (luaD_precall(L, func, nResults) == 0)  /* is a Lua function? */
 			luaV_execute(L);  /* call it */
           if (allowyield==0) L.nny--;
-		  g.nCcalls--;
+		  L.nCcalls--;
 		  luaC_checkGC(L);
 		}
 
@@ -451,7 +450,7 @@ namespace KopiLua
 		  lua_assert(ci.u.c.k != null);  /* must have a continuation */
 		  lua_assert(L.nny == 0);
 		  /* finish 'luaD_call' */
-		  G(L).nCcalls--;
+		  L.nCcalls--;
 		  /* finish 'lua_callk' */
 		  adjustresults(L, ci.nresults);
 		  /* call continuation function */
@@ -520,7 +519,7 @@ namespace KopiLua
 		** coroutine itself. (Such errors should not be handled by any coroutine
 		** error handler and should not kill the coroutine.)
 		*/
-		private static void resume_error (lua_State L, CharPtr msg, StkId firstArg) {
+		private static void/*l_noret*/ resume_error (lua_State L, CharPtr msg, StkId firstArg) {
 		  L.top = firstArg;  /* remove args from the stack */
 		  setsvalue2s(L, L.top, luaS_new(L, msg));  /* push error message */
 		  incr_top(L);
@@ -534,7 +533,7 @@ namespace KopiLua
 		private static void resume (lua_State L, object ud) {
 		  StkId firstArg = (StkId)(ud); //FIXME:???
 		  CallInfo ci = L.ci;
-		  if (G(L).nCcalls >= LUAI_MAXCCALLS)
+		  if (L.nCcalls >= LUAI_MAXCCALLS)
 		    resume_error(L, "C stack overflow", firstArg);
 		  if (L.status == LUA_OK) {  /* may be starting a coroutine */
 		    if (ci != L.base_ci)  /* not in base level? */
@@ -561,7 +560,7 @@ namespace KopiLua
 		        api_checknelems(L, n);
 		        firstArg = L.top - n;  /* yield results come from continuation */
 		      }
-		      G(L).nCcalls--;  /* finish 'luaD_call' */
+		      L.nCcalls--;  /* finish 'luaD_call' */
 		      luaD_poscall(L, firstArg);  /* finish 'luaD_precall' */
 		    }
 		    unroll(L, null);
@@ -569,11 +568,11 @@ namespace KopiLua
 		}
 
 
-		public static int lua_resume (lua_State L, int nargs) {
+		public static int lua_resume (lua_State L, lua_State from, int nargs) {
 		  int status;
 		  lua_lock(L);
 		  luai_userstateresume(L, nargs);
-          ++G(L).nCcalls;  /* count resume */
+          L.nCcalls = (from != null) ? from.nCcalls + 1 : 1;
 		  L.nny = 0;  /* allow yields */
           api_checknelems(L, (L.status == LUA_OK) ? nargs + 1 : nargs);
 		  status = luaD_rawrunprotected(L, resume, L.top - nargs);
@@ -593,7 +592,8 @@ namespace KopiLua
 			  lua_assert(status == L.status);
 		  }
           L.nny = 1;  /* do not allow yields */
-		  --G(L).nCcalls;
+		  L.nCcalls--;
+          lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : 0));
 		  lua_unlock(L);
 		  return status;
 		}
@@ -658,8 +658,19 @@ namespace KopiLua
 		  public ZIO z;
 		  public Mbuffer buff = new Mbuffer();  /* dynamic structure used by the scanner */
           public Dyndata dyd = new Dyndata();  /* dynamic structures used by the parser */
+          public CharPtr mode;
 		  public CharPtr name;
 		};
+
+
+		private static void checkmode (lua_State L, CharPtr mode, CharPtr x) {
+		  if (mode != null && strchr(mode, x[0]) == null) {
+		    luaO_pushfstring(L,
+		       "attempt to load a %s chunk (mode is " + LUA_QS + ")", x, mode);
+		    luaD_throw(L, LUA_ERRSYNTAX);
+		  }
+		}
+
 
 		private static void f_parser (lua_State L, object ud) {
 		  int i;
@@ -667,9 +678,14 @@ namespace KopiLua
 		  Closure cl;
 		  SParser p = (SParser)ud;
 		  int c = zgetc(p.z);  /* read first character */
-          tf = (c == LUA_SIGNATURE[0])
-		        ? luaU_undump(L, p.z, p.buff, p.name) 
-		        : luaY_parser(L, p.z, p.buff, p.dyd, p.name, c);
+		  if (c == LUA_SIGNATURE[0]) {
+		    checkmode(L, p.mode, "binary");
+		    tf = luaU_undump(L, p.z, &p.buff, p.name);
+		  }
+		  else {
+		    checkmode(L, p.mode, "text");
+		    tf = luaY_parser(L, p.z, &p.buff, &p.dyd, p.name, c);
+		  }
 		  setptvalue2s(L, L.top, tf);
 		  incr_top(L);
 		  cl = luaF_newLclosure(L, tf);
@@ -679,11 +695,12 @@ namespace KopiLua
 		}
 
 
-		public static int luaD_protectedparser (lua_State L, ZIO z, CharPtr name) {
+		public static int luaD_protectedparser (lua_State L, ZIO z, CharPtr name,
+		                                        CharPtr mode) {
 		  SParser p = new SParser();
 		  int status;
           L.nny++;  /* cannot yield during parsing */
-		  p.z = z; p.name = new CharPtr(name); //FIXME:
+		  p.z = z; p.name = new CharPtr(name); p.mode = new CharPtr(mode); //FIXME:changed, new CharPtr //FIXME:changed, new CharPtr
           p.dyd.actvar.arr = null; p.dyd.actvar.size = 0;
 		  p.dyd.gt.arr = null; p.dyd.gt.size = 0;
 		  p.dyd.label.arr = null; p.dyd.label.size = 0;

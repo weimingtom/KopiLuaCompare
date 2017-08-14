@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.108 2010/12/29 18:00:23 roberto Exp roberto $
+** $Id: lgc.c,v 2.116 2011/12/02 13:18:41 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -93,18 +93,25 @@ namespace KopiLua
 
 
 		/*
+		** one after last element in a hash array
+		*/
+		public static void gnodelast(h)	{ return gnode(h, (uint)(sizenode(h))); }
+
+
+		/*
 		** link table 'h' into list pointed by 'p'
 		*/
 		private static void linktable (Table h, ref GCObject p) { h.gclist = p; p = obj2gco(h); }
 		
 		
 		/*
-		** mark a table entry as dead (therefore removing it from the table)
+		** if key is not marked, mark its entry as dead (therefore removing it
+		** from the table)
 		*/
 		private static void removeentry (Node n) {
 		  lua_assert(ttisnil(gval(n)));
-		  if (iscollectable(gkey(n)))
-			setdeadvalue(gkey(n));  /* dead key; remove it */
+		  if (valiswhite(gkey(n)))
+			setdeadvalue(gkey(n));  /* unused and unmarked key; remove it */
 		}
 
 
@@ -115,13 +122,13 @@ namespace KopiLua
 		** other objects: if really collected, cannot keep them; for objects
 		** being finalized, keep them in keys, but not in values
 		*/
-		private static int iscleared (TValue o, int iskey) {
+		private static int iscleared (TValue o) {
 		  if (!iscollectable(o)) return 0;
 		  else if (ttisstring(o)) {
 		    stringmark(rawtsvalue(o));  /* strings are `values', so are never weak */
 		    return 0;
 		  }
-		  else return iswhite(gcvalue(o)) || (iskey == 0 && isfinalized(gcvalue(o))) ? 1 : 0;
+		  else return iswhite(gcvalue(o)) ? 1 : 0;
 		}
 
 
@@ -151,7 +158,7 @@ namespace KopiLua
 		*/
 		public static void luaC_barrierback_ (lua_State L, GCObject o) {
 		  global_State g = G(L);
-		  lua_assert(isblack(o) && !isdead(g, o));
+		  lua_assert(isblack(o) && !isdead(g, o) && gch(o).tt == LUA_TTABLE);
 		  black2gray(o);  /* make object gray (again) */
 		  gco2t(o).gclist = g.grayagain;
 		  g.grayagain = o;
@@ -291,7 +298,7 @@ namespace KopiLua
 
 
 		/*
-		** mark tag methods for basic types
+		** mark metamethods for basic types
 		*/
 		private static void markmt (global_State g) {
 		  int i;
@@ -348,9 +355,12 @@ namespace KopiLua
 		*/
 
 		private static void traverseweakvalue (global_State g, Table h) {
-		  Node n;//, limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
+		  Node n;//, limit = gnodelast(h); //FIXME:removed, overflow
+		  /* if there is array part, assume it may have white values (do not
+		     traverse it just to check) */
+		  int hasclears = (h->sizearray > 0);
 		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
-		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 		  	n = gnode(h, ni);
 		    
 		  	checkdeadkey(n);
@@ -359,16 +369,22 @@ namespace KopiLua
 		    else {
 		      lua_assert(!ttisnil(gkey(n)));
 		      markvalue(g, gkey(n));  /* mark key */
+		      if (!hasclears && iscleared(gval(n)))  /* is there a white value? */
+		        hasclears = 1;  /* table will have to be cleared */
 		    }
 		  }
-		  linktable(h, ref g.weak);  /* link into appropriate list */
+          if (hasclears)
+		    linktable(h, ref g.weak);  /* has to be cleared later */
+		  else  /* no white values */
+		    linktable(h, ref g.grayagain);  /* no need to clean */
 		}
 
 
 		private static int traverseephemeron (global_State g, Table h) {
 		  int marked = 0;  /* true if an object is marked in this traversal */
-		  int hasclears = 0;  /* true if table has unmarked pairs */
-		  Node n;// limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
+		  int hasclears = 0;  /* true if table has white keys */
+		  int prop = 0;  /* true if table has entry "white-key -> white-value" */
+		  Node n;// limit = gnodelast(h); //FIXME:removed, overflow
 		  int i;
 		  /* traverse array part (numeric keys are 'strong') */
 		  for (i = 0; i < h.sizearray; i++) {
@@ -379,36 +395,39 @@ namespace KopiLua
 		  }
 		  /* traverse hash part */
 		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
-		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 		  	n = gnode(h, ni);		  
 		  	
 		    checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
+		    else if (iscleared(gkey(n))) {  /* key is not marked (yet)? */
+		      hasclears = 1;  /* table must be cleared */
+		      if (valiswhite(gval(n)))  /* value not marked yet? */
+		        prop = 1;  /* must propagate again */
+		    }
 		    else if (valiswhite(gval(n))) {  /* value not marked yet? */
-		      if (iscleared(gkey(n), 1) != 0)  /* key is not marked (yet)? */
-		        hasclears = 1;  /* may have to propagate mark from key to value */
-		      else {  /* key is marked, so mark value */
-		        marked = 1;  /* value was not marked */
-		        reallymarkobject(g, gcvalue(gval(n)));
-		      }
+		      marked = 1;
+		      reallymarkobject(g, gcvalue(gval(n)));  /* mark it now */
 		    }
 		  }
-		  if (hasclears != 0)  /* does table have unmarked pairs? */
-		    linktable(h, ref g.ephemeron);  /* will have to propagate again */
-		  else  /* nothing to propagate */
-		    linktable(h, ref g.weak);  /* avoid convergence phase  */
+		  if (prop)
+		    linktable(h, ref g.ephemeron);  /* have to propagate again */
+		  else if (hasclears)  /* does table have white keys? */
+		    linktable(h, ref g.allweak);  /* may have to clean white keys */
+		  else  /* no white keys */
+		    linktable(h, ref g.grayagain);  /* no need to clean */
 		  return marked;
 		}
 
 
 		private static void traversestrongtable (global_State g, Table h) {
-          Node n;// limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
+          Node n;// limit = gnodelast(h); //FIXME:removed, overflow
 		  int i;
 		  for (i = 0; i < h.sizearray; i++)  /* traverse array part */
 		    markvalue(g, h.array[i]);
 		  //for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */ //FIXME:changed, see below
-		  for (int ni = 0; ni < sizenode(h); ni++) {
+		  for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 		  	n = gnode(h, ni);
 		  	
 		    checkdeadkey(n);
@@ -560,11 +579,26 @@ namespace KopiLua
 		}
 
 
-		private static void traverselistofgrays (global_State g, ref GCObject l) {
+		private static void propagatelist (global_State g, GCObject l) {
 		  lua_assert(g.gray == null);  /* no grays left */
-		  g.gray = l;  /* now 'l' is new gray list */
-		  l = null;
-		  propagateall(g);
+		  g.gray = l;
+		  propagateall(g);  /* traverse all elements from 'l' */
+		}
+
+		/*
+		** retraverse all gray lists. Because tables may be reinserted in other
+		** lists when traversed, traverse the original lists to avoid traversing
+		** twice the same table (which is not wrong, but inefficient)
+		*/
+		private static void retraversegrays (global_State g) {
+		  GCObject weak = g.weak;  /* save original lists */
+		  GCObject grayagain = g.grayagain;
+		  GCObject ephemeron = g.ephemeron;
+		  g.weak = g.grayagain = g.ephemeron = null;
+		  propagateall(g);  /* traverse main gray list */
+		  propagatelist(g, grayagain);
+		  propagatelist(g, weak);
+		  propagatelist(g, ephemeron);
 		}
 		
 		//FIXME:-------------------->
@@ -599,24 +633,45 @@ namespace KopiLua
 
 
 		/*
-		** clear collected entries from all weaktables in list 'l'
+		** clear entries with unmarked keys from all weaktables in list 'l' up
+		** to element 'f'
 		*/
-		private static void cleartable (GCObject l) {
+		private static void clearkeys (GCObject l, GCObject f) {
+		  for (; l != f; l = gco2t(l)->gclist) {
+		    Table h = gco2t(l);
+		    Node n;// limit = gnodelast(h); //FIXME:removed, overflow
+		    //for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */ //FIXME:changed, see below
+		    for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
+		      n = gnode(h, ni);
+			
+			  if (!ttisnil(gval(n)) && (iscleared(gkey(n)))) {
+		        setnilvalue(gval(n));  /* remove value ... */
+		        removeentry(n);  /* and remove entry from table */
+		      }
+		    }
+		  }
+		}
+
+
+		/*
+		** clear entries with unmarked values from all weaktables in list 'l' up
+		** to element 'f'
+		*/		
+		private static void clearvalues (GCObject l) {
 		  for (; l != null; l = gco2t(l).gclist) {
 			Table h = gco2t(l);
 			Node n; // limit = gnode(h, sizenode(h)); //FIXME:removed, overflow
 		    int i;
 		    for (i = 0; i < h.sizearray; i++) {
 			  TValue o = h.array[i];
-			  if (iscleared(o, 0) != 0)  /* value was collected? */
+			  if (iscleared(o) != 0)  /* value was collected? */
 			    setnilvalue(o);  /* remove value */
 		    }
 			//for (n = gnode(h, 0); n < limit; n++) {//FIXME:changed, see below
-			for (int ni = 0; ni < sizenode(h); ni++) {
+			for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 			  n = gnode(h, ni);		 
 			  
-			  if (!ttisnil(gval(n)) &&  /* non-empty entry? */
-				  (iscleared(gkey(n), 1) != 0 || iscleared(gval(n), 0) != 0)) {
+			  if (!ttisnil(gval(n)) && iscleared(gval(n)) != 0) {
 				setnilvalue(gval(n));  /* remove value ... */
 				removeentry(n);  /* and remove entry from table */
 			  }
@@ -770,7 +825,7 @@ namespace KopiLua
             int status;
 			lu_byte oldah = L.allowhook;
 			int running  = g.gcrunning;
-			L.allowhook = 0;  /* stop debug hooks during GC tag method */
+			L.allowhook = 0;  /* stop debug hooks during GC metamethod */
 			g.gcrunning = 0;  /* avoid GC steps */
 			setobj2s(L, L.top, tm);  /* push finalizer... */
 			setobj2s(L, L.top + 1, v);  /* ... and its argument */
@@ -780,7 +835,7 @@ namespace KopiLua
 		    g.gcrunning = (byte)running;  /* restore state */ //FIXME:changed, (byte)
 		    if (status != LUA_OK && propagateerrors != 0) {  /* error while running __gc? */
 		      if (status == LUA_ERRRUN) {  /* is there an error msg.? */
-		        luaO_pushfstring(L, "error in __gc tag method (%s)",
+		        luaO_pushfstring(L, "error in __gc metamethod (%s)",
 		                                        lua_tostring(L, -1));
 		        status = LUA_ERRGCMM;  /* error in __gc metamethod */
 		      }
@@ -791,10 +846,10 @@ namespace KopiLua
 
 
 		/*
-		** move all unreachable objects that need finalization from list 'finobj'
-		** to list 'tobefnz'
+		** move all unreachable objects (or 'all' objects) that need
+		** finalization from list 'finobj' to list 'tobefnz' (to be finalized)
 		*/
-		public static void luaC_separateudata (lua_State L, int all) {
+		private static void separatetobefnz (lua_State L, int all) {
 		  global_State g = G(L);
 		  GCObjectRef p = new FinobjRef(g);
 		  GCObject curr;
@@ -876,7 +931,8 @@ namespace KopiLua
 
 
 		/*
-		** call all pending finalizers */
+		** call all pending finalizers 
+		*/
 		private static void callallpendingfinalizers (lua_State L, int propagateerrors) {
 		  global_State g = G(L);
 		  while (g.tobefnz!=null) {
@@ -889,14 +945,13 @@ namespace KopiLua
 		public static void luaC_freeallobjects (lua_State L) {
 		  global_State g = G(L);
 		  int i;
-		  callallpendingfinalizers(L, 0);
-		  /* following "white" makes all objects look dead */
-		  g.currentwhite = (byte)WHITEBITS; //FIXME:added, (byte)
-		  g.gckind = KGC_NORMAL;
-		  sweepwholelist(L, new FinobjRef(g)); //FIXME:changed
+		  separatetobefnz(L, 1);  /* separate all objects with finalizers */
 		  lua_assert(g.finobj == null);
+		  callallpendingfinalizers(L, 0);
+		  g.currentwhite = (byte)WHITEBITS; /* this "white" makes all objects look dead */ //FIXME:added, (byte)
+		  g.gckind = KGC_NORMAL;
+		  sweepwholelist(L, new FinobjRef(g));  /* finalizers can create objs. in 'finobj' */ //FIXME:changed
 		  sweepwholelist(L, new AllGCRef(g)); //FIXME:changed
-		  lua_assert(g.allgc == null);
 		  for (i = 0; i < g.strt.size; i++)  /* free all string lists */
 		    sweepwholelist(L, new ArrayRef(g.strt.hash, i)); //FIXME:changed
 		  lua_assert(g.strt.nuse == 0);
@@ -905,6 +960,7 @@ namespace KopiLua
 
 		private static void atomic (lua_State L) {
 		  global_State g = G(L);
+          GCObject origweak, origall;
 		  lua_assert(!iswhite(obj2gco(g.mainthread)));
 		  markobject(g, L);  /* mark running thread */
 		  /* registry and global metatables may be changed by API */
@@ -913,20 +969,24 @@ namespace KopiLua
 		  /* remark occasional upvalues of (maybe) dead threads */
 		  remarkupvals(g);
 		  /* traverse objects caught by write barrier and by 'remarkupvals' */
-		  propagateall(g);
-		  traverselistofgrays(g, ref g.weak);  /* remark weak tables */
-		  traverselistofgrays(g, ref g.ephemeron);  /* remark ephemeron tables */
-  		  traverselistofgrays(g, ref g.grayagain);  /* remark gray again */
+		  retraversegrays(g);
           convergeephemerons(g);
           /* at this point, all strongly accessible objects are marked. */
-		  luaC_separateudata(L, 0);  /* separate userdata to be finalized */
+		  /* clear values from weak tables, before checking finalizers */
+		  clearvalues(g.weak, null);
+		  clearvalues(g.allweak, null);
+		  origweak = g.weak; origall = g.allweak;
+		  separatetobefnz(L, 0);  /* separate objects to be finalized */
 		  markbeingfnz(g);  /* mark userdata that will be finalized */
 		  propagateall(g);  /* remark, to propagate `preserveness' */
 		  convergeephemerons(g);
-		  /* remove collected objects from weak tables */
-		  cleartable(g.weak);
-		  cleartable(g.ephemeron);
-		  cleartable(g.allweak);
+		  /* at this point, all resurrected objects are marked. */
+		  /* remove dead objects from weak tables */
+		  clearkeys(g.ephemeron, null);  /* clear keys from all ephemeron tables */
+		  clearkeys(g.allweak, null);  /* clear keys from all allweak tables */
+		  /* clear values from resurrected weak tables */
+		  clearvalues(g.weak, origweak);
+		  clearvalues(g.allweak, origall);
 		  g.sweepstrgc = 0;  /* prepare to sweep strings */
 		  g.gcstate = GCSsweepstring;
 		  g.currentwhite = cast_byte(otherwhite(g));  /* flip current white */

@@ -58,9 +58,6 @@ namespace KopiLua
 		public static int l_setbit(ref lu_byte x, int b) { return setbits(ref x, bitmask(b)); }
 		public static int resetbit(ref lu_byte x, int b) { return resetbits(ref x, bitmask(b)); }
 		public static bool testbit(lu_byte x, int b) { return testbits(x, bitmask(b)); }
-		public static int set2bits(ref lu_byte x, int b1, int b2) { return setbits(ref x, (bit2mask(b1, b2))); }
-		public static int reset2bits(ref lu_byte x, int b1, int b2) { return resetbits(ref x, (bit2mask(b1, b2))); }
-
 
 
 		/* Layout for bit use in `marked' field: */

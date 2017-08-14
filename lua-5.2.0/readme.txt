@@ -30,7 +30,27 @@ ldebug.c
 ldebug.h
 
 
-
+03:00 2017-08-15
+ldo.c
+03:01 2017-08-15
+ldo.h
+03:02 2017-08-15
+lfunc.c
+lfunc.h
+03:31 2017-08-15
+lgc.c
+	traverseweakvalue
+	traverseephemeron
+	traversestrongtable
+	clearkeys
+	clearvalues
+		sizenode(h) ????===gnodelast(h) (original is: gnode(h, sizenode(h));)
+03:32 2017-08-15
+lgc.h
+03:32 2017-08-15
+linit.c
+	
+	
 
 
 
