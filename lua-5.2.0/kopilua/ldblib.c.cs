@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.129 2011/01/26 16:30:02 roberto Exp roberto $
+** $Id: ldblib.c,v 1.131 2011/10/24 14:54:05 roberto Exp $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -256,8 +256,7 @@ namespace KopiLua
 			{"call", "return", "line", "count", "tail call"};
 		private static void hookf (lua_State L, lua_Debug ar) {
 		  gethooktable(L);
-		  lua_pushlightuserdata(L, L);
-		  lua_rawget(L, -2);
+		  lua_rawgetp(L, -1, L);
 		  if (lua_isfunction(L, -1)) {
 			lua_pushstring(L, hooknames[(int)ar.event_]);
 			if (ar.currentline >= 0)
@@ -304,9 +303,8 @@ namespace KopiLua
 		    func = hookf; mask = makemask(smask, count);
 		  }
 		  gethooktable(L);
-		  lua_pushlightuserdata(L, L1);
 		  lua_pushvalue(L, arg+1);
-		  lua_rawset(L, -3);  /* set new hook */
+		  lua_rawsetp(L, -2, L1);  /* set new hook */
 		  lua_pop(L, 1);  /* remove hook table */
 		  lua_sethook(L1, func, mask, count);  /* set hooks */
 		  return 0;
@@ -323,8 +321,7 @@ namespace KopiLua
 			lua_pushliteral(L, "external hook");
 		  else {
 		    gethooktable(L);
-		    lua_pushlightuserdata(L, L1);
-		    lua_rawget(L, -2);   /* get hook */
+		    lua_rawgetp(L, -1, L1);   /* get hook */
 		    lua_remove(L, -2);  /* remove hook table */
 		  }
 		  lua_pushstring(L, unmakemask(mask, buff));

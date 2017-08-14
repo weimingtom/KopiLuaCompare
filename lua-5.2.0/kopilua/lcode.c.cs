@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.55 2011/05/31 18:24:36 roberto Exp roberto $
+** $Id: lcode.c,v 2.60 2011/08/30 16:26:41 roberto Exp $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -38,8 +38,8 @@ namespace KopiLua
 		      int pl = pfrom + GETARG_B(previous); //FIXME: no star
 		      if ((pfrom <= from && from <= pl + 1) ||
 		          (from <= pfrom && pfrom <= l + 1)) {  /* can connect both? */
-		        if (pfrom < from) from = pfrom;  /* from = min(from, pfrom) */ 
-		        if (pl > l) l = pl;  /* l = max(l, pl) */ 
+		        if (pfrom < from) from = pfrom;  /* from = min(from, pfrom) */
+		        if (pl > l) l = pl;  /* l = max(l, pl) */
 		        SETARG_A(previous, from); //FIXME: no star
 		        SETARG_B(previous, l - from); //FIXME: no star
 			    return;
@@ -207,11 +207,11 @@ namespace KopiLua
 		  Proto f = fs.f;
 		  dischargejpc(fs);  /* `pc' will change */
 		  /* put new instruction in code array */
-		  luaM_growvector(fs.L, ref f.code, fs.pc, ref f.sizecode,
+		  luaM_growvector(fs.ls.L, ref f.code, fs.pc, ref f.sizecode,
 						  MAX_INT, "opcodes");
 		  f.code[fs.pc] = i;
 		  /* save corresponding line information */
-		  luaM_growvector(fs.L, ref f.lineinfo, fs.pc, ref f.sizelineinfo,
+		  luaM_growvector(fs.ls.L, ref f.lineinfo, fs.pc, ref f.sizelineinfo,
 						  MAX_INT, "opcodes");
 		  f.lineinfo[fs.pc] = fs.ls.lastline;		  
 		  return fs.pc++;
@@ -284,7 +284,7 @@ namespace KopiLua
 
 
 		private static int addk (FuncState fs, TValue key, TValue v) {
-		  lua_State L = fs.L;
+		  lua_State L = fs.ls.L;
 		  TValue idx = luaH_set(L, fs.h, key);
 		  Proto f = fs.f;
 		  int k, oldsize;
@@ -299,6 +299,8 @@ namespace KopiLua
 		  /* constant not found; create a new entry */
 		  oldsize = f.sizek;
 		  k = fs.nk;
+		  /* numerical value does not need GC barrier;
+		     table has no metatable, so it does not need to invalidate cache */
 		  setnvalue(idx, cast_num(fs.nk));
 		  luaM_growvector(L, ref f.k, k, ref f.sizek, MAXARG_Ax, "constants");
 		  while (oldsize < f.sizek) setnilvalue(f.k[oldsize++]);
@@ -318,7 +320,7 @@ namespace KopiLua
 
 		public static int luaK_numberK (FuncState fs, lua_Number r) {
 		  int n;
-		  lua_State L = fs.L;
+		  lua_State L = fs.ls.L;
 		  TValue o = new TValue();
 		  setnvalue(o, r);
 		  if (r == 0 || luai_numisnan(null, r)) {  /* handle -0 and NaN */
@@ -345,7 +347,7 @@ namespace KopiLua
 		  TValue k = new TValue(), v = new TValue();
 		  setnilvalue(v);
 		  /* cannot use nil as key; instead use table itself to represent nil */
-		  sethvalue(fs.L, k, fs.h);
+		  sethvalue(fs.ls.L, k, fs.h);
 		  return addk(fs, k, v);
 		}
 
@@ -637,7 +639,7 @@ namespace KopiLua
 		}
 
 
-		private static void luaK_goiffalse (FuncState fs, expdesc e) {
+		public static void luaK_goiffalse (FuncState fs, expdesc e) {
 		  int pc;  /* pc of last jump */
 		  luaK_dischargevars(fs, e);
 		  switch (e.k) {

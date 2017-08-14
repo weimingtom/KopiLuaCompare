@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.81 2011/04/28 14:00:11 roberto Exp roberto $
+** $Id: ldebug.c,v 2.88 2011/11/30 12:43:51 roberto Exp $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -79,6 +79,13 @@ namespace KopiLua
 		  else status = 0;  /* no such level */
 		  lua_unlock(L);
 		  return status;
+		}
+
+
+		private static CharPtr upvalname (Proto p, int uv) {
+		  TString s = check_exp(uv < p.sizeupvalues, p.upvalues[uv].name);
+		  if (s == null) return "?";
+		  else return getstr(s);
 		}
 
 
@@ -178,12 +185,14 @@ namespace KopiLua
 		  }
 		  else {
 			int i;
+            TValue v = new TValue();
 			int[] lineinfo = f.l.p.lineinfo;
-		    Table t = luaH_new(L);
-		    sethvalue(L, L.top, t);
+		    Table t = luaH_new(L);  /* new table to store active lines */
+		    sethvalue(L, L.top, t);  /* push it on stack */
 		    incr_top(L);
+            setbvalue(v, 1);  /* boolean 'true' to be the value of all indices */
 			for (i=0; i<f.l.p.sizelineinfo; i++)
-			  setbvalue(luaH_setint(L, t, lineinfo[i]), 1);
+			  luaH_setint(L, t, lineinfo[i], v);  /* table[line] = true */
 		  }
 		}
 
@@ -218,7 +227,11 @@ namespace KopiLua
 				break;
 			  }
 			  case 'n': {
-				ar.namewhat = (ci!=null) ? getfuncname(L, ci, ref ar.name) : null;
+				/* calling function is a known Lua function? */
+		        if (ci != null && !(ci.callstatus & CIST_TAIL) && isLua(ci.previous))
+				  ar.namewhat = getfuncname(L, ci.previous, ref ar.name);
+		        else
+		          ar.namewhat = null;
 				if (ar.namewhat == null) {
 				  ar.namewhat = "";  /* not found */
 				  ar.name = null;
@@ -272,17 +285,16 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		//static const char *getobjname (lua_State *L, CallInfo *ci, int reg,
-        //		                       const char **name);
+		//static const char *getobjname (Proto *p, int lastpc, int reg,
+        //                               const char **name);
 
 
 		/*
 		** find a "name" for the RK value 'c'
 		*/
-		private static void kname (lua_State L, CallInfo ci, int c, int oreg, 
-		                           CharPtr what, ref CharPtr name) {
+		private static void kname (Proto p, int pc, int c, ref CharPtr name) {
 		  if (ISK(c)!=0) {  /* is 'c' a constant? */
-		    TValue kvalue = ci_func(ci).p.k[INDEXK(c)];
+		    TValue kvalue = p.k[INDEXK(c)];
 		    if (ttisstring(kvalue)) {  /* literal constant? */
 		      name = svalue(kvalue);  /* it is its own name */
 		      return;
@@ -290,8 +302,7 @@ namespace KopiLua
 		    /* else no reasonable name found */
 		  }
 		  else {  /* 'c' is a register */
-		    if (c != oreg)  /* not the original register? */
-		      what = getobjname(L, ci, c, ref name); /* search for 'c' */
+		    CharPtr what = getobjname(p, pc, c, ref name); /* search for 'c' */
 		    if (what != null && what[0] == 'c') {  /* found a constant name? */
 		      return;  /* 'name' already filled */
 		    }
@@ -301,88 +312,33 @@ namespace KopiLua
 		}
 
 
-		private static CharPtr getobjname (lua_State L, CallInfo ci, int reg,
-		                                   ref CharPtr name) {
-		  Proto p = ci_func(ci).p;
-		  CharPtr what = null;
-		  int lastpc = currentpc(ci);
+		/*
+		** try to find last instruction before 'lastpc' that modified register 'reg'
+		*/
+		private static int findsetreg (Proto p, int lastpc, int reg) {
 		  int pc;
-		  name = luaF_getlocalname(p, reg + 1, lastpc);
-		  if (name != null)  /* is a local? */
-		    return "local";
-		  /* else try symbolic execution */
+		  int setreg = -1;  /* keep last instruction that changed 'reg' */
 		  for (pc = 0; pc < lastpc; pc++) {
-		    Instruction i = p.code[pc];
+		    Instruction i = p->code[pc];
 		    OpCode op = GET_OPCODE(i);
 		    int a = GETARG_A(i);
 		    switch (op) {
-		      case OpCode.OP_MOVE: {
-		        if (reg == a) {
-		          int b = GETARG_B(i);  /* move from 'b' to 'a' */
-		          if (b < a)
-		            what = getobjname(L, ci, b, ref name);  /* get name for 'b' */
-		          else what = null;
-		        }
-		        break;
-		      }
-              case OpCode.OP_GETTABUP:
-		      case OpCode.OP_GETTABLE: {
-		        if (reg == a) {
-		          int k = GETARG_C(i);  /* key index */
-		          int t = GETARG_B(i);
-		          CharPtr vn = (op == OpCode.OP_GETTABLE)  /* name of indexed variable */
-		                           ? luaF_getlocalname(p, t + 1, pc)
-		                           : getstr(p.upvalues[t].name);
-		          kname(L, ci, k, a, what, ref name);
-		          what = (vn != null && strcmp(vn, LUA_ENV) == 0) ? "global" : "field";
-		        }
-		        break;
-		      }
-		      case OpCode.OP_GETUPVAL: {
-		        if (reg == a) {
-		          int u = GETARG_B(i);  /* upvalue index */
-		          TString tn = p.upvalues[u].name;
-		          name = tn != null ? getstr(tn) : "?";
-		          what = "upvalue";
-		        }
-		        break;
-		      }
-		      case OpCode.OP_LOADK: 
-			  case OpCode.OP_LOADKX: {
-		        if (reg == a) {
-		          int b = (op == OpCode.OP_LOADK) ? GETARG_Bx(i)
-                                           : GETARG_Ax(p.code[pc + 1]);
-		          if (ttisstring(p.k[b])) {
-		            what = "constant";
-		            name = svalue(p.k[b]);
-		          }
-		        }
-		        break;
-		      }
-		      case OpCode.OP_LOADNIL: {
+		      case OP_LOADNIL: {
 		        int b = GETARG_B(i);
 		        if (a <= reg && reg <= a + b)  /* set registers from 'a' to 'a+b' */
-		          what = null;
+		          setreg = pc;
 		        break;
 		      }
-		      case OpCode.OP_SELF: {
-		        if (reg == a) {
-		          int k = GETARG_C(i);  /* key index */
-		          kname(L, ci, k, a, what, ref name);
-		          what = "method";
-		        }
+		      case OP_TFORCALL: {
+		        if (reg >= a + 2) setreg = pc;  /* affect all regs above its base */
 		        break;
 		      }
-		      case OpCode.OP_TFORCALL: {
-		        if (reg >= a + 2) what = null;  /* affect all regs above its base */
+		      case OP_CALL:
+		      case OP_TAILCALL: {
+		        if (reg >= a) setreg = pc;  /* affect all registers above base */
 		        break;
 		      }
-		      case OpCode.OP_CALL:
-		      case OpCode.OP_TAILCALL: {
-		        if (reg >= a) what = null;  /* affect all registers above base */
-		        break;
-		      }
-		      case OpCode.OP_JMP: {
+		      case OP_JMP: {
 		        int b = GETARG_sBx(i);
 		        int dest = pc + 1 + b;
 		        /* jump is forward and do not skip `lastpc'? */
@@ -390,36 +346,88 @@ namespace KopiLua
 		          pc += b;  /* do the jump */
 		        break;
 		      }
-			  case OpCode.OP_TEST: {
-		        if (reg == a) what = null;  /* jumped code can change 'a' */
+		      case OP_TEST: {
+		        if (reg == a) setreg = pc;  /* jumped code can change 'a' */
 		        break;
 		      }
 		      default:
-		        if (testAMode(op) != 0 && reg == a) what = null;
+		        if (testAMode(op) && reg == a)  /* any instruction that set A */
+		          setreg = pc;
 		        break;
 		    }
 		  }
-		  return what;
+		  return setreg;
+		}
+
+
+		private static CharPtr getobjname (Proto p, int lastpc, int reg,
+		                                   ref CharPtr name) {
+		  int pc;
+		  *name = luaF_getlocalname(p, reg + 1, lastpc);
+		  if (*name)  /* is a local? */
+		    return "local";
+		  /* else try symbolic execution */
+		  pc = findsetreg(p, lastpc, reg);
+		  if (pc != -1) {  /* could find instruction? */
+		    Instruction i = p->code[pc];
+		    OpCode op = GET_OPCODE(i);
+		    switch (op) {
+		      case OP_MOVE: {
+		        int b = GETARG_B(i);  /* move from 'b' to 'a' */
+		        if (b < GETARG_A(i))
+		          return getobjname(p, pc, b, name);  /* get name for 'b' */
+		        break;
+		      }
+		      case OP_GETTABUP:
+		      case OP_GETTABLE: {
+		        int k = GETARG_C(i);  /* key index */
+		        int t = GETARG_B(i);  /* table index */
+		        const char *vn = (op == OP_GETTABLE)  /* name of indexed variable */
+		                         ? luaF_getlocalname(p, t + 1, pc)
+		                         : upvalname(p, t);
+		        kname(p, pc, k, name);
+		        return (vn && strcmp(vn, LUA_ENV) == 0) ? "global" : "field";
+		      }
+		      case OP_GETUPVAL: {
+		        *name = upvalname(p, GETARG_B(i));
+		        return "upvalue";
+		      }
+		      case OP_LOADK:
+		      case OP_LOADKX: {
+		        int b = (op == OP_LOADK) ? GETARG_Bx(i)
+		                                 : GETARG_Ax(p->code[pc + 1]);
+		        if (ttisstring(&p->k[b])) {
+		          *name = svalue(&p->k[b]);
+		          return "constant";
+		        }
+		        break;
+		      }
+		      case OP_SELF: {
+		        int k = GETARG_C(i);  /* key index */
+		        kname(p, pc, k, name);
+		        return "method";
+		      }
+		      default: break;  /* go through to return NULL */
+		    }
+		  }
+		  return null;  /* could not find reasonable name */
 		}
 
 
 		private static CharPtr getfuncname (lua_State L, CallInfo ci, ref CharPtr name) {
-          TMS tm = 0;
-		  Instruction i;
-		  if ((ci.callstatus & CIST_TAIL)!=0 || isLua(ci.previous)==0)
-			return null;  /* calling function is not Lua (or is unknown) */
-		  ci = ci.previous;  /* calling function */
-		  i = ci_func(ci).p.code[currentpc(ci)];
-		  if (GET_OPCODE(i) == OpCode.OP_EXTRAARG)  /* extra argument? */
-		    i = ci_func(ci).p.code[currentpc(ci) - 1];  /* get 'real' instruction */
+          TMS tm; //FIXME:added, = 0
+		  Proto p = ci_func(ci).p;  /* calling function */
+		  int pc = currentpc(ci);  /* calling instruction index */
+		  Instruction i = p.code[pc];  /* calling instruction */
 		  switch (GET_OPCODE(i)) {
 		    case OpCode.OP_CALL:
-		    case OpCode.OP_TAILCALL:
-		      return getobjname(L, ci, GETARG_A(i), ref name);
-		    case OpCode.OP_TFORCALL: {
+		    case OpCode.OP_TAILCALL:  /* get function name */
+		      return getobjname(p, pc, GETARG_A(i), ref name);
+		    case OpCode.OP_TFORCALL: {  /* for iterator */
 		      name = "for iterator";
 		      return "for iterator";
 		    }
+            /* all other instructions can call only through metamethods */
 		    case OpCode.OP_SELF:
             case OpCode.OP_GETTABUP:
 		    case OpCode.OP_GETTABLE: tm = TMS.TM_INDEX; break;
@@ -461,12 +469,12 @@ namespace KopiLua
 
 
 		private static CharPtr getupvalname (CallInfo ci, /*const*/ TValue o,
-		                               ref CharPtr name) {
+		                                     ref CharPtr name) {
 		  LClosure c = ci_func(ci);
 		  int i;
 		  for (i = 0; i < c.nupvalues; i++) {
 		    if (c.upvals[i].v == o) {
-		      name = getstr(c.p.upvalues[i].name);
+		      name = upvalname(c.p, i);
 		      return "upvalue";
 		    }
 		  }
@@ -474,8 +482,7 @@ namespace KopiLua
 		}
 
 
-
-		public static void luaG_typeerror (lua_State L, TValue o, CharPtr op) {
+		public static void/*l_noret*/ luaG_typeerror (lua_State L, TValue o, CharPtr op) {
           CallInfo ci = L.ci;
 		  CharPtr name = null;
 		  CharPtr t = objtypename(o);
@@ -483,7 +490,8 @@ namespace KopiLua
 		  if (isLua(ci)!=0) {
 		    kind = getupvalname(ci, o, ref name);  /* check whether 'o' is an upvalue */
 		    if (kind==null && isinstack(ci, o)!=0)  /* no? try a register */
-		      kind = getobjname(L, ci, cast_int(o - ci.u.l.base_), ref name);
+		      kind = getobjname(ci_func(ci).p, currentpc(ci), 
+			                    cast_int(o - ci.u.l.base_), ref name);
 		  }
 		  if (kind != null)
 			luaG_runerror(L, "attempt to %s %s " + LUA_QS + " (a %s value)",
@@ -493,14 +501,14 @@ namespace KopiLua
 		}
 
 
-		public static void luaG_concaterror (lua_State L, StkId p1, StkId p2) {
+		public static void/*l_noret*/ luaG_concaterror (lua_State L, StkId p1, StkId p2) {
 		  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
 		  lua_assert(!ttisstring(p1) && !ttisnumber(p2));
 		  luaG_typeerror(L, p1, "concatenate");
 		}
 
 
-		public static void luaG_aritherror (lua_State L, TValue p1, TValue p2) {
+		public static void/*l_noret*/ luaG_aritherror (lua_State L, TValue p1, TValue p2) {
 		  TValue temp = new TValue();
 		  if (luaV_tonumber(p1, temp) == null)
 			p2 = p1;  /* first operand is wrong */
@@ -508,14 +516,13 @@ namespace KopiLua
 		}
 
 
-		public static int luaG_ordererror (lua_State L, TValue p1, TValue p2) {
+		public static void/*l_noret*/ luaG_ordererror (lua_State L, TValue p1, TValue p2) {
 		  CharPtr t1 = objtypename(p1);
 		  CharPtr t2 = objtypename(p2);
 		  if (t1 == t2) //FIXME:???
 			luaG_runerror(L, "attempt to compare two %s values", t1);
 		  else
 			luaG_runerror(L, "attempt to compare %s with %s", t1, t2);
-		  return 0;
 		}
 
 
@@ -535,7 +542,7 @@ namespace KopiLua
 		}
 
 
-		public static void luaG_errormsg (lua_State L) {
+		public static void/*l_noret*/ luaG_errormsg (lua_State L) {
 		  if (L.errfunc != 0) {  /* is there an error handling function? */
 			StkId errfunc = restorestack(L, L.errfunc);
 			if (!ttisfunction(errfunc)) luaD_throw(L, LUA_ERRERR);
@@ -548,7 +555,7 @@ namespace KopiLua
 		}
 
 
-		public static void luaG_runerror(lua_State L, CharPtr fmt, params object[] argp) {
+		public static void/*l_noret*/ luaG_runerror(lua_State L, CharPtr fmt, params object[] argp) {
 		    //va_list argp; //FIXME:deleted
 			//va_start(argp, fmt); //FIXME:deleted
 			addinfo(L, luaO_pushvfstring(L, fmt, argp));

@@ -1,5 +1,5 @@
 /*
-** $Id: lcorolib.c,v 1.1 2010/06/10 21:30:26 roberto Exp roberto $
+** $Id: lcorolib.c,v 1.3 2011/08/23 17:24:34 roberto Exp $
 ** Coroutine Library
 ** See Copyright Notice in lua.h
 */
@@ -22,7 +22,7 @@ namespace KopiLua
 		    return -1;  /* error flag */
 		  }
 		  lua_xmove(L, co, narg);
-		  status = lua_resume(co, narg);
+		  status = lua_resume(co, L, narg);
 		  if (status == LUA_OK || status == LUA_YIELD) {
 		    int nres = lua_gettop(co);
 		    if (lua_checkstack(L, nres + 1)==0) {
