@@ -87,38 +87,44 @@ lparser.c
 02:11 2017-08-16
 lparser.h
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+02:29 2017-08-16
+lstate.c
+		//g.frealloc(g.ud, fromstate(L), (uint)GetUnmanagedSize(typeof(LG)), 0);  /* free main block */ //FIXME:???deleted
+02:31 2017-08-16
+lstate.h
+02:31 2017-08-16
+lstring.c
+lstring.h
+02:35 2017-08-16
+lstrlib.c
+02:41 2017-08-16
+ltable.c
+02:43 2017-08-16
+ltable.h
+02:44 2017-08-16
+ltablib.c
+02:45 2017-08-16
+ltm.c
+ltm.h
+02:54 2017-08-16
+lua.c
+02:55 2017-08-16
+lua.h
+03:00 2017-08-16
+luaconf.h
+03:01 2017-08-16
+lualib.h
+03:03 2017-08-16
+lundump.c
+lundump.h
+03:11 2017-08-16
+lvm.c
+	//not sync
+	//#define vmcasenb(l,b)	case l: {b}		/* nb = no break */ 
+03:14 2017-08-16
+lzio.c
+03:15 2017-08-16
+lzio.h
 
 
 

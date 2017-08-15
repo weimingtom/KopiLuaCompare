@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 1.69 2011/05/06 13:35:17 lhf Exp $
+** $Id: lundump.c,v 1.71 2011/12/07 10:39:12 lhf Exp $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -68,7 +68,7 @@ namespace KopiLua
 
 		private static void LoadBlock(LoadState S, CharPtr b, int size)
 		{
-		 if (luaZ_read(S.Z, b, (uint)size)!=0) error(S,"corrupted"); //FIXME:(uint)
+		 if (luaZ_read(S.Z, b, (uint)size)!=0) error(S,"truncated"); //FIXME:(uint)
 		}
 
 		private static int LoadChar(LoadState S) 
@@ -153,8 +153,8 @@ namespace KopiLua
 		 for (i=0; i<n; i++) f.upvalues[i].name=null;
 		 for (i=0; i<n; i++)
 		 {
-		  f.upvalues[i].instack=(byte)LoadChar(S); //FIXME:(byte)
-		  f.upvalues[i].idx=(byte)LoadChar(S); //FIXME:(byte)
+		  f.upvalues[i].instack=LoadByte(S);
+		  f.upvalues[i].idx=LoadByte(S);
 		 }
 		}
 

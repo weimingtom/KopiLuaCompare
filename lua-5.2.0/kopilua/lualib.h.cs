@@ -1,5 +1,5 @@
 /*
-** $Id: lualib.h,v 1.41 2010/10/25 14:32:36 roberto Exp roberto $
+** $Id: lualib.h,v 1.43 2011/12/08 12:11:37 roberto Exp $
 ** Lua standard libraries
 ** See Copyright Notice in lua.h
 */
@@ -12,8 +12,7 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
-		/* Key to file-handle type */
-		public const string LUA_FILEHANDLE = "FILE*";
+
 
 		public const string LUA_COLIBNAME = "coroutine";
 		public const string LUA_TABLIBNAME = "table";

@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.277 2011/04/18 14:15:48 roberto Exp roberto $
+** $Id: lua.h,v 1.282 2011/11/29 15:55:08 roberto Exp $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -252,13 +252,6 @@ namespace KopiLua
         public static void lua_pop(lua_State L, int n) { lua_settop(L, -(n)-1); }
 
         public static void lua_newtable(lua_State L) { lua_createtable(L, 0, 0); }
-
-		public static void lua_setglobal(lua_State L, CharPtr s) { 
-		    lua_pushglobaltable(L); lua_pushvalue(L, -2);
-			lua_setfield(L, -2, (s)); lua_pop(L, 2); }
-			
-		public static void lua_getglobal(lua_State L, CharPtr s) { 
-			lua_pushglobaltable(L); lua_getfield(L, -1, (s)); lua_remove(L, -2); }
 
         public static void lua_register(lua_State L, CharPtr n, lua_CFunction f) { lua_pushcfunction(L, f); lua_setglobal(L, n); }
 

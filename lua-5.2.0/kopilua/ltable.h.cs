@@ -11,5 +11,7 @@ namespace KopiLua
 		
 		public static void gnext_set(Node n, Node v) { n.i_key.nk.next = v; }
 
+		public static void invalidateTMcache(t)	{ t.flags = 0; }
+
 	}
 }

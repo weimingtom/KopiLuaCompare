@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.160 2011/06/28 17:14:12 roberto Exp roberto $
+** $Id: luaconf.h,v 1.170 2011/12/06 16:58:36 roberto Exp $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -39,8 +39,8 @@ namespace KopiLua
 		//#endif
 
 
-		//#if !defined(LUA_ANSI) && _WIN32
-		//#define LUA_WIN
+		//#if !defined(LUA_ANSI) && _WIN32 && !defined(_WIN32_WCE)
+		//#define LUA_WIN		/* enable goodies for regular Windows platforms */
 		//#endif
 
 		//#if defined(LUA_WIN)
@@ -80,6 +80,7 @@ namespace KopiLua
 		//#define LUA_USE_ISATTY
 		//#define LUA_USE_POPEN
 		//#define LUA_USE_ULONGJMP
+        //#define LUA_USE_GMTIME_R
 		//#endif
 
 
@@ -183,12 +184,7 @@ namespace KopiLua
 		** give a warning about it. To avoid these warnings, change to the
 		** default definition.
 		*/
-		//#if defined(luaall_c)		/* { */
-		//#define LUAI_FUNC	static
-		//#define LUAI_DDEC	static
-		//#define LUAI_DDEF	static
-
-		//#elif defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
+		//#if defined(__GNUC__) && ((__GNUC__*100 + __GNUC_MINOR__) >= 302) && \
 		//      defined(__ELF__)
 		//#define LUAI_FUNC	__attribute__((visibility("hidden"))) extern
 		//#define LUAI_DDEC	LUAI_FUNC
@@ -220,10 +216,14 @@ namespace KopiLua
 
 		/*
 		@@ luai_writestring/luai_writeline define how 'print' prints its results.
+		** They are only used in libraries and the stand-alone program. (The #if
+		** avoids including 'stdio.h' everywhere.)
 		*/
+        //#if defined(LUA_LIB) || defined(lua_c)
         //#include <stdio.h>
 		public static void luai_writestring(CharPtr s, uint l) { fwrite(s, 1/*sizeof(char)*/, (int)l, stdout); }
 		public static void luai_writeline() { luai_writestring("\n", 1); fflush(stdout); }
+        //#endif
 
 		/*
 		@@ luai_writestringerror defines how to print error messages.
@@ -432,7 +432,7 @@ namespace KopiLua
 
 		/* the following operations need the math library */
 		//FIXME:???not defined
-		//#if defined(lobject_c) || defined(lvm_c) || defined(luaall_c)
+		//#if defined(lobject_c) || defined(lvm_c)
 		//#include <math.h>
 		public static lua_Number luai_nummod(lua_State L, lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); }
 		public static lua_Number luai_numpow(lua_State L, lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }		
@@ -473,7 +473,7 @@ namespace KopiLua
 
 		/* On a Microsoft compiler on a Pentium, use assembler to avoid clashes
 		   with a DirectX idiosyncrasy */
-		//#if defined(_MSC_VER) && defined(M_IX86)		/* { */
+		//#if defined(LUA_WIN) && defined(_MSC_VER) && defined(_M_IX86)	/* { */
 
 		//#define MS_ASMTRICK
 
@@ -506,12 +506,13 @@ namespace KopiLua
 
 
 		/*
-		@@ LUA_NANTRICKLE/LUA_NANTRICKBE controls the use of a trick to pack all
-		** types into a single double value, using NaN values to represent
-		** non-number values. The trick only works on 32-bit machines (ints and
-		** pointers are 32-bit values) with numbers represented as IEEE 754-2008
-		** doubles with conventional endianess (12345678 or 87654321), in CPUs
-		** that do not produce signaling NaN values (all NaNs are quiet).
+		@@ LUA_NANTRICK_LE/LUA_NANTRICK_BE controls the use of a trick to
+		** pack all types into a single double value, using NaN values to
+		** represent non-number values. The trick only works on 32-bit machines
+		** (ints and pointers are 32-bit values) with numbers represented as
+		** IEEE 754-2008 doubles with conventional endianess (12345678 or
+		** 87654321), in CPUs that do not produce signaling NaN values (all NaNs
+		** are quiet).
 		*/
 		//#if defined(LUA_CORE) && \
 		//    defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)	/* { */
@@ -520,7 +521,7 @@ namespace KopiLua
 		//#if defined(__i386__) || defined(__i386) || defined(__X86__) || \
 		//    defined(_M_IX86)
 
-		//#define LUA_NANTRICKLE
+		//#define LUA_NANTRICK_LE
 
 		//#endif
 

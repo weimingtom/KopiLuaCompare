@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.88 2010/12/20 18:17:46 roberto Exp roberto $
+** $Id: lstate.c,v 2.92 2011/10/03 17:54:25 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -138,10 +138,10 @@ namespace KopiLua
 		  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
 		  /* registry[LUA_RIDX_MAINTHREAD] = L */
 		  setthvalue(L, mt, L);
-		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_MAINTHREAD), mt);
+		  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, mt);
 		  /* registry[LUA_RIDX_GLOBALS] = table of globals */
   		  sethvalue(L, mt, luaH_new(L));
-		  setobj2t(L, luaH_setint(L, registry, LUA_RIDX_GLOBALS), mt);
+		  luaH_setint(L, registry, LUA_RIDX_GLOBALS, mt);
 		}
 
 
@@ -173,6 +173,7 @@ namespace KopiLua
           L.ci = null;
 		  L.stacksize = 0;
 		  L.errorJmp = null;
+          L.nCcalls = 0;
 		  L.hook = null;
 		  L.hookmask = 0;
 		  L.basehookcount = 0;
@@ -193,7 +194,7 @@ namespace KopiLua
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);
 		  lua_assert(gettotalbytes(g) == GetUnmanagedSize(typeof(LG))); //FIXME:changed, sizeof(LG)
-		  //g.frealloc(g.ud, fromstate(L), (uint)GetUnmanagedSize(typeof(LG)), 0); //FIXME:???deleted
+		  //g.frealloc(g.ud, fromstate(L), (uint)GetUnmanagedSize(typeof(LG)), 0);  /* free main block */ //FIXME:???deleted
 		}
 
 
@@ -239,7 +240,6 @@ namespace KopiLua
 		  g.currentwhite = (lu_byte)bit2mask(WHITE0BIT, FIXEDBIT);
 		  L.marked = luaC_white(g);
 		  g.gckind = KGC_NORMAL;
-		  g.nCcalls = 0;
 		  lu_byte marked = L.marked;	// can't pass properties in as ref ???//FIXME:??? //FIXME:added
 		  L.marked = marked; //remove this //FIXME:??? //FIXME:added
 		  preinit_state(L, g);
@@ -283,9 +283,6 @@ namespace KopiLua
 		public static void lua_close (lua_State L) {
 		  L = G(L).mainthread;  /* only the main thread can be closed */
 		  lua_lock(L);
-		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
-		  luaC_separateudata(L, 1);  /* separate all udata with GC metamethods */
-          lua_assert(L.next == null);
 		  luai_userstateclose(L);
 		  close_state(L);
 		}

@@ -42,8 +42,6 @@ namespace KopiLua
 		public const int EXTRA_STACK   = 5;
 
 
-		public const int BASIC_CI_SIZE           = 8;
-
 		public const int BASIC_STACK_SIZE        = (2*LUA_MINSTACK);
 
 
@@ -194,7 +192,6 @@ namespace KopiLua
 		  public lu_mem lastmajormem;  /* memory in use after last major collection */
 		  public stringtable strt = new stringtable();  /* hash table for strings */
 		  public TValue l_registry = new TValue();
-          public ushort nCcalls;  /* number of nested C calls */
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
           public lu_byte gckind;  /* kind of GC running */
@@ -241,6 +238,7 @@ namespace KopiLua
 		  public StkId[] stack;  /* stack base */
 		  public int stacksize;
 		  public ushort nny;  /* number of non-yieldable calls in stack */
+          public ushort nCcalls;  /* number of nested C calls */
 		  public lu_byte hookmask;
 		  public lu_byte allowhook;
 		  public int basehookcount;

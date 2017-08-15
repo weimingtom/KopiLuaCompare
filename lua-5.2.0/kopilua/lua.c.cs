@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.199 2011/05/26 16:09:40 roberto Exp roberto $
+** $Id: lua.c,v 1.203 2011/12/12 16:34:03 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -127,6 +127,7 @@ namespace KopiLua
 			"  -i       enter interactive mode after executing " + Lua.LUA_QL("script").ToString() + "\n" +
 			"  -l name  require library " + Lua.LUA_QL("name").ToString() + "\n" +
 			"  -v       show version information\n" +
+  			"  -E       ignore environment variables\n"
 			"  --       stop handling options\n" +
 			"  -        stop handling options and execute stdin\n"
 			,
@@ -357,44 +358,47 @@ namespace KopiLua
 		//#define noextrachars(x)	{if ((x)[2] != '\0') return -1;} //FIXME:???
 
 
+		/* indices of various argument indicators in array args */
+		private const int has_i = 0;	/* -i */
+		private const int has_v = 1;	/* -v */
+		private const int has_e = 2;	/* -e */
+		private const int has_E = 3;	/* -E */
+
+		private const int num_has = 4;	/* number of 'has_*' */
+
+
 		private static int collectargs(string[] argv, ref int pi, ref int pv, ref int pe) {
 			int i;
 			for (i = 1; i < argv.Length; i++) {
 				if (argv[i][0] != '-')  /* not an option? */
 					return i;
 				switch (argv[i][1]) {  /* option */
-					case '-':
-						if (argv[i].Length != 2) return -1; //FIXME:???noextrachars
-						return (i + 1) >= argv.Length ? i + 1 : 0;
-					case '\0':
-						return i;
-					case 'i':
-						if (argv[i].Length != 2) return -1; //FIXME:???noextrachars
-						pi = 1; /* go through */ //FIXME:changed here
-						if (argv[i].Length != 2) return -1; //FIXME:???noextrachars
-						pv = 1;
-						break;
-					case 'v':
-						if (argv[i].Length != 2) return -1; //FIXME:???noextrachars
-						pv = 1;
-						break;
-					case 'e':
-						pe = 1;  /* go through */ //FIXME:
-						if (argv[i].Length == 2)
-						{
-							i++;
-							if (argv[i] == null) return -1;
-						}
-						break;
-					case 'l':  /* both options need an argument */
-						if (argv[i].Length == 2) {  /* no concatenated argument? */ //FIXME:changed
-							i++;  /* try next 'argv' */
-							if (i >= argv.Length || argv[i][0] == '-')  //FIXME: changed
-							  return -(i - 1);  /* no next argument or it is another option */
-						}
-						break;
-					default:  /* invalid option; return its index... */
-					    return -i;  /* ...as a negative value */
+				  case '-':
+			        noextrachars(argv[i]);
+			        return (argv[i+1] != NULL ? i+1 : 0);
+			  	  case '\0':
+					return i;
+				  case 'E':
+			        args[has_E] = 1;
+			        break;
+	   		      case 'i':
+				    noextrachars(argv[i]);
+				    args[has_i] = 1;  /* go through */
+				  case 'v':
+				    noextrachars(argv[i]);
+				    args[has_v] = 1;
+				    break;
+				  case 'e':
+				    args[has_e] = 1;  /* go through */
+				  case 'l':  /* both options need an argument */
+				    if (argv[i].Length == 2) {  /* no concatenated argument? */ //FIXME:changed
+					  i++;  /* try next 'argv' */
+				    if (i >= argv.Length || argv[i][0] == '-')  //FIXME: changed
+					  return -(i - 1);  /* no next argument or it is another option */
+				    }
+				    break;
+				  default:  /* invalid option; return its index... */
+				    return -i;  /* ...as a negative value */
 				}
 			}
 			return 0;
@@ -445,39 +449,44 @@ namespace KopiLua
 
 
 		static int pmain(Lua.lua_State L) {
-			int argc = (int)Lua.lua_tointeger(L, 1);
-			string[] argv = (string[])Lua.lua_touserdata(L, 2);
-			int script;
-			int has_i = 0, has_v = 0, has_e = 0;
-			if ((argv.Length>0) && (argv[0]!="")) progname = argv[0];
-			script = collectargs(argv, ref has_i, ref has_v, ref has_e);
-			if (script < 0) {  /* invalid arg? */
-				print_usage(argv[-script]);
-				return 0;
-			}
-			if (has_v!=0) print_version();
-			/* open standard libraries */
-			Lua.luaL_checkversion(L);
-			Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
-			Lua.luaL_openlibs(L);  /* open libraries */
-			Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
-			/* run LUA_INIT */
-			if (handle_luainit(L) != Lua.LUA_OK) return 0;
-			/* execute arguments -e and -l */
-			if (runargs(L, argv, script > 0 ? script : argc)==0) return 0;
-			/* execute main script (if there is one) */
-			if (script != 0 && handle_script(L, argv, script) != Lua.LUA_OK) return 0;
-			if (has_i!=0)  /* -i option? */
+		  int argc = (int)Lua.lua_tointeger(L, 1);
+		  string[] argv = (string[])Lua.lua_touserdata(L, 2);
+		  int script;
+		  int args[num_has];
+		  args[has_i] = args[has_v] = args[has_e] = args[has_E] = 0;
+		  if (argv[0] && argv[0][0]) progname = argv[0];
+		  script = collectargs(argv, args);
+		  if (script < 0) {  /* invalid arg? */
+		    print_usage(argv[-script]);
+		    return 0;
+		  }
+		  if (args[has_v]) print_version();
+		  if (args[has_E]) {  /* option '-E'? */
+		    lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
+		    lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
+		  }
+		  /* open standard libraries */
+		  luaL_checkversion(L);
+		  lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
+		  luaL_openlibs(L);  /* open libraries */
+		  lua_gc(L, LUA_GCRESTART, 0);
+		  if (!args[has_E] && handle_luainit(L) != LUA_OK)
+		    return 0;  /* error running LUA_INIT */
+		  /* execute arguments -e and -l */
+		  if (!runargs(L, argv, (script > 0) ? script : argc)) return 0;
+		  /* execute main script (if there is one) */
+		  if (script && handle_script(L, argv, script) != LUA_OK) return 0;
+		  if (args[has_i])  /* -i option? */
+		    dotty(L);
+		  else if (script == 0 && !args[has_e] && !args[has_v]) {  /* no arguments? */
+			if (lua_stdin_is_tty()!=0) {
+				print_version();
 				dotty(L);
-			else if ((script==0) && (has_e==0) && (has_v==0)) {  /* no arguments? */
-				if (lua_stdin_is_tty()!=0) {
-					print_version();
-					dotty(L);
-				}
-				else dofile(L, null);  /* executes stdin as a file */
-			}
-		    Lua.lua_pushboolean(L, 1);  /* signal no errors */
-		    return 1;
+			}	
+			else dofile(L, null);  /* executes stdin as a file */
+		  }
+		  Lua.lua_pushboolean(L, 1);  /* signal no errors */
+		  return 1;
 		}
 
 

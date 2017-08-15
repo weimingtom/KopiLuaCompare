@@ -1,5 +1,5 @@
 /*
-** $Id: lzio.c,v 1.32 2011/02/17 17:34:16 roberto Exp roberto $
+** $Id: lzio.c,v 1.34 2011/07/15 12:35:32 roberto Exp $
 ** a generic input stream interface
 ** See Copyright Notice in lua.h
 */
@@ -26,12 +26,8 @@ namespace KopiLua
 		    return EOZ;
 		  z.n = size - 1;  /* discount char being returned */
 		  z.p = new CharPtr(buff);
-		  int result = char2int(z.p[0]);
-		  z.p.inc();
-		  return result;
+		  int result = (byte)(z.p[0]); z.p.inc(); return result; //FIXME:changed
 		}
-
-
 
 
 		public static void luaZ_init(lua_State L, ZIO z, lua_Reader reader, object data)

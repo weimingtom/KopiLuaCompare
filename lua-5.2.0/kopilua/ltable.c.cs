@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.59 2011/06/09 18:23:27 roberto Exp roberto $
+** $Id: ltable.c,v 2.67 2011/11/30 12:41:45 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -63,14 +63,10 @@ namespace KopiLua
 		public static Node hashpointer(Table t, object p) { return hashmod(t, p.GetHashCode()); }
 
 
-		/*
-		** number of ints inside a lua_Number
-		*/
-		public const int numints = sizeof(lua_Number) / sizeof(int);
-
         //FIXME:see below
 
 		//#define dummynode		(&dummynode_)
+
 		private static bool isdummy(Node n) {return ((n) == dummynode);}
 		private static bool isdummy(Node[] n) {return ((n[0]) == dummynode);}
 
@@ -149,19 +145,19 @@ namespace KopiLua
 			return i-1;  /* yes; that's the index (corrected to C) */
 		  else {
 			Node n = mainposition(t, key);
-			do {  /* check whether `key' is somewhere in the chain */
-			  /* key may be dead already, but it is ok to use it in `next' */
-			  if ((luaV_rawequalobj(gkey(n), key) != 0) ||
-					(ttisdeadkey(gkey(n)) && iscollectable(key) &&
-					 gcvalue(gkey(n)) == gcvalue(key))) {
-				i = cast_int(n - gnode(t, 0));  /* key index in hash table */
-				/* hash elements are numbered after array ones */
-				return i + t.sizearray;
-			  }
-			  else n = gnext(n);
-			} while (n != null);
-			luaG_runerror(L, "invalid key to " + LUA_QL("next"));  /* key not found */
-			return 0;  /* to avoid warnings */
+		    for (;;) {  /* check whether `key' is somewhere in the chain */
+		      /* key may be dead already, but it is ok to use it in `next' */
+		      if (luaV_rawequalobj(gkey(n), key) ||
+		            (ttisdeadkey(gkey(n)) && iscollectable(key) &&
+		             deadvalue(gkey(n)) == gcvalue(key))) {
+		        i = cast_int(n - gnode(t, 0));  /* key index in hash table */
+		        /* hash elements are numbered after array ones */
+		        return i + t->sizearray;
+		      }
+		      else n = gnext(n);
+		      if (n == NULL)
+		        luaG_runerror(L, "invalid key to " LUA_QL("next"));  /* key not found */
+		    }
 		  }
 		}
 
@@ -316,7 +312,7 @@ namespace KopiLua
 			/* re-insert elements from vanishing slice */
 			for (i=nasize; i<oldasize; i++) {
 			  if (!ttisnil(t.array[i]))
-				setobjt2t(L, luaH_setint(L, t, i+1), t.array[i]);
+				luaH_setint(L, t, i+1, t.array[i]);
 			}
 			/* shrink array */
 			luaM_reallocvector<TValue>(L, ref t.array, oldasize, nasize/*, TValue*/);
@@ -324,11 +320,14 @@ namespace KopiLua
 		  /* re-insert elements from hash part */
 		  for (i = twoto(oldhsize) - 1; i >= 0; i--) {
 			Node old = nold[i];
-			if (!ttisnil(gval(old)))
+			if (!ttisnil(gval(old))) {
+		      /* doesn't need barrier/invalidate cache, as entry was
+		         already present in the table */
 			  setobjt2t(L, luaH_set(L, t, gkey(old)), gval(old));
+			}
 		  }
 		  if (!isdummy(nold))
-			luaM_freearray(L, nold/*, twoto(oldhsize)*/);  /* free old array */ //FIXME:???, changed
+			luaM_freearray(L, nold/*, cast(size_t, twoto(oldhsize))*/);  /* free old array */ //FIXME:???, changed
 		}
 
 
@@ -376,8 +375,8 @@ namespace KopiLua
 
 		public static void luaH_free (lua_State L, Table t) {
 		  if (!isdummy(t.node[0])) //FIXME:[0]
-			luaM_freearray(L, t.node/*, sizenode(t)*/); //FIXME:
-		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:
+			luaM_freearray(L, t.node/*, cast(size_t, sizenode(t))*/); //FIXME:changed
+		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:changed
 		  luaM_free(L, t);
 		}
 
@@ -400,14 +399,19 @@ namespace KopiLua
 		** put new key in its main position; otherwise (colliding node is in its main
 		** position), new key goes to an empty position.
 		*/
-		private static TValue newkey (lua_State L, Table t, TValue key) {
-		  Node mp = mainposition(t, key);
+		private static TValue luaH_newkey (lua_State L, Table t, TValue key) {
+		  Node mp;
+		  if (ttisnil(key)) luaG_runerror(L, "table index is nil");
+		  else if (ttisnumber(key) && luai_numisnan(L, nvalue(key)))
+		    luaG_runerror(L, "table index is NaN");
+		  mp = mainposition(t, key);
 		  if (!ttisnil(gval(mp)) || isdummy(mp)) {  /* main position is taken? */
 			Node othern;
 			Node n = getfreepos(t);  /* get a free place */
 			if (n == null) {  /* cannot find a free place? */
 			  rehash(L, t, key);  /* grow table */
-			  return luaH_set(L, t, key);  /* re-insert key into grown table */
+		      /* whatever called 'newkey' take care of TM cache and GC barrier */
+		      return luaH_set(L, t, key);  /* insert key into grown table */
 			}
 			lua_assert(!isdummy(n));
 			othern = mainposition(t, gkey(mp));
@@ -498,41 +502,31 @@ namespace KopiLua
 		}
 
 
+		/*
+		** beware: when using this function you probably need to check a GC
+		** barrier and invalidate the TM cache.
+		*/
 		public static TValue luaH_set (lua_State L, Table t, TValue key) {
 		  TValue p = luaH_get(t, key);
-		  t.flags = 0;
 		  if (p != luaO_nilobject)
 			return (TValue)p;
-		  else {
-			if (ttisnil(key)) luaG_runerror(L, "table index is nil");
-			else if (ttisnumber(key) && luai_numisnan(L, nvalue(key)))
-			  luaG_runerror(L, "table index is NaN");
-			return newkey(L, t, key);
-		  }
+		  else return luaH_newkey(L, t, key);
 		}
 
 
-		public static TValue luaH_setint (lua_State L, Table t, int key) {
-		  TValue p = luaH_getint(t, key);
+		public static void luaH_setint (lua_State L, Table t, int key, TValue value) {
+		  const TValue *p = luaH_getint(t, key);
+		  TValue *cell;
 		  if (p != luaO_nilobject)
-			return (TValue)p;
+		    cell = cast(TValue *, p);
 		  else {
-			TValue k = new TValue();
-			setnvalue(k, cast_num(key));
-			return newkey(L, t, k);
+		    TValue k;
+		    setnvalue(&k, cast_num(key));
+		    cell = luaH_newkey(L, t, &k);
 		  }
+		  setobj2t(L, cell, value);
 		}
 
-		public static TValue luaH_setstr (lua_State L, Table t, TString key) {
-		  TValue p = luaH_getstr(t, key);
-		  if (p != luaO_nilobject)
-			return (TValue)p;
-		  else {
-			TValue k = new TValue();
-			setsvalue(L, k, key);
-			return newkey(L, t, k);
-		  }
-		}
 
 
 		public static int unbound_search (Table t, uint j) {

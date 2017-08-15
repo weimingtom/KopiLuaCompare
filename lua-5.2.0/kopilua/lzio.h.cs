@@ -6,11 +6,7 @@ namespace KopiLua
 
 		public class ZIO : Zio { };
 
-		public static int char2int(char c) { return (int)c; }
-
-		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = char2int(z.p[0]);z.p.inc();return ch;} else return luaZ_fill(z); }
-
-		public static void zungetc(ZIO z) { z.n++; z.p.dec();} //FIXME: CharPtr::-- => CharPtr::dec()
+		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = (byte)(z.p[0]);z.p.inc();return ch;} else return luaZ_fill(z); }
 		
 
 		public class Mbuffer {
