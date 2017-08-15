@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.52 2011/07/08 19:17:30 roberto Exp roberto $
+** $Id: llex.c,v 2.59 2011/11/30 12:43:51 roberto Exp $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -41,7 +41,7 @@ namespace KopiLua
 		public static void save_and_next(LexState ls) {save(ls, ls.current); next(ls);}
 
 
-		//static void lexerror (LexState *ls, const char *msg, int token);
+		//static void/*l_noret*/ lexerror (LexState *ls, const char *msg, int token);
 
 
 		private static void save (LexState ls, int c) {
@@ -65,7 +65,6 @@ namespace KopiLua
 			ts.tsv.reserved = cast_byte(i+1);  /* reserved word */
 		  }
 		}
-
 
 
 		public static CharPtr luaX_token2str (LexState ls, int token) {
@@ -97,7 +96,7 @@ namespace KopiLua
 		}
 
         
-		private static void lexerror (LexState ls, CharPtr msg, int token) {
+		private static void/*l_noret*/ lexerror (LexState ls, CharPtr msg, int token) {
 		  CharPtr buff = new char[LUA_IDSIZE];
 		  luaO_chunkid(buff, getstr(ls.source), LUA_IDSIZE);
 		  msg = luaO_pushfstring(ls.L, "%s:%d: %s", buff, ls.linenumber, msg);
@@ -107,7 +106,7 @@ namespace KopiLua
 		}
 
         
-		public static void luaX_syntaxerror (LexState ls, CharPtr msg) {
+		public static void/*l_noret*/ luaX_syntaxerror (LexState ls, CharPtr msg) {
 		  lexerror(ls, msg, ls.t.token);
 		}
 
@@ -117,14 +116,15 @@ namespace KopiLua
 		** it will not be collected until the end of the function's compilation
 		** (by that time it should be anchored in function's prototype)
 		*/
-		public static TString luaX_newstring(LexState ls, CharPtr str, uint l)
-		{
+		public static TString luaX_newstring(LexState ls, CharPtr str, uint l) {
 		  lua_State L = ls.L;
           TValue o;  /* entry for `str' */
 		  TString ts = luaS_newlstr(L, str, l);  /* create new string */
 		  setsvalue2s(L, StkId.inc(ref L.top), ts);  /* temporarily anchor it in stack */
-		  o = luaH_setstr(L, ls.fs.h, ts);
-		  if (ttisnil(o)) {
+		  o = luaH_set(L, ls.fs.h, L.top - 1);
+		  if (ttisnil(o)) {  /* not in use yet? (see 'addK') */
+		    /* boolean value does not need GC barrier;
+		       table has no metatable, so it does not need to invalidate cache */
 		    setbvalue(o, 1);  /* t[string] = true */
 		    luaC_checkGC(L);
 		  }
@@ -298,39 +298,29 @@ namespace KopiLua
 
 
 		private static int readhexaesc (LexState ls) {
-		  int[] c = new int[3];  /* keep input for error message */
-		  int i = 2;  /* at least 'x?' will go to error message */
-		  c[0] = 'x';
-		  c[1] = next(ls);  /* first hexa digit */
-		  if (lisxdigit(c[1])!=0) {
-		    c[i++] = next(ls);  /* second hexa digit */
-		    if (lisxdigit(c[2])!=0)
-		      return (luaO_hexavalue(c[1]) << 4) + luaO_hexavalue(c[2]);
-		    /* else go through to error */
+		  int c[3], i;  /* keep input for error message */
+		  int r = 0;  /* result accumulator */
+		  c[0] = 'x';  /* for error message */
+		  for (i = 1; i < 3; i++) {  /* read two hexa digits */
+		    c[i] = next(ls);
+		    if (!lisxdigit(c[i]))
+		      escerror(ls, c, i + 1, "hexadecimal digit expected");
+		    r = (r << 4) + luaO_hexavalue(c[i]);
 		  }
-		  escerror(ls, c, i, "hexadecimal digit expected");
-		  return 0;  /* to avoid warnings */
+		  return r;
 		}
 
 
 		private static int readdecesc (LexState ls) {
-		  int[] c = new int[3]; int r;
-		  int i = 2;  /* at least two chars will be read */
-		  c[0] = ls.current;  /* first char must be a digit */
-		  c[1] = next(ls);  /* read second char */
-		  r = c[0] - '0';  /* partial result */
-		  if (lisdigit(c[1])!=0) {
-		    c[i++] = next(ls);  /* read third char */
-		    r = 10*r + c[1] - '0';  /* update result */
-		    if (lisdigit(c[2])!=0) {
-		      r = 10*r + c[2] - '0';  /* update result */
-		      if (r > UCHAR_MAX)
-		        escerror(ls, c, i, "decimal escape too large");
-		      return r;
-		    }
+		  int c[3], i;
+		  int r = 0;  /* result accumulator */
+		  for (i = 0; i < 3 && lisdigit(ls->current); i++) {  /* read up to 3 digits */
+		    c[i] = ls->current;
+		    r = 10*r + c[i] - '0';
+		    next(ls);
 		  }
-		  /* else, has read one character that was not a digit */
-		  zungetc(ls.z);  /* return it to input stream */
+		  if (r > UCHAR_MAX)
+		    escerror(ls, c, i, "decimal escape too large");
 		  return r;
 		}
 
@@ -350,37 +340,38 @@ namespace KopiLua
 				int c;  /* final character to be saved */
 				next(ls);  /* do not save the `\' */
 				switch (ls.current) {
-				  case 'a': c = '\a'; break;
-				  case 'b': c = '\b'; break;
-				  case 'f': c = '\f'; break;
-				  case 'n': c = '\n'; break;
-				  case 'r': c = '\r'; break;
-				  case 't': c = '\t'; break;
-				  case 'v': c = '\v'; break;
-                  case 'x': c = readhexaesc(ls); break;
-				  case '\n':  /* go through */
-				  case '\r': save(ls, '\n'); inclinenumber(ls); continue;
-                  case '\\': case '\"': case '\'': c = ls.current; break;
-				  case EOZ: continue;  /* will raise an error next loop */
+				  case 'a': c = '\a'; goto read_save;
+				  case 'b': c = '\b'; goto read_save;
+				  case 'f': c = '\f'; goto read_save;
+				  case 'n': c = '\n'; goto read_save;
+				  case 'r': c = '\r'; goto read_save;
+				  case 't': c = '\t'; goto read_save;
+				  case 'v': c = '\v'; goto read_save;
+                  case 'x': c = readhexaesc(ls); goto read_save;
+				  case '\n':  case '\r': 
+				    inclinenumber(ls); c = '\n'; goto only_save;
+                  case '\\': case '\"': case '\'': 
+				    c = ls.current; goto read_save;
+				  case EOZ: goto no_save;  /* will raise an error next loop */
 		          case 'z': {  /* zap following span of spaces */
 		            next(ls);  /* skip the 'z' */
 		            while (lisspace(ls.current)!=0) {
 		              if (currIsNewline(ls)) inclinenumber(ls);
 		              else next(ls);
 		            }
-		            continue;  /* do not save 'c' */
+		            goto no_save;
 		          }
 				  default: {
 			            if (lisdigit(ls.current)==0)
 			              escerror(ls, new int[]{ls.current}, 1, "invalid escape sequence"); //FIXME:changed, new int[]{}
 			            /* digital escape \ddd */
 			            c = readdecesc(ls);
-			            break;
+			            goto only_save;
 				  }
 				}
-				next(ls);
-				save(ls, c);
-				break;
+		       read_save: next(ls);  /* read next character */
+		       only_save: save(ls, c);  /* save 'c' */
+		       no_save: break;
 			  }
 			  default:
 				save_and_next(ls);

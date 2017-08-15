@@ -27,8 +27,8 @@ namespace KopiLua
 		public const int NUM_RESERVED = (int)RESERVED.TK_WHILE - FIRST_RESERVED + 1;
 
 		public class SemInfo {
-			public SemInfo() { }
-			public SemInfo(SemInfo copy)
+			public SemInfo() { } //FIXME:added
+			public SemInfo(SemInfo copy) //FIXME:added
 			{
 				this.r = copy.r;
 				this.ts = copy.ts;
@@ -38,8 +38,8 @@ namespace KopiLua
 		} ;  /* semantics information */
 
 		public class Token {
-			public Token() { }
-			public Token(Token copy)
+			public Token() { } //FIXME:added
+			public Token(Token copy) //FIXME:added
 			{
 				this.token = copy.token;
 				this.seminfo = new SemInfo(copy.seminfo);

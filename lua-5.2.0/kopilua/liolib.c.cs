@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.100 2011/06/21 13:43:48 roberto Exp roberto $
+** $Id: liolib.c,v 2.108 2011/11/25 12:50:03 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -15,18 +15,25 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
 
-	public class FilePtr
-	{
-		public Stream file;
-	}
 
 	public partial class Lua
 	{
 
 
 		/*
-		** lua_popen spawns a new process connected to the current one through
-		** the file streams.
+		** POSIX idiosyncrasy!
+		** This definition must come before the inclusion of 'stdio.h'; it
+		** should not affect non-POSIX systems
+		*/
+		//#if !defined(_FILE_OFFSET_BITS)
+		private const int _FILE_OFFSET_BITS = 64;
+		//#endif
+
+		/*
+		** {======================================================
+		** lua_popen spawns a new process connected to the current
+		** one through the file streams.
+		** =======================================================
 		*/
 		//#if !defined(lua_popen)	/* { */
 
@@ -52,22 +59,50 @@ namespace KopiLua
 
 		//#endif			/* } */
 
+		/* }====================================================== */
+
+
+		/*
+		** {======================================================
+		** lua_fseek/lua_ftell: configuration for longer offsets
+		** =======================================================
+		*/
+
+		//#if !defined(lua_fseek)	/* { */
+
+		//#if defined(LUA_USE_POSIX)
+
+		//#define l_fseek(f,o,w)		fseeko(f,o,w)
+		//#define l_ftell(f)		ftello(f)
+		//#define l_seeknum		off_t
+
+		//#elif defined(LUA_WIN) && !defined(_CRTIMP_TYPEINFO) \
+		//   && defined(_MSC_VER) && (_MSC_VER >= 1400)
+		/* Windows (but not DDK) and Visual C++ 2005 or higher */
+
+		//#define l_fseek(f,o,w)		_fseeki64(f,o,w)
+		//#define l_ftell(f)		_ftelli64(f)
+		//#define l_seeknum		__int64
+
+		//#else
+
+		//#define l_fseek(f,o,w)		fseek(f,o,w)
+		//#define l_ftell(f)		ftell(f)
+		//#define l_seeknum		long
+
+		//#endif
+
+		//#endif			/* } */
+
+		/* }====================================================== */
+
 
 		public const string IO_PREFIX = "_IO_";
 		public const string IO_INPUT	= (IO_PREFIX + "input");
 		public const string IO_OUTPUT	= (IO_PREFIX + "output");
 
 
-		public class LStream {
-		  public Stream f;  /* stream */
-		  public lua_CFunction closef;  /* to close stream (NULL for closed streams) */
-		};
-
-
-		private static void fileerror (lua_State L, int arg, CharPtr filename) {
-		  lua_pushfstring(L, "%s: %s", filename, strerror(errno));
-		  luaL_argerror(L, arg, lua_tostring(L, -1));
-		}
+		//typedef luaL_Stream LStream;
 
 
 		public static LStream tolstream(lua_State L) { return (LStream)luaL_checkudata(L, 1, LUA_FILEHANDLE); }
@@ -163,6 +198,14 @@ namespace KopiLua
 		}
 
 
+		private static void opencheck (lua_State L, CharPtr fname, CharPtr mode) {
+		  LStream p = newfile(L);
+		  p.f = fopen(fname, mode);
+		  if (p.f == null)
+		    luaL_error(L, "cannot open file " + LUA_QS + " (%s)", fname, strerror(errno));
+		}
+
+
 		private static int io_open (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
 		  CharPtr mode = luaL_optstring(L, 2, "r");
@@ -173,7 +216,7 @@ namespace KopiLua
 		       (mode[i] != '+' || ++i != 0) &&  /* skip if char is '+' */
 		       (mode[i] != 'b' || ++i != 0) &&  /* skip if char is 'b' */
 		       (mode[i] == '\0')))
-		    return luaL_error(L, "invalid mode " + LUA_QL("%s") +
+		    return luaL_error(L, "invalid mode " + LUA_QS +
 		                  " (should match " + LUA_QL("[rwa]%%+?b?") + ")", mode);
 		  p.f = fopen(filename, mode);
 		  return (p.f == null) ? luaL_fileresult(L, 0, filename) : 1;
@@ -219,12 +262,8 @@ namespace KopiLua
 		private static int g_iofile (lua_State L, CharPtr f, CharPtr mode) {
 		  if (!lua_isnoneornil(L, 1)) {
 			CharPtr filename = lua_tostring(L, 1);
-			if (filename != null) {
-			  LStream p = newfile(L);
-			  p.f = fopen(filename, mode);
-			  if (p.f == null)
-				fileerror(L, 1, filename);
-			}
+			if (filename != null)
+			  opencheck(L, filename, mode);
 			else {
 			  tofile(L);  /* check that it's a valid file handle */
 			  lua_pushvalue(L, 1);
@@ -281,10 +320,7 @@ namespace KopiLua
 		  }
 		  else {  /* open a new file */
 		    CharPtr filename = luaL_checkstring(L, 1);
-		    LStream p = newfile(L);
-		    p.f = fopen(filename, "r");
-		    if (p.f == null)
-		      fileerror(L, 1, filename);
+		    opencheck(L, filename, "r");
 		    lua_replace(L, 1);  /* put file at index 1 */
 		    toclose = 1;  /* close it after iteration */
 		  }
@@ -449,9 +485,10 @@ namespace KopiLua
 		  if (!lua_isnil(L, -n))  /* read at least one value? */
 		    return n;  /* return them */
 		  else {  /* first result is nil: EOF or error */
-		    if (!lua_isnil(L, -1))  /* is there error information? */
-		      return luaL_error(L, "%s", lua_tostring(L, -1));  /* error */
-		    /* else EOF */
+		    if (n > 1) {  /* is there error information? */
+		      /* 2nd result is error message */
+		      return luaL_error(L, "%s", lua_tostring(L, -n + 1));
+		    }
 		    if (lua_toboolean(L, lua_upvalueindex(3))!=0) {  /* generator created file? */
 		      lua_settop(L, 0);
 		      lua_pushvalue(L, lua_upvalueindex(1));
@@ -501,12 +538,15 @@ namespace KopiLua
 		private static int f_seek (lua_State L) {
 		  Stream f = tofile(L);
 		  int op = luaL_checkoption(L, 2, "cur", f_seek_modenames);
-		  long offset = luaL_optlong(L, 3, 0);
-		  op = fseek(f, offset, f_seek_mode[op]);
+		  lua_Number p3 = luaL_optnumber(L, 3, 0);
+		  l_seeknum offset = (l_seeknum)p3;
+		  luaL_argcheck(L, (lua_Number)offset == p3, 3,
+		                  "not an integer in proper range");
+		  op = l_fseek(f, offset, f_seek_mode[op]);
 		  if (op != 0)
 			return luaL_fileresult(L, 0, null);  /* error */
 		  else {
-			lua_pushinteger(L, ftell(f));
+			lua_pushnumber(L, (lua_Number)l_ftell(f));
 			return 1;
 		  }
 		}

@@ -49,9 +49,15 @@ lgc.c
 lgc.h
 03:32 2017-08-15
 linit.c
-	
-	
 
+	
+13:24 2017/8/15
+liolib.c
+13:43 2017/8/15
+llex.c
+	escerror(ls, new int[]{ls.current}, 1, "invalid escape sequence"); //FIXME:changed, new int[]{}
+13:44 2017/8/15
+llex.h
 
 
 
