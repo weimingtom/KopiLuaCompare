@@ -93,7 +93,7 @@ namespace KopiLua
 				Debug.Assert(this.values != null);
 			}
 			//------------------------------------------
-		  public ushort idx;  /* variable index in stack */
+		  public short idx;  /* variable index in stack */
 		};
 
 
@@ -154,18 +154,17 @@ namespace KopiLua
 		  public Table h;  /* table to find (and reuse) elements in `k' */
 		  public FuncState prev;  /* enclosing function */
 		  public LexState ls;  /* lexical state */
-		  public lua_State L;  /* copy of the Lua state */
 		  public BlockCnt bl;  /* chain of current blocks */
 		  public int pc;  /* next position to code (equivalent to `ncode') */
-		  public int lasttarget;   /* `pc' of last `jump target' */
+		  public int lasttarget;   /* 'label' of last 'jump label' */
 		  public int jpc;  /* list of pending jumps to `pc' */
-		  public int freereg;  /* first free register */
 		  public int nk;  /* number of elements in `k' */
 		  public int np;  /* number of elements in `p' */
-          public int firstlocal;  /* index of first local var of this function */
-		  public short nlocvars;  /* number of elements in `locvars' */
+          public int firstlocal;  /* index of first local var (in Dyndata array) */
+		  public short nlocvars;  /* number of elements in 'f->locvars' */
 		  public lu_byte nactvar;  /* number of active local variables */
 		  public lu_byte nups;  /* number of upvalues */
+		  public lu_byte freereg;  /* first free register */
 		};
 	}
 }

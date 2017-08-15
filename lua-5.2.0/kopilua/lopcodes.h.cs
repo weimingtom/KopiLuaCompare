@@ -262,7 +262,7 @@ namespace KopiLua
 
 		OP_CONCAT,/*	A B C	R(A) := R(B).. ... ..R(C)			*/
 
-		OP_JMP,/*	A sBx	pc+=sBx; if (A) close all upvalues >= R(A) + 1	*/ 
+		OP_JMP,/*	A sBx	pc+=sBx; if (A) close all upvalues >= R(A) + 1	*/
 		OP_EQ,/*	A B C	if ((RK(B) == RK(C)) ~= A) then pc++		*/
 		OP_LT,/*	A B C	if ((RK(B) <  RK(C)) ~= A) then pc++		*/
 		OP_LE,/*	A B C	if ((RK(B) <= RK(C)) ~= A) then pc++		*/

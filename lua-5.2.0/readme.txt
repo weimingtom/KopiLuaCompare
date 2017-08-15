@@ -59,8 +59,33 @@ llex.c
 13:44 2017/8/15
 llex.h
 
+20:48 2017-08-15
+llimits.h
+	removed, //#define lua_assert
+20:49 2017-08-15
+lmathlib.c
+20:51 2017-08-15
+lmem.c
+	gettotalbytes(g), g->GCdebt, g->gcstate * 10000);
+20:52 2017-08-15
+lmem.h
+21:04 2017-08-15
+loadlib.c
 
 
+01:39 2017-08-16
+lobject.c
+	lua_strx2number, removed???
+01:47 2017-08-16
+lobject.h
+01:48 2017-08-16
+lopcodes.h
+01:52 2017-08-16
+loslib.c
+02:09 2017-08-16
+lparser.c
+02:11 2017-08-16
+lparser.h
 
 
 

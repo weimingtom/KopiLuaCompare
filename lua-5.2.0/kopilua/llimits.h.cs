@@ -1,7 +1,5 @@
-//#define lua_assert
-
 /*
-** $Id: llimits.h,v 1.89 2011/05/05 19:43:14 roberto Exp roberto $
+** $Id: llimits.h,v 1.95 2011/12/06 16:58:36 roberto Exp $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -41,7 +39,6 @@ namespace KopiLua
 		public const uint MAX_SIZET	= uint.MaxValue - 2; //FIXME:changed
 
 		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2; //FIXME:changed
-		public const l_mem MIN_LMEM = l_mem.MinValue; //((l_mem)(~((~(lu_mem)0)>>1))); //FIXME:??? = 0x80000000 = -0x80000000 //FIXME:(l_mem) removed //FIXME:changed
 
 
 		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
@@ -147,6 +144,20 @@ namespace KopiLua
 		//public static int cast_int(object i) { return (int)i; } //FIXME:???remove?
         public static byte cast_uchar(object i) { return (byte)(i); } //FIXME:???remove?
 		
+
+		/*
+		** non-return type
+		*/
+		//#if defined(__GNUC__)
+		//#define l_noret		void __attribute__((noreturn))
+		//#elif defined(_MSC_VER)
+		//#define l_noret		void __declspec(noreturn)
+		//#else
+		//#define l_noret		void
+		//#endif
+
+
+
 		/*
 		** maximum depth for nested C calls and syntactical nested non-terminals
 		** in a program. (Value must fit in an unsigned short int.)
@@ -286,7 +297,7 @@ namespace KopiLua
 
 		//#define luai_hashnum(i,n)  \
 		//  { volatile union luai_Cast u; u.l_d = (n) + 1.0;  /* avoid -0 */ \
-		//    (i) = u.l_p[0] + u.l_p[1]; }  /* add double bits for his hash */
+		//    (i) = u.l_p[0]; i += u.l_p[1]; }  /* add double bits for his hash */
 
 		//#define lua_number2int(i,n)		lua_number2int32(i, n, int)
 		//#define lua_number2integer(i,n)		lua_number2int32(i, n, lua_Integer)
@@ -327,7 +338,7 @@ namespace KopiLua
 
 
 
-		//#if (defined(ltable_c) || defined(luaall_c)) && !defined(luai_hashnum)
+		//#if defined(ltable_c) && !defined(luai_hashnum)
 
 		//#include <float.h>
 		//#include <math.h>

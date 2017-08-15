@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.51 2011/06/23 16:01:06 roberto Exp roberto $
+** $Id: lobject.c,v 2.55 2011/11/30 19:30:16 roberto Exp $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -33,7 +33,7 @@ namespace KopiLua
 		** (eeeeexxx), where the real value is (1xxx) * 2^(eeeee - 1) if
 		** eeeee != 0 and (xxx) otherwise.
 		*/
-		public static int luaO_int2fb (lu_int32 x) {
+		public static int luaO_int2fb (uint x) {
 		  int e = 0;  /* expoent */
           if (x < 8) return (int)x;
 		  while (x >= 0x10) {
@@ -103,8 +103,8 @@ namespace KopiLua
 
 
 		//private static lua_Number readhexa (const char **s, lua_Number r, int *count) {
-		//  while (lisxdigit(cast_uchar(**s))) {  /* read integer part */
-		//    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(*(*s)++)));
+		//  for (; lisxdigit(cast_uchar(**s)); (*s)++) {  /* read integer part */
+		//    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(**s)));
 		//    (*count)++;
 		//  }
 		//  return r;
@@ -157,7 +157,9 @@ namespace KopiLua
 
 		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {
 		  CharPtr endptr;
-		  if (strpbrk(s, "xX")!=null)  /* hexa? */
+		  if (strpbrk(s, "nN"))  /* reject 'inf' and 'nan' */
+		    return 0;
+		  else if (strpbrk(s, "xX")!=null)  /* hexa? */
 		    result = lua_strx2number(s, out endptr);
 		  else
 		    result = lua_str2number(s, out endptr);
@@ -223,7 +225,7 @@ namespace KopiLua
 		        luaG_runerror(L,
 		            "invalid option " + LUA_QL("%%%c") + " to " + LUA_QL("lua_pushfstring"),
 		            (e + 1).ToString()); //FIXME: changed, *(e+1)
-		        break;
+		        break; //FIXME:added
 		      }
 		    }
 		    n += 2;

@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.99 2011/06/28 17:13:28 roberto Exp roberto $
+** $Id: loadlib.c,v 1.108 2011/12/12 16:34:03 roberto Exp $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -19,6 +19,29 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
+
+
+
+		/*
+		** if needed, includes windows header before everything else
+		*/
+		//#if defined(_WIN32)
+		//#include <windows.h>
+		//#endif
+
+
+		//#include <stdlib.h>
+		//#include <string.h>
+
+
+		//#define loadlib_c
+		//#define LUA_LIB
+
+		//#include "lua.h"
+
+		//#include "lauxlib.h"
+		//#include "lualib.h"
+
 
 		/*
 		** LUA_PATH and LUA_CPATH are the names of the environment
@@ -59,6 +82,20 @@ namespace KopiLua
 		private const string LUA_IGMARK = "-";
 		//#endif
 
+
+		/*
+		** LUA_CSUBSEP is the character that replaces dots in submodule names
+		** when searching for a C loader.
+		** LUA_LSUBSEP is the character that replaces dots in submodule names
+		** when searching for a Lua loader.
+		*/
+		//#if !defined(LUA_CSUBSEP)
+		//#define LUA_CSUBSEP		LUA_DIRSEP
+		//#endif
+
+		//#if !defined(LUA_LSUBSEP)
+		//#define LUA_LSUBSEP		LUA_DIRSEP
+		//#endif
 
 
 		/* prefix for open functions in C libraries */
@@ -111,7 +148,7 @@ namespace KopiLua
 
 
 		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
-		  void *lib = dlopen(path, RTLD_NOW | (seeglb ? RTLD_GLOBAL : 0));
+		  void *lib = dlopen(path, RTLD_NOW | (seeglb ? RTLD_GLOBAL : RTLD_LOCAL));
 		  if (lib == null) lua_pushstring(L, dlerror());
 		  return lib;
 		}
@@ -134,10 +171,7 @@ namespace KopiLua
 		** =======================================================================
 		*/
 
-		//#include <windows.h>
-
 		//#undef setprogdir
-
 
 		/*
 		** optional flags for LoadLibraryEx
@@ -179,7 +213,7 @@ namespace KopiLua
 
 		static void *ll_load (lua_State L, readonly CharPtr path, int seeglb) {
 		  HMODULE lib = LoadLibraryExA(path, null, LUA_LLE_FLAGS);
-          UNUSED(seeglb);  /* symbols are 'global' by default? */
+          //(void)(seeglb);  /* not used: symbols are 'global' by default */
 		  if (lib == null) pusherror(L);
 		  return lib;
 		}
@@ -209,19 +243,19 @@ namespace KopiLua
 
 
 		public static void ll_unloadlib (object lib) {
-		  //(void)(lib);  /* to avoid warnings */
+		  //(void)(lib);   /* not used */
 		}
 
 
 		public static object ll_load (lua_State L, CharPtr path, int seeglb) { //FIXME:(added seeglb) already sync
-		  //(void)(path); (void)(seeglb);  /* to avoid warnings */
+		  //(void)(path); (void)(seeglb);  /* not used */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
 		}
 
 
 		public static lua_CFunction ll_sym (lua_State L, object lib, CharPtr sym) {
-		  //(void)(lib); (void)(sym);  /* to avoid warnings */
+		  //(void)(lib); (void)(sym);  /* not used */
 		  lua_pushliteral(L, DLMSG);
 		  return null;
 		}
@@ -325,11 +359,13 @@ namespace KopiLua
 
 
 		private static CharPtr searchpath (lua_State L, CharPtr name,
-		                                             CharPtr path,
-													 CharPtr sep) {
+		                                                CharPtr path,
+													    CharPtr sep,
+													    CharPtr dirsep) {
+		  luaL_Buffer msg = new luaL_Buffer();  /* to build error message */
+		  luaL_buffinit(L, msg);
 		  if (sep[0] != '\0')  /* non-empty separator? */
-            name = luaL_gsub(L, name, sep, LUA_DIRSEP);  /* replace it by proper one */
-		  lua_pushliteral(L, "");  /* error accumulator */
+            name = luaL_gsub(L, name, sep, dirsep);  /* replace it by 'dirsep' */
 		  while ((path = pushnexttemplate(L, path)) != null) {
 		    CharPtr filename = luaL_gsub(L, lua_tostring(L, -1),
 		                                     LUA_PATH_MARK, name);
@@ -338,8 +374,9 @@ namespace KopiLua
 		      return filename;  /* return that file name */
 		    lua_pushfstring(L, "\n\tno file " + LUA_QS, filename);
 		    lua_remove(L, -2);  /* remove file name */
-		    lua_concat(L, 2);  /* add entry to possible error message */
+		    luaL_addvalue(msg);  /* concatenate error msg. entry */
 		  }
+		  luaL_pushresult(msg);  /* create error message */
 		  return null;  /* not found */
 		}
 
@@ -347,7 +384,8 @@ namespace KopiLua
 		private static int ll_searchpath (lua_State L) {
 		  CharPtr f = searchpath(L, luaL_checkstring(L, 1), 
 		                            luaL_checkstring(L, 2),
-                                    luaL_optstring(L, 3, "."));
+                                    luaL_optstring(L, 3, "."),
+									luaL_optstring(L, 4, LUA_DIRSEP));
 		  if (f != null) return 1;
 		  else {  /* error message is on top of the stack */
 		    lua_pushnil(L);
@@ -358,13 +396,14 @@ namespace KopiLua
 
 
 		private static CharPtr findfile (lua_State L, CharPtr name,
-												   CharPtr pname) {
+												      CharPtr pname,
+												      CharPtr dirsep) {
 		  CharPtr path;
 		  lua_getfield(L, lua_upvalueindex(1), pname);
 		  path = lua_tostring(L, -1);
 		  if (path == null)
 			luaL_error(L, LUA_QL("package.%s") + " must be a string", pname);
-		  return searchpath(L, name, path, ".");
+		  return searchpath(L, name, path, ".", dirsep);
 		}
 
 
@@ -383,7 +422,7 @@ namespace KopiLua
 		private static int searcher_Lua (lua_State L) {
 		  CharPtr filename;
 		  CharPtr name = luaL_checkstring(L, 1);
-		  filename = findfile(L, name, "path");
+		  filename = findfile(L, name, "path", LUA_LSUBSEP);
 		  if (filename == null) return 1;  /* module not found in this path */
 		  return checkload(L, (luaL_loadfile(L, filename) == LUA_OK)?1:0, filename);
 		}
@@ -409,7 +448,7 @@ namespace KopiLua
 
 		private static int searcher_C (lua_State L) {
 		  CharPtr name = luaL_checkstring(L, 1);
-		  CharPtr filename = findfile(L, name, "cpath");
+		  CharPtr filename = findfile(L, name, "cpath", LUA_CSUBSEP);
 		  if (filename == null) return 1;  /* module not found in this path */
 		  return checkload(L, (loadfunc(L, filename, name) == 0)?1:0, filename);
 		}
@@ -422,7 +461,7 @@ namespace KopiLua
 		  int stat;
 		  if (p == null) return 0;  /* is root */
 		  lua_pushlstring(L, name, (uint)(p - name));
-		  filename = findfile(L, lua_tostring(L, -1), "cpath");
+		  filename = findfile(L, lua_tostring(L, -1), "cpath", LUA_CSUBSEP);
 		  if (filename == null) return 1;  /* root not found */
 		  if ((stat = loadfunc(L, filename, name)) != 0) {
 			if (stat != ERRFUNC) 
@@ -448,45 +487,56 @@ namespace KopiLua
 		}
 
 
-		public static int ll_require (lua_State L) {
-		  CharPtr name = luaL_checkstring(L, 1);
+		private static void findloader (lua_State L, CharPtr name) {
 		  int i;
+		  luaL_Buffer msg;  /* to build error message */
+		  luaL_buffinit(L, &msg);
+		  lua_getfield(L, lua_upvalueindex(1), "searchers");  /* will be at index 3 */
+		  if (!lua_istable(L, 3))
+		    luaL_error(L, LUA_QL("package.searchers") " must be a table");
+		  /*  iterate over available seachers to find a loader */
+		  for (i = 1; ; i++) {
+		    lua_rawgeti(L, 3, i);  /* get a seacher */
+		    if (lua_isnil(L, -1)) {  /* no more searchers? */
+		      lua_pop(L, 1);  /* remove nil */
+		      luaL_pushresult(&msg);  /* create error message */
+		      luaL_error(L, "module " LUA_QS " not found:%s",
+		                    name, lua_tostring(L, -1));
+		    }
+		    lua_pushstring(L, name);
+		    lua_call(L, 1, 2);  /* call it */
+		    if (lua_isfunction(L, -2))  /* did it find a loader? */
+		      return;  /* module loader found */
+		    else if (lua_isstring(L, -2)) {  /* searcher returned error message? */
+		      lua_pop(L, 1);  /* remove extra return */
+		      luaL_addvalue(&msg);  /* concatenate error message */
+		    }
+		    else
+		      lua_pop(L, 2);  /* remove both returns */
+		  }
+		}
+
+
+		public static int ll_require (lua_State L) {
+		  const char *name = luaL_checkstring(L, 1);
 		  lua_settop(L, 1);  /* _LOADED table will be at index 2 */
 		  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
-		  lua_getfield(L, 2, name);
-		  if (lua_toboolean(L, -1)!=0)  /* is it there? */
+		  lua_getfield(L, 2, name);  /* _LOADED[name] */
+		  if (lua_toboolean(L, -1))  /* is it there? */
 		    return 1;  /* package is already loaded */
-		  /* else must load it; iterate over available seachers to find a loader */
-		  lua_getfield(L, lua_upvalueindex(1), "searchers");
-		  if (!lua_istable(L, -1))
-			luaL_error(L, LUA_QL("package.searchers") + " must be a table");
-		  lua_pushliteral(L, "");  /* error message accumulator */
-		  for (i=1; ; i++) {
-			lua_rawgeti(L, -2, i);  /* get a seacher */
-			if (lua_isnil(L, -1))  /* no more searchers? */
-			  luaL_error(L, "module " + LUA_QS + " not found:%s",
-							name, lua_tostring(L, -2));
-			lua_pushstring(L, name);
-			lua_call(L, 1, 2);  /* call it */
-			if (lua_isfunction(L, -2))  /* did it find a loader? */
-			  break;  /* module loader found */
-			else if (lua_isstring(L, -2) != 0) {  /* searcher returned error message? */
-              lua_pop(L, 1);  /* remove extra return */
-			  lua_concat(L, 2);  /* accumulate error message */
-            }
-			else
-			  lua_pop(L, 2);  /* remove both returns */
-		  }
+		  /* else must load package */
+		  lua_pop(L, 1);  /* remove 'getfield' result */
+		  findloader(L, name);
 		  lua_pushstring(L, name);  /* pass name as argument to module loader */
-          lua_insert(L, -2);  /* name is 1st argument (before search data) */
+		  lua_insert(L, -2);  /* name is 1st argument (before search data) */
 		  lua_call(L, 2, 1);  /* run loader to load module */
 		  if (!lua_isnil(L, -1))  /* non-nil return? */
-			lua_setfield(L, 2, name);  /* _LOADED[name] = returned value */
+		    lua_setfield(L, 2, name);  /* _LOADED[name] = returned value */
 		  lua_getfield(L, 2, name);
 		  if (lua_isnil(L, -1)) {   /* module did not set a value? */
-			lua_pushboolean(L, 1);  /* use true as result */
-			lua_pushvalue(L, -1);  /* extra copy to be returned */
-			lua_setfield(L, 2, name);  /* _LOADED[name] = true */
+		    lua_pushboolean(L, 1);  /* use true as result */
+		    lua_pushvalue(L, -1);  /* extra copy to be returned */
+		    lua_setfield(L, 2, name);  /* _LOADED[name] = true */
 		  }
 		  return 1;
 		}
@@ -520,9 +570,11 @@ namespace KopiLua
 		private static void dooptions (lua_State L, int n) {
 		  int i;
 		  for (i = 2; i <= n; i++) {
-			lua_pushvalue(L, i);  /* get option (a function) */
-			lua_pushvalue(L, -2);  /* module */
-			lua_call(L, 1, 0);
+            if (lua_isfunction(L, i)) {  /* avoid 'calling' extra info. */
+			  lua_pushvalue(L, i);  /* get option (a function) */
+			  lua_pushvalue(L, -2);  /* module */
+			  lua_call(L, 1, 0);
+			}
 		  }
 		}
 
@@ -581,12 +633,25 @@ namespace KopiLua
 		/* auxiliary mark (for internal use) */
 		public readonly static string AUXMARK		= String.Format("{0}", (char)1);
 
+
+		/*
+		** return registry.LUA_NOENV as a boolean
+		*/
+		private static int noenv (lua_State L) {
+		  int b;
+		  lua_getfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
+		  b = lua_toboolean(L, -1);
+		  lua_pop(L, 1);  /* remove value */
+		  return b;
+		}
+
+
 		private static void setpath (lua_State L, CharPtr fieldname, CharPtr envname1,
                                                   CharPtr envname2, CharPtr def) {
 		  CharPtr path = getenv(envname1);
 		  if (path == null)  /* no environment variable? */
 		    path = getenv(envname2);  /* try alternative name */		  
-		  if (path == null)  /* no environment variable? */
+		  if (path == null || noenv(L))  /* no environment variable? */
 			lua_pushstring(L, def);  /* use default */
 		  else {
 			/* replace ";;" by ";AUXMARK;" and then AUXMARK by default path */

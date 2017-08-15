@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.34 2011/03/03 16:34:46 roberto Exp roberto $
+** $Id: loslib.c,v 1.38 2011/11/30 12:35:05 roberto Exp $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -58,6 +58,22 @@ namespace KopiLua
 
 		//#endif
 
+
+		/*
+		** By default, Lua uses gmtime/localtime, except when POSIX is available,
+		** where it uses gmtime_r/localtime_r
+		*/
+		//#if defined(LUA_USE_GMTIME_R)
+
+		//#define l_gmtime(t,r)		gmtime_r(t,r)
+		//#define l_localtime(t,r)	localtime_r(t,r)
+
+		//#elif !defined(l_gmtime)
+
+		//#define l_gmtime(t,r)		((void)r, gmtime(t))
+		//#define l_localtime(t,r)  	((void)r, localtime(t))
+
+		//#endif
 
 
 
@@ -177,7 +193,7 @@ namespace KopiLua
 		}
 
 
-		private static int os_date (lua_State L) {
+		private static int os_date (lua_State L) { //FIXME:changed, implemented by self
 		  CharPtr s = luaL_optstring(L, 1, "%c");
 		  DateTime stm;
 		  if (s[0] == '!') {  /* UTC? */
@@ -278,8 +294,8 @@ namespace KopiLua
 		    status = luaL_optint(L, 1, EXIT_SUCCESS);
 		  if (lua_toboolean(L, 2) != 0)
 		    lua_close(L);
-		  exit(status);
-		  return 0;//FIXME:added
+		  if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
+		  return 0;
 		}
 		
 

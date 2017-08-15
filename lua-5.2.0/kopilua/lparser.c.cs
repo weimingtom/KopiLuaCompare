@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.112 2011/06/27 18:18:59 roberto Exp roberto $
+** $Id: lparser.c,v 2.124 2011/12/02 13:23:56 roberto Exp $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -33,8 +33,8 @@ namespace KopiLua
 		*/
 		public class BlockCnt {
 		  public BlockCnt previous;  /* chain */
-		  public int firstlabel;  /* index of first label in this block */
-		  public int firstgoto;  /* index of first pending goto in this block */
+		  public short firstlabel;  /* index of first label in this block */
+		  public short firstgoto;  /* index of first pending goto in this block */
 		  public lu_byte nactvar;  /* # active locals outside the block */
 		  public lu_byte upval;  /* true if some variable in the block is an upvalue */
 		  public lu_byte isloop;  /* true if `block' is a loop */
@@ -59,26 +59,27 @@ namespace KopiLua
 
 
 		/* semantic error */
-		private static void semerror (LexState ls, CharPtr msg) {
+		private static void/*l_noret*/ semerror (LexState ls, CharPtr msg) {
 		  ls.t.token = 0;  /* remove 'near to' from final message */
 		  luaX_syntaxerror(ls, msg);
 		}
 
 
-		private static void error_expected (LexState ls, int token) {
+		private static void/*l_noret*/ error_expected (LexState ls, int token) {
 		  luaX_syntaxerror(ls,
 			  luaO_pushfstring(ls.L, "%s expected", luaX_token2str(ls, token)));
 		}
 
 
-		private static void errorlimit (FuncState fs, int limit, CharPtr what) {
+		private static void/*l_noret*/ errorlimit (FuncState fs, int limit, CharPtr what) {
+          lua_State L = fs.ls.L;
 		  CharPtr msg;
           int line = fs.f.linedefined;
 		  CharPtr where = (line == 0) 
 		                  ? "main function" 
-						  : luaO_pushfstring(fs.L, "function at line %d", line);
-		  msg = luaO_pushfstring(fs.L, "too many %s (limit is %d) in %s",
-		                                what, limit, where);
+						  : luaO_pushfstring(L, "function at line %d", line);
+		  msg = luaO_pushfstring(L, "too many %s (limit is %d) in %s",
+		                             what, limit, where);
 		  luaX_syntaxerror(fs.ls, msg);
 		}
 
@@ -173,7 +174,7 @@ namespace KopiLua
 		                  MAXVARS, "local variables");
 		  luaM_growvector<Vardesc>(ls.L, ref dyd.actvar.arr, dyd.actvar.n + 1,
 		                  ref dyd.actvar.size/*, Vardesc*/, MAX_INT, "local variables"); //FIXME:changed
-		  dyd.actvar.arr[dyd.actvar.n++].idx = (ushort)(reg);
+		  dyd.actvar.arr[dyd.actvar.n++].idx = (short)(reg);
 		}
 
 
@@ -222,13 +223,13 @@ namespace KopiLua
 		  Proto f = fs.f;
 		  int oldsize = f.sizeupvalues;
 		  checklimit(fs, fs.nups + 1, MAXUPVAL, "upvalues");
-		  luaM_growvector<Upvaldesc>(fs.L, ref f.upvalues, fs.nups, ref f.sizeupvalues,
+		  luaM_growvector<Upvaldesc>(fs.ls.L, ref f.upvalues, fs.nups, ref f.sizeupvalues,
 		                  /*Upvaldesc,*/ MAXUPVAL, "upvalues");
 		  while (oldsize < f.sizeupvalues) f.upvalues[oldsize++].name = null;
 		  f.upvalues[fs.nups].instack = (byte)((v.k == expkind.VLOCAL)?1:0); //FIXME:added, (byte)
 		  f.upvalues[fs.nups].idx = (byte)(v.u.info); //FIXME:cast_byte
 		  f.upvalues[fs.nups].name = name;
-		  luaC_objbarrier(fs.L, f, name);
+		  luaC_objbarrier(fs.ls.L, f, name);
 		  return fs.nups++;
 		}
 
@@ -318,13 +319,13 @@ namespace KopiLua
 
 
 		private static void enterlevel (LexState ls) {
-		  global_State g = G(ls.L);
-		  ++g.nCcalls;
-		  checklimit(ls.fs, g.nCcalls, LUAI_MAXCCALLS, "syntax levels");
+		  lua_State L = ls.L;
+		  ++L.nCcalls;
+		  checklimit(ls.fs, L.nCcalls, LUAI_MAXCCALLS, "C levels");
 		}
 
 
-		private static void leavelevel(LexState ls) { G(ls.L).nCcalls--; }
+		private static void leavelevel(LexState ls) { ls.L.nCcalls--; }
 
 
 		private static void closegoto (LexState ls, int g, Labeldesc label) {
@@ -334,9 +335,10 @@ namespace KopiLua
 		  Labeldesc gt = gl.arr[g];
 		  lua_assert(eqstr(gt.name, label.name));
 		  if (gt.nactvar < label.nactvar) {
+            TString vname = getlocvar(fs, gt.nactvar).varname;
 		    CharPtr msg = luaO_pushfstring(ls.L,
 		      "<goto %s> at line %d jumps into the scope of local " + LUA_QS,
-		      getstr(gt.name), gt.line, getstr(getlocvar(fs, gt.nactvar).varname));
+		      getstr(gt.name), gt.line, getstr(vname));
 		    semerror(ls, msg);
 		  }
 		  luaK_patchlist(fs, gt.pc, label.pc);
@@ -373,7 +375,8 @@ namespace KopiLua
 		private static int newlabelentry (LexState ls, Labellist l, TString name,
 		                          int line, int pc) {
 		  int n = l.n;
-		  luaM_growvector<Labeldesc>(ls.L, ref l.arr, n, ref l.size, /*Labeldesc,*/ MAX_INT, "labels");
+		  luaM_growvector<Labeldesc>(ls.L, ref l.arr, n, ref l.size, 
+		                             /*Labeldesc,*/ SHRT_MAX, "labels/gotos");
 		  l.arr[n].name = name;
 		  l.arr[n].line = line;
 		  l.arr[n].nactvar = ls.fs.nactvar;
@@ -409,7 +412,7 @@ namespace KopiLua
 		  int i = bl.firstgoto;
 		  Labellist gl = fs.ls.dyd.gt;
 		  /* correct pending gotos to current block and try to close it
-		     with visible labels */ 
+		     with visible labels */
 		  while (i < gl.n) {
 		    Labeldesc gt = gl.arr[i];
 		    if (gt.nactvar > bl.nactvar) {
@@ -448,7 +451,7 @@ namespace KopiLua
 		** generates an error for an undefined 'goto'; choose appropriate
 		** message when label name is a reserved word (which can only be 'break')
 		*/
-		private static void undefgoto (LexState ls, Labeldesc gt) {
+		private static void/*l_noret*/ undefgoto (LexState ls, Labeldesc gt) {
 		  /*const*/ CharPtr msg = (gt.name.tsv.reserved > 0)
 		                    ? "<%s> at line %d not inside a loop"
 		                    : "no visible label " + LUA_QS + " for <goto> at line %d";
@@ -505,7 +508,6 @@ namespace KopiLua
 		  Proto f;
 		  fs.prev = ls.fs;  /* linked list of funcstates */
 		  fs.ls = ls;
-		  fs.L = L;
 		  ls.fs = fs;
 		  fs.pc = 0;
 		  fs.lasttarget = 0;
@@ -845,7 +847,7 @@ namespace KopiLua
 			}
 			default: {
 			  luaX_syntaxerror(ls, "function arguments expected");
-			  return;
+			  break;//FIXME:added
 			}
 		  }
 		  lua_assert(f.k == expkind.VNONRELOC);
@@ -890,7 +892,7 @@ namespace KopiLua
 			}
 			default: {
 			  luaX_syntaxerror(ls, "unexpected symbol");
-			  return;
+			  break;//FIXME:added
 			}
 		  }
 		}
@@ -1057,7 +1059,7 @@ namespace KopiLua
 		** subexpr . (simpleexp | unop subexpr) { binop subexpr }
 		** where `binop' is any binary operator with a priority higher than `limit'
 		*/
-		private static BinOpr subexpr (LexState ls, expdesc v, uint limit) {
+		private static BinOpr subexpr (LexState ls, expdesc v, int limit) {
 		  BinOpr op = new BinOpr();
 		  UnOpr uop = new UnOpr();
 		  enterlevel(ls);
@@ -1123,31 +1125,34 @@ namespace KopiLua
 
 
 		/*
-		** check whether, in an assignment to a local variable, the local variable
-		** is needed in a previous assignment (to a table). If so, save original
-		** local value in a safe place and use this safe copy in the previous
-		** assignment.
+		** check whether, in an assignment to an upvalue/local variable, the
+		** upvalue/local variable is begin used in a previous assignment to a
+		** table. If so, save original upvalue/local value in a safe place and
+		** use this safe copy in the previous assignment.
 		*/
 		private static void check_conflict (LexState ls, LHS_assign lh, expdesc v) {
 		  FuncState fs = ls.fs;
 		  int extra = fs.freereg;  /* eventual position to save local variable */
 		  int conflict = 0;
-		  for (; lh!=null; lh = lh.prev) {
-			/* conflict in table 't'? */
-			if (lh.v.u.ind.vt == (byte)v.k && lh.v.u.ind.t == v.u.info) { //FIXME:added, (byte)
-		      conflict = 1;
-		      lh.v.u.ind.vt = (byte)expkind.VLOCAL; //FIXME:added, (byte)
-		      lh.v.u.ind.t = (byte)extra;  /* previous assignment will use safe copy */ //FIXME:added, (byte)
-		    }
-		    /* conflict in index 'idx'? */
-		    if (v.k == expkind.VLOCAL && lh.v.u.ind.idx == v.u.info) {
-		      conflict = 1;
-		      lh.v.u.ind.idx = (short)extra;  /* previous assignment will use safe copy */ //FIXME:added, (short)
-		    }
+		  for (; lh!=null; lh = lh.prev) {  /* check all previous assignments */
+		    if (lh->v.k == VINDEXED) {  /* assigning to a table? */
+			  /* table is the upvalue/local being assigned now? */
+			  if (lh.v.u.ind.vt == (byte)v.k && lh.v.u.ind.t == v.u.info) { //FIXME:added, (byte)
+		        conflict = 1;
+		        lh.v.u.ind.vt = (byte)expkind.VLOCAL; //FIXME:added, (byte)
+		        lh.v.u.ind.t = (byte)extra;  /* previous assignment will use safe copy */ //FIXME:added, (byte)
+		      }
+		      /* index is the local being assigned? (index cannot be upvalue) */
+		      if (v.k == expkind.VLOCAL && lh.v.u.ind.idx == v.u.info) {
+		        conflict = 1;
+		        lh.v.u.ind.idx = (short)extra;  /* previous assignment will use safe copy */ //FIXME:added, (short)
+		      }
+			}
 		  }
 		  if (conflict != 0) {
+            /* copy upvalue/local value to a temporary (in position 'extra') */
 		    OpCode op = (v.k == expkind.VLOCAL) ? OpCode.OP_MOVE : OpCode.OP_GETUPVAL;
-		    luaK_codeABC(fs, op, fs.freereg, v.u.info, 0);  /* make copy */
+		    luaK_codeABC(fs, op, extra, v.u.info, 0);
 			luaK_reserveregs(fs, 1);
 		  }
 		}
@@ -1162,8 +1167,8 @@ namespace KopiLua
 			primaryexp(ls, nv.v);
 			if (nv.v.k != expkind.VINDEXED)
 			  check_conflict(ls, lh, nv.v);
-		    checklimit(ls.fs, nvars, LUAI_MAXCCALLS - G(ls.L).nCcalls,
-		                    "variable names");
+		    checklimit(ls.fs, nvars + ls.L.nCcalls, LUAI_MAXCCALLS,
+                           "C levels");
 			assignment(ls, nv, nvars+1);
 		  }
 		  else {  /* assignment -> `=' explist */
@@ -1197,9 +1202,17 @@ namespace KopiLua
 
 
 		private static void gotostat (LexState ls, TString label, int line) {
-		  /* create new entry for this goto */
-		  int g = newlabelentry(ls, ls.dyd.gt, label, line, luaK_jump(ls.fs));
-		  findlabel(ls, g);
+		  int line = ls.linenumber;
+		  TString label;
+		  int g;
+		  if (testnext(ls, TK_GOTO))
+		    label = str_checkname(ls);
+		  else {
+		    luaX_next(ls);  /* skip break */
+		    label = luaS_new(ls.L, "break");
+		  }
+		  g = newlabelentry(ls, ls.dyd.gt, label, line, pc);
+		  findlabel(ls, g);  /* close it if label already defined */
 		}
 
 
@@ -1208,7 +1221,7 @@ namespace KopiLua
 		  int i;
 		  for (i = fs.bl.firstlabel; i < ll.n; i++) {
 		    if (eqstr(label, ll.arr[i].name)) {
-		      CharPtr msg = luaO_pushfstring(fs.ls.L, 
+		      CharPtr msg = luaO_pushfstring(fs.ls.L,
 		                          "label " + LUA_QS + " already defined on line %d",
 		                          getstr(label), ll.arr[i].line);
 		      semerror(fs.ls, msg);
@@ -1381,38 +1394,51 @@ namespace KopiLua
 		}
 
 
-		private static int test_then_block (LexState ls) {
+		private static void test_then_block (LexState *ls, int *escapelist) {
 		  /* test_then_block -> [IF | ELSEIF] cond THEN block */
-		  int condexit;
+		  BlockCnt bl;
+		  FuncState *fs = ls->fs;
+		  expdesc v;
+		  int jf;  /* instruction to skip 'then' code (if condition is false) */
 		  luaX_next(ls);  /* skip IF or ELSEIF */
-		  condexit = cond(ls);
-		  checknext(ls, (int)RESERVED.TK_THEN);
-		  block(ls);  /* `then' part */
-		  return condexit;
+		  expr(ls, &v);  /* read condition */
+		  checknext(ls, TK_THEN);
+		  if (ls->t.token == TK_GOTO || ls->t.token == TK_BREAK) {
+		    luaK_goiffalse(ls->fs, &v);  /* will jump to label if condition is true */
+		    enterblock(fs, &bl, 0);  /* must enter block before 'goto' */
+		    gotostat(ls, v.t);  /* handle goto/break */
+		    if (block_follow(ls, 0)) {  /* 'goto' is the entire block? */
+		      leaveblock(fs);
+		      return;  /* and that is it */
+		    }
+		    else  /* must skip over 'then' part if condition is false */
+		      jf = luaK_jump(fs);
+		  }
+		  else {  /* regular case (not goto/break) */
+		    luaK_goiftrue(ls->fs, &v);  /* skip over block if condition is false */
+		    enterblock(fs, &bl, 0);
+		    jf = v.f;
+		  }
+		  statlist(ls);  /* `then' part */
+		  leaveblock(fs);
+		  if (ls->t.token == TK_ELSE ||
+		      ls->t.token == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
+		    luaK_concat(fs, escapelist, luaK_jump(fs));  /* must jump over it */
+		  luaK_patchtohere(fs, jf);
 		}
 
 
 		private static void ifstat (LexState ls, int line) {
 		  /* ifstat -> IF cond THEN block {ELSEIF cond THEN block} [ELSE block] END */
 		  FuncState fs = ls.fs;
-		  int flist;
-		  int escapelist = NO_JUMP;
-		  flist = test_then_block(ls);  /* IF cond THEN block */
-		  while (ls.t.token == (int)RESERVED.TK_ELSEIF) {
-			luaK_concat(fs, ref escapelist, luaK_jump(fs));
-			luaK_patchtohere(fs, flist);
-			flist = test_then_block(ls);  /* ELSEIF cond THEN block */
-		  }
-		  if (ls.t.token == (int)RESERVED.TK_ELSE) {
-			luaK_concat(fs, ref escapelist, luaK_jump(fs));
-			luaK_patchtohere(fs, flist);
-			luaX_next(ls);  /* skip ELSE (after patch, for correct line info) */
-			block(ls);  /* `else' part */
-		  }
-		  else
-			luaK_concat(fs, ref escapelist, flist);
-		  luaK_patchtohere(fs, escapelist);
-		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_IF, line);
+		  int escapelist = NO_JUMP;  /* exit list for finished parts */
+		  test_then_block(ls, &escapelist);  /* IF cond THEN block */
+		  while (ls->t.token == TK_ELSEIF)
+		    test_then_block(ls, &escapelist);  /* ELSEIF cond THEN block */
+		  if (testnext(ls, TK_ELSE))
+		    block(ls);  /* `else' part */
+		  check_match(ls, TK_END, TK_IF, line);
+		  luaK_patchtohere(fs, escapelist);  /* patch escape list to 'if' end */
 		}
 
 
@@ -1572,15 +1598,9 @@ namespace KopiLua
 			  retstat(ls);
 			  break;
 			}
-			case (int)RESERVED.TK_BREAK: {  /* stat -> breakstat */
-			  luaX_next(ls);  /* skip BREAK */
-		      /* code it as "goto 'break'" */
-		      gotostat(ls, luaS_new(ls.L, "break"), line);
-		      break;
-			}
+			case (int)RESERVED.TK_BREAK:   /* stat -> breakstat */
 		    case (int)RESERVED.TK_GOTO: {  /* stat -> 'goto' NAME */
-		      luaX_next(ls);  /* skip GOTO */
-		      gotostat(ls, str_checkname(ls), line);
+		      gotostat(ls, luaK_jump(ls.fs));
 		      break;
 		    }
 			default: {  /* stat -> func | assignment */
@@ -1616,9 +1636,9 @@ namespace KopiLua
 		  close_func(lexstate);
 		  StkId.dec(ref L.top);  /* pop name */ //FIXME:--
 		  lua_assert(funcstate.prev==null && funcstate.nups == 1 && lexstate.fs==null);
-		  return funcstate.f;
 		  /* all scopes should be correctly finished */
 		  lua_assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);
+		  return funcstate.f;
 		}
 
 	}

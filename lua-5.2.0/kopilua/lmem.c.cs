@@ -1,5 +1,5 @@
 /*
-** $Id: lmem.c,v 1.80 2010/12/20 18:17:46 roberto Exp roberto $
+** $Id: lmem.c,v 1.83 2011/11/30 12:42:49 roberto Exp $
 ** Interface to Memory Manager
 ** See Copyright Notice in lua.h
 */
@@ -62,9 +62,8 @@ namespace KopiLua
 		}
 
 
-		public static object luaM_toobig (lua_State L) {
+		public static void/*l_noret*/ luaM_toobig (lua_State L) {
 		  luaG_runerror(L, "memory allocation error: block too big");
-		  return null;  /* to avoid warnings */
 		}
 
 

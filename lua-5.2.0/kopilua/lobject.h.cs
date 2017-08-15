@@ -272,7 +272,7 @@ namespace KopiLua
 		public static bool ttislcf(TValue o) {return checktag((o), LUA_TLCF);}
 		public static bool ttisuserdata(TValue o)	{return checktag(o, ctb(LUA_TUSERDATA));}
 		public static bool ttisthread(TValue o)	{return checktag(o, ctb(LUA_TTHREAD));}
-        public static bool ttisdeadkey(TValue o) {return checktag(o, ctb(LUA_TDEADKEY));}
+        public static bool ttisdeadkey(TValue o) {return checktag(o, LUA_TDEADKEY);}
 		
         public static bool ttisequal(TValue o1, TValue o2)	{return (rttype(o1) == rttype(o2));}
 
@@ -291,6 +291,8 @@ namespace KopiLua
 		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), val_(o).gc.h);}
 		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), val_(o).b);}
 		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), val_(o).gc.th);}
+		/* a dead value may get the 'gc' field, but cannot access its contents */
+		public static object deadvalue(o) { return (object)check_exp(ttisdeadkey(o), (object)(val_(o).gc)); }
 
 		public static int l_isfalse(TValue o) { return ((ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))) ? 1 : 0; }
 
@@ -364,7 +366,7 @@ namespace KopiLua
 		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TPROTO)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 		
-		public static void setdeadvalue(TValue obj) { settt_(obj, ctb(LUA_TDEADKEY)); }
+		public static void setdeadvalue(TValue obj) { settt_(obj, LUA_TDEADKEY); }
 
 
 
@@ -420,7 +422,9 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		//#if defined(LUA_NANTRICKLE) || defined(LUA_NANTRICKBE)
+		//#if defined(LUA_NANTRICK) \
+		// || defined(LUA_NANTRICK_LE) \
+		// || defined(LUA_NANTRICK_BE)
 
 		/*
 		** numbers are represented in the 'd_' field. All other values have the
@@ -430,41 +434,61 @@ namespace KopiLua
 		*/
 		//#if !defined(NNMARK)
 		//#define NNMARK		0x7FF7A500
+		//#define NNMASK		0x7FFFFF00
 		//#endif
 
 		//#undef TValuefields
 		//#undef NILCONSTANT
-		//#if defined(LUA_NANTRICKLE)
+
+		//#if defined(LUA_NANTRICK_LE)
+
 		/* little endian */
 		//#define TValuefields  \
-		//	union { struct { Value v_; int tt_; } i; double d_; } u
+		//	union { struct { Value v__; int tt__; } i; double d__; } u
 		//#define NILCONSTANT	{{{NULL}, tag2tt(LUA_TNIL)}}
-		//#else
+		/* field-access macros */
+		//#define v_(o)		((o)->u.i.v__)
+		//#define d_(o)		((o)->u.d__)
+		//#define tt_(o)		((o)->u.i.tt__)
+
+		//#elif defined(LUA_NANTRICK_BE)
+
 		/* big endian */
 		//#define TValuefields  \
-		//	union { struct { int tt_; Value v_; } i; double d_; } u
+		//	union { struct { int tt__; Value v__; } i; double d__; } u
 		//#define NILCONSTANT	{{tag2tt(LUA_TNIL), {NULL}}}
+		/* field-access macros */
+		//#define v_(o)		((o)->u.i.v__)
+		//#define d_(o)		((o)->u.d__)
+		//#define tt_(o)		((o)->u.i.tt__)
+
+		//#elif !defined(TValuefields)
+		//#error option 'LUA_NANTRICK' needs declaration for 'TValuefields'
+
 		//#endif
+
+
+		/* correspondence with standard representation */
+		//#undef val_
+		//#define val_(o)		v_(o)
+		//#undef num_
+		//#define num_(o)		d_(o)
+
 
 		//#undef numfield
 		//#define numfield	/* no such field; numbers are the entire struct */
 
 		/* basic check to distinguish numbers from non-numbers */
 		//#undef ttisnumber
-		//#define ttisnumber(o)	(((o)->u.i.tt_ & 0x7fffff00) != NNMARK)
+		//#define ttisnumber(o)	((tt_(o) & NNMASK) != NNMARK)
 
 		//#define tag2tt(t)	(NNMARK | (t))
 
-		//#undef val_
-		//#define val_(o)		((o)->u.i.v_)
-		//#undef num_
-		//#define num_(o)		((o)->u.d_)
-
 		//#undef rttype
-		//#define rttype(o)	(ttisnumber(o) ? LUA_TNUMBER : (o)->u.i.tt_ & 0xff)
+		//#define rttype(o)	(ttisnumber(o) ? LUA_TNUMBER : tt_(o) & 0xff)
 
 		//#undef settt_
-		//#define settt_(o,t)	((o)->u.i.tt_=tag2tt(t))
+		//#define settt_(o,t)	(tt_(o) = tag2tt(t))
 
 		//#undef setnvalue
 		//#define setnvalue(obj,x) \
@@ -482,11 +506,11 @@ namespace KopiLua
 		*/
 
 		//#undef checktag
-		//#define checktag(o,t)	((o)->u.i.tt_ == tag2tt(t))
+		//#define checktag(o,t)	(tt_(o) == tag2tt(t))
 
 		//#undef ttisequal
 		//#define ttisequal(o1,o2)  \
-		//	(ttisnumber(o1) ? ttisnumber(o2) : ((o1)->u.i.tt_ == (o2)->u.i.tt_))
+		//	(ttisnumber(o1) ? ttisnumber(o2) : (tt_(o1) == tt_(o2)))
 
 
 
@@ -637,11 +661,11 @@ namespace KopiLua
 		  public TValue[] k;  /* constants used by the function */
 		  public Instruction[] code;
 		  public new Proto[] p;  /* functions defined inside the function */ //FIXME:added, new
-		  public int[] lineinfo;  /* map from opcodes to source lines */
-		  public LocVar[] locvars;  /* information about local variables */
+		  public int[] lineinfo;  /* map from opcodes to source lines (debug information) */
+		  public LocVar[] locvars;  /* information about local variables (debug information) */
 		  public Upvaldesc[] upvalues;  /* upvalue information */
           public Closure cache;  /* last created closure with this prototype */
-		  public TString  source;
+		  public TString  source;  /* used for debug information */
 		  public int sizeupvalues;  /* size of 'upvalues' */
 		  public int sizek;  /* size of `k' */
 		  public int sizecode;
