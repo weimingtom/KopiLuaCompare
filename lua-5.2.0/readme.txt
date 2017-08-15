@@ -127,4 +127,7 @@ lzio.c
 lzio.h
 
 
+	//not sync
+	//#define S(x)	(int)(x),SS(x)
+
 
