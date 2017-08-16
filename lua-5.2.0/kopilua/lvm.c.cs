@@ -122,24 +122,28 @@ namespace KopiLua
 		  luaG_runerror(L, "loop in gettable");
 		}
 
-
+		public static bool luaV_settable_sub(lua_State L, Table h, TValue key, ref TValue oldval) //FIXME:added
+		{
+			oldval = luaH_newkey(L, h, key);
+			return true;
+		}
 		public static void luaV_settable (lua_State L, TValue t, TValue key, StkId val) {
 		  int loop;
 		  for (loop = 0; loop < MAXTAGLOOP; loop++) {
-		    const TValue *tm;
+		    /*const */TValue tm;
 		    if (ttistable(t)) {  /* `t' is a table? */
-		      Table *h = hvalue(t);
-		      TValue *oldval = cast(TValue *, luaH_get(h, key));
+		      Table h = hvalue(t);
+		      TValue oldval = (TValue)(luaH_get(h, key));
 		      /* if previous value is not nil, there must be a previous entry
 		         in the table; moreover, a metamethod has no relevance */
 		      if (!ttisnil(oldval) ||
 		         /* previous value is nil; must check the metamethod */
-		         ((tm = fasttm(L, h->metatable, TM_NEWINDEX)) == NULL &&
+		         ((tm = fasttm(L, h.metatable, TMS.TM_NEWINDEX)) == null &&
 		         /* no metamethod; is there a previous entry in the table? */
 		         (oldval != luaO_nilobject ||
 		         /* no previous entry; must create one. (The next test is
 		            always true; we only need the assignment.) */
-		         (oldval = luaH_newkey(L, h, key), 1)))) {
+		         (luaV_settable_sub(L, h, key, ref oldval))))) { //FIXME:changed, (oldval = luaH_newkey(L, h, key), 1)))) {
 		        /* no metamethod and (now) there is an entry with given key */
 		        setobj2t(L, oldval, val);  /* assign new value to that entry */
 		        invalidateTMcache(h);
@@ -149,7 +153,7 @@ namespace KopiLua
 		      /* else will try the metamethod */
 		    }
 		    else  /* not a table; check metamethod */
-		      if (ttisnil(tm = luaT_gettmbyobj(L, t, TM_NEWINDEX)))
+		      if (ttisnil(tm = luaT_gettmbyobj(L, t, TMS.TM_NEWINDEX)))
 		        luaG_typeerror(L, t, "index");
 		    /* there is a metamethod */
 		    if (ttisfunction(tm)) {
@@ -811,7 +815,7 @@ namespace KopiLua
 				TValue rb = RKB(L, base_, i, k);
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
-				  if ((int)(equalobj(L, rb, rc)) != GETARG_A(i))
+				 if ((int)(equalobj(L, rb, rc)?1:0) != GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 				  	donextjump(ci, ref i, L);

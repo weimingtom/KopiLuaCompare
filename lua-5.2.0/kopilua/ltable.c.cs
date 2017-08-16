@@ -147,16 +147,16 @@ namespace KopiLua
 			Node n = mainposition(t, key);
 		    for (;;) {  /* check whether `key' is somewhere in the chain */
 		      /* key may be dead already, but it is ok to use it in `next' */
-		      if (luaV_rawequalobj(gkey(n), key) ||
+		      if (luaV_rawequalobj(gkey(n), key)!=0 ||
 		            (ttisdeadkey(gkey(n)) && iscollectable(key) &&
 		             deadvalue(gkey(n)) == gcvalue(key))) {
 		        i = cast_int(n - gnode(t, 0));  /* key index in hash table */
 		        /* hash elements are numbered after array ones */
-		        return i + t->sizearray;
+		        return i + t.sizearray;
 		      }
 		      else n = gnext(n);
-		      if (n == NULL)
-		        luaG_runerror(L, "invalid key to " LUA_QL("next"));  /* key not found */
+		      if (n == null)
+		        luaG_runerror(L, "invalid key to " + LUA_QL("next"));  /* key not found */
 		    }
 		  }
 		}
@@ -514,17 +514,17 @@ namespace KopiLua
 		}
 
 
-		public static void luaH_setint (lua_State L, Table t, int key, TValue value) {
-		  const TValue *p = luaH_getint(t, key);
-		  TValue *cell;
+		public static void luaH_setint (lua_State L, Table t, int key, TValue value_) {
+		  /*const */TValue p = luaH_getint(t, key);
+		  TValue cell;
 		  if (p != luaO_nilobject)
-		    cell = cast(TValue *, p);
+		  	cell = (TValue)(p);
 		  else {
-		    TValue k;
-		    setnvalue(&k, cast_num(key));
-		    cell = luaH_newkey(L, t, &k);
+		  	TValue k = new TValue();
+		    setnvalue(k, cast_num(key));
+		    cell = luaH_newkey(L, t, k);
 		  }
-		  setobj2t(L, cell, value);
+		  setobj2t(L, cell, value_);
 		}
 
 

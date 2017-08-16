@@ -265,7 +265,7 @@ namespace KopiLua
 
 		public static void luaK_reserveregs (FuncState fs, int n) {
 		  luaK_checkstack(fs, n);
-		  fs.freereg += n;
+		  fs.freereg += (byte)n; //FIXME:changed, (byte)
 		}
 
 
@@ -313,7 +313,7 @@ namespace KopiLua
 
 		public static int luaK_stringK (FuncState fs, TString s) {
 		  TValue o = new TValue();
-		  setsvalue(fs.L, o, s);
+		  setsvalue(fs.ls.L, o, s);
 		  return addk(fs, o, o);
 		}
 
@@ -873,7 +873,7 @@ namespace KopiLua
 		  }
 		  else
 		    luaX_syntaxerror(fs.ls, "constructor too long");
-		  fs.freereg = base_ + 1;  /* free registers with list values */
+		  fs.freereg = (byte)(base_ + 1);  /* free registers with list values */ //changed, (byte)
 		}
 
 	}

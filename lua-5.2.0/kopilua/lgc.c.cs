@@ -95,7 +95,7 @@ namespace KopiLua
 		/*
 		** one after last element in a hash array
 		*/
-		public static void gnodelast(h)	{ return gnode(h, (uint)(sizenode(h))); }
+		//#define gnodelast(h)	gnode(h, cast(size_t, sizenode(h)))
 
 
 		/*
@@ -358,7 +358,7 @@ namespace KopiLua
 		  Node n;//, limit = gnodelast(h); //FIXME:removed, overflow
 		  /* if there is array part, assume it may have white values (do not
 		     traverse it just to check) */
-		  int hasclears = (h->sizearray > 0);
+		  int hasclears = (h.sizearray > 0)?1:0;
 		  //for (n = gnode(h, 0); n < limit; n++) { //FIXME:changed, see below
 		  for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 		  	n = gnode(h, ni);
@@ -369,11 +369,11 @@ namespace KopiLua
 		    else {
 		      lua_assert(!ttisnil(gkey(n)));
 		      markvalue(g, gkey(n));  /* mark key */
-		      if (!hasclears && iscleared(gval(n)))  /* is there a white value? */
+		      if (hasclears==0 && iscleared(gval(n))!=0)  /* is there a white value? */
 		        hasclears = 1;  /* table will have to be cleared */
 		    }
 		  }
-          if (hasclears)
+          if (hasclears!=0)
 		    linktable(h, ref g.weak);  /* has to be cleared later */
 		  else  /* no white values */
 		    linktable(h, ref g.grayagain);  /* no need to clean */
@@ -401,7 +401,7 @@ namespace KopiLua
 		    checkdeadkey(n);
 		    if (ttisnil(gval(n)))  /* entry is empty? */
 		      removeentry(n);  /* remove it */
-		    else if (iscleared(gkey(n))) {  /* key is not marked (yet)? */
+		    else if (iscleared(gkey(n))!=0) {  /* key is not marked (yet)? */
 		      hasclears = 1;  /* table must be cleared */
 		      if (valiswhite(gval(n)))  /* value not marked yet? */
 		        prop = 1;  /* must propagate again */
@@ -411,9 +411,9 @@ namespace KopiLua
 		      reallymarkobject(g, gcvalue(gval(n)));  /* mark it now */
 		    }
 		  }
-		  if (prop)
+		  if (prop!=0)
 		    linktable(h, ref g.ephemeron);  /* have to propagate again */
-		  else if (hasclears)  /* does table have white keys? */
+		  else if (hasclears!=0)  /* does table have white keys? */
 		    linktable(h, ref g.allweak);  /* may have to clean white keys */
 		  else  /* no white keys */
 		    linktable(h, ref g.grayagain);  /* no need to clean */
@@ -637,14 +637,14 @@ namespace KopiLua
 		** to element 'f'
 		*/
 		private static void clearkeys (GCObject l, GCObject f) {
-		  for (; l != f; l = gco2t(l)->gclist) {
+		  for (; l != f; l = gco2t(l).gclist) {
 		    Table h = gco2t(l);
 		    Node n;// limit = gnodelast(h); //FIXME:removed, overflow
 		    //for (n = gnode(h, 0); n < limit; n++) {  /* traverse hash part */ //FIXME:changed, see below
 		    for (int ni = 0; ni < sizenode(h); ni++) { //FIXME:changed, gnodelast(h) to sizenode(h)
 		      n = gnode(h, ni);
 			
-			  if (!ttisnil(gval(n)) && (iscleared(gkey(n)))) {
+			  if (!ttisnil(gval(n)) && (iscleared(gkey(n)))!=0) {
 		        setnilvalue(gval(n));  /* remove value ... */
 		        removeentry(n);  /* and remove entry from table */
 		      }
@@ -657,7 +657,7 @@ namespace KopiLua
 		** clear entries with unmarked values from all weaktables in list 'l' up
 		** to element 'f'
 		*/		
-		private static void clearvalues (GCObject l) {
+		private static void clearvalues (GCObject l, GCObject f) {
 		  for (; l != null; l = gco2t(l).gclist) {
 			Table h = gco2t(l);
 			Node n; // limit = gnode(h, sizenode(h)); //FIXME:removed, overflow

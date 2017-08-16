@@ -7,6 +7,7 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using clock_t = System.Int64;
+	using LStream = KopiLua.Lua.luaL_Stream;
 	
 	public partial class Lua
 	{
@@ -837,8 +838,6 @@ namespace KopiLua
 				return 272;
 			else if (t == typeof(stringtable))
 				return 12;
-			else if (t == typeof(FilePtr))
-				return 4;
 			else if (t == typeof(Udata))
 				return 24;
 			else if (t == typeof(Char))

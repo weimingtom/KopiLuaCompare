@@ -125,9 +125,19 @@ lvm.c
 lzio.c
 03:15 2017-08-16
 lzio.h
-
-
 	//not sync
 	//#define S(x)	(int)(x),SS(x)
 
 
+---------------------------
+
+
+		//#define MAX_UINTFRM	((lua_Number)(~(unsigned LUA_INTFRM_T)0))
+		//#define MAX_INTFRM	((lua_Number)((~(unsigned LUA_INTFRM_T)0)/2))
+		//#define MIN_INTFRM	(-(lua_Number)((~(unsigned LUA_INTFRM_T)0)/2) - 1)
+		//FIXME:???here not sure
+		private const uint MAX_UINTFRM = uint.MaxValue / 2;
+		private const int MAX_INTFRM = int.MaxValue / 2;
+		private const int MIN_INTFRM = int.MinValue / 2 - 1;
+		
+		

@@ -294,7 +294,7 @@ namespace KopiLua
 		    status = luaL_optint(L, 1, EXIT_SUCCESS);
 		  if (lua_toboolean(L, 2) != 0)
 		    lua_close(L);
-		  if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
+		  if (L!=null) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
 		  return 0;
 		}
 		

@@ -157,8 +157,10 @@ namespace KopiLua
 
 		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {
 		  CharPtr endptr;
-		  if (strpbrk(s, "nN"))  /* reject 'inf' and 'nan' */
-		    return 0;
+		  if (strpbrk(s, "nN")!=null) {  /* reject 'inf' and 'nan' */
+		    result = 0; //FIXME:added???
+		  	return 0;
+		  }
 		  else if (strpbrk(s, "xX")!=null)  /* hexa? */
 		    result = lua_strx2number(s, out endptr);
 		  else

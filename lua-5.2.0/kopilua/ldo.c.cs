@@ -572,7 +572,7 @@ namespace KopiLua
 		  int status;
 		  lua_lock(L);
 		  luai_userstateresume(L, nargs);
-          L.nCcalls = (from != null) ? from.nCcalls + 1 : 1;
+		  L.nCcalls = (ushort)((from != null) ? from.nCcalls + 1 : 1); //FIXME:added, (ushort)
 		  L.nny = 0;  /* allow yields */
           api_checknelems(L, (L.status == LUA_OK) ? nargs + 1 : nargs);
 		  status = luaD_rawrunprotected(L, resume, L.top - nargs);
@@ -680,11 +680,11 @@ namespace KopiLua
 		  int c = zgetc(p.z);  /* read first character */
 		  if (c == LUA_SIGNATURE[0]) {
 		    checkmode(L, p.mode, "binary");
-		    tf = luaU_undump(L, p.z, &p.buff, p.name);
+		    tf = luaU_undump(L, p.z, p.buff, p.name);
 		  }
 		  else {
 		    checkmode(L, p.mode, "text");
-		    tf = luaY_parser(L, p.z, &p.buff, &p.dyd, p.name, c);
+		    tf = luaY_parser(L, p.z, p.buff, p.dyd, p.name, c);
 		  }
 		  setptvalue2s(L, L.top, tf);
 		  incr_top(L);

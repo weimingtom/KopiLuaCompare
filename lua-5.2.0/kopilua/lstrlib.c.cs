@@ -465,7 +465,7 @@ namespace KopiLua
 				  }
 				default: goto dflt;  /* go through to 'dflt' */
 			  }
-		  	  break; //FIXME:added???
+		  	  //no break;
 			}
 			default: dflt: {  /* pattern class plus optional suffix */
 			  CharPtr ep = classend(ms, p);  /* points to what is next */
@@ -493,7 +493,6 @@ namespace KopiLua
 			  }
 			}
 		  }
-		  return null; //FIXME: added ???
 		}
 
 
@@ -793,7 +792,11 @@ namespace KopiLua
 		//#define MAX_UINTFRM	((lua_Number)(~(unsigned LUA_INTFRM_T)0))
 		//#define MAX_INTFRM	((lua_Number)((~(unsigned LUA_INTFRM_T)0)/2))
 		//#define MIN_INTFRM	(-(lua_Number)((~(unsigned LUA_INTFRM_T)0)/2) - 1)
-
+		//FIXME:???here not sure
+		private const uint MAX_UINTFRM = uint.MaxValue / 2;
+		private const int MAX_INTFRM = int.MaxValue / 2;
+		private const int MIN_INTFRM = int.MinValue / 2 - 1;
+		
 		/*
 		** LUA_FLTFRMLEN is the length modifier for float conversions in
 		** 'string.format'; LUA_FLTFRM_T is the float type corresponding to
@@ -918,7 +921,7 @@ namespace KopiLua
 			            luaL_argcheck(L, 0 <= n && n < (MAX_UINTFRM + 1), arg,
 			                          "not a non-negative number in proper range");
 			            addlenmod(form, LUA_INTFRMLEN);
-			            nb = sprintf(buff, form, (unsigned LUA_INTFRM_T)n);
+			            nb = sprintf(buff, form, (ulong)n); //FIXME:changed, (unsigned LUA_INTFRM_T)
 					    break;
 					  }
 					  case 'e':  case 'E':  case 'f':

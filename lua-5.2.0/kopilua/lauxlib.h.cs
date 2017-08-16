@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace KopiLua
 {
 	using lua_Number = System.Double;
@@ -32,6 +34,9 @@ namespace KopiLua
 		/* pre-defined references */
 		public const int LUA_NOREF = (-2);
 		public const int LUA_REFNIL = (-1);
+		
+		public static int luaL_loadfile(lua_State L, CharPtr f) { return luaL_loadfilex(L,f,null);}
+
 		/*
 		** ===============================================================
 		** some useful macros
@@ -80,7 +85,7 @@ namespace KopiLua
 			return (lua_Unsigned)(lua_isnoneornil(L, n) ? u : f(L, (n)));
 		}
 		
-		public static luaL_loadbuffer(L,s,sz,n)	{ return luaL_loadbufferx(L,s,sz,n,null); }
+		public static int luaL_loadbuffer(lua_State L, CharPtr s, uint sz, CharPtr n)	{ return luaL_loadbufferx(L,s,sz,n,null); }
 		
 		/*
 		** {======================================================
@@ -121,12 +126,12 @@ namespace KopiLua
 		** after that initial structure).
 		*/
 
-		public static const string LUA_FILEHANDLE = "FILE*";
+		public const string LUA_FILEHANDLE = "FILE*";
 
 
-		public static class luaL_Stream {
-		  Stream f;  /* stream (NULL for incompletely created streams) */
-		  lua_CFunction closef;  /* to close stream (NULL for closed streams) */
+		public class luaL_Stream {
+		  public Stream f;  /* stream (NULL for incompletely created streams) */
+		  public lua_CFunction closef;  /* to close stream (NULL for closed streams) */
 		};
 
 		/* }====================================================== */

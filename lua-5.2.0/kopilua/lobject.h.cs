@@ -292,7 +292,7 @@ namespace KopiLua
 		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), val_(o).b);}
 		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), val_(o).gc.th);}
 		/* a dead value may get the 'gc' field, but cannot access its contents */
-		public static object deadvalue(o) { return (object)check_exp(ttisdeadkey(o), (object)(val_(o).gc)); }
+		public static object deadvalue(TValue o) { return (object)check_exp(ttisdeadkey(o), (object)(val_(o).gc)); }
 
 		public static int l_isfalse(TValue o) { return ((ttisnil(o) || (ttisboolean(o) && bvalue(o) == 0))) ? 1 : 0; }
 

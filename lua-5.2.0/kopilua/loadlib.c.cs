@@ -90,11 +90,11 @@ namespace KopiLua
 		** when searching for a Lua loader.
 		*/
 		//#if !defined(LUA_CSUBSEP)
-		//#define LUA_CSUBSEP		LUA_DIRSEP
+		private const string LUA_CSUBSEP = LUA_DIRSEP;
 		//#endif
 
 		//#if !defined(LUA_LSUBSEP)
-		//#define LUA_LSUBSEP		LUA_DIRSEP
+		private const string LUA_LSUBSEP	= LUA_DIRSEP;
 		//#endif
 
 
@@ -489,27 +489,27 @@ namespace KopiLua
 
 		private static void findloader (lua_State L, CharPtr name) {
 		  int i;
-		  luaL_Buffer msg;  /* to build error message */
-		  luaL_buffinit(L, &msg);
+		  luaL_Buffer msg = new luaL_Buffer();  /* to build error message */
+		  luaL_buffinit(L, msg);
 		  lua_getfield(L, lua_upvalueindex(1), "searchers");  /* will be at index 3 */
 		  if (!lua_istable(L, 3))
-		    luaL_error(L, LUA_QL("package.searchers") " must be a table");
+		    luaL_error(L, LUA_QL("package.searchers") + " must be a table");
 		  /*  iterate over available seachers to find a loader */
 		  for (i = 1; ; i++) {
 		    lua_rawgeti(L, 3, i);  /* get a seacher */
 		    if (lua_isnil(L, -1)) {  /* no more searchers? */
 		      lua_pop(L, 1);  /* remove nil */
-		      luaL_pushresult(&msg);  /* create error message */
-		      luaL_error(L, "module " LUA_QS " not found:%s",
+		      luaL_pushresult(msg);  /* create error message */
+		      luaL_error(L, "module " + LUA_QS + " not found:%s",
 		                    name, lua_tostring(L, -1));
 		    }
 		    lua_pushstring(L, name);
 		    lua_call(L, 1, 2);  /* call it */
 		    if (lua_isfunction(L, -2))  /* did it find a loader? */
 		      return;  /* module loader found */
-		    else if (lua_isstring(L, -2)) {  /* searcher returned error message? */
+		    else if (lua_isstring(L, -2)!=0) {  /* searcher returned error message? */
 		      lua_pop(L, 1);  /* remove extra return */
-		      luaL_addvalue(&msg);  /* concatenate error message */
+		      luaL_addvalue(msg);  /* concatenate error message */
 		    }
 		    else
 		      lua_pop(L, 2);  /* remove both returns */
@@ -518,11 +518,11 @@ namespace KopiLua
 
 
 		public static int ll_require (lua_State L) {
-		  const char *name = luaL_checkstring(L, 1);
+		  CharPtr name = luaL_checkstring(L, 1);
 		  lua_settop(L, 1);  /* _LOADED table will be at index 2 */
 		  lua_getfield(L, LUA_REGISTRYINDEX, "_LOADED");
 		  lua_getfield(L, 2, name);  /* _LOADED[name] */
-		  if (lua_toboolean(L, -1))  /* is it there? */
+		  if (lua_toboolean(L, -1)!=0)  /* is it there? */
 		    return 1;  /* package is already loaded */
 		  /* else must load package */
 		  lua_pop(L, 1);  /* remove 'getfield' result */
@@ -651,7 +651,7 @@ namespace KopiLua
 		  CharPtr path = getenv(envname1);
 		  if (path == null)  /* no environment variable? */
 		    path = getenv(envname2);  /* try alternative name */		  
-		  if (path == null || noenv(L))  /* no environment variable? */
+		  if (path == null || noenv(L)!=0)  /* no environment variable? */
 			lua_pushstring(L, def);  /* use default */
 		  else {
 			/* replace ";;" by ";AUXMARK;" and then AUXMARK by default path */

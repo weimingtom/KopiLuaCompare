@@ -376,7 +376,7 @@ namespace KopiLua
 		                          int line, int pc) {
 		  int n = l.n;
 		  luaM_growvector<Labeldesc>(ls.L, ref l.arr, n, ref l.size, 
-		                             /*Labeldesc,*/ SHRT_MAX, "labels/gotos");
+		                             /*Labeldesc,*/ (int)SHRT_MAX, "labels/gotos"); //FIXME:changed, (int)
 		  l.arr[n].name = name;
 		  l.arr[n].line = line;
 		  l.arr[n].nactvar = ls.fs.nactvar;
@@ -429,8 +429,8 @@ namespace KopiLua
 		private static void enterblock (FuncState fs, BlockCnt bl, lu_byte isloop) {
 		  bl.isloop = isloop;
 		  bl.nactvar = fs.nactvar;
-		  bl.firstlabel = fs.ls.dyd.label.n;
-		  bl.firstgoto = fs.ls.dyd.gt.n;
+		  bl.firstlabel = (short)fs.ls.dyd.label.n; //FIXME:changed, (short)
+		  bl.firstgoto = (short)fs.ls.dyd.gt.n; //FIXME:changed, (short)
 		  bl.upval = 0;
 		  bl.previous = fs.bl;
 		  fs.bl = bl;
@@ -667,7 +667,7 @@ namespace KopiLua
 		  rkkey = luaK_exp2RK(fs, key);
 		  expr(ls, val);
 		  luaK_codeABC(fs, OpCode.OP_SETTABLE, cc.t.u.info, rkkey, luaK_exp2RK(fs, val));
-		  fs.freereg = reg;  /* free registers */
+		  fs.freereg = (byte)reg;  /* free registers */ //FIXME:(byte)
 		}
 
 
@@ -861,8 +861,8 @@ namespace KopiLua
 		  }
 		  init_exp(f, expkind.VCALL, luaK_codeABC(fs, OpCode.OP_CALL, base_, nparams + 1, 2));
 		  luaK_fixline(fs, line);
-		  fs.freereg = base_+1;  /* call remove function and arguments and leaves
-									(unless changed) one result */
+		  fs.freereg = (byte)(base_+1);  /* call remove function and arguments and leaves
+									(unless changed) one result */  //FIXME:(byte)
 		}
 
 
@@ -1135,7 +1135,7 @@ namespace KopiLua
 		  int extra = fs.freereg;  /* eventual position to save local variable */
 		  int conflict = 0;
 		  for (; lh!=null; lh = lh.prev) {  /* check all previous assignments */
-		    if (lh->v.k == VINDEXED) {  /* assigning to a table? */
+		    if (lh.v.k == expkind.VINDEXED) {  /* assigning to a table? */
 			  /* table is the upvalue/local being assigned now? */
 			  if (lh.v.u.ind.vt == (byte)v.k && lh.v.u.ind.t == v.u.info) { //FIXME:added, (byte)
 		        conflict = 1;
@@ -1178,7 +1178,7 @@ namespace KopiLua
 			if (nexps != nvars) {
 			  adjust_assign(ls, nvars, nexps, e);
 			  if (nexps > nvars)
-				ls.fs.freereg -= nexps - nvars;  /* remove extra values */
+			  	ls.fs.freereg -= (byte)(nexps - nvars);  /* remove extra values */ //FIXME:(byte)
 			}
 			else {
 			  luaK_setoneret(ls.fs, e);  /* close last expression */
@@ -1201,11 +1201,11 @@ namespace KopiLua
 		}
 
 
-		private static void gotostat (LexState ls, TString label, int line) {
+		private static void gotostat (LexState ls, int pc) {
 		  int line = ls.linenumber;
 		  TString label;
 		  int g;
-		  if (testnext(ls, TK_GOTO))
+		  if (testnext(ls, (int)RESERVED.TK_GOTO)!=0)
 		    label = str_checkname(ls);
 		  else {
 		    luaX_next(ls);  /* skip break */
@@ -1394,20 +1394,20 @@ namespace KopiLua
 		}
 
 
-		private static void test_then_block (LexState *ls, int *escapelist) {
+		private static void test_then_block (LexState ls, ref int escapelist) {
 		  /* test_then_block -> [IF | ELSEIF] cond THEN block */
-		  BlockCnt bl;
-		  FuncState *fs = ls->fs;
-		  expdesc v;
+		  BlockCnt bl = new BlockCnt();
+		  FuncState fs = ls.fs;
+		  expdesc v = new expdesc();
 		  int jf;  /* instruction to skip 'then' code (if condition is false) */
 		  luaX_next(ls);  /* skip IF or ELSEIF */
-		  expr(ls, &v);  /* read condition */
-		  checknext(ls, TK_THEN);
-		  if (ls->t.token == TK_GOTO || ls->t.token == TK_BREAK) {
-		    luaK_goiffalse(ls->fs, &v);  /* will jump to label if condition is true */
-		    enterblock(fs, &bl, 0);  /* must enter block before 'goto' */
+		  expr(ls, v);  /* read condition */
+		  checknext(ls, (int)RESERVED.TK_THEN);
+		  if (ls.t.token == (int)RESERVED.TK_GOTO || ls.t.token == (int)RESERVED.TK_BREAK) {
+		    luaK_goiffalse(ls.fs, v);  /* will jump to label if condition is true */
+		    enterblock(fs, bl, 0);  /* must enter block before 'goto' */
 		    gotostat(ls, v.t);  /* handle goto/break */
-		    if (block_follow(ls, 0)) {  /* 'goto' is the entire block? */
+		    if (block_follow(ls, 0)!=0) {  /* 'goto' is the entire block? */
 		      leaveblock(fs);
 		      return;  /* and that is it */
 		    }
@@ -1415,15 +1415,15 @@ namespace KopiLua
 		      jf = luaK_jump(fs);
 		  }
 		  else {  /* regular case (not goto/break) */
-		    luaK_goiftrue(ls->fs, &v);  /* skip over block if condition is false */
-		    enterblock(fs, &bl, 0);
+		    luaK_goiftrue(ls.fs, v);  /* skip over block if condition is false */
+		    enterblock(fs, bl, 0);
 		    jf = v.f;
 		  }
 		  statlist(ls);  /* `then' part */
 		  leaveblock(fs);
-		  if (ls->t.token == TK_ELSE ||
-		      ls->t.token == TK_ELSEIF)  /* followed by 'else'/'elseif'? */
-		    luaK_concat(fs, escapelist, luaK_jump(fs));  /* must jump over it */
+		  if (ls.t.token == (int)RESERVED.TK_ELSE ||
+		      ls.t.token == (int)RESERVED.TK_ELSEIF)  /* followed by 'else'/'elseif'? */
+		    luaK_concat(fs, ref escapelist, luaK_jump(fs));  /* must jump over it */
 		  luaK_patchtohere(fs, jf);
 		}
 
@@ -1432,12 +1432,12 @@ namespace KopiLua
 		  /* ifstat -> IF cond THEN block {ELSEIF cond THEN block} [ELSE block] END */
 		  FuncState fs = ls.fs;
 		  int escapelist = NO_JUMP;  /* exit list for finished parts */
-		  test_then_block(ls, &escapelist);  /* IF cond THEN block */
-		  while (ls->t.token == TK_ELSEIF)
-		    test_then_block(ls, &escapelist);  /* ELSEIF cond THEN block */
-		  if (testnext(ls, TK_ELSE))
+		  test_then_block(ls, ref escapelist);  /* IF cond THEN block */
+		  while (ls.t.token == (int)RESERVED.TK_ELSEIF)
+		    test_then_block(ls, ref escapelist);  /* ELSEIF cond THEN block */
+		  if (testnext(ls, (int)RESERVED.TK_ELSE)!=0)
 		    block(ls);  /* `else' part */
-		  check_match(ls, TK_END, TK_IF, line);
+		  check_match(ls, (int)RESERVED.TK_END, (int)RESERVED.TK_IF, line);
 		  luaK_patchtohere(fs, escapelist);  /* patch escape list to 'if' end */
 		}
 

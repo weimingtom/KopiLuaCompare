@@ -298,12 +298,12 @@ namespace KopiLua
 
 
 		private static int readhexaesc (LexState ls) {
-		  int c[3], i;  /* keep input for error message */
+		  int[] c = new int[3]; int i;  /* keep input for error message */
 		  int r = 0;  /* result accumulator */
 		  c[0] = 'x';  /* for error message */
 		  for (i = 1; i < 3; i++) {  /* read two hexa digits */
 		    c[i] = next(ls);
-		    if (!lisxdigit(c[i]))
+		    if (lisxdigit(c[i])==0)
 		      escerror(ls, c, i + 1, "hexadecimal digit expected");
 		    r = (r << 4) + luaO_hexavalue(c[i]);
 		  }
@@ -312,10 +312,10 @@ namespace KopiLua
 
 
 		private static int readdecesc (LexState ls) {
-		  int c[3], i;
+		  int[] c = new int[3]; int i;
 		  int r = 0;  /* result accumulator */
-		  for (i = 0; i < 3 && lisdigit(ls->current); i++) {  /* read up to 3 digits */
-		    c[i] = ls->current;
+		  for (i = 0; i < 3 && lisdigit(ls.current)!=0; i++) {  /* read up to 3 digits */
+		    c[i] = ls.current;
 		    r = 10*r + c[i] - '0';
 		    next(ls);
 		  }

@@ -42,9 +42,9 @@ namespace KopiLua
 
 		private static int luaB_tonumber (lua_State L) {
 		  if (lua_isnoneornil(L, 2)) {  /* standard conversion */
-		    int isnum;
-		    lua_Number n = lua_tonumberx(L, 1, &isnum);
-		    if (isnum) {
+		    int isnum=0; //FIXME:changed, =0
+		    lua_Number n = lua_tonumberx(L, 1, ref isnum);
+		    if (isnum!=0) {
 		      lua_pushnumber(L, n);
 		      return 1;
 		    }  /* else not a number; must be something */
@@ -54,9 +54,9 @@ namespace KopiLua
 		    uint l;
 		    CharPtr s = luaL_checklstring(L, 1, out l);
 		    CharPtr e = s + l;  /* end point for 's' */
-            int base = luaL_checkint(L, 2);
+            int base_ = luaL_checkint(L, 2);
 		    int neg = 0;
-            luaL_argcheck(L, 2 <= base && base <= 36, 2, "base out of range");
+            luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
 		    s += strspn(s, SPACECHARS);  /* skip initial spaces */
 		    if (s[0] == '-') { s.inc(); neg = 1; }  /* handle signal */ //FIXME:changed, s++;
 		    else if (s[0] == '+') s.inc();//FIXME:changed, s++;
@@ -253,9 +253,9 @@ namespace KopiLua
 		private static int luaB_loadfile (lua_State L) {
 		  CharPtr fname = luaL_optstring(L, 1, null);
 		  CharPtr mode = luaL_optstring(L, 2, null);
-		  int env = !lua_isnone(L, 3);  /* 'env' parameter? */
+		  int env = lua_isnone(L, 3)?0:1;  /* 'env' parameter? */
 		  int status = luaL_loadfilex(L, fname, mode);
-		  if (status == LUA_OK && env) {  /* 'env' parameter? */
+		  if (status == LUA_OK && env!=0) {  /* 'env' parameter? */
 		    lua_pushvalue(L, 3);
 		    lua_setupvalue(L, -2, 1);  /* set it as 1st upvalue of loaded chunk */
 		  }
@@ -293,7 +293,7 @@ namespace KopiLua
 			size = 0;
 			return null;
 		  }
-		  else if (!lua_isstring(L, -1))
+		  else if (lua_isstring(L, -1)==0)
     		luaL_error(L, "reader function must return a string");
 		  lua_replace(L, RESERVEDSLOT);  /* save string in reserved slot */
 		  return lua_tolstring(L, RESERVEDSLOT, out size);
@@ -364,7 +364,7 @@ namespace KopiLua
 
 
 		private static int finishpcall (lua_State L, int status) {
-		  if (!lua_checkstack(L, 1)) {  /* no space for extra boolean? */
+		  if (lua_checkstack(L, 1)==0) {  /* no space for extra boolean? */
 		    lua_settop(L, 0);  /* create space for return values */
 		    lua_pushboolean(L, 0);
 		    lua_pushstring(L, "stack overflow");
@@ -377,8 +377,9 @@ namespace KopiLua
 
 
 		private static int pcallcont (lua_State L) {
-		  int status = lua_getctx(L, NULL);
-  		  return finishpcall(L, (status == LUA_YIELD));
+		  int null_ = 0; //FIXME:added
+		  int status = lua_getctx(L, ref null_);
+		  return finishpcall(L, (status == LUA_YIELD)?1:0);
 		}
 
 
@@ -388,7 +389,7 @@ namespace KopiLua
 		  lua_pushnil(L);
 		  lua_insert(L, 1);  /* create space for status result */
 		  status = lua_pcallk(L, lua_gettop(L) - 2, LUA_MULTRET, 0, 0, pcallcont);
-		  return finishpcall(L, (status == LUA_OK));
+		  return finishpcall(L, (status == LUA_OK)?1:0);
 		}
 
 
@@ -400,7 +401,7 @@ namespace KopiLua
 		  lua_copy(L, 2, 1);  /* ...and error handler */
 		  lua_replace(L, 2);
 		  status = lua_pcallk(L, n - 2, LUA_MULTRET, 1, 0, pcallcont);
-          return finishpcall(L, (status == LUA_OK));
+		  return finishpcall(L, (status == LUA_OK)?1:0);
 		}
 
 

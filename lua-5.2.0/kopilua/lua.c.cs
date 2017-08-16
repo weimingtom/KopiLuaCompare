@@ -127,7 +127,7 @@ namespace KopiLua
 			"  -i       enter interactive mode after executing " + Lua.LUA_QL("script").ToString() + "\n" +
 			"  -l name  require library " + Lua.LUA_QL("name").ToString() + "\n" +
 			"  -v       show version information\n" +
-  			"  -E       ignore environment variables\n"
+  			"  -E       ignore environment variables\n" +
 			"  --       stop handling options\n" +
 			"  -        stop handling options and execute stdin\n"
 			,
@@ -367,29 +367,31 @@ namespace KopiLua
 		private const int num_has = 4;	/* number of 'has_*' */
 
 
-		private static int collectargs(string[] argv, ref int pi, ref int pv, ref int pe) {
+		private static int collectargs(string[] argv, int[] args) {
 			int i;
 			for (i = 1; i < argv.Length; i++) {
 				if (argv[i][0] != '-')  /* not an option? */
 					return i;
 				switch (argv[i][1]) {  /* option */
 				  case '-':
-			        noextrachars(argv[i]);
-			        return (argv[i+1] != NULL ? i+1 : 0);
+					if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
+			        return (argv[i+1] != null ? i+1 : 0);
 			  	  case '\0':
 					return i;
 				  case 'E':
 			        args[has_E] = 1;
 			        break;
 	   		      case 'i':
-				    noextrachars(argv[i]);
+				    if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
 				    args[has_i] = 1;  /* go through */
+				    goto case 'v';//FIXME:added
 				  case 'v':
-				    noextrachars(argv[i]);
+				    if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
 				    args[has_v] = 1;
 				    break;
 				  case 'e':
 				    args[has_e] = 1;  /* go through */
+				    goto case 'l';//FIXME:added
 				  case 'l':  /* both options need an argument */
 				    if (argv[i].Length == 2) {  /* no concatenated argument? */ //FIXME:changed
 					  i++;  /* try next 'argv' */
@@ -452,33 +454,33 @@ namespace KopiLua
 		  int argc = (int)Lua.lua_tointeger(L, 1);
 		  string[] argv = (string[])Lua.lua_touserdata(L, 2);
 		  int script;
-		  int args[num_has];
+		  int[] args = new int[num_has];
 		  args[has_i] = args[has_v] = args[has_e] = args[has_E] = 0;
-		  if (argv[0] && argv[0][0]) progname = argv[0];
+		  if (argv.Length > 0 && argv[0].Length > 0) progname = argv[0];
 		  script = collectargs(argv, args);
 		  if (script < 0) {  /* invalid arg? */
 		    print_usage(argv[-script]);
 		    return 0;
 		  }
-		  if (args[has_v]) print_version();
-		  if (args[has_E]) {  /* option '-E'? */
-		    lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
-		    lua_setfield(L, LUA_REGISTRYINDEX, "LUA_NOENV");
+		  if (args[has_v]!=0) print_version();
+		  if (args[has_E]!=0) {  /* option '-E'? */
+		    Lua.lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
+		    Lua.lua_setfield(L, Lua.LUA_REGISTRYINDEX, "LUA_NOENV");
 		  }
 		  /* open standard libraries */
-		  luaL_checkversion(L);
-		  lua_gc(L, LUA_GCSTOP, 0);  /* stop collector during initialization */
-		  luaL_openlibs(L);  /* open libraries */
-		  lua_gc(L, LUA_GCRESTART, 0);
-		  if (!args[has_E] && handle_luainit(L) != LUA_OK)
+		  Lua.luaL_checkversion(L);
+		  Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
+		  Lua.luaL_openlibs(L);  /* open libraries */
+		  Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
+		  if (args[has_E]==0 && handle_luainit(L) != Lua.LUA_OK)
 		    return 0;  /* error running LUA_INIT */
 		  /* execute arguments -e and -l */
-		  if (!runargs(L, argv, (script > 0) ? script : argc)) return 0;
+		  if (runargs(L, argv, (script > 0) ? script : argc)==0) return 0;
 		  /* execute main script (if there is one) */
-		  if (script && handle_script(L, argv, script) != LUA_OK) return 0;
-		  if (args[has_i])  /* -i option? */
+		  if (script!=0 && handle_script(L, argv, script) != Lua.LUA_OK) return 0;
+		  if (args[has_i]!=0)  /* -i option? */
 		    dotty(L);
-		  else if (script == 0 && !args[has_e] && !args[has_v]) {  /* no arguments? */
+		  else if (script == 0 && args[has_e]==0 && args[has_v]==0) {  /* no arguments? */
 			if (lua_stdin_is_tty()!=0) {
 				print_version();
 				dotty(L);

@@ -14,6 +14,8 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
+	using LStream = KopiLua.Lua.luaL_Stream;
+	using l_seeknum = System.Int64;
 
 
 	public partial class Lua
@@ -86,8 +88,8 @@ namespace KopiLua
 
 		//#else
 
-		//#define l_fseek(f,o,w)		fseek(f,o,w)
-		//#define l_ftell(f)		ftell(f)
+		private static int l_fseek(Stream f, long o, int w) { return fseek(f,o,w);}
+		private static int l_ftell(Stream f) { return ftell(f);}
 		//#define l_seeknum		long
 
 		//#endif
