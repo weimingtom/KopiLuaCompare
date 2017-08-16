@@ -24,13 +24,12 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 ## About status above    
 * If not mentioned, luac is only compiled successfully but not tested, or removed.  
 * If not mentioned, lua is only compiled successfully, and tested with very simple snippets, for example  
-
-	return 1+1  
-	print("hello")    
-	return 1, 2  
-	return nil  
-	print("hello') -- test lua error  
-	os.exit() -- test lua exiting  
+> return 1+1  
+> print("hello")    
+> return 1, 2  
+> return nil  
+> print("hello') -- test lua error  
+> os.exit() -- test lua exiting  
 
 ## Compare Tool  
 * Beyond Compare Version 3.0.11  
