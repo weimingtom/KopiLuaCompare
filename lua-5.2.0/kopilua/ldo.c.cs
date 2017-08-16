@@ -700,7 +700,7 @@ namespace KopiLua
 		  SParser p = new SParser();
 		  int status;
           L.nny++;  /* cannot yield during parsing */
-		  p.z = z; p.name = new CharPtr(name); p.mode = new CharPtr(mode); //FIXME:changed, new CharPtr //FIXME:changed, new CharPtr
+		  p.z = z; p.name = name; p.mode = mode; //FIXME:changed, new CharPtr //FIXME:changed, new CharPtr
           p.dyd.actvar.arr = null; p.dyd.actvar.size = 0;
 		  p.dyd.gt.arr = null; p.dyd.gt.size = 0;
 		  p.dyd.label.arr = null; p.dyd.label.size = 0;

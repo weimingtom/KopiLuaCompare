@@ -16,6 +16,9 @@ namespace KopiLua
 {
 	using Instruction = System.UInt32;
 	using TValue = Lua.lua_TValue;
+	using OpCode = Lua.OpCode;
+	using OpMode = Lua.OpMode;
+	using OpArgMask = Lua.OpArgMask;
 	
 	public class Program_luac
 	{
@@ -35,7 +38,7 @@ namespace KopiLua
 		//#include "lundump.h"
 
 		//static void PrintFunction(const Proto* f, int full);
-		//#define luaU_print	PrintFunction
+		public static void luaU_print(Lua.Proto f, int full) { PrintFunction(f, full);}
 
 		static Lua.CharPtr PROGNAME = "luac";		/* default program name */
 		static Lua.CharPtr OUTPUT = PROGNAME + ".out"; /* default output file */
@@ -55,7 +58,7 @@ namespace KopiLua
 
 		static void cannot(Lua.CharPtr what)
 		{
-		 Lua.fprintf(Lua.stderr,"%s: cannot %s %s: %s\n",progname,what,output,Lua.strerror(Lua.errno()));
+		 Lua.fprintf(Lua.stderr,"%s: cannot %s %s: %s\n",progname,what,output,Lua.strerror(Lua.errno));
 		 Environment.Exit(Lua.EXIT_FAILURE);
 		}
 
@@ -103,7 +106,7 @@ namespace KopiLua
 		  else if (Lua.strcmp(argv[i], "-o") == 0)			/* output file */
 		  {
 		   output=argv[++i];
-		   if (output==null || (output[0]==0) || (*output=='-' && output[1]!=0)) 
+		   if (output==null || (output[0]==0) || (output[0]=='-' && output[1]!=0))
 		    usage(Lua.LUA_QL("-o") + " needs argument");
 		   if (Lua.strcmp(argv[i], "-")==0) output = null;
 		  }
@@ -132,22 +135,24 @@ namespace KopiLua
 
 		private const string FUNCTION = "(function()end)();";
 
-		private static CharPtr reader(lua_State L, void *ud, size_t *size)
+		private static Lua.CharPtr reader(Lua.lua_State L, object ud, out uint size)
 		{
-		 UNUSED(L);
-		 if ((*(int*)ud)--)
+		 //UNUSED(L); //FIXME:changed
+		 int ud_ = ((int[])ud)[0]; //FIXME:added
+		 ((int[])ud)[0]--; //FIXME:added
+		 if (ud_!=0)
 		 {
-		  *size=sizeof(FUNCTION)-1;
+		  size=(uint)FUNCTION.Length;//FIXME:changed, sizeof(FUNCTION)-1;
 		  return FUNCTION;
 		 }
 		 else
 		 {
-		  *size=0;
-		  return NULL;
+		  size=0;
+		  return null;
 		 }
 		}
 
-		static Lua.Proto toproto(Lua.lua_State L, int i) {return getproto(L.top+i);}
+		static Lua.Proto toproto(Lua.lua_State L, int i) {return Lua.getproto(L.top+i);}
 
 		static Lua.Proto combine(Lua.lua_State L, int n)
 		{
@@ -155,14 +160,16 @@ namespace KopiLua
 		  return toproto(L,-1);
 		 else
 		 {
-		  Proto f;
+		  Lua.Proto f;
 		  int i=n;
-		  if (lua_load(L,reader,&i,"=(" PROGNAME ")",NULL)!=LUA_OK) fatal(lua_tostring(L,-1));
+		  int[]i_ = new int[]{i}; //FIXME:added
+		  if (Lua.lua_load(L,reader,i_,"=(" + PROGNAME +  ")",null)!=Lua.LUA_OK) fatal(Lua.lua_tostring(L,-1));
+		  i=i_[0]; //FIXME:added
 		  f=toproto(L,-1);
 		  for (i=0; i<n; i++)
 		  {
 		   f.p[i]=toproto(L,i-n-1);
-		   if (f.p[i]->sizeupvalues>0) f.p[i].upvalues[0].instack=0;
+		   if (f.p[i].sizeupvalues>0) f.p[i].upvalues[0].instack=0;
 		  }
 		  f.sizelineinfo=0;
 		  return f;
@@ -178,18 +185,18 @@ namespace KopiLua
 
 		static int pmain(Lua.lua_State L)
 		{
-		 int argc=(int)lua_tointeger(L,1);
- 		 char** argv=(char**)lua_touserdata(L,2);
+		 int argc=(int)Lua.lua_tointeger(L,1);
+		 Lua.CharPtr[] argv=(Lua.CharPtr[])Lua.lua_touserdata(L,2);
 		 Lua.Proto f;
 		 int i;
 		 if (Lua.lua_checkstack(L,argc)==0) fatal("too many input files");
 		 for (i=0; i<argc; i++)
 		 {
 		  Lua.CharPtr filename=(Lua.strcmp(argv[i], "-")==0) ? null : argv[i];
-		  if (Lua.luaL_loadfile(L,filename)!=LUA_OK) fatal(Lua.lua_tostring(L,-1));
+		  if (Lua.luaL_loadfile(L,filename)!=Lua.LUA_OK) fatal(Lua.lua_tostring(L,-1));
 		 }
 		 f=combine(L,argc);
-		 if (listing!=0) Lua.luaU_print(f,(listing>1)?1:0);
+		 if (listing!=0) luaU_print(f,(listing>1)?1:0);
 		 if (dumping!=0)
 		 {
 		  Stream D= (output==null) ? Lua.stdout : Lua.fopen(output,"wb");
@@ -213,18 +220,23 @@ namespace KopiLua
 		 args = (string[])newargs.ToArray();
 
 		 Lua.lua_State L;
-		 int argc = args.Length;
+		 int argc = args.Length; //FIXME:added
+		 Lua.CharPtr[] argv = new Lua.CharPtr[args.Length]; //FIXME:added
+		 for (int kk = 0; kk < argv.Length; ++kk)
+		 {
+		 	argv[kk] = args[kk];
+		 }
 		 int i=doargs(argc,args);
 		 newargs.RemoveRange(0, i);
 		 argc -= i; args = (string[])newargs.ToArray();
 		 if (argc<=0) usage("no input files given");
-		 L=luaL_newstate();
-		 if (L==NULL) fatal("cannot create state: not enough memory");
-		 lua_pushcfunction(L,&pmain);
-		 lua_pushinteger(L,argc);
-		 lua_pushlightuserdata(L,argv);
-		 if (lua_pcall(L,2,0,0)!=LUA_OK) fatal(lua_tostring(L,-1));
-         lua_close(L);
+		 L=Lua.luaL_newstate();
+		 if (L==null) fatal("cannot create state: not enough memory");
+		 Lua.lua_pushcfunction(L,pmain);
+		 Lua.lua_pushinteger(L,argc);
+		 Lua.lua_pushlightuserdata(L,argv);
+		 if (Lua.lua_pcall(L,2,0,0)!=Lua.LUA_OK) fatal(Lua.lua_tostring(L,-1));
+         Lua.lua_close(L);
 		 return Lua.EXIT_SUCCESS;
 		}
 
@@ -235,121 +247,121 @@ namespace KopiLua
 */
 
 
-		//#define VOID(p)		((const void*)(p))
+		public static object VOID(object p)	{ return ((object)(p));}
 
-		public static void PrintString(TString ts)
+		public static void PrintString(Lua.TString ts)
 		{
-		 CharPtr s=getstr(ts);
+		 Lua.CharPtr s=Lua.getstr(ts);
 		 uint i,n=ts.tsv.len;
-		 printf("%c",'"');
+		 Lua.printf("%c",'"');
 		 for (i=0; i<n; i++)
 		 {
 		  int c=(int)(byte)s[i];
 		  switch (c)
 		  {
-		   case '"':  printf("\\\""); break;
-		   case '\\': printf("\\\\"); break;
-		   case '\a': printf("\\a"); break;
-		   case '\b': printf("\\b"); break;
-		   case '\f': printf("\\f"); break;
-		   case '\n': printf("\\n"); break;
-		   case '\r': printf("\\r"); break;
-		   case '\t': printf("\\t"); break;
-		   case '\v': printf("\\v"); break;
-		   default:	if (isprint(c))
-   					printf("%c",c);
+		   case '"':  Lua.printf("\\\""); break;
+		   case '\\': Lua.printf("\\\\"); break;
+		   case '\a': Lua.printf("\\a"); break;
+		   case '\b': Lua.printf("\\b"); break;
+		   case '\f': Lua.printf("\\f"); break;
+		   case '\n': Lua.printf("\\n"); break;
+		   case '\r': Lua.printf("\\r"); break;
+		   case '\t': Lua.printf("\\t"); break;
+		   case '\v': Lua.printf("\\v"); break;
+		   default:	if (Lua.isprint(c))
+   					Lua.printf("%c",c);
 				else
-					printf("\\%03d",c);
+					Lua.printf("\\%03d",c);
 				break; //FIXME:added
 		  }
 		 }
-		 printf("%c",'"');
+		 Lua.printf("%c",'"');
 		}
 
-		private static void PrintConstant(Proto f, int i)
+		private static void PrintConstant(Lua.Proto f, int i)
 		{
 		 /*const*/ TValue o=f.k[i];
-		 switch (ttype(o))
+		 switch (Lua.ttype(o))
 		 {
-		  case LUA_TNIL:
-			printf("nil");
+		  case Lua.LUA_TNIL:
+			Lua.printf("nil");
 			break;
-		  case LUA_TBOOLEAN:
-			printf(bvalue(o) != 0 ? "true" : "false");
+		  case Lua.LUA_TBOOLEAN:
+			Lua.printf(Lua.bvalue(o) != 0 ? "true" : "false");
 			break;
-		  case LUA_TNUMBER:
-			printf(LUA_NUMBER_FMT,nvalue(o));
+		  case Lua.LUA_TNUMBER:
+			Lua.printf(Lua.LUA_NUMBER_FMT,Lua.nvalue(o));
 			break;
-		  case LUA_TSTRING:
-			PrintString(rawtsvalue(o));
+		  case Lua.LUA_TSTRING:
+			PrintString(Lua.rawtsvalue(o));
 			break;
 		  default:				/* cannot happen */
-			printf("? type=%d",ttype(o));
+			Lua.printf("? type=%d",Lua.ttype(o));
 			break;
 		 }
 		}
 
-		private static void UPVALNAME(x) { return ((f->upvalues[x].name) ? getstr(f->upvalues[x].name) : "-");}
-		private static void MYK(x) { return (-1-(x));}
+		private static Lua.CharPtr UPVALNAME(int x, Lua.Proto f) { return ((f.upvalues[x].name!=null) ? Lua.getstr(f.upvalues[x].name) : "-");}
+		private static int MYK(int x) { return (-1-(x));}
 
-		private static void PrintCode( Proto f)
+		private static void PrintCode( Lua.Proto f)
 		{
 		 Instruction[] code = f.code;
 		 int pc,n=f.sizecode;
 		 for (pc=0; pc<n; pc++)
 		 {
 		  Instruction i = f.code[pc];
-		  OpCode o=GET_OPCODE(i);
-		  int a=GETARG_A(i);
-		  int b=GETARG_B(i);
-		  int c=GETARG_C(i);
-          int ax=GETARG_Ax(i);
-		  int bx=GETARG_Bx(i);
-		  int sbx=GETARG_sBx(i);
-		  int line=getfuncline(f,pc);
-		  printf("\t%d\t",pc+1);
-		  if (line>0) printf("[%d]\t",line); else printf("[-]\t");
-		  printf("%-9s\t",luaP_opnames[(int)o]);
-		  switch (getOpMode(o))
+		  OpCode o=Lua.GET_OPCODE(i);
+		  int a=Lua.GETARG_A(i);
+		  int b=Lua.GETARG_B(i);
+		  int c=Lua.GETARG_C(i);
+          int ax=Lua.GETARG_Ax(i);
+		  int bx=Lua.GETARG_Bx(i);
+		  int sbx=Lua.GETARG_sBx(i);
+		  int line=Lua.getfuncline(f,pc);
+		  Lua.printf("\t%d\t",pc+1);
+		  if (line>0) Lua.printf("[%d]\t",line); else Lua.printf("[-]\t");
+		  Lua.printf("%-9s\t",Lua.luaP_opnames[(int)o]);
+		  switch (Lua.getOpMode(o))
 		  {
-		   case iABC:
-		    printf("%d",a);
-		    if (getBMode(o)!=OpArgN) printf(" %d",ISK(b) ? (MYK(INDEXK(b))) : b);
-		    if (getCMode(o)!=OpArgN) printf(" %d",ISK(c) ? (MYK(INDEXK(c))) : c);
+		   case OpMode.iABC:
+		    Lua.printf("%d",a);
+		    if (Lua.getBMode(o)!=OpArgMask.OpArgN) Lua.printf(" %d",Lua.ISK(b)!=0 ? (MYK(Lua.INDEXK(b))) : b);
+		    if (Lua.getCMode(o)!=OpArgMask.OpArgN) Lua.printf(" %d",Lua.ISK(c)!=0 ? (MYK(Lua.INDEXK(c))) : c);
 		    break;
-		   case iABx:
-		    printf("%d",a);
-		    if (getBMode(o)==OpArgK) printf(" %d",MYK(bx));
-		    if (getBMode(o)==OpArgU) printf(" %d",bx);
+		   case OpMode.iABx:
+		    Lua.printf("%d",a);
+		    if (Lua.getBMode(o)==OpArgMask.OpArgK) Lua.printf(" %d",MYK(bx));
+		    if (Lua.getBMode(o)==OpArgMask.OpArgU) Lua.printf(" %d",bx);
 		    break;
-		   case iAsBx:
-		    printf("%d %d",a,sbx);
+		   case OpMode.iAsBx:
+		    Lua.printf("%d %d",a,sbx);
 		    break;
-		   case iAx:
-		    printf("%d",MYK(ax));
+		   case OpMode.iAx:
+		    Lua.printf("%d",MYK(ax));
 		    break;
 		  }
 		  switch (o)
 		  {
-		   case OP_LOADK:
-		    printf("\t; "); PrintConstant(f,bx);
+		   case OpCode.OP_LOADK:
+		    Lua.printf("\t; "); PrintConstant(f,bx);
 		    break;
-		   case OP_GETUPVAL:
-		   case OP_SETUPVAL:
-		    printf("\t; %s",UPVALNAME(b));
+		   case OpCode.OP_GETUPVAL:
+		   case OpCode.OP_SETUPVAL:
+		    Lua.printf("\t; %s",UPVALNAME(b, f));
 		    break;
-		   case OP_GETTABUP:
-		    printf("\t; %s",UPVALNAME(b));
-		    if (ISK(c)) { printf(" "); PrintConstant(f,INDEXK(c)); }
+		   case OpCode.OP_GETTABUP:
+		    Lua.printf("\t; %s",UPVALNAME(b, f));
+		    if (Lua.ISK(c)!=0) { Lua.printf(" "); PrintConstant(f,Lua.INDEXK(c)); }
 		    break;
-		   case OP_SETTABUP:
-		    printf("\t; %s",UPVALNAME(a));
-		    if (ISK(b)) { printf(" "); PrintConstant(f,INDEXK(b)); }
-		    if (ISK(c)) { printf(" "); PrintConstant(f,INDEXK(c)); }
+		   case OpCode.OP_SETTABUP:
+		    Lua.printf("\t; %s",UPVALNAME(a, f));
+		    if (Lua.ISK(b)!=0) { Lua.printf(" "); PrintConstant(f,Lua.INDEXK(b)); }
+		    if (Lua.ISK(c)!=0) { Lua.printf(" "); PrintConstant(f,Lua.INDEXK(c)); }
 		    break;
 		   case OpCode.OP_GETTABLE:
 		   case OpCode.OP_SELF:
-			if (ISK(c) != 0) { printf("\t; "); PrintConstant(f,INDEXK(c)); }
+			if (Lua.ISK(c) != 0) { Lua.printf("\t; "); PrintConstant(f,Lua.INDEXK(c)); }
 			break;
 		   case OpCode.OP_SETTABLE:
 		   case OpCode.OP_ADD:
@@ -360,92 +372,92 @@ namespace KopiLua
 		   case OpCode.OP_EQ:
 		   case OpCode.OP_LT:
 		   case OpCode.OP_LE:
-			if (ISK(b)!=0 || ISK(c)!=0)
+			if (Lua.ISK(b)!=0 || Lua.ISK(c)!=0)
 			{
-			 printf("\t; ");
-			 if (ISK(b) != 0) PrintConstant(f,INDEXK(b)); else printf("-");
-			 printf(" ");
-			 if (ISK(c) != 0) PrintConstant(f,INDEXK(c)); else printf("-");
+			 Lua.printf("\t; ");
+			 if (Lua.ISK(b) != 0) PrintConstant(f,Lua.INDEXK(b)); else Lua.printf("-");
+			 Lua.printf(" ");
+			 if (Lua.ISK(c) != 0) PrintConstant(f,Lua.INDEXK(c)); else Lua.printf("-");
 			}
 			break;
 		   case OpCode.OP_JMP:
 		   case OpCode.OP_FORLOOP:
 		   case OpCode.OP_FORPREP:
-           case OP_TFORLOOP:
-			printf("\t; to %d",sbx+pc+2);
+           case OpCode.OP_TFORLOOP:
+			Lua.printf("\t; to %d",sbx+pc+2);
 			break;
 		   case OpCode.OP_CLOSURE:
-			printf("\t; %p",VOID(f.p[bx]));
+			Lua.printf("\t; %p",VOID(f.p[bx]));
 			break;
-		   case OP_SETLIST:
-		    if (c==0) printf("\t; %d",(int)code[++pc]); else printf("\t; %d",c);
+		   case OpCode.OP_SETLIST:
+		    if (c==0) Lua.printf("\t; %d",(int)code[++pc]); else Lua.printf("\t; %d",c);
 		    break;
-		   case OP_EXTRAARG:
-		    printf("\t; "); PrintConstant(f,ax);
+		   case OpCode.OP_EXTRAARG:
+		    Lua.printf("\t; "); PrintConstant(f,ax);
 		    break;
 		   default:
 			break;
 		  }
-		  printf("\n");
+		  Lua.printf("\n");
 		 }
 		}
 
 		public static string SS(int x) { return (x == 1) ? "" : "s"; }
 		//#define S(x)	(int)(x),SS(x)
 
-		private static void PrintHeader(Proto f)
+		private static void PrintHeader(Lua.Proto f)
 		{
-		 CharPtr s=f.source ? getstr(f.source) : "=?";
+		 Lua.CharPtr s=f.source!=null ? Lua.getstr(f.source) : "=?";
 		 if (s[0]=='@' || s[0]=='=')
 		  s  = s.next();
-		 else if (s[0]==LUA_SIGNATURE[0])
+		 else if (s[0]==Lua.LUA_SIGNATURE[0])
 		  s="(bstring)";
 		 else
 		  s="(string)";
-		 printf("\n%s <%s:%d,%d> (%d Instruction%s at %p)\n",
+		 Lua.printf("\n%s <%s:%d,%d> (%d Instruction%s at %p)\n",
  			(f.linedefined==0)?"main":"function",s,
 			f.linedefined,f.lastlinedefined,
-			S(f.sizecode), VOID(f));
-		 printf("%d%s param%s, %d slot%s, %d upvalue%s, ",
+			(int)(f.sizecode),SS(f.sizecode), VOID(f));
+		 Lua.printf("%d%s param%s, %d slot%s, %d upvalue%s, ",
 			(int)(f.numparams),(f.is_vararg != 0) ? "+" : "", SS(f.numparams),
-			S(f->maxstacksize),S(f->sizeupvalues));
-		 printf("%d local%s, %d constant%s, %d function%s\n",
-			S(f->sizelocvars),S(f->sizek),S(f->sizep));
+			(int)(f.maxstacksize),SS(f.maxstacksize),(int)f.sizeupvalues,SS(f.sizeupvalues));
+		 Lua.printf("%d local%s, %d constant%s, %d function%s\n",
+		    (int)(f.sizelocvars),SS(f.sizelocvars),(int)f.sizek,SS(f.sizek),(int)f.sizep,SS(f.sizep));
 		}
 
-		private static void PrintDebug(Proto f)
+		private static void PrintDebug(Lua.Proto f)
 		{
 		 int i,n;
 		 n=f.sizek;
-		 printf("constants (%d) for %p:\n",n,VOID(f));
+		 Lua.printf("constants (%d) for %p:\n",n,VOID(f));
 		 for (i=0; i<n; i++)
 		 {
-		  printf("\t%d\t",i+1);
+		  Lua.printf("\t%d\t",i+1);
 		  PrintConstant(f,i);
-		  printf("\n");
+		  Lua.printf("\n");
 		 }
-		 n=f->sizelocvars;
-		 printf("locals (%d) for %p:\n",n,VOID(f));
+		 n=f.sizelocvars;
+		 Lua.printf("locals (%d) for %p:\n",n,VOID(f));
 		 for (i=0; i<n; i++)
 		 {
-		  printf("\t%d\t%s\t%d\t%d\n",
-		  i,getstr(f->locvars[i].varname),f->locvars[i].startpc+1,f->locvars[i].endpc+1);
+		  Lua.printf("\t%d\t%s\t%d\t%d\n",
+		  i,Lua.getstr(f.locvars[i].varname),f.locvars[i].startpc+1,f.locvars[i].endpc+1);
 		 }
-		 n=f->sizeupvalues;
-		 printf("upvalues (%d) for %p:\n",n,VOID(f));
+		 n=f.sizeupvalues;
+		 Lua.printf("upvalues (%d) for %p:\n",n,VOID(f));
 		 for (i=0; i<n; i++)
 		 {
-		  printf("\t%d\t%s\t%d\t%d\n",
-		  i,UPVALNAME(i),f->upvalues[i].instack,f->upvalues[i].idx);
+		  Lua.printf("\t%d\t%s\t%d\t%d\n",
+		  i,UPVALNAME(i, f),f.upvalues[i].instack,f.upvalues[i].idx);
 		 }
 		}
 
-		private static void PrintFunction(Proto f, int full)
+		private static void PrintFunction(Lua.Proto f, int full)
 		{
 		 int i,n=f.sizep;
 		 PrintHeader(f);
 		 PrintCode(f);
-		 if (full) PrintDebug(f);
+		 if (full!=0) PrintDebug(f);
 		 for (i=0; i<n; i++) PrintFunction(f.p[i],full);
 		}
 

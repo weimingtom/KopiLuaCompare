@@ -18,11 +18,13 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 * lua-5.2.0-20100206 (done, 2017-07-05 update)  
 * lua-5.2.0-alpha (done, 2017-07-17 update)  
 * lua-5.2.0-beta (done, 2017-08-05 update)  
-* lua-5.3.4 (pending)    
+* lua-5.2.0 (done, 2017-08-16 update)  
+* lua-5.3.4 (pending)  
 
 ## About status above    
 * If not mentioned, luac is only compiled successfully but not tested, or removed.  
 * If not mentioned, lua is only compiled successfully, and tested with very simple snippets, for example  
+
 	return 1+1  
 	print("hello")    
 	return 1, 2  

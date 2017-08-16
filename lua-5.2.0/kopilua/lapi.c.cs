@@ -27,7 +27,7 @@ namespace KopiLua
 
 
 		/* value at a non-valid index */
-		private static readonly TValue NONVALIDVALUE = (TValue)(luaO_nilobject);
+		//#define NONVALIDVALUE		cast(TValue *, luaO_nilobject) //private static TValue NONVALIDVALUE = (TValue)(luaO_nilobject); //FIXME:WARNING, don't save it as static var, world be null, not safe
 
 		/* corresponding test */
 		private static bool isvalid(int o) { return (o != luaO_nilobject); }
@@ -40,7 +40,7 @@ namespace KopiLua
 		  if (idx > 0) {
 			TValue o = ci.func + idx;
 			api_check(L, idx <= ci.top - (ci.func + 1), "unacceptable index");
-			if (o >= L.top) return NONVALIDVALUE;
+			if (o >= L.top) return (TValue)(luaO_nilobject); //FIXME:changed, return NONVALIDVALUE;
 			else return o;
 		  }
 		  else if (idx > LUA_REGISTRYINDEX) {
@@ -53,10 +53,10 @@ namespace KopiLua
 		    idx = LUA_REGISTRYINDEX - idx;
 		    api_check(L, idx <= MAXUPVAL + 1, "upvalue index too large");
 		    if (ttislcf(ci.func))  /* light C function? */
-		    return NONVALIDVALUE;  /* it has no upvalues */
+		    return (TValue)(luaO_nilobject);  /* it has no upvalues */ //FIXME:changed, return NONVALIDVALUE;
 		    else {
 		      CClosure func = clCvalue(ci.func);
-		      return (idx <= func.nupvalues) ? func.upvalue[idx-1] : NONVALIDVALUE;
+		      return (idx <= func.nupvalues) ? func.upvalue[idx-1] : (TValue)(luaO_nilobject); //FIXME:changed, return NONVALIDVALUE;
 		    }
 		  }
 		}

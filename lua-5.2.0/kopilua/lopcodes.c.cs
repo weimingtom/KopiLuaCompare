@@ -18,7 +18,7 @@ namespace KopiLua
 
 		/* ORDER OP */
 
-		private readonly static CharPtr[] luaP_opnames = {
+		public readonly static CharPtr[] luaP_opnames = {
 		  "MOVE",
 		  "LOADK",
           "LOADKX",

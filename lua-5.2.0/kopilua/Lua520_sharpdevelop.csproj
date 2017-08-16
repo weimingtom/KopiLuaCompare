@@ -103,6 +103,7 @@
     <Compile Include="ltm.h.cs" />
     <Compile Include="lua.c.cs" />
     <Compile Include="lua.h.cs" />
+    <Compile Include="luac.c.cs" />
     <Compile Include="luaconf.h.cs" />
     <Compile Include="luaconf_ex.h.cs" />
     <Compile Include="lualib.h.cs" />

@@ -130,6 +130,11 @@ namespace KopiLua
 			return (c >= (byte)' ') && (c <= (byte)127);
 		}
 
+		public static bool isprint(int c)
+		{
+			return (c >= ' ') && (c <= 127);
+		}		
+		
 		public static int parse_scanf(string str, CharPtr fmt, params object[] argp)
 		{
 			int parm_index = 0;
