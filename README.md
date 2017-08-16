@@ -1,5 +1,5 @@
 ﻿# KopiLuaCompare
-[WIP] Comparation of kopilua and lua  
+Comparation of kopilua and lua, and porting kopilua to lua 5.2.x  
 
 	兵者，诡道也。  
 	故能而示之不能，用而示之不用，近而示之远，远而示之近。  
