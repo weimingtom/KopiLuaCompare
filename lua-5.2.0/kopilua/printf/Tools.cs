@@ -241,7 +241,12 @@ namespace AT.MIN
 		#region printf
 		public static void printf( string Format, params object[] Parameters )
 		{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+			UnityEngine.Debug.Log( Tools.sprintf( Format, Parameters ) );
+#else
 			Console.Write( Tools.sprintf( Format, Parameters ) );
+#endif		
+			
 		}
 		#endregion
 		#region fprintf

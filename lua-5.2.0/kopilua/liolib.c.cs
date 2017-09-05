@@ -46,8 +46,8 @@ namespace KopiLua
 
 		//#elif defined(LUA_WIN)		/* }{ */
 
-		private static Stream lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
-		private static int lua_pclose(lua_State L, Stream file)  { /*(void)L,*/ return _pclose(file); }
+		private static StreamProxy lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
+		private static int lua_pclose(lua_State L, StreamProxy file)  { /*(void)L,*/ return _pclose(file); }
 
 
 		//#else				/* }{ */
@@ -88,8 +88,8 @@ namespace KopiLua
 
 		//#else
 
-		private static int l_fseek(Stream f, long o, int w) { return fseek(f,o,w);}
-		private static int l_ftell(Stream f) { return ftell(f);}
+		private static int l_fseek(StreamProxy f, long o, int w) { return fseek(f,o,w);}
+		private static int l_ftell(StreamProxy f) { return ftell(f);}
 		//#define l_seeknum		long
 
 		//#endif
@@ -136,7 +136,7 @@ namespace KopiLua
 		}
 
 
-		private static Stream tofile (lua_State L) {
+		private static StreamProxy tofile (lua_State L) {
 		  LStream p = tolstream(L);
 		  if (isclosed(p))
 			luaL_error(L, "attempt to use a closed file");
@@ -251,7 +251,7 @@ namespace KopiLua
 		}
 
 
-		private static Stream getiofile (lua_State L, CharPtr findex) {
+		private static StreamProxy getiofile (lua_State L, CharPtr findex) {
 		  LStream p;
 		  lua_getfield(L, LUA_REGISTRYINDEX, findex);
 		  p = (LStream)lua_touserdata(L, -1);
@@ -338,7 +338,7 @@ namespace KopiLua
 		*/
 
 
-		private static int read_number (lua_State L, Stream f) {
+		private static int read_number (lua_State L, StreamProxy f) {
 		  //lua_Number d; //FIXME:???
 		  object[] parms = { (object)(double)0.0 }; //FIXME:???
 		  if (fscanf(f, LUA_NUMBER_SCAN, parms) == 1) {
@@ -352,7 +352,7 @@ namespace KopiLua
         }
 
 
-		private static int test_eof (lua_State L, Stream f) {
+		private static int test_eof (lua_State L, StreamProxy f) {
 		  int c = getc(f);
 		  ungetc(c, f);
 		  lua_pushlstring(L, null, 0);
@@ -360,7 +360,7 @@ namespace KopiLua
 		}
 
 
-		private static int read_line (lua_State L, Stream f, int chop) {
+		private static int read_line (lua_State L, StreamProxy f, int chop) {
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_buffinit(L, b);
 		  for (;;) {
@@ -384,7 +384,7 @@ namespace KopiLua
 
 		private const int MAX_SIZE_T = MAX_INT;//(~(size_t)0); //FIXME:changed;
 
-		private static void read_all (lua_State L, Stream f) {
+		private static void read_all (lua_State L, StreamProxy f) {
 		  uint rlen = LUAL_BUFFERSIZE;  /* how much to read in each cycle */
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_buffinit(L, b);
@@ -400,7 +400,7 @@ namespace KopiLua
 		}
 
 
-		private static int read_chars (lua_State L, Stream f, uint n) {
+		private static int read_chars (lua_State L, StreamProxy f, uint n) {
 		  uint nr;  /* number of chars actually read */
 		  CharPtr p;
 		  luaL_Buffer b = new luaL_Buffer();
@@ -413,7 +413,7 @@ namespace KopiLua
 		}
 
 
-		private static int g_read (lua_State L, Stream f, int first) {
+		private static int g_read (lua_State L, StreamProxy f, int first) {
 		  int nargs = lua_gettop(L) - 1;
 		  int success;
 		  int n;
@@ -503,7 +503,7 @@ namespace KopiLua
 		/* }====================================================== */
 
 
-		private static int g_write (lua_State L, Stream f, int arg) {
+		private static int g_write (lua_State L, StreamProxy f, int arg) {
 		  int nargs = lua_gettop(L) - arg;
 		  int status = 1;
 		  for (; (nargs--) != 0; arg++) {
@@ -529,7 +529,7 @@ namespace KopiLua
 
 
 		private static int f_write (lua_State L) {
-		  Stream f = tofile(L); 
+		  StreamProxy f = tofile(L); 
 		  lua_pushvalue(L, 1);  /* push file at the stack top (to be returned) */
 		  return g_write(L, f, 2);
 		}
@@ -538,7 +538,7 @@ namespace KopiLua
 		private readonly static int[] f_seek_mode = { SEEK_SET, SEEK_CUR, SEEK_END }; //FIXME: ???static const???
 		private readonly static CharPtr[] f_seek_modenames = { "set", "cur", "end", null }; //FIXME: ???static const???
 		private static int f_seek (lua_State L) {
-		  Stream f = tofile(L);
+		  StreamProxy f = tofile(L);
 		  int op = luaL_checkoption(L, 2, "cur", f_seek_modenames);
 		  lua_Number p3 = luaL_optnumber(L, 3, 0);
 		  l_seeknum offset = (l_seeknum)p3;
@@ -556,7 +556,7 @@ namespace KopiLua
 		private readonly static int[] f_setvbuf_mode = {_IONBF, _IOFBF, _IOLBF}; //FIXME: ???static const???
 		private readonly static CharPtr[] f_setvbuf_modenames = {"no", "full", "line", null}; //FIXME: ???static const???
 		private static int f_setvbuf (lua_State L) {
-		  Stream f = tofile(L);
+		  StreamProxy f = tofile(L);
 		  int op = luaL_checkoption(L, 2, null, f_setvbuf_modenames);
 		  lua_Integer sz = luaL_optinteger(L, 3, LUAL_BUFFERSIZE);
 		  int res = setvbuf(f, null, f_setvbuf_mode[op], (uint)sz);
@@ -632,7 +632,7 @@ namespace KopiLua
 		}
 
 
-		private static void createstdfile (lua_State L, Stream f, CharPtr k, 
+		private static void createstdfile (lua_State L, StreamProxy f, CharPtr k, 
 		                                   CharPtr fname) {
 		  LStream p = newprefile(L);
 		  p.f = f;

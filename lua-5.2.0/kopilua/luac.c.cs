@@ -3,6 +3,7 @@
 ** Lua compiler (saves bytecodes to files; also list bytecodes)
 ** See Copyright Notice in lua.h
 */
+#define LUA_CORE
 
 using System;
 using System.Collections.Generic;
@@ -179,7 +180,7 @@ namespace KopiLua
 		static int writer(Lua.lua_State L, Lua.CharPtr p, uint size, object u)
 		{
 		 //UNUSED(L);
-		 return ((Lua.fwrite(p,(int)size,1,(Stream)u)!=1) && (size!=0)) ? 1 : 0;
+		 return ((Lua.fwrite(p,(int)size,1,(Lua.StreamProxy)u)!=1) && (size!=0)) ? 1 : 0;
 		}
 
 
@@ -199,7 +200,7 @@ namespace KopiLua
 		 if (listing!=0) luaU_print(f,(listing>1)?1:0);
 		 if (dumping!=0)
 		 {
-		  Stream D= (output==null) ? Lua.stdout : Lua.fopen(output,"wb");
+		  Lua.StreamProxy D= (output==null) ? Lua.stdout : Lua.fopen(output,"wb");
 		  if (D==null) cannot("open");
 		  Lua.lua_lock(L);
 		  Lua.luaU_dump(L,f,writer,D,stripping);

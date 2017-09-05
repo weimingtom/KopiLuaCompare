@@ -11,6 +11,369 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
+		public const int TYPE_STDIN = 0;
+		public const int TYPE_STDOUT = 1;
+		public const int TYPE_STDERR = 2;
+		
+		public class StreamProxy 
+		{	
+			private Stream stream;
+			private int type = -1;
+			
+			public StreamProxy(int type)
+			{
+				this.type = type;
+			}
+			
+			public StreamProxy(Stream stream)
+			{
+				this.stream = stream;
+			}
+			
+			public void Write(byte[] buffer, int offset, int count)
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						libImpl.Write(type, buffer, offset, count);
+					}
+				}
+				else
+				{
+					if (this.stream != null)
+					{
+						this.stream.Write(buffer, offset, count);
+					}
+				}
+			}
+			
+			public int Read(byte[] buffer, int offset, int count)
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						return libImpl.Read(type, buffer, offset, count);
+					}
+					return 0;
+				}
+				else
+				{
+					if (stream != null)
+					{
+						return stream.Read(buffer, offset, count);
+					}
+					return 0;
+				}
+			}
+			
+			public int ReadByte()
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						return libImpl.ReadByte(type);
+					}
+					return 0;
+				}
+				else
+				{
+					if (this.stream != null)
+					{
+						return this.stream.ReadByte();
+					}
+					return 0;
+				}
+			}
+			
+			public void ungetc()
+			{
+				if (this.stream != null)
+				{
+					if (this.stream.Position > 0)
+					{
+						 this.stream.Seek(-1, SeekOrigin.Current);
+					}
+				}
+			}
+			
+			public bool isEof()
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						return libImpl.isEof(type);
+					}
+					return false;
+				}
+				else
+				{
+					if (this.stream != null)
+					{
+						return stream.Position >= stream.Length;
+					}
+					return true;
+				}
+			}
+			
+			public void close()
+			{
+				if (stream != null)
+				{
+					try
+					{
+						stream.Flush();
+						stream.Close();
+					}
+					catch { }
+				}
+			}
+			
+			public int flush()
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						libImpl.flush(type);
+					}
+					return 0;
+				}
+				else
+				{
+					int result = 0;
+					if (stream != null)
+					{
+						try
+						{
+							stream.Flush();
+						} 
+						catch 
+						{
+							result = 1;
+						}
+					}
+					else
+					{
+						result = 1;
+					}
+					return result;
+				}
+			}
+			
+			public int seek(long offset, int origin)
+			{
+				if (stream != null)
+				{
+					try
+					{
+						stream.Seek(offset, (SeekOrigin)origin);
+						return 0;
+					}
+					catch
+					{
+						return 1;
+					}
+				}
+				else
+				{
+					return 1;
+				}
+			}
+			
+			public long getPosition()
+			{
+				if (stream != null)
+				{
+					return stream.Position;
+				}
+				return 0;
+			}
+			
+			public void puts(string str)
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						libImpl.writeString(str.ToString());
+					}
+				}
+				else
+				{
+					if (this.stream != null)
+					{
+						byte[] byteArray = System.Text.Encoding.Default.GetBytes(str);
+						stream.Write(byteArray, 0, byteArray.Length);
+					}
+				}
+			}
+			
+			public string readline()
+			{
+				if (type >= 0)
+				{
+					if (libImpl != null)
+					{
+						return libImpl.readLine(type);
+					}
+					return null;
+				}
+				else
+				{
+					throw new System.NotImplementedException();
+				}
+			}
+		}
+		
+		public interface LibImpl
+		{
+			int ReadByte(int type);
+			int Read(int type, byte[] buffer, int offset, int count);
+			void Write(int type, byte[] buffer, int offset, int count);
+			bool isEof(int type);
+			void flush(int type);
+			void putchar(char ch);
+			void writeString(string str);
+			string readLine(int type);
+		}
+		private static LibImpl libImpl = new ConsoleLibImpl();
+		public static void setLibImpl(LibImpl _libImpl)
+		{
+			libImpl = _libImpl;
+		}
+		
+		public class ConsoleLibImpl : LibImpl
+		{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+
+#else
+			public static Stream stdout_ = Console.OpenStandardOutput();
+			public static Stream stdin_ = Console.OpenStandardInput();
+			public static Stream stderr_ = Console.OpenStandardError();
+#endif
+
+			public int ReadByte(int type)
+			{
+				if (type == TYPE_STDIN)
+				{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+
+#else
+					return stdin_.ReadByte();
+#endif
+				}
+				return 0;
+			}
+			public int Read(int type, byte[] buffer, int offset, int count)
+			{
+				if (type == TYPE_STDIN)
+				{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+
+#else
+					return stdin_.Read(buffer, offset, count);
+#endif
+				}
+				return 0;
+			}
+			public void Write(int type, byte[] buffer, int offset, int count)
+			{
+				if (type == TYPE_STDOUT)
+				{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+					string str = "";
+					for (int i = 0; i < count; i++)
+					{
+						char ch = (char)buffer[offset + i];
+						str += ch;
+					}
+					int n = -1;
+					for (int i = str.Length - 1; i >= 0; i--)
+					{
+						char ch = str[i];
+						if (ch != '\r' && ch != '\n')
+						{
+							n = i;
+							break;
+						}
+					}
+					if (n >= 0)
+					{
+						str = str.Substring(0, n+1);
+					}
+					else
+					{
+						str = "";
+					}
+					if (str.Length > 0)
+					{
+						UnityEngine.Debug.Log(str);
+					}
+#else
+					stdout_.Write(buffer, offset, count);
+#endif
+				}
+			}
+			public bool isEof(int type)
+			{
+				return false;
+			}
+			public void flush(int type)
+			{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+
+#else
+				if (type == TYPE_STDIN)
+				{
+					stdin_.Flush();
+				} 
+				else if (type == TYPE_STDOUT)
+				{
+					stdout_.Flush();
+				}
+				else if (type == TYPE_STDERR)
+				{
+					stderr_.Flush();
+				}
+#endif
+			}
+			public void putchar(char ch)
+			{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+				UnityEngine.Debug.Log(ch);
+#else
+				Console.Write(ch);
+#endif
+			}
+			public void writeString(string str)
+			{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+				UnityEngine.Debug.Log(str);
+#else
+				Console.Write(str);
+#endif
+			}
+			public string readLine(int type)
+			{
+				if (type == TYPE_STDIN)
+				{
+#if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
+
+#else
+					return Console.ReadLine();
+#endif
+				}
+				return null;
+			}
+		}
+		public static StreamProxy stdout = new StreamProxy(TYPE_STDOUT);
+		public static StreamProxy stdin = new StreamProxy(TYPE_STDIN);
+		public static StreamProxy stderr = new StreamProxy(TYPE_STDERR);
+		
 		// misc stuff needed for the compile
 
 		public static bool isalpha(char c) { return Char.IsLetter(c); }
@@ -117,12 +480,18 @@ namespace KopiLua
 
 		public static void putchar(char ch)
 		{
-			Console.Write(ch);
+			if (libImpl != null)
+			{
+				libImpl.putchar(ch);
+			}
 		}
 
 		public static void putchar(int ch)
 		{
-			Console.Write((char)ch);
+			if (libImpl != null)
+			{
+				libImpl.putchar((char)ch);
+			}
 		}
 
 		public static bool isprint(byte c)
@@ -191,7 +560,7 @@ namespace KopiLua
 			return strlen(buffer); //FIXME:added
 		}
 
-		public static int fprintf(Stream stream, CharPtr str, params object[] argv)
+		public static int fprintf(StreamProxy stream, CharPtr str, params object[] argv)
 		{
 			string result = Tools.sprintf(str.ToString(), argv);
 			char[] chars = result.ToCharArray();
@@ -483,33 +852,29 @@ namespace KopiLua
 			return (long)a % (long)b;
 		}
 
-		public static int getc(Stream f)
+		public static int getc(StreamProxy f)
 		{
 			return f.ReadByte();
 		}
 
-		public static void ungetc(int c, Stream f)
+		public static void ungetc(int c, StreamProxy f)
 		{
-			if (f.Position > 0)
-				f.Seek(-1, SeekOrigin.Current);
+			f.ungetc();
 		}
 
-		public static Stream stdout = Console.OpenStandardOutput();
-		public static Stream stdin = Console.OpenStandardInput();
-		public static Stream stderr = Console.OpenStandardError();
 		public static int EOF = -1;
 
-		public static void fputs(CharPtr str, Stream stream)
+		public static void fputs(CharPtr str, StreamProxy stream)
 		{
-			Console.Write(str.ToString());
+			stream.puts(str.ToString());
 		}
 
-		public static int feof(Stream s)
+		public static int feof(StreamProxy s)
 		{
-			return (s.Position >= s.Length) ? 1 : 0;
+			return (s.isEof()? 1 : 0);
 		}
 
-		public static int fread(CharPtr ptr, int size, int num, Stream stream)
+		public static int fread(CharPtr ptr, int size, int num, StreamProxy stream)
 		{
 			int num_bytes = num * size;
 			byte[] bytes = new byte[num_bytes];
@@ -526,7 +891,7 @@ namespace KopiLua
 			}
 		}
 
-		public static int fwrite(CharPtr ptr, int size, int num, Stream stream)
+		public static int fwrite(CharPtr ptr, int size, int num, StreamProxy stream)
 		{
 			int num_bytes = num * size;
 			byte[] bytes = new byte[num_bytes];
@@ -566,7 +931,7 @@ namespace KopiLua
 			}
 		}
 
-		public static CharPtr fgets(CharPtr str, Stream stream)
+		public static CharPtr fgets(CharPtr str, StreamProxy stream)
 		{
 			int index = 0;
 			try
@@ -615,7 +980,7 @@ namespace KopiLua
 			return str + index;
 		}
 
-		public static Stream fopen(CharPtr filename, CharPtr mode)
+		public static StreamProxy fopen(CharPtr filename, CharPtr mode)
 		{
 			string str = filename.ToString();			
 			FileMode filemode = FileMode.Open;
@@ -636,7 +1001,7 @@ namespace KopiLua
 				}
 			try
 			{
-				return new FileStream(str, filemode, fileaccess);
+				return new StreamProxy(new FileStream(str, filemode, fileaccess));
 			}
 			catch
 			{
@@ -644,15 +1009,9 @@ namespace KopiLua
 			}
 		}
 
-		public static Stream freopen(CharPtr filename, CharPtr mode, Stream stream)
+		public static StreamProxy freopen(CharPtr filename, CharPtr mode, StreamProxy stream)
 		{
-			try
-			{
-				stream.Flush();
-				stream.Close();
-			}
-			catch { }
-
+			stream.close();
 			return fopen(filename, mode);
 		}
 		
@@ -662,54 +1021,46 @@ namespace KopiLua
 //			stream.Flush();
 //		}
 
-		public static int ferror(Stream stream)
+		public static int ferror(StreamProxy stream)
 		{
 			return 0;	// todo: fix this - mjf
 		}
 
-		public static int fclose(Stream stream)
+		public static int fclose(StreamProxy stream)
 		{
-			stream.Close();
+			stream.close();
 			return 0;
 		}
 
-		public static Stream tmpfile()
+		public static StreamProxy tmpfile()
 		{
-			return new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite);
+			return new StreamProxy(new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite));
 		}
 
-		public static int fscanf(Stream f, CharPtr format, params object[] argp)
+		public static int fscanf(StreamProxy f, CharPtr format, params object[] argp)
 		{
-			string str = Console.ReadLine();
+			string str = f.readline();
 			return parse_scanf(str, format, argp);
 		}
 		
-		public static int fseek(Stream f, long offset, int origin)
+		public static int fseek(StreamProxy f, long offset, int origin)
 		{
-			try
-			{
-				f.Seek(offset, (SeekOrigin)origin);
-				return 0;
-			}
-			catch
-			{
-				return 1;
-			}
+			return f.seek(offset, origin);
 		}
 
 
-		public static int ftell(Stream f)
+		public static int ftell(StreamProxy f)
 		{
-			return (int)f.Position;
+			return (int)f.getPosition();
 		}
 
-		public static int clearerr(Stream f)
+		public static int clearerr(StreamProxy f)
 		{
 			//Debug.Assert(false, "clearerr not implemented yet - mjf");
 			return 0;
 		}
 
-		public static int setvbuf(Stream stream, CharPtr buffer, int mode, uint size)
+		public static int setvbuf(StreamProxy stream, CharPtr buffer, int mode, uint size)
 		{
 			Debug.Assert(false, "setvbuf not implemented yet - mjf");
 			return 0;
@@ -892,13 +1243,13 @@ namespace KopiLua
 			return Math.Log10(d);
 		}	
 
-		public static Stream _popen(CharPtr command, CharPtr type)
+		public static StreamProxy _popen(CharPtr command, CharPtr type)
 		{
 			//FIXME:not implemented
 			return null;
 		}
 		
-		public static int _pclose(Stream stream)
+		public static int _pclose(StreamProxy stream)
 		{
 			//FIXME:not implemented
 			return 0;
@@ -1019,18 +1370,9 @@ namespace KopiLua
 			return ticks;
 		}
 		
-		public static int fflush(Stream stream)
+		public static int fflush(StreamProxy stream)
 		{
-			int result = 0;
-			try 
-			{
-				stream.Flush();
-			} 
-			catch 
-			{
-				result = 1;
-			}
-			return result;
+			return stream.flush();
 		}
 		
 		public class lconv 

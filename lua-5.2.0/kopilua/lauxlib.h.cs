@@ -1,3 +1,5 @@
+#define LUA_COMPAT_MOD
+
 using System.IO;
 
 namespace KopiLua
@@ -130,7 +132,7 @@ namespace KopiLua
 
 
 		public class luaL_Stream {
-		  public Stream f;  /* stream (NULL for incompletely created streams) */
+		  public StreamProxy f;  /* stream (NULL for incompletely created streams) */
 		  public lua_CFunction closef;  /* to close stream (NULL for closed streams) */
 		};
 

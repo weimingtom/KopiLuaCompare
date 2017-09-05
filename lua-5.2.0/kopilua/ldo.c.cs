@@ -4,6 +4,8 @@
 ** See Copyright Notice in lua.h
 */
 
+#define CATCH_EXCEPTIONS
+
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -593,7 +595,7 @@ namespace KopiLua
 		  }
           L.nny = 1;  /* do not allow yields */
 		  L.nCcalls--;
-          lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : 0));
+          lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : (uint)0));
 		  lua_unlock(L);
 		  return status;
 		}

@@ -4,6 +4,8 @@
 ** See Copyright Notice in lua.h
 */
 
+#define LUA_CORE
+
 using System;
 using System.Collections.Generic;
 using System.Text;
