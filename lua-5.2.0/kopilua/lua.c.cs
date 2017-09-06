@@ -524,7 +524,7 @@ namespace KopiLua
 		}
 
 		//----------------------------------------
-		public const bool DEBUG = false;
+		public const bool DEBUG_ = false;
 		public static int docall_(Lua.lua_State L, int narg, int nres) {
 			int status;
 			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
@@ -536,47 +536,40 @@ namespace KopiLua
   			Lua.luai_writestringerror("%s\n", msg);
 		}
 		public static Lua.lua_State L_;
-		public static string dolua_(string message)
-		{
-			if (DEBUG)
-			{
+		public static string dolua_(string message) {
+			if (DEBUG_) {
 				Lua.fprintf(Lua.stdout, "%s\n", "==============>" + message);
 			}
-			if (L_ == null) 
-			{
+			if (L_ == null) {
 				L_ = Lua.luaL_newstate();
 				Lua.luaL_openlibs(L_);
 			}
 
-			if (DEBUG)
-			{
+			if (DEBUG_) {
 				Lua.fprintf(Lua.stdout, "%s\n", "==============>2");
 			}
 
-			string output = null;
+			string errorMessage = null;
 			bool printResult = true;
 			int status = Lua.luaL_loadbuffer(L_, message, (uint)Lua.strlen(message), "=stdin");
 			if (status == Lua.LUA_OK) {
-				if (DEBUG)
-				{
+				if (DEBUG_) {
 					Lua.fprintf(Lua.stdout, "%s\n", "==============>3");
 				}
 				status = docall_(L_, 0, printResult ? Lua.LUA_MULTRET : 0);
 			}
 			if ((status != Lua.LUA_OK) && !Lua.lua_isnil(L_, -1)) {
-				if (DEBUG)
-				{
+				if (DEBUG_) {
 					Lua.fprintf(Lua.stdout, "%s\n", "==============>4");
 				}
 				Lua.CharPtr msg = Lua.lua_tostring(L_, -1);
 				if (msg == null) msg = "(error object is not a string)";
-				output = msg.ToString();
+				errorMessage = msg.ToString();
 				Lua.lua_pop(L_, 1);
 				/* force a complete garbage collection in case of errors */
 				Lua.lua_gc(L_, Lua.LUA_GCCOLLECT, 0);
 			} 
-			if (printResult)
-			{
+			if (printResult) {
 				//see Lua.LUA_MULTRET
 				if (status == Lua.LUA_OK && Lua.lua_gettop(L_) > 0) {  /* any result to print? */
 					Lua.luaL_checkstack(L_, Lua.LUA_MINSTACK, "too many results to print");
@@ -588,22 +581,19 @@ namespace KopiLua
 											   Lua.lua_tostring(L_, -1)));
 				}
 			}
-
-			return output;
+			return errorMessage;
 		}		
 		
 		public static int Main_(string[] args) {
 			Lua.fprintf(Lua.stdout, "%s\n", "hello");
-			string result;
-			result = dolua_("a = 100");
-			if (result != null)
-			{
-				Lua.fprintf(Lua.stdout, "%s\n", result);
+			string errorMessage;
+			errorMessage = dolua_("a = 100");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
 			}
-			result = dolua_("print(a)");
-			if (result != null)
-			{
-				Lua.fprintf(Lua.stdout, "%s\n", result);
+			errorMessage = dolua_("print(a)");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
 			}
 			return 0;
 		}

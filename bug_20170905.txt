@@ -2,7 +2,7 @@ macro
 stdin,StreamProxy
 Dump
 for unity
-
+Main_, dolua_
 
 ----------------------
 
@@ -16,4 +16,4 @@ for unity
 * lua-5.2.0-20100206  
 * lua-5.2.0-alpha  
 * lua-5.2.0-beta  
-(x) lua-5.2.0  
+(x) lua-5.2.0 : 2017-09-05
