@@ -4,6 +4,10 @@
 ** See Copyright Notice in lua.h
 */
 
+#define LUA_CORE
+#define _WIN32
+#define LUA_COMPAT_MOD
+
 using System;
 using System.IO;
 using System.Collections.Generic;

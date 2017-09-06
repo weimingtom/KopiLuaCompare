@@ -482,6 +482,8 @@ namespace KopiLua
 
 
 		public static int Main(string[] args) {
+			//Main_(args);
+			
 			//FIXME: added
 			// prepend the exe name to the arg list as it's done in C
 			// so that we don't have to change any of the args indexing
@@ -509,5 +511,79 @@ namespace KopiLua
 			return (result != 0 && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
 		}
 
+		//----------------------------------------
+		public const bool DEBUG_ = false;
+		public static int docall_(Lua.lua_State L, int narg, int nres) {
+			int status;
+			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
+			status = Lua.lua_pcall(L, narg, nres, base_);
+			return status;
+		}
+		public static void l_message_(Lua.CharPtr pname, Lua.CharPtr msg) {
+			if (pname != null) Lua.luai_writestringerror("%s: ", pname);
+  			Lua.luai_writestringerror("%s\n", msg);
+		}
+		public static Lua.lua_State L_;
+		public static string dolua_(string message) {
+			if (DEBUG_) {
+				Lua.fprintf(Lua.stdout, "%s\n", "==============>" + message);
+			}
+			if (L_ == null) {
+				L_ = Lua.luaL_newstate();
+				Lua.luaL_openlibs(L_);
+			}
+
+			if (DEBUG_) {
+				Lua.fprintf(Lua.stdout, "%s\n", "==============>2");
+			}
+
+			string errorMessage = null;
+			bool printResult = true;
+			int status = Lua.luaL_loadbuffer(L_, message, (uint)Lua.strlen(message), "=stdin");
+			if (status == Lua.LUA_OK) {
+				if (DEBUG_) {
+					Lua.fprintf(Lua.stdout, "%s\n", "==============>3");
+				}
+				status = docall_(L_, 0, printResult ? Lua.LUA_MULTRET : 0);
+			}
+			if ((status != Lua.LUA_OK) && !Lua.lua_isnil(L_, -1)) {
+				if (DEBUG_) {
+					Lua.fprintf(Lua.stdout, "%s\n", "==============>4");
+				}
+				Lua.CharPtr msg = Lua.lua_tostring(L_, -1);
+				if (msg == null) msg = "(error object is not a string)";
+				errorMessage = msg.ToString();
+				Lua.lua_pop(L_, 1);
+				/* force a complete garbage collection in case of errors */
+				Lua.lua_gc(L_, Lua.LUA_GCCOLLECT, 0);
+			} 
+			if (printResult) {
+				//see Lua.LUA_MULTRET
+				if (status == Lua.LUA_OK && Lua.lua_gettop(L_) > 0) {  /* any result to print? */
+					Lua.luaL_checkstack(L_, Lua.LUA_MINSTACK, "too many results to print");
+				    Lua.lua_getglobal(L_, "print");
+					Lua.lua_insert(L_, 1);
+					if (Lua.lua_pcall(L_, Lua.lua_gettop(L_) - 1, 0, 0) != Lua.LUA_OK)
+						l_message_(progname, Lua.lua_pushfstring(L_,
+											   "error calling " + Lua.LUA_QL("print").ToString() + " (%s)",
+											   Lua.lua_tostring(L_, -1)));
+				}
+			}
+			return errorMessage;
+		}		
+		
+		public static int Main_(string[] args) {
+			Lua.fprintf(Lua.stdout, "%s\n", "hello");
+			string errorMessage;
+			errorMessage = dolua_("a = 100");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
+			}
+			errorMessage = dolua_("print(a)");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
+			}
+			return 0;
+		}
 	}
 }

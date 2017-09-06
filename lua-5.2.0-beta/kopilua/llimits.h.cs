@@ -6,6 +6,8 @@
 ** See Copyright Notice in lua.h
 */
 
+#define DEBUG
+
 using System;
 using System.Collections.Generic;
 using System.Text;

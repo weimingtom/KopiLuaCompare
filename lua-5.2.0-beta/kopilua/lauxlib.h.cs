@@ -1,3 +1,5 @@
+#define LUA_COMPAT_MOD
+
 namespace KopiLua
 {
 	using lua_Number = System.Double;

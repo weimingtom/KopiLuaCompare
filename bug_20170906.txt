@@ -1,0 +1,34 @@
+(1) 
+
+			public int seek(long offset, int origin)
+			{
+				if (stream != null)
+				{
+					try
+					{
+(SeekOrigin)xxx, not very good---->						stream.Seek(offset, (SeekOrigin)origin);
+						return 0;
+					}
+					catch
+					{
+						return 1;
+					}
+				}
+				else
+				{
+					return 1;
+				}
+			}
+
+(2) don't use PtrRef, it's a wrong class
+
+		/*
+		public class PtrRef : GCObjectRef
+		{
+			public PtrRef(GCObject obj) { this.obj = obj; }
+			public void set(GCObject value) { this.obj = value; }
+			public GCObject get() { return this.obj; }
+			GCObject obj;
+		}*/
+
+

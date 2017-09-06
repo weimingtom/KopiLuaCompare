@@ -4,6 +4,8 @@
 ** See Copyright Notice in lua.h
 */
 
+#define LUA_COMPAT_MOD
+
 #define lauxlib_c
 #define LUA_LIB
 
@@ -559,7 +561,7 @@ namespace KopiLua
 
 		public class LoadF {
 		  public int n;  /* number of pre-read characters */
-		  public Stream f;  /* file being read */
+		  public StreamProxy f;  /* file being read */
 		  public CharPtr buff = new char[LUAL_BUFFERSIZE];  /* area for reading file */
 		};
 

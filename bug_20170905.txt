@@ -1,8 +1,7 @@
 macro
 stdin,StreamProxy
-Dump
-for unity
-Main_, dolua_
+Dump (lvm.c)
+for unity, Main_, dolua_ (lua.c)
 
 ----------------------
 
@@ -15,5 +14,5 @@ Main_, dolua_
 * lua-5.2.0-20090702  
 * lua-5.2.0-20100206  
 * lua-5.2.0-alpha  
-* lua-5.2.0-beta  
+(x) lua-5.2.0-beta : 2017-09-06
 (x) lua-5.2.0 : 2017-09-05

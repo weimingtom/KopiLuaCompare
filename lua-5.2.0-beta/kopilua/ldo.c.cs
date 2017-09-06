@@ -4,6 +4,8 @@
 ** See Copyright Notice in lua.h
 */
 
+#define CATCH_EXCEPTIONS
+
 using System;
 using System.Collections.Generic;
 using System.Text;
