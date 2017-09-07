@@ -1,0 +1,551 @@
+KopiLua.zip
+->
+https://github.com/gerich-home/kopilua.git
+
+
+(1)
+remove 
+
+			// todo: remove this?
+			//private GCObject[] values = null;
+			//private int index = -1;
+
+		
+		/*
+		public class ArrayRef : GCObjectRef 
+		{
+			public ArrayRef(GCObject[] vals, int index)
+			{
+				this.vals = vals;
+				this.index = index;
+			}
+			public void set(GCObject value) { vals[index] = value; }
+			public GCObject get() { return vals[index]; }
+			GCObject[] vals;
+			int index;
+		}
+		 * */
+
+
+(2)
+						w = FormatNumber( "G", flagAlternate,
+										fieldLength, fieldPrecision, flagLeft2Right,
+										flagPositiveSign, flagPositiveSpace,
+										paddingCharacter, o );
+						defaultParamIx++;
+						break;
+					#endregion
+					#region p - pointer
+					case 'p':   // pointer
+						if ( o is IntPtr )
+#if XBOX || SILVERLIGHT
+							w = ( (IntPtr)o ).ToString();
+#else
+							w = "0x" + ( (IntPtr)o ).ToString( "x" );
+#endif
+						defaultParamIx++;
+						break;
+					#endregion
+					
+
+
+(3)
+					if ( IsPositive( Value, true ) )
+						w = ( PositiveSign ?
+								"+" : ( PositiveSpace ?
+										" " : ( FieldLength != int.MinValue ?
+												Padding.ToString() : String.Empty ) ) ) + w;
+->
+
+					if ( IsPositive( Value, true ) )
+						w = ( PositiveSign ?
+								"+" : ( PositiveSpace ? " " : String.Empty ) ) + w;
+								
+(4)
+	using ZIO = Lua.Zio;
+	
+
+(5)
+	public->internal
+	
+
+(6)
+			if (G(L).panic != null) {
+			  resetstack(L, errcode);
+			  lua_unlock(L);
+			  G(L).panic(L);
+			}
+#if XBOX
+			throw new ApplicationException();
+#else
+#if SILVERLIGHT
+            throw new SystemException();
+#else
+			Environment.Exit(EXIT_FAILURE);
+#endif
+#endif
+
+(7)
+-using System.Runtime.Serialization.Formatters.Binary;
+
+
+		public static void DumpMem(object b, DumpState D)
+		{
+#if XBOX || SILVERLIGHT
+			// todo: implement this - mjf
+--->			Debug.Assert(false);
+#else
+			int size = Marshal.SizeOf(b);
+			IntPtr ptr = Marshal.AllocHGlobal(size);
+			Marshal.StructureToPtr(b, ptr, false);
+			byte[] bytes = new byte[size];
+			Marshal.Copy(ptr, bytes, 0, size);
+			char[] ch = new char[bytes.Length];
+			for (int i = 0; i < bytes.Length; i++)
+				ch[i] = (char)bytes[i];
+			CharPtr str = ch;
+			DumpBlock(str, (uint)str.chars.Length, D);
+--->		Marshal.Release(ptr);
+#endif
+		}
+		
+(8)
+		private static int io_tmpfile (lua_State L) {
+		  FilePtr pf = newfile(L);
+#if XBOX
+		  luaL_error(L, "io_tmpfile not supported on Xbox360");
+#else
+		  pf.file = tmpfile();
+#endif
+		  return (pf.file == null) ? pushresult(L, 0, null) : 1;
+		}
+		
+
+(9)
++		internal static int cast_int(uint i) { return (int)i; }
+-		public static int cast_int(Instruction i) { return Convert.ToInt32(i); }
++		internal static int cast_int(ulong i) { return (int)(int)i; }
++		internal static lua_Number cast_num(uint i) { return (lua_Number)i; }
++		internal static lua_Number cast_num(ulong i) { return (lua_Number)i; }
+
+(10)
+
+		/*
+		** Union of all Lua values
+		*/
+		public struct Value {
+		  public GCObject gc;
+		  public object p;
+		  public lua_Number n;
+		  public int b;
+		};
+->
+
+
+		/*
+		** Union of all Lua values (in c# we use virtual data members and boxing)
+		*/
+		public class Value
+		{
+
+			// in the original code Value is a struct, so all assignments in the code
+			// need to be replaced with a call to Copy. as it turns out, there are only
+			// a couple. the vast majority of references to Value are the instance that
+			// appears in the TValue class, so if you make that a virtual data member and
+			// omit the set accessor then you'll get a compiler error if anything tries
+			// to set it.
+			public void Copy(Value copy)
+			{
+				this.p = copy.p;
+			}
+
+			public GCObject gc
+			{
+				get {return (GCObject)this.p;}
+				set {this.p = value;}
+			}
+			public object p;
+			public lua_Number n
+			{
+				get { return (lua_Number)this.p; }
+				set { this.p = (object)value; }
+			}
+			public int b
+			{
+				get { return (int)this.p; }
+				set { this.p = (object)value; }
+			}
+		};
+
+
+(11)
+
+			public lua_TValue()
+			{
+				this.values = null;
+				this.index = 0;
+				this.value = new Value();
+				this.tt = 0;
+			}
+
+			public lua_TValue(lua_TValue value)
+			{
+				this.values = value.values;
+				this.index = value.index;
+				this.value = value.value; // todo: do a shallow copy here
+				this.tt = value.tt;
+			}
+
+			public lua_TValue(lua_TValue[] values)
+			{
+				this.values = values;
+				this.index = Array.IndexOf(values, this);
+				this.value = new Value();
+				this.tt = 0;
+			}
+
+			public lua_TValue(Value value, int tt)
+			{
+				this.values = null;
+				this.index = 0;
+				this.value = value;
+				this.tt = tt;
+			}
+
+			public lua_TValue(lua_TValue[] values, Value value, int tt)
+			{
+				this.values = values;
+				this.index = Array.IndexOf(values, this);
+				this.value = value;
+				this.tt = tt;
+			}
+
+
+->
+
+			public lua_TValue()
+			{
+			}
+
+			public lua_TValue(lua_TValue copy)
+			{
+				this.values = copy.values;
+				this.index = copy.index;
+				this.value.Copy(copy.value);
+				this.tt = copy.tt;
+			}
+
+			public lua_TValue(Value value, int tt)
+			{
+			    this.values = null;
+			    this.index = 0;
+			    this.value.Copy(value);
+			    this.tt = tt;
+			}
+
+		  public Value value = new Value();
+		  public int tt;
+		};
+		
+(12)
+
+		public static void setobj(lua_State L, TValue obj1, TValue obj2) {
+			obj1.value = obj2.value;
+			obj1.tt = obj2.tt;
+			checkliveness(G(L), obj1);
+		}
+->
+
+		internal static void setobj(lua_State L, TValue obj1, TValue obj2) {
+			obj1.value.Copy(obj2.value);
+			obj1.tt = obj2.tt;
+			checkliveness(G(L), obj1);
+		}
+
+(13)
+
+		public class Node : ArrayElement
+		{
+			private Node[] values = null;
+			private int index = -1;
+
+			public void set_index(int index)
+			{
+				this.index = index;
+			}
+
+			public void set_array(object array)
+			{
+				this.values = (Node[])array;
+				Debug.Assert(this.values != null);
+			}
+
+--			public static int ids = 0;
+--			public int id = ids++;
+
+
+(14)
+		private static int os_execute (lua_State L) {
+#if XBOX || SILVERLIGHT
+			luaL_error(L, "os_execute not supported on XBox360");
+#else
+			CharPtr strCmdLine = "/C regenresx " + luaL_optstring(L, 1, null);
+			System.Diagnostics.Process proc = new System.Diagnostics.Process();
+			proc.EnableRaisingEvents=false;
+			proc.StartInfo.FileName = "CMD.exe";
+			proc.StartInfo.Arguments = strCmdLine.ToString();
+			proc.Start();
+			proc.WaitForExit();
+			lua_pushinteger(L, proc.ExitCode);
+#endif
+			return 1;
+		}
+		
+(15)
+		private static int os_tmpname (lua_State L) {
+#if XBOX
+		  luaL_error(L, "os_tmpname not supported on Xbox360");
+#else
+		  lua_pushstring(L, Path.GetTempFileName());
+#endif
+		  return 1;
+		}
+		
+
+(16)
+		private static int os_exit (lua_State L) {
+#if XBOX
+			luaL_error(L, "os_exit not supported on XBox360");
+#else
+#if SILVERLIGHT
+            throw new SystemException();
+#else
+			Environment.Exit(EXIT_SUCCESS);
+#endif
+#endif
+			return 0;
+		}
+
+(17)
+
+-		static Proto lastfunc;
+
+		private static void close_func (LexState ls) {
+		  lua_State L = ls.L;
+		  FuncState fs = ls.fs;
+		  Proto f = fs.f;
+-		  lastfunc = f;
+		  removevars(ls, 0);
+
+
+(18)
+		public static Proto luaY_parser (lua_State L, ZIO z, Mbuffer buff, CharPtr name) {
+		  LexState lexstate = new LexState();
+		  FuncState funcstate = new FuncState();
+		  lexstate.buff = buff;
+		  luaX_setinput(L, lexstate, z, luaS_new(L, name));
+		  open_func(lexstate, funcstate);
+		  funcstate.f.is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
+		  luaX_next(lexstate);  /* read first token */
++ 		  System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+		  chunk(lexstate);
+		  check(lexstate, (int)RESERVED.TK_EOS);
+		  close_func(lexstate);
+		  lua_assert(funcstate.prev == null);
+		  lua_assert(funcstate.f.nups == 0);
+		  lua_assert(lexstate.fs == null);
+		  return funcstate.f;
+		}
+		
+(19)
+remove
+
+
+		  // todo: fix this up
+		  // I'm treating newhash as a regular C# array, but I need to allocate a dummy array
+		  // so that the garbage collector behaves identical to the C version.
+		  //newhash = luaM_newvector<GCObjectRef>(L, newsize);
+
+
+(20)
+
+-using System.Runtime.Serialization.Formatters.Binary;
+
+
+remove
+
+		private static int writer (lua_State L, object b, uint size, object B)
+		{
+			if (b.GetType() != typeof(CharPtr))
+			{
+				using (MemoryStream stream = new MemoryStream())
+				{
+					// todo: figure out a way to do this
+--->					/*
+					BinaryFormatter formatter = new BinaryFormatter();
+					formatter.Serialize(stream, b);
+					stream.Flush();
+					byte[] bytes = stream.GetBuffer();
+					char[] chars = new char[bytes.Length];
+					for (int i = 0; i < bytes.Length; i++)
+						chars[i] = (char)bytes[i];
+					b = new CharPtr(chars);
+					 * */
+(21)
+		  gkey(mp).value = key.value; gkey(mp).tt = key.tt;
+->
+		  gkey(mp).value.Copy(key.value); gkey(mp).tt = key.tt;
+		  
+(22)
+
+		public static double lua_str2number(CharPtr s, out CharPtr end)
+		{			
+			end = new CharPtr(s.chars, s.index);
+			string str = "";
+			while (end[0] == ' ')
+				end = end.next();
+			while (number_chars.IndexOf(end[0]) >= 0)
+			{
+				str += end[0];
+				end = end.next();
+			}
+
+			try
+			{
+				return Convert.ToDouble(str.ToString());
+				
+->
+				return Convert.ToDouble(str.ToString(), Culture("en-US"));
+
+
+        private static IFormatProvider Culture(string p)
+        {
+#if SILVERLIGHT
+            return new CultureInfo(p);
+#else
+            return CultureInfo.GetCultureInfo(p);
+#endif
+        }
+
+
+
+(23)
+						case 's':
+							{
+								argp[parm_index++] = str;
+								break;
+							}
+						case 'c':
+							{
+								argp[parm_index++] = Convert.ToChar(str);
+								break;
+							}
+						case 'd':
+							{
+								argp[parm_index++] = Convert.ToInt32(str);
+								break;
+							}
+						case 'l':
+							{
+								argp[parm_index++] = Convert.ToDouble(str);
+								break;
+							}
+						case 'f':
+							{
+								argp[parm_index++] = Convert.ToDouble(str);
+								break;
+							}
+							
+->
+
+						case 'c':
+							{
+                                argp[parm_index++] = Convert.ToChar(str, Culture("en-US"));
+								break;
+							}
+						case 'd':
+							{
+                                argp[parm_index++] = Convert.ToInt32(str, Culture("en-US"));
+								break;
+							}
+						case 'l':
+							{
+                                argp[parm_index++] = Convert.ToDouble(str, Culture("en-US"));
+								break;
+							}
+						case 'f':
+							{
+                                argp[parm_index++] = Convert.ToDouble(str, Culture("en-US"));
+								break;
+							}
+							
+
+(24)
+
+#if XBOX || SILVERLIGHT
+		public static Stream stdout;
+		public static Stream stdin;
+		public static Stream stderr;
+#else
+		public static Stream stdout = Console.OpenStandardOutput();
+		public static Stream stdin = Console.OpenStandardInput();
+		public static Stream stderr = Console.OpenStandardError();
+#endif
+
+(25)
+
+		public static double frexp(double x, out int expptr)
+		{
+#if XBOX
+			expptr = (int)(Math.Log(x) / Math.Log(2)) + 1;
+#else
+			expptr = (int)Math.Log(x, 2) + 1;
+#endif
+			double s = x / Math.Pow(2, expptr);
+			return s;
+		}
+
+
+(26)
+
+#if !XBOX
+		public static Stream tmpfile()
+		{
+			return new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite);
+		}
+#endif
+
+(27)
+
+		public static object LoadMem(LoadState S, Type t, int n)
+		{
+#if SILVERLIGHT
+            List<object> array = new List<object>();
+            for (int i = 0; i < n; i++)
+                array.Add(LoadMem(S, t));
+            return array.ToArray();
+#else
+			ArrayList array = new ArrayList();
+			for (int i=0; i<n; i++)
+				array.Add(LoadMem(S, t));
+			return array.ToArray(t);
+#endif
+		}
+
+
+(28)
+
++	using ZIO = Lua.Zio;
+
+	public partial class Lua
+	{
+		public const int EOZ = -1;			/* end of stream */
+
+-		//public class ZIO : Zio { };
+
+
+	
+
+
+
+
