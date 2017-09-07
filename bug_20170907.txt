@@ -1,0 +1,25 @@
+(1) Ctrl+Z
+
+		public static CharPtr fgets(CharPtr str, Stream stream)
+		{
+			int index = 0;
+			try
+			{
+				while (true)
+				{
+					str[index] = (char)stream.ReadByte();
+					if (str[index] == '\n')
+						break;
++					if (str[index] == '\xffff') //Ctrl+Z
++						return null;
+					if (index >= str.chars.Length)
+						break;
+					index++;
+				}
+			}
+			catch
+			{
+			}
+			return str;
+		}
+		

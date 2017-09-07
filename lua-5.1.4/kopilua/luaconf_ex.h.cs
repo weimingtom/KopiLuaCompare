@@ -554,6 +554,8 @@ namespace KopiLua
 					str[index] = (char)stream.ReadByte();
 					if (str[index] == '\n')
 						break;
+					if (str[index] == '\xffff') //Ctrl+Z
+						return null;
 					if (index >= str.chars.Length)
 						break;
 					index++;
