@@ -1,0 +1,259 @@
+https://github.com/gerich-home/kopilua
+https://github.com/mlnlover11/KopiLua-v5.1.5
+
+(1)
+	w = String.Format( numberFormat, Value );
+	->
+	using System.Globalization;
+	w = String.Format(CultureInfo.InvariantCulture, numberFormat, Value );
+	
+(2)
+		public static void luaK_goiftrue (FuncState fs, expdesc e) {
+		  int pc;  /* pc of last jump */
+		  luaK_dischargevars(fs, e);
+		  switch (e.k) {
+			case expkind.VK: case expkind.VKNUM: case expkind.VTRUE: {
+			  pc = NO_JUMP;  /* always true; do nothing */
+			  break;
+			}
+-->			//case expkind.VFALSE: {
+			//  pc = luaK_jump(fs);  /* always jump */
+			//  break;
+			//}
+		private static void luaK_goiffalse (FuncState fs, expdesc e) {
+		  int pc;  /* pc of last jump */
+		  luaK_dischargevars(fs, e);
+		  switch (e.k) {
+			case expkind.VNIL: case expkind.VFALSE: {
+			  pc = NO_JUMP;  /* always false; do nothing */
+			  break;
+			}
+-->		//case expkind.VTRUE: {
+			//  pc = luaK_jump(fs);  /* always jump */
+			//  break;
+			//}
+(3)
+        private static int db_getfenv (lua_State L) {
++            luaL_checkany(L, 1);
+            
+(4)
+        private static StkId adjust_varargs (lua_State L, Proto p, int actual) {
+            int i;
+            int nfixargs = p.numparams;
+            Table htab = null;
+            StkId base_, fixed_;
+            for (; actual < nfixargs; ++actual)
+                setnilvalue(StkId.inc(ref L.top));
+            #if LUA_COMPAT_VARARG
+            if ((p.is_vararg & VARARG_NEEDSARG) != 0) { /* compat. with old-style vararg? */
+                int nvar = actual - nfixargs;  /* number of extra arguments */
+                lua_assert(p.is_vararg & VARARG_HASARG);
+                luaC_checkGC(L);
++                luaD_checkstack(L, p.maxstacksize);
+
+
+(5)
+		public static void luaC_step (lua_State L) {
+		  global_State g = G(L);
+		  l_mem lim = (l_mem)((GCSTEPSIZE / 100) * g.gcstepmul);
+		  if (lim == 0)
+			lim = (l_mem)((MAX_LUMEM-1)/2);  /* no limit */
+		  g.gcdept += g.totalbytes - g.GCthreshold;
+		  do {
+			lim -= singlestep(L);
+			if (g.gcstate == GCSpause)
+			  break;
+		  } while (lim > 0);
+		  if (g.gcstate != GCSpause) {
+			if (g.gcdept < GCSTEPSIZE)
+			  g.GCthreshold = g.totalbytes + GCSTEPSIZE;  /* - lim/g.gcstepmul;*/
+			else {
+			  g.gcdept -= GCSTEPSIZE;
+			  g.GCthreshold = g.totalbytes;
+			}
+		  }
+		  else {
+-->			//lua_assert(g.totalbytes >= g.estimate);
+			setthreshold(g);
+		  }
+		}
+ 
+(6)
+        private static int read_number (lua_State L, Stream f) {
+            //lua_Number d;
+            object[] parms = { (object)(double)0.0 };
+            if (fscanf(f, LUA_NUMBER_SCAN, parms) == 1)
+            {
+                lua_pushnumber(L, (double)parms[0]);
+                return 1;
+            }
+            else {
++                lua_pushnil(L);  /* "result" to be removed */
+                return 0;  /* read fails */
+            }
+
+        }
+
+
+
+(7)
+        public static TString luaX_newstring(LexState ls, CharPtr str, uint l)
+        {
+            lua_State L = ls.L;
+            TString ts = luaS_newlstr(L, str, l);
+            TValue o = luaH_setstr(L, ls.fs.h, ts);  /* entry for `str' */
+            if (ttisnil(o)) {
+                setbvalue(o, 1);  /* make sure `str' will not be collected */
++                luaC_checkGC(L);
+            }
+
+            return ts;
+        }
+        
+(8)
+        public static int luaopen_package (lua_State L) {
+            int i;
+            /* create new type _LOADLIB */
+            luaL_newmetatable(L, "_LOADLIB");
+            lua_pushcfunction(L, gctm);
+            lua_setfield(L, -2, "__gc");
+            /* create `package' table */
+            luaL_register(L, LUA_LOADLIBNAME, pk_funcs);
+            #if LUA_COMPAT_LOADLIB
+            lua_getfield(L, -1, "loadlib");
+            lua_setfield(L, LUA_GLOBALSINDEX, "loadlib");
+            #endif
+            lua_pushvalue(L, -1);
+            lua_replace(L, LUA_ENVIRONINDEX);
+            /* create `loaders' table */
+-->            //lua_createtable(L, 0, loaders.Length - 1);
+-->         lua_createtable(L, loaders.Length - 1, 0);
+-->            //lua_createtable(L, sizeof(loaders) / sizeof(loaders[0]) - 1, 0);
+            
+(9)
+		private static int os_date (lua_State L) {
+--->		  CharPtr s = new CharPtr(luaL_optstring(L, 1, "%c"));
+		  DateTime stm;
+		  if (s[0] == '!') {  /* UTC? */
+			stm = DateTime.UtcNow;
+			s.inc();  /* skip `!' */
+		  }
+		  
+(10)
+
+        private static void close_func (LexState ls) {
+            lua_State L = ls.L;
+            FuncState fs = ls.fs;
+            Proto f = fs.f;
+            removevars(ls, 0);
+            luaK_ret(fs, 0, 0);  /* final return */
+            luaM_reallocvector(L, ref f.code, f.sizecode, fs.pc/*, typeof(Instruction)*/);
+            f.sizecode = fs.pc;
+            luaM_reallocvector(L, ref f.lineinfo, f.sizelineinfo, fs.pc/*, typeof(int)*/);
+            f.sizelineinfo = fs.pc;
+            luaM_reallocvector(L, ref f.k, f.sizek, fs.nk/*, TValue*/);
+            f.sizek = fs.nk;
+            luaM_reallocvector(L, ref f.p, f.sizep, fs.np/*, Proto*/);
+            f.sizep = fs.np;
+            for (int i = 0; i < f.p.Length; i++)
+            {
+                f.p[i].protos = f.p;
+                f.p[i].index = i;
+            }
+            luaM_reallocvector(L, ref f.locvars, f.sizelocvars, fs.nlocvars/*, LocVar*/);
+            f.sizelocvars = fs.nlocvars;
+            luaM_reallocvector(L, ref f.upvalues, f.sizeupvalues, f.nups/*, TString*/);
+            f.sizeupvalues = f.nups;
+            lua_assert(luaG_checkcode(f));
+            lua_assert(fs.bl == null);
+            ls.fs = fs.prev;
+-
+            /* last token read was anchored in defunct function; must reanchor it */
+            if (fs!=null) anchor_token(ls);
++            L.top -= 2;  /* remove table and prototype from the stack */
+        }
+
+(11)
+        public static Proto luaY_parser (lua_State L, ZIO z, Mbuffer buff, CharPtr name) {
+            LexState lexstate = new LexState();
+            FuncState funcstate = new FuncState();
+            lexstate.buff = buff;
+            luaX_setinput(L, lexstate, z, luaS_new(L, name));
+            open_func(lexstate, funcstate);
+            funcstate.f.is_vararg = VARARG_ISVARARG;  /* main func. is always vararg */
+            luaX_next(lexstate);  /* read first token */
+-->            //System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+            chunk(lexstate);
+            check(lexstate, (int)RESERVED.TK_EOS);
+            close_func(lexstate);
+            lua_assert(funcstate.prev == null);
+            lua_assert(funcstate.f.nups == 0);
+            lua_assert(lexstate.fs == null);
+            return funcstate.f;
+        }
+        
+ (12)
+         private static int str_format (lua_State L) {
++            int top = lua_gettop(L);
+            int arg = 1;
+            
+                else
+                { /* format item */
+                    strfrmt = strfrmt.next();
+                    CharPtr form = new char[MAX_FORMAT];  /* to store the format (`%...') */
+                    CharPtr buff = new char[MAX_ITEM];  /* to store the formatted item */
+-->                    if (++arg > top)
+-->                     luaL_argerror(L, arg, "no value");
+
+
+(13)
+-->		public const string LUA_RELEASE = "Lua 5.1.5";
+		public const int LUA_VERSION_NUM	= 501;
+-->	public const string LUA_COPYRIGHT = "Copyright (C) 1994-2012 Lua.org, PUC-Rio";
+
+
+		/******************************************************************************
+-->		* Copyright (C) 1994-2012 Lua.org, PUC-Rio.  All rights reserved.
+
+
+(14)
+		public const string LUA_NUMBER_SCAN = "%lf";
+		public const string LUA_NUMBER_FMT = "%.14g";
+-->		public static CharPtr lua_number2str(double n) { return String.Format(CultureInfo.InvariantCulture, "{0}", n); }
+
+
+(15)
+        public static void luaV_settable (lua_State L, TValue t, TValue key, StkId val) {
+            int loop;
+            TValue temp = null;
+            for (loop = 0; loop < MAXTAGLOOP; loop++) {
+ -->               TValue tm;
+                if (ttistable(t)) {  /* `t' is a table? */
+                    Table h = hvalue(t);
+                    TValue oldval = luaH_set(L, h, key); /* do a primitive set */
+                    if (!ttisnil(oldval) ||  /* result is no nil? */
+                        (tm = fasttm(L, h.metatable, TMS.TM_NEWINDEX)) == null) { /* or no TM? */
+                        setobj2t(L, oldval, val);
+-->                        h.flags = 0;
+                        luaC_barriert(L, h, val);
+                        return;
+                    }
+                    /* else will try the tag method */
+                }
+                else if (ttisnil(tm = luaT_gettmbyobj(L, t, TMS.TM_NEWINDEX)))
+                    luaG_typeerror(L, t, "index");
+                if (ttisfunction(tm)) {
+                    callTM(L, tm, t, key, val);
+                    return;
+                }
+-->                //t = tm;
+-->                /* else repeat with `tm' */
+-->                // TODO: potential issue here, it occured all of one time.
+-->                setobj(L, temp, tm);  /* avoid pointing inside table (may rehash) */
+-->                t = temp;
+
+            }
+            luaG_runerror(L, "loop in settable");
+        }
+        
+        
