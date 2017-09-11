@@ -142,4 +142,30 @@ values is null --->				get { return values[index+offset]; }
 	lua-5.2.0 pending
 
 
+(9) no >> prompt
 
+example:
+Lua 5.2.0  Copyright (C) 1994-2011 Lua.org, PUC-Rio
+> print("hello
+stdin:1: unfinished string near '"hello'
+
+	lua-5.2.0 pending
+		static Lua.CharPtr get_prompt(Lua.lua_State L, int firstline) {
+			Lua.CharPtr p;
+			Lua.lua_getglobal(L, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
+			p = Lua.lua_tostring(L, -1);
+------>			if (p == null) p = ((firstline!=0) ? LUA_PROMPT : LUA_PROMPT2);
+			Lua.lua_pop(L, 1);  /* remove global */
+			return p;
+		}
+		static int incomplete(Lua.lua_State L, int status) {
+			if (status == Lua.LUA_ERRSYNTAX) {
+				uint lmsg;
+				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
+				if (lmsg >= marklen && Lua.strcmp(msg + lmsg - marklen, EOFMARK) == 0) {
+not enter---->					Lua.lua_pop(L, 1);
+					return 1;
+				}
+			}
+			return 0;  /* else... */
+		}
