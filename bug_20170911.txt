@@ -97,7 +97,7 @@ GetUnmanagedSize
 
 (6) exception no traceback ("stack traceback:")
 	luaL_traceback throw exception
-	lua-5.2.0 pending
+	lua-5.2.0 fixed
 
 solve:
 	base_ci[0] -> base_ci
@@ -136,5 +136,10 @@ values is null --->				get { return values[index+offset]; }
 (x)(7) seem not bug ??? 
 	static Lua.CharPtr progname = LUA_PROGNAME; // <---------------progname is null
 	lua-5.2.0 fixed(???)
+
+
+(8) sharpdevelop x86 arch
+	lua-5.2.0 pending
+
 
 
