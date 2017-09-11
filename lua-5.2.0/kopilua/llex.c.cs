@@ -387,7 +387,7 @@ namespace KopiLua
 		private static int llex (LexState ls, SemInfo seminfo) {
 		  luaZ_resetbuffer(ls.buff);
 		  for (;;) {
-			switch (ls.current) {
+		  	switch (ls.current) {
 			  case '\n': case '\r': {  /* line breaks */
 				inclinenumber(ls);
 				break;

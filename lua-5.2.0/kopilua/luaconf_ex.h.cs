@@ -876,7 +876,7 @@ namespace KopiLua
 			f.ungetc();
 		}
 
-		public static int EOF = -1;
+		public static int EOF = 0xffff; //-1; //FIXME:changed 
 
 		public static void fputs(CharPtr str, StreamProxy stream)
 		{
@@ -953,10 +953,19 @@ namespace KopiLua
 				while (true)
 				{
 					str[index] = (char)stream.ReadByte();
-					if (str[index] == '\n')
+					if (str[index] == '\r') 
+					{
+						str[index] = '\n';
+					} 
+					else if (str[index] == '\n')
+					{
+						str[index] = '\0';
 						break;
-					if (str[index] == '\xffff') //Ctrl+Z
+					}
+					else if (str[index] == '\xffff') //Ctrl+Z
+					{
 						return null;
+					}
 					if (index >= str.chars.Length)
 						break;
 					index++;

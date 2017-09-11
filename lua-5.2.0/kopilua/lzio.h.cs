@@ -2,13 +2,13 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
-		public const int EOZ = -1;			/* end of stream */
+		public const int EOZ = 0xffff; //-1;			/* end of stream */ //FIXME:changed here
 
 		public class ZIO : Zio { };
 
-		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = (byte)(z.p[0]);z.p.inc();return ch;} else return luaZ_fill(z); }
-		
+		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = (int)(z.p[0]);z.p.inc();return ch;} else { return luaZ_fill(z); }} //FIXME:(byte)->(int)		
 
+		
 		public class Mbuffer {
 		  public CharPtr buffer = new CharPtr();
 		  public uint n;

@@ -26,7 +26,7 @@ namespace KopiLua
 		    return EOZ;
 		  z.n = size - 1;  /* discount char being returned */
 		  z.p = new CharPtr(buff);
-		  int result = (byte)(z.p[0]); z.p.inc(); return result; //FIXME:changed
+		  int result = (int)(z.p[0]); z.p.inc(); return result; //FIXME:changed, (byte)->(int)
 		}
 
 

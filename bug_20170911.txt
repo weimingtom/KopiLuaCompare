@@ -143,13 +143,13 @@ values is null --->				get { return values[index+offset]; }
 
 
 (9) no >> prompt
+	lua-5.2.0 fixed
 
 example:
 Lua 5.2.0  Copyright (C) 1994-2011 Lua.org, PUC-Rio
 > print("hello
 stdin:1: unfinished string near '"hello'
 
-	lua-5.2.0 pending
 		static Lua.CharPtr get_prompt(Lua.lua_State L, int firstline) {
 			Lua.CharPtr p;
 			Lua.lua_getglobal(L, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
@@ -169,3 +169,85 @@ not enter---->					Lua.lua_pop(L, 1);
 			}
 			return 0;  /* else... */
 		}
+
+-----------------
+solve:
+
+(a)
+ 		/*
+ 		** add 1 to char to allow index -1 (EOZ)
+ 		*/
+-		public static int testprop(int c, int p) { return luai_ctype_[c+1] & p; }
++		public static int testprop(int c, int p) { if (c == EOZ) {c = -1;} return luai_ctype_[c+1] & p; } //FIXME:added, if (c == EOZ) {c = -1;}
+ 		
+(b)
+ 		private static int llex (LexState ls, SemInfo seminfo) {
+ 		  luaZ_resetbuffer(ls.buff);
+ 		  for (;;) {
+-			switch (ls.current) {
++		  	switch (ls.current) {
+ 			  case '\n': case '\r': {  /* line breaks */
+ 				inclinenumber(ls);
+ 				break;
+ 			  }
+ 			  case ' ': case '\f': case '\t': case '\v': {  /* spaces */
+
+(c)
+ 
+-		public static int EOF = -1;
++		public static int EOF = 0xffff; //-1; //FIXME:changed 
+
+(d)
+fgets
+
+ 			try
+ 			{
+ 				while (true)
+ 				{
+ 					str[index] = (char)stream.ReadByte();
+-					if (str[index] == '\n')
++					if (str[index] == '\r') 
++					{
++						str[index] = '\n';
++					} 
++					else if (str[index] == '\n')
++					{
++						str[index] = '\0';
+ 						break;
+-					if (str[index] == '\xffff') //Ctrl+Z
++					}
++					else if (str[index] == '\xffff') //Ctrl+Z
++					{
+ 						return null;
++					}
+ 					if (index >= str.chars.Length)
+ 						break;
+ 					index++;
+ 				}
+ 			}
+
+(e)
+-		  int result = (byte)(z.p[0]); z.p.inc(); return result; //FIXME:changed
++		  int result = (int)(z.p[0]); z.p.inc(); return result; //FIXME:changed, (byte)->(int)
+ 		}
+ 
+(f)
+ 	public partial class Lua
+ 	{
+-		public const int EOZ = -1;			/* end of stream */
++		public const int EOZ = 0xffff; //-1;			/* end of stream */ //FIXME:changed here
+ 
+ 		public class ZIO : Zio { };
+ 
+-		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = (byte)(z.p[0]);z.p.inc();return ch;} else return luaZ_fill(z); }
+-		
++		public static int zgetc(ZIO z) { if (z.n-- > 0) {int ch = (int)(z.p[0]);z.p.inc();return ch;} else { return luaZ_fill(z); }} //FIXME:(byte)->(int)		
+ 
++		
+ 		public class Mbuffer {
+ 		  public CharPtr buffer = new CharPtr();
+ 		  public uint n;
+ 		  public uint buffsize;
+ 		};
+
+ 

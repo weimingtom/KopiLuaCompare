@@ -55,7 +55,7 @@ namespace KopiLua
 		/*
 		** add 1 to char to allow index -1 (EOZ)
 		*/
-		public static int testprop(int c, int p) { return luai_ctype_[c+1] & p; }
+		public static int testprop(int c, int p) { if (c == EOZ) {c = -1;} return luai_ctype_[c+1] & p; } //FIXME:added, if (c == EOZ) {c = -1;}
 		
 		/*
 		** 'lalpha' (Lua alphabetic) and 'lalnum' (Lua alphanumeric) both include '_'
