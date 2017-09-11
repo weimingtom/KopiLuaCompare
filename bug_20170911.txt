@@ -1,0 +1,9 @@
+(1) return 0
+	lua-5.2.0
+
+
+GetUnmanagedSize
+...
++			else if (t == typeof(lua_Number))
++				return 8;
+
