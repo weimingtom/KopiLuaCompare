@@ -1393,5 +1393,18 @@ namespace KopiLua
 		{
 			return _lconv;
 		}
+		
+		public static void WriteLog(string strLog)
+		{
+		  	string sFileName = "log_" + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
+		  	FileMode mode = File.Exists(sFileName) ? FileMode.Append : FileMode.Create;
+		  	using (FileStream fs = new FileStream(sFileName, mode, FileAccess.Write))
+		  	{
+		  		using (StreamWriter sw = new StreamWriter(fs))
+		  		{
+			  		sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + "   ---   " + strLog);
+		  		}
+		  	}
+		}
 	}
 }

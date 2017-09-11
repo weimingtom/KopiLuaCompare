@@ -1,9 +1,47 @@
 (1) return 0
-	lua-5.2.0
+	lua-5.2.0 fixed
 
 
 GetUnmanagedSize
 ...
 +			else if (t == typeof(lua_Number))
 +				return 8;
+
+
+
+(2) log
+	lua-5.2.0 fixed
+
+		static void print_version() {
+		  Lua.luai_writestring(Lua.LUA_COPYRIGHT, (uint)Lua.strlen(Lua.LUA_COPYRIGHT)); //FIXME:changed, (uint)
+		  Lua.luai_writeline();
++		  Lua.WriteLog(">>>>print_version");
+		}
+		
+
+		static int loadline(Lua.lua_State L) {
+			int status;
+			Lua.lua_settop(L, 0);
+			if (pushline(L, 1)==0)
+				return -1;  /* no input */
+			for (;;) {  /* repeat until gets a complete line */
+			    uint l;
+			    Lua.CharPtr line = Lua.lua_tolstring(L, 1, out l);
++			    Lua.WriteLog(line.ToString());
+
+
+
++		public static void WriteLog(string strLog)
+		{
+		  	string sFileName = "log_" + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
+		  	FileMode mode = File.Exists(sFileName) ? FileMode.Append : FileMode.Create;
+		  	using (FileStream fs = new FileStream(sFileName, mode, FileAccess.Write))
+		  	{
+		  		using (StreamWriter sw = new StreamWriter(fs))
+		  		{
+			  		sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + "   ---   " + strLog);
+		  		}
+		  	}
+		}
+
 
