@@ -473,7 +473,7 @@ namespace KopiLua
 		private static void unroll (lua_State L, object ud) {
           //UNUSED(ud);
 		  for (;;) {
-		    if (L.ci == L.base_ci[0])  /* stack is empty? */
+		    if (L.ci == L.base_ci)  /* stack is empty? */
 		      return;  /* coroutine finished normally */
 		    if (isLua(L.ci)==0)  /* C function? */
 		      finishCcall(L);

@@ -48,19 +48,20 @@ GetUnmanagedSize
 	a = ""..nil
 	lua-5.2.0 pending
 	dotty dotty not work, not LUAI_THROW (LuaException)
+	luaL_traceback throw exception (see (6))
 	
-	
+(4)
 #if CATCH_EXCEPTIONS
+	lua-5.2.0 fixed
           catch (Exception e)
 		  {
 +          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
           	  Debug.WriteLine(e); //FIXME:added for debug
 
 	
-(4) retun a
-	lua-5.2.0 pending
+(5) retun a
+	lua-5.2.0 fixed
 	dotty dotty not work
-	static Lua.CharPtr progname = LUA_PROGNAME; // <---------------progname is null
 	
 			public void Write(int type, byte[] buffer, int offset, int count)
 			{
@@ -94,8 +95,46 @@ GetUnmanagedSize
 #endif
 
 
-(5) exception no traceback
+(6) exception no traceback ("stack traceback:")
+	luaL_traceback throw exception
+	lua-5.2.0 pending
+
+solve:
+	base_ci[0] -> base_ci
+
+	becuase base_ci is from new CallInfo(), not from luaM_realloc_, so don't use base_ci[0]
+>>>>>>>>>>>>>>>>>>>>>>	TODO:add detect code for 'values is null' error
+
+------------------
+error:
+
+		public class CallInfo : ArrayElement
+		{
+			private CallInfo[] values = null;
+			private int index = -1;
+
+			public void set_index(int index)
+			{
+				this.index = index;
+			}
+
+			public void set_array(object array)
+			{
+				this.values = (CallInfo[])array;
+				Debug.Assert(this.values != null);
+			}
+
+			public CallInfo this[int offset]
+			{
+values is null --->				get { return values[index+offset]; }
+			}
 
 
+
+
+	
+(x)(7) seem not bug ??? 
+	static Lua.CharPtr progname = LUA_PROGNAME; // <---------------progname is null
+	lua-5.2.0 fixed(???)
 
 
