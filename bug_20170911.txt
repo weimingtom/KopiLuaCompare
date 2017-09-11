@@ -44,4 +44,58 @@ GetUnmanagedSize
 		  	}
 		}
 
+(3) a = "hello"..nil
+	a = ""..nil
+	lua-5.2.0 pending
+	dotty dotty not work, not LUAI_THROW (LuaException)
+	
+	
+#if CATCH_EXCEPTIONS
+          catch (Exception e)
+		  {
++          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
+          	  Debug.WriteLine(e); //FIXME:added for debug
+
+	
+(4) retun a
+	lua-5.2.0 pending
+	dotty dotty not work
+	static Lua.CharPtr progname = LUA_PROGNAME; // <---------------progname is null
+	
+			public void Write(int type, byte[] buffer, int offset, int count)
+			{
+				if (type == TYPE_STDOUT)
+->
+			public void Write(int type, byte[] buffer, int offset, int count)
+			{
+				if (type == TYPE_STDOUT || type == TYPE_STDERR)
+...				
+
+					if (str.Length > 0)
+					{
+--->						if (type == TYPE_STDOUT)
+						{
+							UnityEngine.Debug.Log(str);
+						}
+						else if (type == TYPE_STDERR)
+						{
+							UnityEngine.Debug.LogError(str);
+						}
+					}
+#else
+--->				if (type == TYPE_STDOUT)
+					{
+						stdout_.Write(buffer, offset, count);
+					}
+					else if (type == TYPE_STDERR)
+					{
+						stderr_.Write(buffer, offset, count);
+					}					
+#endif
+
+
+(5) exception no traceback
+
+
+
 

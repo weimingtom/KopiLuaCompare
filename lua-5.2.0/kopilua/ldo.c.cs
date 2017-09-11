@@ -147,6 +147,7 @@ namespace KopiLua
 #if CATCH_EXCEPTIONS
           catch (Exception e)
 		  {
+          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
           	  Debug.WriteLine(e); //FIXME:added for debug
 		      if (lj.status == 0)
 		          lj.status = -1;

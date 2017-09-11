@@ -282,7 +282,7 @@ namespace KopiLua
 			}
 			public void Write(int type, byte[] buffer, int offset, int count)
 			{
-				if (type == TYPE_STDOUT)
+				if (type == TYPE_STDOUT || type == TYPE_STDERR)
 				{
 #if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
 					string str = "";
@@ -311,10 +311,24 @@ namespace KopiLua
 					}
 					if (str.Length > 0)
 					{
-						UnityEngine.Debug.Log(str);
+						if (type == TYPE_STDOUT)
+						{
+							UnityEngine.Debug.Log(str);
+						}
+						else if (type == TYPE_STDERR)
+						{
+							UnityEngine.Debug.LogError(str);
+						}
 					}
 #else
-					stdout_.Write(buffer, offset, count);
+					if (type == TYPE_STDOUT)
+					{
+						stdout_.Write(buffer, offset, count);
+					}
+					else if (type == TYPE_STDERR)
+					{
+						stderr_.Write(buffer, offset, count);
+					}					
 #endif
 				}
 			}
