@@ -1,4 +1,4 @@
-(1) 
+(1) for performance
 see https://gitee.com/weimingtom/lua-5.1.4_profile/blob/master/Lua/src/lcode.cs
 
 
