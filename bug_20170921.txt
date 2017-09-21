@@ -1,0 +1,16 @@
+(1) 
+see https://gitee.com/weimingtom/lua-5.1.4_profile/blob/master/Lua/src/lcode.cs
+
+
+		public static InstructionPtr Assign(InstructionPtr ptr)
+		{
+			if (ptr == null) return null;
+			return new InstructionPtr(ptr.codes, ptr.pc);
+		}
+-->
+		public static void Assign(InstructionPtr ptr, ref InstructionPtr target)
+		{
+			if (ptr == null) {target = null; return;}
+			if (target == null) {target = new InstructionPtr(ptr.codes, ptr.pc); return;}
+			target.codes = ptr.codes; target.pc = ptr.pc;
+		}
