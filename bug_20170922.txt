@@ -1,0 +1,99 @@
+(1) fgets port
+
+		//from https://github.com/UKMonkey/Psy/blob/master/Psy.Core/Platform.cs
+	    public enum PlatformType
+	    {
+	        Windows,
+	        Linux,
+	        MacOs
+	    }
+
+        public static PlatformType GetExecutingPlatform()
+        {
+            switch ((int)Environment.OSVersion.Platform)
+            {
+                case 4:
+                    return PlatformType.Linux;
+                case 6:
+                    return PlatformType.MacOs;
+                case 128:
+                    return PlatformType.Linux;
+                default:
+                    return PlatformType.Windows;
+            }
+        }
+		
+		public static CharPtr fgets(CharPtr str, StreamProxy stream)
+		{
+			int index = 0;
+			try
+			{
+				while (true)
+				{
+					str[index] = (char)stream.ReadByte();
+					
+					if (str[index] == '\r' || str[index] == '\n')
+					{
+						PlatformType type = GetExecutingPlatform();
+						if (type == PlatformType.Linux)
+						{
+							if (str[index] == '\r') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\n')
+							{
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}						
+						}
+						else if (type == PlatformType.MacOs)  //not tested
+						{
+							if (str[index] == '\n') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\r')
+							{
+								str[index] = '\n';
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}						
+						}
+						else
+						{
+							if (str[index] == '\r') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\n')
+							{
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}
+						}
+					}
+					else if (str[index] == '\xffff') //Ctrl+Z
+					{
+						return null;
+					}
+					if (index >= str.chars.Length)
+						break;
+					index++;
+				}
+			}
+			catch
+			{
+			}
+			return str;
+		}
+		
