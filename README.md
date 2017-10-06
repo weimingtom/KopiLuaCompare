@@ -45,7 +45,10 @@ https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md
 CSharp/Java port (done)    
 
 * https://github.com/weimingtom/kurumi    
-Java/Golang port (WIP)    
+Java/Golang port (WIP, not active)    
 
 * https://github.com/weimingtom/KuukoBack      
 Kuuko Csharp/Java port for KopiLuaCompare (WIP)    
+
+* https://github.com/weimingtom/kaleido  
+Kurumi golang port (WIP, planning)  
