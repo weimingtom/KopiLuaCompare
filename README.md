@@ -34,7 +34,7 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 ## Compare Tool  
 * Beyond Compare Version 3.0.11  
 
-## Ref  
+## References  
 * https://github.com/lua/lua  
 * https://github.com/gerich-home/kopilua  
 * https://github.com/jintiao/cclua  
