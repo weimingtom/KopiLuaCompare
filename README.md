@@ -8,17 +8,17 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 	——《孙子兵法始计篇》  
 
 ## Status    
-* lua-5.1.4 (done, 2017-03-04 update)  
-* lua-5.1.5 (done, 2017-05-12 update)  
-* lua-5.2.0-2007 (done, 2017-05-21 update)  
-* lua-5.2.0-20071029 (done, 2017-05-26 update)  
-* lua-5.2.0-2008 (done, 2017-05-28 update)  
-* lua-5.2.0-2009 (done, 2017-05-30 update)  
-* lua-5.2.0-20090702 (done, 2017-06-17 update)  
-* lua-5.2.0-20100206 (done, 2017-07-05 update)  
-* lua-5.2.0-alpha (done, 2017-07-17 update)  
-* lua-5.2.0-beta (done, 2017-08-05 update)  
-* lua-5.2.0 (done, 2017-08-16 update)  
+* lua-5.1.4 (done, since 2017-03-04)  
+* lua-5.1.5 (done, since 2017-05-12)  
+* lua-5.2.0-2007 (done, since 2017-05-21)  
+* lua-5.2.0-20071029 (done, since 2017-05-26)  
+* lua-5.2.0-2008 (done, since 2017-05-28)  
+* lua-5.2.0-2009 (done, since 2017-05-30)  
+* lua-5.2.0-20090702 (done, since 2017-06-17)  
+* lua-5.2.0-20100206 (done, since 2017-07-05)  
+* lua-5.2.0-alpha (done, since 2017-07-17)  
+* lua-5.2.0-beta (done, since 2017-08-05)  
+* lua-5.2.0 (done, since 2017-08-16)  
 * lua-5.3.4 (pending)  
 
 ## About status above    
