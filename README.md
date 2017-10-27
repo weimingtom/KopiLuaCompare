@@ -48,7 +48,7 @@ CSharp/Java port (done)
 Java/Golang port (WIP, not active)    
 
 * https://github.com/weimingtom/KuukoBack      
-Kuuko Csharp/Java port for KopiLuaCompare (WIP)    
+Kuuko Csharp/Java port for KopiLuaCompare (done)    
 
 * https://github.com/weimingtom/kaleido  
 Kurumi golang port (WIP, planning)  
