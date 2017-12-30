@@ -52,3 +52,6 @@ Kuuko Csharp/Java port for KopiLuaCompare (done)
 
 * https://github.com/weimingtom/kaleido  
 Kurumi golang port (WIP, planning)  
+
+* https://github.com/weimingtom/lua1mod  
+Lua 1.0 CSharp port (done)    
