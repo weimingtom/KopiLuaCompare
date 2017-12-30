@@ -8,6 +8,7 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 	——《孙子兵法始计篇》  
 
 ## Status (C -> CSharp)      
+* lua-1.0 (done, since 2017-12-23)  
 * lua-5.1.4 (done, since 2017-03-04)  
 * lua-5.1.5 (done, since 2017-05-12)  
 * lua-5.2.0-2007 (done, since 2017-05-21)  
