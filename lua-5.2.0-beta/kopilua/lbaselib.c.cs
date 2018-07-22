@@ -262,7 +262,7 @@ namespace KopiLua
 
 
 		private class loaddata {
-		  public char c;
+		  public char c = '\0';
 		  public CharPtr mode;
 		};
 

@@ -281,7 +281,7 @@ namespace KopiLua
 			}
 			public void Write(int type, byte[] buffer, int offset, int count)
 			{
-				if (type == TYPE_STDOUT)
+				if (type == TYPE_STDOUT || type == TYPE_STDERR)
 				{
 #if UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_5
 					string str = "";
@@ -310,10 +310,24 @@ namespace KopiLua
 					}
 					if (str.Length > 0)
 					{
-						UnityEngine.Debug.Log(str);
+						if (type == TYPE_STDOUT)
+						{
+							UnityEngine.Debug.Log(str);
+						}
+						else if (type == TYPE_STDERR)
+						{
+							UnityEngine.Debug.LogError(str);
+						}
 					}
 #else
-					stdout_.Write(buffer, offset, count);
+					if (type == TYPE_STDOUT)
+					{
+						stdout_.Write(buffer, offset, count);
+					}
+					else if (type == TYPE_STDERR)
+					{
+						stderr_.Write(buffer, offset, count);
+					}					
 #endif
 				}
 			}
@@ -498,6 +512,11 @@ namespace KopiLua
 			return (c >= (byte)' ') && (c <= (byte)127);
 		}
 
+		public static bool isprint(int c)
+		{
+			return (c >= ' ') && (c <= 127);
+		}		
+		
 		public static int parse_scanf(string str, CharPtr fmt, params object[] argp)
 		{
 			int parm_index = 0;
@@ -856,7 +875,7 @@ namespace KopiLua
 			f.ungetc();
 		}
 
-		public static int EOF = -1;
+		public static int EOF = 0xffff; //-1; //FIXME:changed 
 
 		public static void fputs(CharPtr str, StreamProxy stream)
 		{
@@ -925,6 +944,29 @@ namespace KopiLua
 			}
 		}
 
+		//from https://github.com/UKMonkey/Psy/blob/master/Psy.Core/Platform.cs
+	    public enum PlatformType
+	    {
+	        Windows,
+	        Linux,
+	        MacOs
+	    }
+
+        public static PlatformType GetExecutingPlatform()
+        {
+            switch ((int)Environment.OSVersion.Platform)
+            {
+                case 4:
+                    return PlatformType.Linux;
+                case 6:
+                    return PlatformType.MacOs;
+                case 128:
+                    return PlatformType.Linux;
+                default:
+                    return PlatformType.Windows;
+            }
+        }
+		
 		public static CharPtr fgets(CharPtr str, StreamProxy stream)
 		{
 			int index = 0;
@@ -933,8 +975,61 @@ namespace KopiLua
 				while (true)
 				{
 					str[index] = (char)stream.ReadByte();
-					if (str[index] == '\n')
-						break;
+					
+					if (str[index] == '\r' || str[index] == '\n')
+					{
+						PlatformType type = GetExecutingPlatform();
+						if (type == PlatformType.Linux)
+						{
+							if (str[index] == '\r') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\n')
+							{
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}						
+						}
+						else if (type == PlatformType.MacOs)  //not tested
+						{
+							if (str[index] == '\n') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\r')
+							{
+								str[index] = '\n';
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}						
+						}
+						else
+						{
+							if (str[index] == '\r') 
+							{
+								index--; //ignore
+							} 
+							else if (str[index] == '\n')
+							{
+								if (index >= str.chars.Length)
+									break;
+								index++;									
+								str[index] = '\0';
+								break;
+							}
+						}
+					}
+					else if (str[index] == '\xffff') //Ctrl+Z
+					{
+						return null;
+					}
 					if (index >= str.chars.Length)
 						break;
 					index++;
@@ -1188,8 +1283,6 @@ namespace KopiLua
 				return 272;
 			else if (t == typeof(stringtable))
 				return 12;
-			else if (t == typeof(FilePtr))
-				return 4;
 			else if (t == typeof(Udata))
 				return 24;
 			else if (t == typeof(Char))
@@ -1209,6 +1302,8 @@ namespace KopiLua
 			else if (t == typeof(LStream))
 				return 8;
 			else if (t == typeof(Labeldesc))
+				return 8;
+			else if (t == typeof(lua_Number))
 				return 8;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
@@ -1384,6 +1479,19 @@ namespace KopiLua
 		public static lconv localeconv()
 		{
 			return _lconv;
+		}
+		
+		public static void WriteLog(string strLog)
+		{
+		  	string sFileName = "log_" + DateTime.Now.ToString("yyyy-MM-dd") + ".log";
+		  	FileMode mode = File.Exists(sFileName) ? FileMode.Append : FileMode.Create;
+		  	using (FileStream fs = new FileStream(sFileName, mode, FileAccess.Write))
+		  	{
+		  		using (StreamWriter sw = new StreamWriter(fs))
+		  		{
+			  		sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + "   ---   " + strLog);
+		  		}
+		  	}
 		}
 	}
 }

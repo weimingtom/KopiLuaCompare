@@ -499,7 +499,7 @@ namespace KopiLua
 
 		public class LoadF {
 		  public int n;  /* number of pre-read characters */
-		  public Stream f;  /* file being read */
+		  public StreamProxy f;  /* file being read */
 		  public CharPtr buff = new char[LUAL_BUFFERSIZE];  /* area for reading file */
 		};
 
@@ -524,7 +524,7 @@ namespace KopiLua
 
 
 		private static int errfile (lua_State L, CharPtr what, int fnameindex) {
-		  CharPtr serr = strerror(errno());
+		  CharPtr serr = strerror(errno);
 		  CharPtr filename = lua_tostring(L, fnameindex) + 1;
 		  lua_pushfstring(L, "cannot %s %s: %s", what, filename, serr);
 		  lua_remove(L, fnameindex);

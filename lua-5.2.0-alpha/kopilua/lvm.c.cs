@@ -508,7 +508,8 @@ namespace KopiLua
 		//#define vmdispatch(o)	switch(o)
 		//#define vmcase(l,b)	case l: {b}  break;
 
-        //FIXME:added for debug //FIXME: not sync
+        //FIXME:added for debug //FIXME: not sync 
+        //FIXME:GETARG_xxx may be different from luac result, see INDEXK
 		internal static void Dump(int pc, Instruction i)
 		{
 			int A = GETARG_A(i);
@@ -516,15 +517,16 @@ namespace KopiLua
 			int C = GETARG_C(i);
 			int Bx = GETARG_Bx(i);
 			int sBx = GETARG_sBx(i);
+			int Ax = GETARG_Ax(i);
 			if ((sBx & 0x100) != 0)
 				sBx = - (sBx & 0xff);
 
-			Console.Write("{0,5} ({1,10}): ", pc, i);
-			Console.Write("{0,-10}\t", luaP_opnames[(int)GET_OPCODE(i)]);
+			fprintf(stdout, "%d (%d): ", pc, i);
+			fprintf(stdout, "%s\t", luaP_opnames[(int)GET_OPCODE(i)].ToString());
 			switch (GET_OPCODE(i))
 			{
 				case OpCode.OP_CLOSE:
-					Console.Write("{0}", A);
+					fprintf(stdout, "%d", A);
 					break;
 
 				case OpCode.OP_MOVE:
@@ -534,7 +536,9 @@ namespace KopiLua
 				case OpCode.OP_UNM:
 				case OpCode.OP_NOT:
 				case OpCode.OP_RETURN:
-					Console.Write("{0}, {1}", A, B);
+				case OpCode.OP_LEN:
+				case OpCode.OP_VARARG:
+					fprintf(stdout, "%d, %d", A, B);
 					break;
 
 				case OpCode.OP_LOADBOOL:
@@ -551,34 +555,43 @@ namespace KopiLua
 				case OpCode.OP_EQ:
 				case OpCode.OP_LT:
 				case OpCode.OP_LE:
-				case OpCode.OP_TEST:
+				case OpCode.OP_TESTSET:
 				case OpCode.OP_CALL:
 				case OpCode.OP_TAILCALL:
-					Console.Write("{0}, {1}, {2}", A, B, C);
-					break;
-
-				case OpCode.OP_LOADK:					
-					Console.Write("{0}, {1}", A, Bx);
-					break;
-
 				case OpCode.OP_GETTABUP:
 				case OpCode.OP_SETTABUP:
 				case OpCode.OP_SETLIST:
+					fprintf(stdout, "%d, %d, %d", A, B, C);
+					break;
+
+				case OpCode.OP_LOADK:					
+					fprintf(stdout, "%d, %d", A, Bx);
+					break;
+
 				case OpCode.OP_CLOSURE:
-					Console.Write("{0}, {1}", A, Bx);
+					fprintf(stdout, "%d, %d", A, Bx);
 					break;
 
-				case OpCode.OP_TFORLOOP:
-					Console.Write("{0}, {1}", A, C);
+				case OpCode.OP_TEST:
+				case OpCode.OP_TFORCALL:
+					fprintf(stdout, "%d, %d", A, C);
 					break;
 
-				case OpCode.OP_JMP:
 				case OpCode.OP_FORLOOP:
 				case OpCode.OP_FORPREP:
-					Console.Write("{0}, {1}", A, sBx);
+				case OpCode.OP_TFORLOOP:
+					fprintf(stdout, "%d, %d", A, sBx);
+					break;
+					
+				case OpCode.OP_JMP:
+					fprintf(stdout, "%d", sBx);
+					break;
+					
+				case OpCode.OP_EXTRAARG:
+					fprintf(stdout, "%d", Ax);
 					break;
 			}
-			Console.WriteLine();
+			fprintf(stdout, "\n");
 
 		}
 
@@ -610,7 +623,7 @@ namespace KopiLua
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
 			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
-			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
+			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
 				setobjs2s(L, ra, RB(L, base_, i));

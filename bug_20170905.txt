@@ -3,6 +3,127 @@ stdin,StreamProxy
 Dump (lvm.c)
 for unity, Main_, dolua_ (lua.c)
 
+------------------------------
+<1>. (luaconf_ex.h.cs)
+StreamProxy
+
+(luaxlib.c.cs)
+(liolib.c.cs)
+(loadlib.c.cs)
+(luac.c.cs)
+Stream->StreamProxy (**Stream** Only apear in luaconf_ex.h.cs)
+public class LoadF {
+public class luaL_Stream {
+
+
+------------------------------
+<2>. (lvm.c, compare lopcodes.h.cs)
+        //FIXME:added for debug //FIXME: not sync
+		internal static void Dump(int pc, Instruction i)
+		{
+...
+
+		}
+
+	
+	
+		public static void luaV_execute (lua_State L) {
+	...
+			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
+			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
+			
+			
+			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging	
+			
+------------------------------
+<3>. (lua.c)
+		public static int Main(string[] args) {
+			//Main_(args);
+			
+			//FIXME: added
+		....
+			
+			
+		//----------------------------------------
+		public const bool DEBUG_ = false;
+		public static int docall_(Lua.lua_State L, int narg, int nres) {
+			int status;
+			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
+			status = Lua.lua_pcall(L, narg, nres, base_);
+			return status;
+		}
+		public static void l_message_(Lua.CharPtr pname, Lua.CharPtr msg) {
+			if (pname != null) Lua.luai_writestringerror("%s: ", pname);
+  			Lua.luai_writestringerror("%s\n", msg);
+		}
+		public static Lua.lua_State L_;
+		public static string dolua_(string message) {
+			if (DEBUG_) {
+				Lua.fprintf(Lua.stdout, "%s\n", "==============>" + message);
+			}
+			if (L_ == null) {
+				L_ = Lua.luaL_newstate();
+				Lua.luaL_openlibs(L_);
+			}
+
+			if (DEBUG_) {
+				Lua.fprintf(Lua.stdout, "%s\n", "==============>2");
+			}
+
+			string errorMessage = null;
+			bool printResult = true;
+			int status = Lua.luaL_loadbuffer(L_, message, (uint)Lua.strlen(message), "=stdin");
+			if (status == Lua.LUA_OK) {
+				if (DEBUG_) {
+					Lua.fprintf(Lua.stdout, "%s\n", "==============>3");
+				}
+				status = docall_(L_, 0, printResult ? Lua.LUA_MULTRET : 0);
+			}
+			if ((status != Lua.LUA_OK) && !Lua.lua_isnil(L_, -1)) {
+				if (DEBUG_) {
+					Lua.fprintf(Lua.stdout, "%s\n", "==============>4");
+				}
+				Lua.CharPtr msg = Lua.lua_tostring(L_, -1);
+				if (msg == null) msg = "(error object is not a string)";
+				errorMessage = msg.ToString();
+				Lua.lua_pop(L_, 1);
+				/* force a complete garbage collection in case of errors */
+				Lua.lua_gc(L_, Lua.LUA_GCCOLLECT, 0);
+			} 
+			if (printResult) {
+				//see Lua.LUA_MULTRET
+				if (status == Lua.LUA_OK && Lua.lua_gettop(L_) > 0) {  /* any result to print? */
+					Lua.luaL_checkstack(L_, Lua.LUA_MINSTACK, "too many results to print");
+				    Lua.lua_getglobal(L_, "print");
+					Lua.lua_insert(L_, 1);
+					if (Lua.lua_pcall(L_, Lua.lua_gettop(L_) - 1, 0, 0) != Lua.LUA_OK)
+						l_message_(progname, Lua.lua_pushfstring(L_,
+											   "error calling " + Lua.LUA_QL("print").ToString() + " (%s)",
+											   Lua.lua_tostring(L_, -1)));
+				}
+			}
+			return errorMessage;
+		}	
+		
+		public static int Main_(string[] args) {
+			Lua.fprintf(Lua.stdout, "%s\n", "hello");
+			string errorMessage;
+			errorMessage = dolua_("a = 100");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
+			}
+			errorMessage = dolua_("print(a)");
+			if (errorMessage != null) {
+				Lua.fprintf(Lua.stdout, "%s\n", errorMessage);
+			}
+			return 0;
+		}
+
+------------------------------
+
+
+
+
 ----------------------
 
 * lua-5.1.4  
@@ -13,6 +134,8 @@ for unity, Main_, dolua_ (lua.c)
 * lua-5.2.0-2009  
 * lua-5.2.0-20090702  
 * lua-5.2.0-20100206  
-* lua-5.2.0-alpha  
-(x) lua-5.2.0-beta : 2017-09-06
-(x) lua-5.2.0 : 2017-09-05
+(y,y,y) lua-5.2.0-alpha  
+(y,y,y) lua-5.2.0-beta : 2017-09-06
+(y,y,y) lua-5.2.0 : 2017-09-05
+
+NOTE: luaconf_ex.h.cs should be same between two

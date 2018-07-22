@@ -15,10 +15,6 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
 
-	public class FilePtr
-	{
-		public Stream file;
-	}
 
 	public partial class Lua
 	{
