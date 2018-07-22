@@ -355,7 +355,7 @@ namespace KopiLua
 		//FIXME:simple implementations for saving time :(
 		private static void lua_number2int(out int i, lua_Number n) { i = (int)n; }
 		private static void lua_number2integer(out lua_Integer i, lua_Number n) { i = (lua_Integer)n; }
-		private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)n; }
+		private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)((lua_Integer)n & 0xffffffff); } //FIXME: ((lua_Unsigned)n) may be equal 0 under mono   
 		private static lua_Number lua_unsigned2number(lua_Unsigned u) { return (lua_Number)u; }
 		public static void luai_hashnum(out int i, lua_Number d) { int e;
 		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???

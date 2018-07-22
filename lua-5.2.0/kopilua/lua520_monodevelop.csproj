@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
+    <ProjectGuid>{5836AF75-E061-4D1C-B1BB-6BB6E7E34A4C}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Lua</RootNamespace>
+    <AssemblyName>Lua</AssemblyName>
+    <TargetFrameworkVersion>v4.7</TargetFrameworkVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x86' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug</OutputPath>
+    <DefineConstants>DEBUG;</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ExternalConsole>true</ExternalConsole>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x86' ">
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release</OutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+    <ExternalConsole>true</ExternalConsole>
+    <PlatformTarget>x86</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="lapi.c.cs" />
+    <Compile Include="lapi.h.cs" />
+    <Compile Include="lauxlib.c.cs" />
+    <Compile Include="lauxlib.h.cs" />
+    <Compile Include="lbaselib.c.cs" />
+    <Compile Include="lbitlib.c.cs" />
+    <Compile Include="lcode.c.cs" />
+    <Compile Include="lcode.h.cs" />
+    <Compile Include="lcode_ex.h.cs" />
+    <Compile Include="lcorolib.c.cs" />
+    <Compile Include="lctype.c.cs" />
+    <Compile Include="lctype.h.cs" />
+    <Compile Include="ldblib.c.cs" />
+    <Compile Include="ldebug.c.cs" />
+    <Compile Include="ldebug.h.cs" />
+    <Compile Include="ldo.c.cs" />
+    <Compile Include="ldo.h.cs" />
+    <Compile Include="ldump.c.cs" />
+    <Compile Include="lfunc.c.cs" />
+    <Compile Include="lfunc.h.cs" />
+    <Compile Include="lgc.c.cs" />
+    <Compile Include="lgc.h.cs" />
+    <Compile Include="linit.c.cs" />
+    <Compile Include="liolib.c.cs" />
+    <Compile Include="llex.c.cs" />
+    <Compile Include="llex.h.cs" />
+    <Compile Include="llimits.h.cs" />
+    <Compile Include="lmathlib.c.cs" />
+    <Compile Include="lmem.c.cs" />
+    <Compile Include="lmem.h.cs" />
+    <Compile Include="loadlib.c.cs" />
+    <Compile Include="lobject.c.cs" />
+    <Compile Include="lobject.h.cs" />
+    <Compile Include="lopcodes.c.cs" />
+    <Compile Include="lopcodes.h.cs" />
+    <Compile Include="loslib.c.cs" />
+    <Compile Include="lparser.c.cs" />
+    <Compile Include="lparser.h.cs" />
+    <Compile Include="lstate.c.cs" />
+    <Compile Include="lstate.h.cs" />
+    <Compile Include="lstring.c.cs" />
+    <Compile Include="lstring.h.cs" />
+    <Compile Include="lstrlib.c.cs" />
+    <Compile Include="ltable.c.cs" />
+    <Compile Include="ltable.h.cs" />
+    <Compile Include="ltablib.c.cs" />
+    <Compile Include="ltm.c.cs" />
+    <Compile Include="ltm.h.cs" />
+    <Compile Include="lua.c.cs" />
+    <Compile Include="lua.h.cs" />
+    <Compile Include="luac.c.cs" />
+    <Compile Include="luaconf.h.cs" />
+    <Compile Include="luaconf_ex.h.cs" />
+    <Compile Include="lualib.h.cs" />
+    <Compile Include="lundump.c.cs" />
+    <Compile Include="lundump.h.cs" />
+    <Compile Include="lvm.c.cs" />
+    <Compile Include="lvm.h.cs" />
+    <Compile Include="lzio.c.cs" />
+    <Compile Include="lzio.h.cs" />
+    <Compile Include="printf\Tools.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="printf" />
+  </ItemGroup>
+  <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
+</Project>

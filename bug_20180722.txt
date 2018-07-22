@@ -1,1 +1,12 @@
-replace Console.WriteLine() ... with printf
+(1) replace Console.WriteLine() ... with printf
+
+(2) bad conversion number->int; must recompile Lua with proper settings
+lua_number2unsigned
+-4660 -> 0
+
+
+private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)((lua_Integer)n & 0xffffffff); } //FIXME: ((lua_Unsigned)n) may be equal 0 under mono   
+		
+
+(3) check for arthmetic overflow/underflow
+
