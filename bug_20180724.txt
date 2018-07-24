@@ -1,0 +1,2 @@
+* run scimark.lua faild  
+https://github.com/weimingtom/KuukoBack/blob/master/kuuko/test/scimark/scimark.lua  
