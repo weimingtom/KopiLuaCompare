@@ -1,2 +1,3 @@
 * run scimark.lua faild  
+Lua.exe: scimark.lua:95: malformed number near '0x7fffffff'
 https://github.com/weimingtom/KuukoBack/blob/master/kuuko/test/scimark/scimark.lua  
