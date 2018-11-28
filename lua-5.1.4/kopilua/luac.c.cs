@@ -54,7 +54,7 @@ namespace KopiLua
 
 		static void cannot(Lua.CharPtr what)
 		{
-		 Lua.fprintf(Lua.stderr,"%s: cannot %s %s: %s\n",progname,what,output,Lua.strerror(Lua.errno()));
+		 Lua.fprintf(Lua.stderr,"%s: cannot %s %s: %s\n",progname,what,output,Lua.strerror(Lua.errno));
 		 Environment.Exit(Lua.EXIT_FAILURE);
 		}
 
@@ -160,7 +160,7 @@ namespace KopiLua
 		static int writer(Lua.lua_State L, Lua.CharPtr p, uint size, object u)
 		{
 		 //UNUSED(L);
-		 return ((Lua.fwrite(p,(int)size,1,(Stream)u)!=1) && (size!=0)) ? 1 : 0;
+		 return ((Lua.fwrite(p,(int)size,1,(Lua.StreamProxy)u)!=1) && (size!=0)) ? 1 : 0;
 		}
 
 		public class Smain {
@@ -185,7 +185,7 @@ namespace KopiLua
 		 if (listing!=0) Lua.luaU_print(f,(listing>1)?1:0);
 		 if (dumping!=0)
 		 {
-		  Stream D= (output==null) ? Lua.stdout : Lua.fopen(output,"wb");
+		  Lua.StreamProxy D= (output==null) ? Lua.stdout : Lua.fopen(output,"wb");
 		  if (D==null) cannot("open");
 		  Lua.lua_lock(L);
 		  Lua.luaU_dump(L,f,writer,D,stripping);

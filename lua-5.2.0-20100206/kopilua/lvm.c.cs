@@ -462,7 +462,7 @@ namespace KopiLua
 				}
 		      }
 
-        //FIXME:added for debug
+        //FIXME:added for debug //FIXME: not sync
 		internal static void Dump(int pc, Instruction i)
 		{
 			int A = GETARG_A(i);
@@ -559,7 +559,7 @@ namespace KopiLua
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
 			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
-			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
+			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging		
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
 				setobjs2s(L, ra, RB(L, base_, i));

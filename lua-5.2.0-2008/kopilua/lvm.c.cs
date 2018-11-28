@@ -407,6 +407,7 @@ namespace KopiLua
 				}
 		      }
 
+		//FIXME:added for debug //FIXME: not sync
 		internal static void Dump(int pc, Instruction i)
 		{
 			int A = GETARG_A(i);

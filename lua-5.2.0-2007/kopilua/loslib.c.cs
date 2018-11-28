@@ -21,7 +21,7 @@ namespace KopiLua
 	public partial class Lua
 	{
 		private static int os_pushresult (lua_State L, int i, CharPtr filename) {
-		  int en = errno();  /* calls to Lua API may change this value */
+		  int en = errno;  /* calls to Lua API may change this value */
 		  if (i != 0) {
 			lua_pushboolean(L, 1);
 			return 1;

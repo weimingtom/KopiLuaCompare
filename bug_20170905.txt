@@ -16,9 +16,12 @@ public class LoadF {
 public class luaL_Stream {
 
 
+
+remove : using System.IO
+
 ------------------------------
 <2>. (lvm.c, compare lopcodes.h.cs)
-        //FIXME:added for debug //FIXME: not sync
++        //FIXME:added for debug //FIXME: not sync
 		internal static void Dump(int pc, Instruction i)
 		{
 ...
@@ -32,14 +35,14 @@ public class luaL_Stream {
 			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
 			//Dump(L.savedpc.pc, i);	//FIXME:added, only for debugging	
 			
-			
+--->(after 2009)			
 			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging	
 			
 ------------------------------
 <3>. (lua.c)
 		public static int Main(string[] args) {
-			//Main_(args);
-			
++			//Main_(args);
++			
 			//FIXME: added
 		....
 			
@@ -126,14 +129,14 @@ public class luaL_Stream {
 
 ----------------------
 
-* lua-5.1.4  
-* lua-5.1.5  
-* lua-5.2.0-2007  
-* lua-5.2.0-20071029  
-* lua-5.2.0-2008  
-* lua-5.2.0-2009  
-* lua-5.2.0-20090702  
-* lua-5.2.0-20100206  
+(y,y,y) lua-5.1.4  
+(y,y,y) lua-5.1.5  
+(y,y,y) lua-5.2.0-2007  
+(y,y,y) lua-5.2.0-20071029  
+(y,y,y) lua-5.2.0-2008  
+(y,y,y) lua-5.2.0-2009  
+(y,y,y) lua-5.2.0-20090702  
+(y,y,y) lua-5.2.0-20100206  
 (y,y,y) lua-5.2.0-alpha  
 (y,y,y) lua-5.2.0-beta : 2017-09-06
 (y,y,y) lua-5.2.0 : 2017-09-05

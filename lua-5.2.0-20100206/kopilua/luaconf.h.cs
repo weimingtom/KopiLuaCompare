@@ -5,7 +5,6 @@
 */
 
 using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using System.Diagnostics;
@@ -395,38 +394,7 @@ namespace KopiLua
 		public const string LUA_NUMBER_FMT = "%.14g";
 		public static CharPtr lua_number2str(double n) { return String.Format("{0}", n); }
 		public const int LUAI_MAXNUMBER2STR = 32; /* 16 digits, sign, point, and \0 */
-
-		private const string number_chars = "0123456789+-eE.";
-		public static double lua_str2number(CharPtr s, out CharPtr end)
-		{			
-			end = new CharPtr(s.chars, s.index);
-			string str = "";
-			while (end[0] == ' ')
-				end = end.next();
-			while (number_chars.IndexOf(end[0]) >= 0)
-			{
-				str += end[0];
-				end = end.next();
-			}
-
-			try
-			{
-				return Convert.ToDouble(str.ToString());
-			}
-			catch (System.OverflowException)
-			{
-				// this is a hack, fix it - mjf
-				if (str[0] == '-')
-					return System.Double.NegativeInfinity;
-				else
-					return System.Double.PositiveInfinity;
-			}
-			catch
-			{
-				end = new CharPtr(s.chars, s.index);
-				return 0;
-			}
-		}
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
 
 
 		/*

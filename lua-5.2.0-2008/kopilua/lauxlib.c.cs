@@ -426,7 +426,7 @@ namespace KopiLua
 
 		public class LoadF {
 		  public int extraline;
-		  public Stream f;
+		  public StreamProxy f;
 		  public CharPtr buff = new char[LUAL_BUFFERSIZE];
 		};
 
@@ -447,7 +447,7 @@ namespace KopiLua
 
 
 		private static int errfile (lua_State L, CharPtr what, int fnameindex) {
-		  CharPtr serr = strerror(errno());
+		  CharPtr serr = strerror(errno);
 		  CharPtr filename = lua_tostring(L, fnameindex) + 1;
 		  lua_pushfstring(L, "cannot %s %s: %s", what, filename, serr);
 		  lua_remove(L, fnameindex);

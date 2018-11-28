@@ -335,7 +335,7 @@ namespace KopiLua
 
 
 		private static int readable (CharPtr filename) {
-		  Stream f = fopen(filename, "r");  /* try to open file */
+		  StreamProxy f = fopen(filename, "r");  /* try to open file */
 		  if (f == null) return 0;  /* open failed */
 		  fclose(f);
 		  return 1;

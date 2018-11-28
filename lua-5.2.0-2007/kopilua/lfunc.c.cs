@@ -104,7 +104,7 @@ namespace KopiLua
 		public static void luaF_close (lua_State L, StkId level) {
 		  UpVal uv;
 		  global_State g = G(L);
-		  while ((uv = ngcotouv(L.openupval)) != null && uv.v >= level) {
+		  while (L.openupval != null && (uv = ngcotouv(L.openupval)) != null && uv.v >= level) {
 			GCObject o = obj2gco(uv);
 			lua_assert(!isblack(o) && uv.v != uv.u.value);
 			L.openupval = uv.next;  /* remove from `open' list */

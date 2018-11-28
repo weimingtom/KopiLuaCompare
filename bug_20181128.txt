@@ -1,0 +1,52 @@
+(1) (fixed)
+lua-5.2.0-2007
+> os.exit(
+**crash**
+
+
+solve:
+
+public static void luaF_close (lua_State L, StkId level) {
+		  UpVal uv;
+		  global_State g = G(L);
+		
+		  while ((uv = ngcotouv(L.openupval)) != null && uv.v >= level) {
+-->
+		  while (L.openupval != null && (uv = ngcotouv(L.openupval)) != null && uv.v >= level) {
+		  
+
+(2) (fixed)
+lua-5.2.0-2008
+lua-5.2.0-20071029
+
+Lua 5.2.0  Copyright (C) 1994-2007 Lua.org, PUC-Rio
+> os.exit(
+stdin:1: unexpected symbol near '<eof>'
+
+
+solve:
+
+		/* mark in error messages for incomplete statements */
+		private static Lua.CharPtr mark	= "<eof>";
+---->
+		private static Lua.CharPtr mark	= Lua.LUA_QL("<eof>");
+
+...
+		private static int marklen = mark.chars.Length - 1; //FIXME:???
+
+		static int incomplete(Lua.lua_State L, int status)
+		{
+			if (status == Lua.LUA_ERRSYNTAX)
+			{
+				uint lmsg;
+				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
+				if (lmsg >= marklen && Lua.strcmp(msg + lmsg - marklen, mark) == 0) 
+				{
+					Lua.lua_pop(L, 1);
+					return 1;
+				}
+			}
+			return 0;  /* else... */
+		}
+		
+		

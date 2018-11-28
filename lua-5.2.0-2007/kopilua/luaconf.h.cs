@@ -525,38 +525,8 @@ namespace KopiLua
 		public const string LUA_NUMBER_FMT = "%.14g";
 		public static CharPtr lua_number2str(double n) { return String.Format("{0}", n); }
 		public const int LUAI_MAXNUMBER2STR = 32; /* 16 digits, sign, point, and \0 */
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
 
-		private const string number_chars = "0123456789+-eE.";
-		public static double lua_str2number(CharPtr s, out CharPtr end)
-		{			
-			end = new CharPtr(s.chars, s.index);
-			string str = "";
-			while (end[0] == ' ')
-				end = end.next();
-			while (number_chars.IndexOf(end[0]) >= 0)
-			{
-				str += end[0];
-				end = end.next();
-			}
-
-			try
-			{
-				return Convert.ToDouble(str.ToString());
-			}
-			catch (System.OverflowException)
-			{
-				// this is a hack, fix it - mjf
-				if (str[0] == '-')
-					return System.Double.NegativeInfinity;
-				else
-					return System.Double.PositiveInfinity;
-			}
-			catch
-			{
-				end = new CharPtr(s.chars, s.index);
-				return 0;
-			}
-		}
 
 		/*
 		@@ The luai_num* macros define the primitive operations over numbers.
@@ -724,8 +694,8 @@ namespace KopiLua
 
 		//#else
 
-		public static Stream lua_popen(lua_State L, CharPtr c, CharPtr m) { luaL_error(L, LUA_QL("popen") + " not supported"); return null; }
-		public static int lua_pclose(lua_State L, Stream file) { return 0; }
+		public static StreamProxy lua_popen(lua_State L, CharPtr c, CharPtr m) { luaL_error(L, LUA_QL("popen") + " not supported"); return null; }
+		public static int lua_pclose(lua_State L, StreamProxy file) { return 0; }
 	
 		//#endif
 
