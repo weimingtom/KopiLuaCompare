@@ -363,6 +363,7 @@ namespace KopiLua
 			GCheader header;
 		}
 
+		/*
 		public class PtrRef : GCObjectRef
 		{
 			public PtrRef(GCObject obj) { this.obj = obj; }
@@ -370,6 +371,15 @@ namespace KopiLua
 			public GCObject get() { return this.obj; }
 			GCObject obj;
 		}
+		*/
+		
+		public class TobefnzRef : GCObjectRef
+		{
+			public TobefnzRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.tobefnz = value; }
+			public GCObject get() { return this.g.tobefnz; }
+			global_State g;
+		}			
 		
 		
 		/* macros to convert a GCObject into a specific value */

@@ -1,0 +1,5 @@
+(1) Lua520_20090702_sharpdevelop
+
+> p
+>> (
+**crash**

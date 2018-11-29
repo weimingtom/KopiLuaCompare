@@ -20,6 +20,30 @@
 				}
 			}
 
+solve:
+			public int seek(long offset, int origin)
+			{
+				if (stream != null)
+				{
+					try
+					{
+						stream.Seek(offset, (SeekOrigin)origin);
+						return 0;
+					}
+					catch
+					{
+						return 1;
+					}
+				}
+				else
+				{
+					return 1;
+				}
+			}
+->
+
+
+
 (2) don't use PtrRef, it's a wrong class
 
 		/*
@@ -30,5 +54,42 @@
 			public GCObject get() { return this.obj; }
 			GCObject obj;
 		}*/
+
+
+----------------------
+
+--->(2)
+FIXED:(lua-5.2.0-20100206)
+		/*
+		public class PtrRef : GCObjectRef
+		{
+			public PtrRef(GCObject obj) { this.obj = obj; }
+			public void set(GCObject value) { this.obj = value; }
+			public GCObject get() { return this.obj; }
+			GCObject obj;
+		}
+		*/
+		
+		public class TobefnzRef : GCObjectRef
+		{
+			public TobefnzRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.tobefnz = value; }
+			public GCObject get() { return this.g.tobefnz; }
+			global_State g;
+		}	
+		
+
+----------------------
+(y,-) lua-5.1.4  
+(y,-) lua-5.1.5  
+(y,-) lua-5.2.0-2007  
+(y,-) lua-5.2.0-20071029  
+(y,-) lua-5.2.0-2008  
+(y,y) lua-5.2.0-2009  
+(y,y) lua-5.2.0-20090702  
+(y,y) lua-5.2.0-20100206  
+(y,y) lua-5.2.0-alpha  
+(y,y) lua-5.2.0-beta
+(y,y) lua-5.2.0
 
 

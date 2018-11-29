@@ -170,8 +170,23 @@ namespace KopiLua
 				{
 					try
 					{
-						stream.Seek(offset, (SeekOrigin)origin);
-						return 0;
+						switch (origin)
+						{
+							case SEEK_SET: 
+								stream.Seek(offset, SeekOrigin.Begin);
+								return 0;
+							
+							case SEEK_CUR:
+								stream.Seek(offset, SeekOrigin.Current);
+								return 0;
+							
+							case SEEK_END:
+								stream.Seek(offset, SeekOrigin.End);
+								return 0;
+							
+							default:
+								return 1;
+						}
 					}
 					catch
 					{

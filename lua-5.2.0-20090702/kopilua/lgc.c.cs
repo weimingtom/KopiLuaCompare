@@ -569,7 +569,7 @@ namespace KopiLua
 
 		private static void sweepthread (lua_State L, lua_State L1, int alive) {
 		  if (L1.stack == null) return;  /* stack not completely built yet */
-		  sweepwholelist(L, new PtrRef(L1.openupval));  /* sweep open upvalues */ //FIXME:???
+		  sweepwholelist(L, new OpenValRef(L1));  /* sweep open upvalues */ //FIXME:???
 		  if (L1.nci < LUAI_MAXCALLS)  /* not handling stack overflow? */
 		    luaE_freeCI(L1);  /* free extra CallInfo slots */
 		  /* should not change the stack during an emergency gc cycle */
@@ -685,9 +685,9 @@ namespace KopiLua
 		  uint deadmem = 0;  /* total size of all objects to be finalized */
 		  GCObjectRef p = new NextRef(g.mainthread);
 		  GCObject curr;
-		  GCObjectRef lastnext = new PtrRef(g.tobefnz); //FIXME:??????
+		  GCObjectRef lastnext = new TobefnzRef(g); //FIXME:??????
 		  /* find last 'next' field in 'tobefnz' list (to insert elements in its end) */
-		  while (lastnext.get() != null) lastnext = new PtrRef(gch(lastnext.get()).next);
+		  while (lastnext.get() != null) lastnext = new NextRef(gch(lastnext.get()));
 		  while ((curr = p.get()) != null) {  /* traverse all finalizable objects */
 		    lua_assert(ttisuserdata(gch(curr)) && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
@@ -700,7 +700,7 @@ namespace KopiLua
 		      /* link 'curr' at the end of 'tobefnz' list */
 		      gch(curr).next = lastnext.get();
 		      lastnext.set(curr);
-		      lastnext = new PtrRef(gch(curr).next);
+		      lastnext = new NextRef(gch(curr));
 		    }
 		  }
 		  return deadmem;
