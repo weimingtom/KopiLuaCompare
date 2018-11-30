@@ -145,6 +145,7 @@ namespace KopiLua
 #if CATCH_EXCEPTIONS
           catch (Exception e)
 		  {
+          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
           	  Debug.WriteLine(e); //FIXME:added for debug
 		      if (lj.status == 0)
 		          lj.status = -1;
@@ -166,7 +167,7 @@ namespace KopiLua
 		  L.top = L.stack[L.top - oldstack];
 		  for (up = L.openupval; up != null; up = up.gch.next)
 			gco2uv(up).v = L.stack[gco2uv(up).v - oldstack];
-		  for (ci = L.base_ci[0]; ci != null; ci = ci.previous) {
+		  for (ci = L.base_ci; ci != null; ci = ci.previous) {
 			  ci.top = L.stack[ci.top - oldstack];
 			ci.func = L.stack[ci.func - oldstack];
 		    if (isLua(ci))
@@ -453,7 +454,7 @@ namespace KopiLua
 		private static void unroll (lua_State L, object ud) {
           //UNUSED(ud);
 		  for (;;) {
-		    if (L.ci == L.base_ci[0])  /* stack is empty? */
+		    if (L.ci == L.base_ci)  /* stack is empty? */
 		      return;  /* coroutine finished normally */
 		    if (isLua(L.ci)==0)  /* C function? */
 		      finishCcall(L);

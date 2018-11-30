@@ -1297,6 +1297,8 @@ namespace KopiLua
 				return 4;
 			else if (t == typeof(Single))
 				return 4;			
+			else if (t == typeof(lua_Number))
+				return 8;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}

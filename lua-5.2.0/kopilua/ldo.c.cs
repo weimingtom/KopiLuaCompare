@@ -169,7 +169,7 @@ namespace KopiLua
 		  L.top = L.stack[L.top - oldstack];
 		  for (up = L.openupval; up != null; up = up.gch.next)
 			gco2uv(up).v = L.stack[gco2uv(up).v - oldstack];
-		  for (ci = L.base_ci[0]; ci != null; ci = ci.previous) {
+		  for (ci = L.base_ci; ci != null; ci = ci.previous) {
 			  ci.top = L.stack[ci.top - oldstack];
 			ci.func = L.stack[ci.func - oldstack];
 		    if (isLua(ci))

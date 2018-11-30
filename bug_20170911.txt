@@ -7,6 +7,19 @@ GetUnmanagedSize
 +			else if (t == typeof(lua_Number))
 +				return 8;
 
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702 <--- 
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 
 
 (2) log
@@ -44,11 +57,94 @@ GetUnmanagedSize
 		  	}
 		}
 
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702  <---------????
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
+
 (3) a = "hello"..nil
 	a = ""..nil
 	lua-5.2.0 pending
 	dotty dotty not work, not LUAI_THROW (LuaException)
 	luaL_traceback throw exception (see (6))
+
+
+another bugs:
+<lua-5.2.0-20090702>
+		private static void traversestack (global_State g, lua_State L) {
+		  StkId o;
+		  if (L.stack == null)
+		    return;  /* stack not completely built yet */
+		  markvalue(g, gt(L));  /* mark global table */
+****lua_TValue.inc(ref o) : System.IndexOutOfRangeException: --------------->		  for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
+		    markvalue(g, o);
+		  if (g.gcstate == GCSatomic) {  /* final traversal? */
+		  	for (; o <= L.stack_last; StkId.inc(ref o))  /* clear not-marked stack slice */
+		      setnilvalue(o);
+		  }
+		}
+		
+
+for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
+->
+for (o = new lua_TValue(L.stack); o < L.top; o = o + 1) //FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use lua_TValue.inc(), overflow ([-1])
+
+
+
+<lua-5.2.0-2009>
+<lua-5.2.0-20090702>
+		public static uint luaC_separateudata (lua_State L, int all) {
+		  global_State g = G(L);
+		  uint deadmem = 0;  /* total size of all objects to be finalized */
+		  GCObjectRef p = new NextRef(g.mainthread);
+		  GCObject curr;
+		  GCObjectRef lastnext = new TobefnzRef(g); //FIXME:??????
+		  /* find last 'next' field in 'tobefnz' list (to insert elements in its end) */
+		  while (lastnext.get() != null) lastnext = new NextRef(gch(lastnext.get()));
+		  while ((curr = p.get()) != null) {  /* traverse all finalizable objects */
+		    lua_assert(ttisuserdata(gch(curr)) && !isfinalized(gco2u(curr)));
+		    lua_assert(testbit(gch(curr).marked, SEPARATED));
+		    if (!(all != 0 || iswhite(curr)))  /* not being collected? */
+****---------->		    	p = new NextRef(gch(curr).next);  /* don't bother with it */
+		    else {
+		      l_setbit(ref gch(curr).marked, FINALIZEDBIT); /* won't be finalized again */
+		      deadmem += sizeudata(gco2u(curr));
+		      p.set(gch(curr).next);  /* remove 'curr' from 'rootgc' list */
+		      /* link 'curr' at the end of 'tobefnz' list */
+		      gch(curr).next = lastnext.get();
+		      lastnext.set(curr);
+		      lastnext = new NextRef(gch(curr));
+		    }
+		  }
+		  return deadmem;
+		}
+		
+p = new NextRef(gch(curr).next);  /* don't bother with it */
+->
+p = new NextRef(gch(curr));  /* don't bother with it */
+
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+() lua-5.2.0-2009    <--------???
+() lua-5.2.0-20090702  <--------???
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 	
 (4)
 #if CATCH_EXCEPTIONS
@@ -58,6 +154,20 @@ GetUnmanagedSize
 +          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
           	  Debug.WriteLine(e); //FIXME:added for debug
 
+
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702  
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 	
 (5) retun a
 	lua-5.2.0 fixed
@@ -94,6 +204,19 @@ GetUnmanagedSize
 					}					
 #endif
 
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702  
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 
 (6) exception no traceback ("stack traceback:")
 	luaL_traceback throw exception
@@ -129,18 +252,58 @@ error:
 values is null --->				get { return values[index+offset]; }
 			}
 
+search in ldo.c.cs, ldebug.c.cs
+all base_ci[0] after lua-5.2.0-2009 (see base_ci define in lstate.h.cs)
 
-
+----------------------
+(-) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007  
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  <--------???
+(y) lua-5.2.0-20090702  
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 
 	
 (x)(7) seem not bug ??? 
 	static Lua.CharPtr progname = LUA_PROGNAME; // <---------------progname is null
 	lua-5.2.0 fixed(???)
 
+----------------------
+(-) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007  
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  
+(-) lua-5.2.0-20090702  
+(-) lua-5.2.0-20100206  
+(-) lua-5.2.0-alpha  
+(-) lua-5.2.0-beta
+(-) lua-5.2.0
+----------------------
 
 (8) sharpdevelop x86 arch
 	lua-5.2.0 pending
 
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702  
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 
 (9) no >> prompt
 	lua-5.2.0 fixed
@@ -250,4 +413,21 @@ fgets
  		  public uint buffsize;
  		};
 
- 
+----------------------
+() lua-5.1.4  
+() lua-5.1.5  
+() lua-5.2.0-2007  
+() lua-5.2.0-20071029  
+() lua-5.2.0-2008  
+() lua-5.2.0-2009  
+() lua-5.2.0-20090702  
+() lua-5.2.0-20100206  
+() lua-5.2.0-alpha  
+() lua-5.2.0-beta
+() lua-5.2.0
+---------------------- 
+
+
+
+not done: (9) (3-done) (6-done)
+

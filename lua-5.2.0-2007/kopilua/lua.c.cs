@@ -125,6 +125,7 @@ namespace KopiLua
 		static void print_version()
 		{
 			l_message(null, Lua.LUA_RELEASE + "  " + Lua.LUA_COPYRIGHT);
+			Lua.WriteLog(">>>>print_version");
 		}
 
 
@@ -229,6 +230,8 @@ namespace KopiLua
 				return -1;  /* no input */
 			for (; ; )
 			{  /* repeat until gets a complete line */
+			    Lua.CharPtr line = Lua.lua_tostring(L, 1);
+			    Lua.WriteLog(line.ToString());
 				status = Lua.luaL_loadbuffer(L, Lua.lua_tostring(L, 1), Lua.lua_objlen(L, 1), "=stdin");
 				if (incomplete(L, status)==0) break;  /* cannot try to add lines? */
 				if (pushline(L, 0)==0)  /* no more input? */

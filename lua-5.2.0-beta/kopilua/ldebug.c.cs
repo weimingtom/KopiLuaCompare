@@ -70,9 +70,9 @@ namespace KopiLua
 		  CallInfo ci;
           if (level < 0) return 0;  /* invalid (negative) level */
 		  lua_lock(L);
-		  for (ci = L.ci; level > 0 && ci != L.base_ci[0]; ci = ci.previous)
+		  for (ci = L.ci; level > 0 && ci != L.base_ci; ci = ci.previous)
 			level--;
-		  if (level == 0 && ci != L.base_ci[0]) {  /* level found? */
+		  if (level == 0 && ci != L.base_ci) {  /* level found? */
 			status = 1;
 			ar.i_ci = ci;
 		  }

@@ -116,8 +116,10 @@ namespace KopiLua
 			  f(L, ud);
 		  }
 #if CATCH_EXCEPTIONS
-		  catch
+          catch (Exception e)
 		  {
+          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
+          	  Debug.WriteLine(e); //FIXME:added for debug
 		      if (lj.status == 0)
 		          lj.status = -1;
 		  }
@@ -461,7 +463,7 @@ namespace KopiLua
 		  StkId firstArg = (StkId)ud;
 		  CallInfo ci = L.ci;
 		  if (L.status == LUA_OK) {  /* start coroutine? */
-			lua_assert(ci == L.base_ci[0] && firstArg > L.base_);
+		  	lua_assert(ci == L.base_ci[0] && firstArg > L.base_);
 			if (luaD_precall(L, firstArg - 1, LUA_MULTRET) != 0)  /* C function? */
 			  return;  /* done */
 		  }

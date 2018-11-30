@@ -399,7 +399,7 @@ namespace KopiLua
 		  if (L.stack == null)
 		    return;  /* stack not completely built yet */
 		  markvalue(g, gt(L));  /* mark global table */
-		  for (o = new lua_TValue(L.stack); o < L.top; lua_TValue.inc(ref o)) //FIXME:L.stack->new StkId(L.stack[0])
+		  for (o = new lua_TValue(L.stack); o < L.top; o = o + 1) //FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use lua_TValue.inc(), overflow ([-1])
 		    markvalue(g, o);
 		  if (g.gcstate == GCSatomic) {  /* final traversal? */
 		  	for (; o <= L.stack_last; StkId.inc(ref o))  /* clear not-marked stack slice */
@@ -692,7 +692,7 @@ namespace KopiLua
 		    lua_assert(ttisuserdata(gch(curr)) && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
 		    if (!(all != 0 || iswhite(curr)))  /* not being collected? */
-		    	p = new NextRef(gch(curr).next);  /* don't bother with it */
+		    	p = new NextRef(gch(curr));  /* don't bother with it */
 		    else {
 		      l_setbit(ref gch(curr).marked, FINALIZEDBIT); /* won't be finalized again */
 		      deadmem += sizeudata(gco2u(curr));

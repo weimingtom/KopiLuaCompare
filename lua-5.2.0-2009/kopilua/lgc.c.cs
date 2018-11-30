@@ -666,7 +666,7 @@ namespace KopiLua
 		    lua_assert(ttisuserdata(gch(curr)) && !isfinalized(gco2u(curr)));
 		    lua_assert(testbit(gch(curr).marked, SEPARATED));
 		    if (!(all != 0 || iswhite(curr)))  /* not being collected? */
-		    	p = new NextRef(gch(curr).next);  /* don't bother with it */
+		    	p = new NextRef(gch(curr));  /* don't bother with it */
 		    else {
 		      l_setbit(ref gch(curr).marked, FINALIZEDBIT); /* won't be finalized again */
 		      deadmem += sizeudata(gco2u(curr));
