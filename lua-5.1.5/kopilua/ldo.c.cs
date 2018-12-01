@@ -281,7 +281,7 @@ namespace KopiLua
 			func = tryfuncTM(L, func);  /* check the `function' tag method */
 		  funcr = savestack(L, func);
 		  cl = clvalue(func).l;
-		  L.ci.savedpc = InstructionPtr.Assign(L.savedpc);
+		  InstructionPtr.Assign(L.savedpc, ref L.ci.savedpc);
 		  if (cl.isC==0) {  /* Lua function? prepare its call */
 			CallInfo ci;
 			StkId st, base_;
@@ -362,7 +362,7 @@ namespace KopiLua
 		  res = ci.func;  /* res == final position of 1st result */
 		  wanted = ci.nresults;
 		  L.base_ = (ci - 1).base_;  /* restore base */
-		  L.savedpc = InstructionPtr.Assign((ci - 1).savedpc);  /* restore savedpc */
+		  InstructionPtr.Assign((ci - 1).savedpc, ref L.savedpc);  /* restore savedpc */
 		  /* move results to correct place */
 		  for (i = wanted; i != 0 && firstResult < L.top; i--)
 		  {
@@ -485,7 +485,7 @@ namespace KopiLua
 			L.nCcalls = oldnCcalls;
 			L.ci = restoreci(L, old_ci);
 			L.base_ = L.ci.base_;
-			L.savedpc = InstructionPtr.Assign(L.ci.savedpc);
+			InstructionPtr.Assign(L.ci.savedpc, ref L.savedpc);
 			L.allowhook = old_allowhooks;
 			restore_stack_limit(L);
 		  }

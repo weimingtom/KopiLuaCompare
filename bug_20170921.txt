@@ -14,3 +14,30 @@ see https://gitee.com/weimingtom/lua-5.1.4_profile/blob/master/Lua/src/lcode.cs
 			if (target == null) {target = new InstructionPtr(ptr.codes, ptr.pc); return;}
 			target.codes = ptr.codes; target.pc = ptr.pc;
 		}
+
+----------------------
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  <---------------only 5 changes (from here below)
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009  
+(y) lua-5.2.0-20090702 <---------------no changes (???no use InstructionPtr.Assign())
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
+
+L.savedpc = InstructionPtr.Assign(pc);
+->
+InstructionPtr.Assign(pc, ref L.savedpc);
+
+
+-------------
+hidden bug:(maybe not fixed)
+
+from lua-5.2.0-20090702, not used InstructionPtr.Assign()
+for example:
+oci.u.l.savedpc = nci.u.l.savedpc;
+

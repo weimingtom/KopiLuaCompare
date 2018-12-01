@@ -12,10 +12,11 @@ namespace KopiLua
 		public InstructionPtr() { this.codes = null; ; this.pc = -1; }
 		public InstructionPtr(Instruction[] codes, int pc) {
 			this.codes = codes; this.pc = pc; }
-		public static InstructionPtr Assign(InstructionPtr ptr)
+		public static void Assign(InstructionPtr ptr, ref InstructionPtr target)
 		{
-			if (ptr == null) return null;
-			return new InstructionPtr(ptr.codes, ptr.pc);
+			if (ptr == null) {target = null; return;}
+			if (target == null) {target = new InstructionPtr(ptr.codes, ptr.pc); return;}
+			target.codes = ptr.codes; target.pc = ptr.pc;
 		}
 		public Instruction this[int index]
 		{

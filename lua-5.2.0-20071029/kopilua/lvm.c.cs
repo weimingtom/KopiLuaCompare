@@ -761,7 +761,7 @@ namespace KopiLua
 					  setobjs2s(L, func+aux, pfunc+aux);
 					ci.top = L.top = func+aux;  /* correct top */
 					lua_assert(L.top == L.base_ + clvalue(func).l.p.maxstacksize);
-					ci.savedpc = InstructionPtr.Assign(L.savedpc);
+					InstructionPtr.Assign(L.savedpc, ref ci.savedpc);
 					ci.tailcalls++;  /* one more call lost */
 					CallInfo.dec(ref L.ci);  /* remove new frame */
 					goto reentry;

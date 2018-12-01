@@ -56,3 +56,6 @@ Kurumi golang port (WIP, planning)
 
 * https://github.com/weimingtom/lua1mod  
 Lua 1.0 CSharp port (done)    
+
+* https://gitee.com/weimingtom/lua-5.1.4_profile  
+Lua 5.1.4 performance profile   

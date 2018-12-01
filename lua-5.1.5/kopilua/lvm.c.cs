@@ -53,8 +53,9 @@ namespace KopiLua
 
 		private static void traceexec (lua_State L, InstructionPtr pc) {
 		  lu_byte mask = L.hookmask;
-		  InstructionPtr oldpc = InstructionPtr.Assign(L.savedpc);
-		  L.savedpc = InstructionPtr.Assign(pc);
+		  InstructionPtr oldpc = new InstructionPtr();
+		  InstructionPtr.Assign(L.savedpc, ref oldpc);
+		  InstructionPtr.Assign(pc, ref L.savedpc);
 		  if (((mask & LUA_MASKCOUNT) != 0) && (L.hookcount == 0)) {
 			resethookcount(L);
 			luaD_callhook(L, LUA_HOOKCOUNT, -1);
@@ -376,7 +377,7 @@ namespace KopiLua
 				else
 				{
 					//Protect(
-					L.savedpc = InstructionPtr.Assign(pc);
+					InstructionPtr.Assign(pc, ref L.savedpc);
 					Arith(L, ra, rb, rc, tm);
 					base_ = L.base_;
 					//);
@@ -461,10 +462,10 @@ namespace KopiLua
 		  LClosure cl;
 		  StkId base_;
 		  TValue[] k;
-		  /*const*/ InstructionPtr pc;
+		  /*const*/ InstructionPtr pc = new InstructionPtr();
 		 reentry:  /* entry point */
 		  lua_assert(isLua(L.ci));		  
-		  pc = InstructionPtr.Assign(L.savedpc);		  
+		  InstructionPtr.Assign(L.savedpc, ref pc);		  
 		  cl = clvalue(L.ci.func).l;
 		  base_ = L.base_;
 		  k = cl.p.k;
@@ -520,20 +521,20 @@ namespace KopiLua
 				sethvalue(L, g, cl.env);
 				lua_assert(ttisstring(rb));
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_gettable(L, g, rb, ra);
 				  base_ = L.base_;
 				  //);
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_GETTABLE: {
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_gettable(L, RB(L, base_, i), RKC(L, base_, i, k), ra);
 				  base_ = L.base_;
 				  //);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_SETGLOBAL: {
@@ -541,11 +542,11 @@ namespace KopiLua
 				sethvalue(L, g, cl.env);
 				lua_assert(ttisstring(KBx(L, i, k)));
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_settable(L, g, KBx(L, i, k), ra);
 				  base_ = L.base_;
 				  //);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_SETUPVAL: {
@@ -556,11 +557,11 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_SETTABLE: {
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_settable(L, ra, RKB(L, base_, i, k), RKC(L, base_, i, k));
 				  base_ = L.base_;
 				  //);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_NEWTABLE: {
@@ -568,22 +569,22 @@ namespace KopiLua
 				int c = GETARG_C(i);
 				sethvalue(L, ra, luaH_new(L, luaO_fb2int(b), luaO_fb2int(c)));
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaC_checkGC(L);
 				  base_ = L.base_;
 				  //);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_SELF: {
 				StkId rb = RB(L, base_, i);
 				setobjs2s(L, ra + 1, rb);
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_gettable(L, rb, RKC(L, base_, i, k), ra);
 				  base_ = L.base_;
 				  //);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				continue;
 			  }
 			  case OpCode.OP_ADD: {
@@ -618,11 +619,11 @@ namespace KopiLua
 				}
 				else {
 				  //Protect(
-					L.savedpc = InstructionPtr.Assign(pc);
+					InstructionPtr.Assign(pc, ref L.savedpc);
 					Arith(L, ra, rb, rb, TMS.TM_UNM);
 					base_ = L.base_;
 					//);
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				}
 				continue;
 			  }
@@ -644,7 +645,7 @@ namespace KopiLua
 				  }
 				  default: {  /* try metamethod */
 					//Protect(
-					  L.savedpc = InstructionPtr.Assign(pc);
+					  InstructionPtr.Assign(pc, ref L.savedpc);
 					  if (call_binTM(L, rb, luaO_nilobject, ra, TMS.TM_LEN) == 0)
 						luaG_typeerror(L, rb, "get length of");
 					  base_ = L.base_;
@@ -658,7 +659,7 @@ namespace KopiLua
 				int b = GETARG_B(i);
 				int c = GETARG_C(i);
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  luaV_concat(L, c-b+1, c); luaC_checkGC(L);
 				  base_ = L.base_;
 				  //);
@@ -673,7 +674,7 @@ namespace KopiLua
 				TValue rb = RKB(L, base_, i, k);
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  if (equalobj(L, rb, rc) == GETARG_A(i))
 					dojump(L, pc, GETARG_sBx(pc[0]));
 				  base_ = L.base_;
@@ -683,7 +684,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_LT: {
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  if (luaV_lessthan(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) == GETARG_A(i))
 					dojump(L, pc, GETARG_sBx(pc[0]));
 				  base_ = L.base_;
@@ -693,7 +694,7 @@ namespace KopiLua
 			  }
 			  case OpCode.OP_LE: {
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 				  if (lessequal(L, RKB(L, base_, i, k), RKC(L, base_, i, k)) == GETARG_A(i))
 					dojump(L, pc, GETARG_sBx(pc[0]));
 				  base_ = L.base_;
@@ -720,7 +721,7 @@ namespace KopiLua
 				int b = GETARG_B(i);
 				int nresults = GETARG_C(i) - 1;
 				if (b != 0) L.top = ra + b;  /* else previous instruction set top */
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				switch (luaD_precall(L, ra, nresults)) {
 				  case PCRLUA: {
 					nexeccalls++;
@@ -740,7 +741,7 @@ namespace KopiLua
 			  case OpCode.OP_TAILCALL: {
 				int b = GETARG_B(i);
 				if (b != 0) L.top = ra + b;  /* else previous instruction set top */
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				lua_assert(GETARG_C(i) - 1 == LUA_MULTRET);
 				switch (luaD_precall(L, ra, LUA_MULTRET)) {
 				  case PCRLUA: {
@@ -755,7 +756,7 @@ namespace KopiLua
 					  setobjs2s(L, func+aux, pfunc+aux);
 					ci.top = L.top = func+aux;  /* correct top */
 					lua_assert(L.top == L.base_ + clvalue(func).l.p.maxstacksize);
-					ci.savedpc = InstructionPtr.Assign(L.savedpc);
+					InstructionPtr.Assign(L.savedpc, ref ci.savedpc);
 					ci.tailcalls++;  /* one more call lost */
 					CallInfo.dec(ref L.ci);  /* remove new frame */
 					goto reentry;
@@ -773,7 +774,7 @@ namespace KopiLua
 				int b = GETARG_B(i);
 				if (b != 0) L.top = ra+b-1;
 				if (L.openupval != null) luaF_close(L, base_);
-				L.savedpc = InstructionPtr.Assign(pc);
+				InstructionPtr.Assign(pc, ref L.savedpc);
 				b = luaD_poscall(L, ra);
 				if (--nexeccalls == 0)  /* was previous function running `here'? */
 				  return;  /* no: return */
@@ -800,7 +801,7 @@ namespace KopiLua
 				TValue init = ra;
 				TValue plimit = ra+1;
 				TValue pstep = ra+2;
-				L.savedpc = InstructionPtr.Assign(pc);  /* next steps may throw errors */
+				InstructionPtr.Assign(pc, ref L.savedpc);  /* next steps may throw errors */
 				if (tonumber(ref init, ra) == 0)
 				  luaG_runerror(L, LUA_QL("for") + " initial value must be a number");
 				else if (tonumber(ref plimit, ra+1)  == 0)
@@ -818,7 +819,7 @@ namespace KopiLua
 				setobjs2s(L, cb, ra);
 				L.top = cb+3;  /* func. + 2 args (state and index) */
 				//Protect(
-					L.savedpc = InstructionPtr.Assign(pc);
+					InstructionPtr.Assign(pc, ref L.savedpc);
 					luaD_call(L, cb, GETARG_C(i));
 					base_ = L.base_;
 				  //);
@@ -879,7 +880,7 @@ namespace KopiLua
 				}
 				setclvalue(L, ra, ncl);
 				//Protect(
-				  L.savedpc = InstructionPtr.Assign(pc);
+				  InstructionPtr.Assign(pc, ref L.savedpc);
 					luaC_checkGC(L);
 				  base_ = L.base_;
 				  //);
@@ -892,7 +893,7 @@ namespace KopiLua
 				int n = cast_int(ci.base_ - ci.func) - cl.p.numparams - 1;
 				if (b == LUA_MULTRET) {
 				  //Protect(
-					L.savedpc = InstructionPtr.Assign(pc);
+					InstructionPtr.Assign(pc, ref L.savedpc);
 					  luaD_checkstack(L, n);
 					base_ = L.base_;
 					//);
