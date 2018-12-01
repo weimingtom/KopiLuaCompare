@@ -2,7 +2,7 @@ namespace KopiLua
 {
 	public partial class Lua
 	{
-		public const int EOZ = -1;			/* end of stream */
+		public const int EOZ = 0xffff; //-1;			/* end of stream */ //FIXME:changed here
 
 		public class ZIO : Zio { };
 

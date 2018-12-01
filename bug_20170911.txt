@@ -343,6 +343,7 @@ solve:
 -		public static int testprop(int c, int p) { return luai_ctype_[c+1] & p; }
 +		public static int testprop(int c, int p) { if (c == EOZ) {c = -1;} return luai_ctype_[c+1] & p; } //FIXME:added, if (c == EOZ) {c = -1;}
  		
+-->done 		
 (b)
  		private static int llex (LexState ls, SemInfo seminfo) {
  		  luaZ_resetbuffer(ls.buff);
@@ -355,11 +356,14 @@ solve:
  			  }
  			  case ' ': case '\f': case '\t': case '\v': {  /* spaces */
 
+-->???
 (c)
  
 -		public static int EOF = -1;
 +		public static int EOF = 0xffff; //-1; //FIXME:changed 
 
+
+--->done
 (d)
 fgets
 
@@ -389,10 +393,15 @@ fgets
  				}
  			}
 
+
+-->done
 (e)
 -		  int result = (byte)(z.p[0]); z.p.inc(); return result; //FIXME:changed
 +		  int result = (int)(z.p[0]); z.p.inc(); return result; //FIXME:changed, (byte)->(int)
  		}
+
+-->done
+-->see here:		public static int char2int(char c) { return (int)c; } 
  
 (f)
  	public partial class Lua
@@ -413,21 +422,23 @@ fgets
  		  public uint buffsize;
  		};
 
+-->done
+
 ----------------------
-() lua-5.1.4  
-() lua-5.1.5  
-() lua-5.2.0-2007  
-() lua-5.2.0-20071029  
-() lua-5.2.0-2008  
-() lua-5.2.0-2009  
-() lua-5.2.0-20090702  
-() lua-5.2.0-20100206  
-() lua-5.2.0-alpha  
-() lua-5.2.0-beta
-() lua-5.2.0
+(y) lua-5.1.4  
+(y) lua-5.1.5  
+(y) lua-5.2.0-2007  
+(y) lua-5.2.0-20071029  
+(y) lua-5.2.0-2008  
+(y) lua-5.2.0-2009   <-----------no 'int testprop('
+(y) lua-5.2.0-20090702  
+(y) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
 ---------------------- 
 
 
 
-not done: (9) (3-done) (6-done)
+not done: (9-done) (3-done) (6-done)
 
