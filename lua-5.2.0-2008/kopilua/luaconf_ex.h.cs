@@ -430,6 +430,12 @@ namespace KopiLua
 
 		public static ulong strtoul(CharPtr s, out CharPtr end, int base_)
 		{
+			bool is_base_zero = false;
+			if (base_ == 0)
+			{
+				is_base_zero = true;
+				base_ = 10;
+			}
 			try
 			{
 				end = new CharPtr(s.chars, s.index);
@@ -439,10 +445,13 @@ namespace KopiLua
 					end = end.next();
 
 				// ignore any leading 0x
-				if ((end[0] == '0') && (end[1] == 'x'))
+				if ((end[0] == '0') && (end[1] == 'x')) {
+					end = end.next().next(); 
+					if (is_base_zero) base_ = 16;
+				} else if ((end[0] == '0') && (end[1] == 'X')) {
 					end = end.next().next();
-				else if ((end[0] == '0') && (end[1] == 'X'))
-					end = end.next().next();
+					if (is_base_zero) base_ = 16;
+				}
 
 				// do we have a leading + or - sign?
 				bool negate = false;
