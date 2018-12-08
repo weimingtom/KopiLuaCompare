@@ -534,7 +534,11 @@ avoid unreach code
 		
 
 
-
+workaround: (for lua-5.2.0-20100206)
+  function darray(n) return {} end
+->
+  function darray() return {} end
+  
 
 
 
