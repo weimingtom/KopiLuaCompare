@@ -90,68 +90,68 @@ namespace KopiLua
 		}
 
 
-		//#if !defined(lua_strx2number)
+//		#if !defined(lua_strx2number)
 
-		//#include <math.h>
-
-
-		//private static int isneg (const char **s) {
-		//  if (**s == '-') { (*s)++; return 1; }
-		//  else if (**s == '+') (*s)++;
-		//  return 0;
-		//}
+//		#include <math.h>
 
 
-		//private static lua_Number readhexa (const char **s, lua_Number r, int *count) {
-		//  while (lisxdigit(cast_uchar(**s))) {  /* read integer part */
-		//    r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(*(*s)++)));
-		//    (*count)++;
-		//  }
-		//  return r;
-		//}
+		private static int isneg (ref CharPtr s) {
+		  if (s[0] == '-') { s.inc(); return 1; }
+		  else if (s[0] == '+') s.inc();
+		  return 0;
+		}
+
+		private static lua_Number readhexa (ref CharPtr s, lua_Number r, ref int count) {
+		  while (lisxdigit(cast_uchar(s[0])) != 0) {  /* read integer part */
+			r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(s[0]))); s.inc();
+		    count++;
+		  }
+		  return r;
+		}
 
 
 		/*
 		** convert an hexadecimal numeric string to a number, following
 		** C99 specification for 'strtod'
 		*/
-//		private static lua_Number lua_strx2number (const char *s, char **endptr) {
-//		  lua_Number r = 0.0;
-//		  int e = 0, i = 0;
-//		  int neg = 0;  /* 1 if number is negative */
-//		  *endptr = cast(char *, s);  /* nothing is valid yet */
-//		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-//		  neg = isneg(&s);  /* check signal */
-//		  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
-//		    return 0.0;  /* invalid format (no '0x') */
-//		  s += 2;  /* skip '0x' */
-//		  r = readhexa(&s, r, &i);  /* read integer part */
-//		  if (*s == '.') {
-//		    s++;  /* skip dot */
-//		    r = readhexa(&s, r, &e);  /* read fractional part */
-//		  }
-//		  if (i == 0 && e == 0)
-//		    return 0.0;  /* invalid format (no digit) */
-//		  e *= -4;  /* each fractional digit divides value by 2^-4 */
-//		  *endptr = cast(char *, s);  /* valid up to here */
-//		  if (*s == 'p' || *s == 'P') {  /* exponent part? */
-//		    int exp1 = 0;
-//		    int neg1;
-//		    s++;  /* skip 'p' */
-//		    neg1 = isneg(&s);  /* signal */
-//		    if (!lisdigit(cast_uchar(*s)))
-//		      goto ret;  /* must have at least one digit */
-//		    while (lisdigit(cast_uchar(*s)))  /* read exponent */
-//		      exp1 = exp1 * 10 + *(s++) - '0';
-//		    if (neg1) exp1 = -exp1;
-//		    e += exp1;
-//		  }
-//		  *endptr = cast(char *, s);  /* valid up to here */
-//		 ret:
-//		  if (neg) r = -r;
-//		  return ldexp(r, e);
-//		}
-//
+		private static lua_Number lua_strx2number (CharPtr s, out CharPtr endptr) {
+		  lua_Number r = 0.0;
+		  int e = 0, i = 0;
+		  int neg = 0;  /* 1 if number is negative */
+		  endptr = (CharPtr)(s);  /* nothing is valid yet */
+		  while (lisspace(cast_uchar(s[0])) != 0) s.inc();  /* skip initial spaces */
+		  neg = isneg(ref s);  /* check signal */
+		  if (!(s[0] == '0' && (s[0 + 1] == 'x' || s[0 + 1] == 'X')))  /* check '0x' */
+		    return 0.0;  /* invalid format (no '0x') */
+		  s += 2;  /* skip '0x' */
+		  r = readhexa(ref s, r, ref i);  /* read integer part */
+		  if (s[0] == '.') {
+		  	s.inc();  /* skip dot */
+		    r = readhexa(ref s, r, ref e);  /* read fractional part */
+		  }
+		  if (i == 0 && e == 0)
+		    return 0.0;  /* invalid format (no digit) */
+		  e *= -4;  /* each fractional digit divides value by 2^-4 */
+		  endptr = (CharPtr)(s);  /* valid up to here */
+		  if (s[0] == 'p' || s[0] == 'P') {  /* exponent part? */
+		    int exp1 = 0;
+		    int neg1;
+		    s.inc();  /* skip 'p' */
+		    neg1 = isneg(ref s);  /* signal */
+		    if (0 == lisdigit(cast_uchar(s[0])))
+		      goto ret;  /* must have at least one digit */
+		    while (lisdigit(cast_uchar(s[0])) != 0) {  /* read exponent */
+		      exp1 = exp1 * 10 + s[0] - '0'; s.inc();
+		    }
+		    if (neg1 != 0) exp1 = -exp1;
+		    e += exp1;
+		  }
+		  endptr = (CharPtr)(s);  /* valid up to here */
+		 ret:
+		  if (neg != 0) r = -r;
+		  return ldexp(r, e);
+		}
+
 //		#endif
 
 

@@ -104,7 +104,7 @@ namespace KopiLua
 
 		private static lua_Number readhexa (ref CharPtr s, lua_Number r, ref int count) {
 		  for (; lisxdigit(cast_uchar(s[0])) != 0; s.inc()) {  /* read integer part */
-			r = (r * 16.0) + cast_num(luaO_hexavalue(s[0] & 0xff));
+			r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(s[0]))); s.inc();
 		    count++;
 		  }
 		  return r;

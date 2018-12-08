@@ -93,7 +93,7 @@ namespace KopiLua
 
 
 		/* list of all active local variables */
-		public struct Varlist {
+		public class Varlist {
 		  public vardesc[] actvar;
 		  public int nactvar;
 		  public int actvarsize;

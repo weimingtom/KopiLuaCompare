@@ -20,6 +20,19 @@ llimits.h
 +			}
 +		} //FIXME:???remove?
 
+----------->>>>>
+
+		public static byte cast_uchar(object i) { 
+			if (i is char) 
+			{
+				return (byte)(((char)i) & 0xff);
+			}
+			else
+			{
+				return (byte)((int)i & 0xff);
+			}
+		} //FIXME:???remove?
+
 
 (b)
 lobject.c
@@ -213,6 +226,11 @@ lobject.c
 
 //		#endif
 
+
+
+----------->>>>>>>>>>>>
+
+r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(s[0]))); s.inc();
  
  (c)
 ltablib.c 
@@ -247,5 +265,199 @@ ltablib.c
  		/*
  		@@ The luai_num* macros define the primitive operations over numbers.
 
+--------------------
+(e) (for 5.2.0-beta) Error: FFT data length is not a power of 2
+> return 3 == 4
+true
+
+		public static int GETARG_A(Instruction i)
+		{
+
+solve:
+
+			case OpCode.OP_EQ: {
+				TValue rb = RKB(L, base_, i, k);
+				TValue rc = RKC(L, base_, i, k);
+				//Protect(
+				  if ((int)(equalobj(L, rb, rc)?1:0) == GETARG_A(i))
+---->
+				  if ((equalobj(L, rb, rc)?1:0) != GETARG_A(i))
+
+------------------
+(f) for lua 5.2.0 alpha
+
+		private static void new_localvar (LexState ls, TString name) {
+		  FuncState fs = ls.fs;
+Varlist is struct, not effect------>		  Varlist vl = ls.varl;
+		  int reg = registerlocalvar(ls, name);
+		  checklimit(fs, vl.nactvar + 1 - fs.firstlocal,
+		                  MAXVARS, "local variables");
+		  luaM_growvector<vardesc>(ls.L, ref vl.actvar, vl.nactvar + 1,
+		                  ref vl.actvarsize/*, vardesc*/, Int32.MaxValue, "local variables");
+		  vl.actvar[vl.nactvar++].idx = (ushort)(reg);
+		  
+
+solve:
+
+struct Varlist {
+->
+class Varlist {
+
+
+(g) for lua 5.2.0 alpha
+
+		public static int luaO_str2d (CharPtr s, out lua_Number result) {
+		  CharPtr endptr;
+		  result = lua_str2number(s, out endptr);
+		  if (checkend(s, endptr)!=0) return 1;  /* conversion OK? */
+---------->		  result = cast_num(strtoul(s, out endptr, 0)); /* try hexadecimal */
+		  return checkend(s, endptr);
+		}
+
+strtoul(s, out endptr, 0   <------if base is 0, calc base
+
+
+solve:
+
+		public static ulong strtoul(CharPtr s, out CharPtr end, int base_)
+		{
+			bool is_base_zero = false;
+			if (base_ == 0)
+			{
+				is_base_zero = true;
+				base_ = 10;
+			}
+			try
+			{
+				end = new CharPtr(s.chars, s.index);
+
+				// skip over any leading whitespace
+				while (end[0] == ' ')
+					end = end.next();
+
+				// ignore any leading 0x
+				if ((end[0] == '0') && (end[1] == 'x')) {
+					end = end.next().next(); 
+					if (is_base_zero) base_ = 16;
+				} else if ((end[0] == '0') && (end[1] == 'X')) {
+					end = end.next().next();
+					if (is_base_zero) base_ = 16;
+				}
+
+				// do we have a leading + or - sign?
+				bool negate = false;
+				if (end[0] == '+')
+					end = end.next();
+				else if (end[0] == '-')
+				{
+					negate = true;
+					end = end.next();
+				}
+
+				// loop through all chars
+				bool invalid = false;
+				bool had_digits = false;
+				ulong result = 0;
+				while (true)
+				{
+					// get this char
+					char ch = end[0];					
+
+					// which digit is this?
+					int this_digit = 0;
+					if (isdigit(ch))
+						this_digit = ch - '0';
+					else if (isalpha(ch))
+						this_digit = tolower(ch) - 'a' + 10;
+					else
+						break;
+
+					// is this digit valid?
+					if (this_digit >= base_)
+						invalid = true;
+					else
+					{
+						had_digits = true;
+						result = result * (ulong)base_ + (ulong)this_digit;
+					}
+
+					end = end.next();
+				}
+
+				// were any of the digits invalid?
+				if (invalid || (!had_digits))
+				{
+					end = s;
+					return System.UInt64.MaxValue;
+				}
+
+				// if the value was a negative then negate it here
+				if (negate)
+					result = (ulong)-(long)result;
+
+				// ok, we're done
+				return (ulong)result;
+			}
+			catch
+			{
+				end = s;
+				return 0;
+			}
+		}
+
+
+----
+solve 2:
+
+public static lua_Number cast_num(bool i) { return i ? (lua_Number)1 : (lua_Number)0; }
++ public static lua_Number cast_num(ulong i) { return (lua_Number)i; }
+		
+		
+(h) for lua-5.2.0-20100206
+
+		public static Closure luaF_newLclosure (lua_State L, int n, Table e) {
+		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
+		  c.l.isC = 0;
+		  c.l.env = e;
+		  c.l.nupvalues = cast_byte(n);
+		  c.l.upvals = new UpVal[n];
+		  for (int i = 0; i < n; i++)
+			  c.l.upvals[i] = new UpVal(); //FIXME:???
+n over upvals[]---------->		  while (n > 0) c.l.upvals[n] = null;
+		  return c;
+		}
+		
+solve:
+
+		public static Closure luaF_newLclosure (lua_State L, Proto p) {
+          int n = p.sizeupvalues;
+		  Closure c = luaC_newobj<Closure>(L, LUA_TFUNCTION, sizeLclosure(n), null, 0).cl;
+		  c.l.isC = 0;
+		  c.l.p = p;
+		  c.l.nupvalues = cast_byte(n);
+		  c.l.upvals = new UpVal[n]; //FIXME:added???
+		  /*
+		  for (int i = 0; i < n; i++) //FIXME:added???
+			  c.l.upvals[i] = new UpVal(); //FIXME:??? //FIXME:added???
+		  while (n > 0) c.l.upvals[n] = null; //FIXME:added??? while (n--) c->l.upvals[n] = NULL;
+		  */
+		  while (n-- != 0) c.l.upvals[n] = null;
+		  return c;
+		}
+		
+				  		
+----------------------
+(-) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007 
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  
+(-) lua-5.2.0-20090702
+(-) lua-5.2.0-20100206  
+(y) lua-5.2.0-alpha  
+(y) lua-5.2.0-beta
+(y) lua-5.2.0
+----------------------
 
 

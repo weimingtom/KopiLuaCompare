@@ -359,11 +359,11 @@ namespace KopiLua
 
 		public static int luaopen_table (lua_State L) {
 		  luaL_register(L, LUA_TABLIBNAME, tab_funcs);
-#if LUA_COMPAT_UNPACK
+//#if LUA_COMPAT_UNPACK
 		  /* _G.unpack = table.unpack */
 		  lua_getfield(L, -1, "unpack");
 		  lua_setfield(L, LUA_ENVIRONINDEX, "unpack");
-#endif
+//#endif
 		  return 1;
 		}
 

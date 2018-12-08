@@ -291,11 +291,11 @@ namespace KopiLua
 
 		public static int luaopen_table (lua_State L) {
 		  luaL_newlib(L, tab_funcs);
-#if LUA_COMPAT_UNPACK
+//#if LUA_COMPAT_UNPACK
 		  /* _G.unpack = table.unpack */
 		  lua_getfield(L, -1, "unpack");
 		  lua_setglobal(L, "unpack");
-#endif
+//#endif
 		  return 1;
 		}
 

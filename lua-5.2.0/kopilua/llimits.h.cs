@@ -195,6 +195,7 @@ namespace KopiLua
 		public static lua_Number cast_num(int i) { return (lua_Number)i; }
 		public static lua_Number cast_num(long i) { return (lua_Number)i; }
 		public static lua_Number cast_num(bool i) { return i ? (lua_Number)1 : (lua_Number)0; }
+		public static lua_Number cast_num(ulong i) { return (lua_Number)i; }
 		public static lua_Number cast_num(object i) { Debug.Assert(false, "Can't convert number."); return Convert.ToSingle(i); }
 
 		//

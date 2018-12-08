@@ -815,7 +815,7 @@ namespace KopiLua
 				TValue rb = RKB(L, base_, i, k);
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
-				  if ((equalobj(L, rb, rc)?1:0) == GETARG_A(i))
+				  if ((equalobj(L, rb, rc)?1:0) != GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 				  	donextjump(ci, ref i, L);
