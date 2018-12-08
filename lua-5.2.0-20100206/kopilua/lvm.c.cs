@@ -559,7 +559,7 @@ namespace KopiLua
 			ra = RA(L, base_, i);
 			lua_assert(base_ == ci.u.l.base_);
 			lua_assert(base_ <= L.top && L.top <= L.stack[L.stacksize-1]); //FIXME:L.top < L.stack[L.stacksize]??? L.stacksize >= L.stack.Length, overflow, so changed to <=
-			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging		
+			//Dump(L.ci.u.l.savedpc.pc, i);	//FIXME:added, only for debugging	
 			switch (GET_OPCODE(i)) {
 			  case OpCode.OP_MOVE: {
 				setobjs2s(L, ra, RB(L, base_, i));
@@ -976,12 +976,12 @@ namespace KopiLua
 		        return;
 		      }
 			}
+			/* function changed (call/return): update pointers */
+			lua_assert(ci == L.ci);
+			cl = clvalue(ci.func).l;
+			k = cl.p.k;
+			base_ = ci.u.l.base_;			
 		  }
-		  /* function changed (call/return): update pointers */
-		  lua_assert(ci == L.ci); //FIXME: unreachable here
-		  cl = clvalue(ci.func).l;
-		  k = cl.p.k;
-		  base_ = ci.u.l.base_;
 		}
 	}
 }

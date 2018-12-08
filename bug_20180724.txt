@@ -488,13 +488,61 @@ public static UpVal luaF_findupval (lua_State L, StkId level) {
 		  
 (j) ???? for lua-5.2.0-20090702, lua-5.2.0-20100206
 
+-------------
+--(scimark.lua min):
+
+local abs, log, sin, floor = math.abs, math.log, math.sin, math.floor
+--local pi, clock = math.pi, os.clock
+local format = string.format
+
+--local rand, rand_init
+
+local function printf(...)
+  io.write(format(...))
+end
+printf("Hello")
+----------------
 lua:359: attempt to index global 'io' (a nil value)
 stack traceback:
         scimark.lua:359: in function 'printf'
         scimark.lua:387: in main chunk
         [C]: in ?
         
-        
+***maybe BECAUSE multi local equal:***
+'local abs, log, sin, floor = math.abs, math.log, math.sin, math.floor'
+'local abs = math.abs' is good
+
+
+solve: 
+put '...cl = clvalue(ci.func).l;...' into '}'
+avoid unreach code
+
+
+			}
++			/* function changed (call/return): update pointers */
++			lua_assert(ci == L.ci);
++			cl = clvalue(ci.func).l;
++			k = cl.p.k;
++			base_ = ci.u.l.base_;			
+		  }
+-		  /* function changed (call/return): update pointers */
+-		  lua_assert(ci == L.ci); //FIXME: unreachable here
+-		  cl = clvalue(ci.func).l;
+-		  k = cl.p.k;
+-		  base_ = ci.u.l.base_;			
+		}
+		
+
+
+
+
+
+
+
+
+
+
+ 
 				  		
 ----------------------
 (y) lua-5.1.4  
@@ -503,7 +551,7 @@ stack traceback:
 (y) lua-5.2.0-20071029  
 (y) lua-5.2.0-2008  
 (y) lua-5.2.0-2009  
-(???) lua-5.2.0-20090702
+(y) lua-5.2.0-20090702
 (???) lua-5.2.0-20100206  
 (y) lua-5.2.0-alpha  
 (y) lua-5.2.0-beta

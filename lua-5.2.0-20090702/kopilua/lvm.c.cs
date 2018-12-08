@@ -957,14 +957,14 @@ namespace KopiLua
 		      case OpCode.OP_EXTRAARG: {
 		        luaG_runerror(L, "bad opcode");
 		        return;
-		      }
-			}
+		      }						
+			}	
+		    /* function changed (call/return): update pointers */
+		    lua_assert(ci == L.ci);
+		    cl = clvalue(ci.func).l;
+		    k = cl.p.k;
+		    base_ = ci.u.l.base_;	
 		  }
-		  /* function changed (call/return): update pointers */
-		  lua_assert(ci == L.ci); //FIXME: unreachable here
-		  cl = clvalue(ci.func).l;
-		  k = cl.p.k;
-		  base_ = ci.u.l.base_;
 		}
 	}
 }
