@@ -144,7 +144,16 @@ namespace KopiLua
 		//FIXME: see below
 		//public static lua_Number cast_num(object i) { return (lua_Number)i; } //FIXME:???remove?
 		//public static int cast_int(object i) { return (int)i; } //FIXME:???remove?
-        public static byte cast_uchar(object i) { return (byte)(i); } //FIXME:???remove?
+		public static byte cast_uchar(object i) { 
+			if (i is char) 
+			{
+				return (byte)(((char)i) & 0xff);
+			}
+			else
+			{
+				return (byte)((int)i & 0xff);
+			}
+		} //FIXME:???remove?
 		
 
 		/*
