@@ -63,7 +63,7 @@ namespace KopiLua
 		  GCObjectRef pp = new OpenValRef(L);
 		  UpVal p;
 		  UpVal uv;
-		  while ((p = ngcotouv(pp.get())) != null && p.v >= level) {
+		  while (pp.get() != null && (p = ngcotouv(pp.get())) != null && p.v >= level) {
 			lua_assert(p.v != p.u.value);
 			if (p.v == level) {  /* found a corresponding upvalue? */
 			  if (isdead(g, obj2gco(p)))  /* is it dead? */
