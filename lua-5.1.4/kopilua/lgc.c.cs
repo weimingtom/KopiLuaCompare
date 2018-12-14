@@ -29,7 +29,7 @@ namespace KopiLua
 		public const int GCFINALIZECOST	= 100;
 
 
-		public static byte maskmarks	= (byte)(~(bitmask(BLACKBIT)|WHITEBITS));
+		public static byte maskmarks	= (byte)(~(bitmask(BLACKBIT)|WHITEBITS) & 0xff);
 
 		public static void makewhite(global_State g, GCObject x)
 		{

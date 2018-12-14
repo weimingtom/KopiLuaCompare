@@ -10,14 +10,17 @@ namespace KopiLua
 
 		public static int zgetc(ZIO z)
 		{
-			if (z.n-- > 0)
+			if (z.n > 0)
 			{
+				z.n--;
 				int ch = char2int(z.p[0]);
 				z.p.inc();
 				return ch;
 			}
-			else
+			else {
+				z.n = (uint)(((long)z.n - 1) & 0xFFFFFFFFL);
 				return luaZ_fill(z);
+			}
 		}
 
 		public class Mbuffer {

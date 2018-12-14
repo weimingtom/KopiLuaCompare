@@ -4,11 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-
 namespace KopiLua
 {
 	public partial class Lua

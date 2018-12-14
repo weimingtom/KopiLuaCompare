@@ -88,7 +88,7 @@ namespace KopiLua
 		  uint step = (l>>5)+1;  /* if string is too long, don't hash all its chars */
 		  uint l1;
 		  for (l1=l; l1>=step; l1-=step)  /* compute hash */
-			h = h ^ ((h<<5)+(h>>2)+(byte)str[l1-1]);
+		  	h = h ^ (uint)((((ulong)h<<5)+((ulong)h>>2)+(byte)str[l1-1]) & 0xFFFFFFFFL);
 		  for (o = G(L).strt.hash[lmod(h, G(L).strt.size)];
 			   o != null;
 			   o = o.gch.next) {

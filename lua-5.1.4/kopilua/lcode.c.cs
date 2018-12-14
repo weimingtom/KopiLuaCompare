@@ -5,9 +5,6 @@
 */
 
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -77,7 +74,7 @@ namespace KopiLua
 		  InstructionPtr jmp = new InstructionPtr(fs.f.code, pc);
 		  int offset = dest-(pc+1);
 		  lua_assert(dest != NO_JUMP);
-		  if (Math.Abs(offset) > MAXARG_sBx)
+		  if (abs(offset) > MAXARG_sBx)
 			luaX_syntaxerror(fs.ls, "control structure too long");
 		  SETARG_sBx(jmp, offset);
 		}

@@ -8,11 +8,6 @@
 #define LUA_LIB
 
 using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace KopiLua
 {
@@ -342,7 +337,8 @@ namespace KopiLua
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_buffinit(L, b);
 		  while ((wild = strstr(s, p)) != null) {
-			luaL_addlstring(b, s, (uint)(wild - s));  /* push prefix */
+		  	uint temp = (uint)(wild - s);
+			luaL_addlstring(b, s, temp);  /* push prefix */
 			luaL_addstring(b, r);  /* push replacement in place of pattern */
 			s = wild + l;  /* continue after `p' */
 		  }
@@ -432,8 +428,9 @@ namespace KopiLua
 
 
 		public static void luaL_addlstring (luaL_Buffer B, CharPtr s, uint l) {
-			while (l-- != 0)
+			while (l != 0)
 			{
+				l--;
 				char c = s[0];
 				s = s.next();
 				luaL_addchar(B, c);

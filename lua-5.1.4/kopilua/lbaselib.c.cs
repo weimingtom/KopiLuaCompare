@@ -5,8 +5,6 @@
 */
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace KopiLua
 {
@@ -37,7 +35,7 @@ namespace KopiLua
 			fputs(s, stdout);
 			lua_pop(L, 1);  /* pop result */
 		  }
-		  Console.Write("\n", stdout);
+		  fputs("\n", stdout);
 		  return 0;
 		}
 

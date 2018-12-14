@@ -15,7 +15,7 @@ public static void luaF_close (lua_State L, StkId level) {
 		  while (L.openupval != null && (uv = ngcotouv(L.openupval)) != null && uv.v >= level) {
 		  
 
-(2) (fixed)
+(2) (fixed) ????why????
 lua-5.2.0-2008
 lua-5.2.0-20071029
 

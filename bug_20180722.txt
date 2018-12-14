@@ -1,5 +1,19 @@
 (1) replace Console.WriteLine() ... with printf
 
+----------------------
+(y) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007 
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  
+(-) lua-5.2.0-20090702
+(-) lua-5.2.0-20100206  
+(-) lua-5.2.0-alpha  
+(-) lua-5.2.0-beta
+(-) lua-5.2.0
+----------------------
+
 (2) bad conversion number->int; must recompile Lua with proper settings
 lua_number2unsigned
 -4660 -> 0
@@ -8,5 +22,124 @@ lua_number2unsigned
 private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)((lua_Integer)n & 0xffffffff); } //FIXME: ((lua_Unsigned)n) may be equal 0 under mono   
 		
 
+----------------------
+(x) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007 
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  
+(-) lua-5.2.0-20090702
+(-) lua-5.2.0-20100206  
+(-) lua-5.2.0-alpha  
+(-) lua-5.2.0-beta
+(-) lua-5.2.0
+----------------------
+
 (3) check for arthmetic overflow/underflow
+
+
+solve:
+
+<1>
+		public static byte maskmarks	= (byte)(~(bitmask(BLACKBIT)|WHITEBITS));
+->
+		public static byte maskmarks	= (byte)(~(bitmask(BLACKBIT)|WHITEBITS) & 0xff);
+
+
+<2>
+public static lu_byte cast_byte(int i) { return (lu_byte)i; }
+...
+->
+		public static lu_byte cast_byte(int i) { return (lu_byte)(i & 0xff); }
+		public static lu_byte cast_byte(long i) { return (lu_byte)((int)(i) & 0xff); }
+		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
+		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)((int)(i) & 0xff); }
+		public static lu_byte cast_byte(object i) { return (lu_byte)((int)(i) & 0xff); }
+
+<3>
+h = h ^ ((h<<5)+(h>>2)+(byte)str[l1-1]);
+->
+h = h ^ (uint)((((ulong)h<<5)+((ulong)h>>2)+(byte)str[l1-1]) & 0xFFFFFFFFL);
+
+<4>
+for (int i = 1; i < a.Length; i++) a[0] += a[i];
+->
+for (int i = 1; i < a.Length; i++) a[0] = (byte)(((int)(a[0]) + (int)(a[i])) & 0xff);
+
+<5>
+while (l-- != 0)
+{
+	char c = s[0];
+	s = s.next();
+	luaL_addchar(B, c);
+}
+->
+while (l != 0)
+{
+	l--;
+	char c = s[0];
+	s = s.next();
+	luaL_addchar(B, c);
+}
+
+<6>
+		public static int resetbits(ref lu_byte x, int m) { x &= (lu_byte)~m; return x; }
+		public static int setbits(ref lu_byte x, int m) { x |= (lu_byte)m; return x; }
+		public static bool testbits(lu_byte x, int m) { return (x & (lu_byte)m) != 0; }
+->
+
+<7>
+			if (z.n-- > 0)
+			{
+				int ch = char2int(z.p[0]);
+				z.p.inc();
+				return ch;
+			}
+			else
+				return luaZ_fill(z);
+	
+->
+
+		public static int zgetc(ZIO z)
+		{
+			if (z.n > 0)
+			{
+				z.n--;
+				int ch = char2int(z.p[0]);
+				z.p.inc();
+				return ch;
+			}
+			else {
+				z.n = (uint)(((long)z.n - 1) & 0xFFFFFFFFL);
+				return luaZ_fill(z);
+			}
+		}
+		
+<8>
+		  while ((n--) != 0)
+			  if (p[n] == from) p[n] = to;
+->
+		  while (n != 0) {
+			  n--;
+			  if (p[n] == from) p[n] = to;
+		  }
+
+
+not done, todo
+
+----------------------
+(-) lua-5.1.4  
+(-) lua-5.1.5  
+(-) lua-5.2.0-2007 
+(-) lua-5.2.0-20071029  
+(-) lua-5.2.0-2008  
+(-) lua-5.2.0-2009  
+(-) lua-5.2.0-20090702
+(-) lua-5.2.0-20100206  
+(-) lua-5.2.0-alpha  
+(-) lua-5.2.0-beta
+(-) lua-5.2.0
+----------------------
+
 

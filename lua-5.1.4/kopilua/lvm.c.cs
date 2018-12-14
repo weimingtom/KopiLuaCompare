@@ -5,8 +5,6 @@
 */
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
 
 namespace KopiLua
@@ -393,12 +391,12 @@ namespace KopiLua
 			if ((sBx & 0x100) != 0)
 				sBx = - (sBx & 0xff);
 
-			Console.Write("{0,5} ({1,10}): ", pc, i);
-			Console.Write("{0,-10}\t", luaP_opnames[(int)GET_OPCODE(i)]);
+			fprintf(stdout, "%d (%d): ", pc, i);
+			fprintf(stdout, "%s\t", luaP_opnames[(int)GET_OPCODE(i)].ToString());			
 			switch (GET_OPCODE(i))
 			{
 				case OpCode.OP_CLOSE:
-					Console.Write("{0}", A);
+					fprintf(stdout, "%d", A);
 					break;
 
 				case OpCode.OP_MOVE:
@@ -408,7 +406,7 @@ namespace KopiLua
 				case OpCode.OP_UNM:
 				case OpCode.OP_NOT:
 				case OpCode.OP_RETURN:
-					Console.Write("{0}, {1}", A, B);
+					fprintf(stdout, "%d, %d", A, B);
 					break;
 
 				case OpCode.OP_LOADBOOL:
@@ -428,31 +426,31 @@ namespace KopiLua
 				case OpCode.OP_TEST:
 				case OpCode.OP_CALL:
 				case OpCode.OP_TAILCALL:
-					Console.Write("{0}, {1}, {2}", A, B, C);
+					fprintf(stdout, "%d, %d, %d", A, B, C);
 					break;
 
 				case OpCode.OP_LOADK:					
-					Console.Write("{0}, {1}", A, Bx);
+					fprintf(stdout, "%d, %d", A, Bx);
 					break;
 
 				case OpCode.OP_GETGLOBAL:
 				case OpCode.OP_SETGLOBAL:
 				case OpCode.OP_SETLIST:
 				case OpCode.OP_CLOSURE:
-					Console.Write("{0}, {1}", A, Bx);
+					fprintf(stdout, "%d, %d", A, Bx);
 					break;
 
 				case OpCode.OP_TFORLOOP:
-					Console.Write("{0}, {1}", A, C);
+					fprintf(stdout, "%d, %d", A, C);
 					break;
 
 				case OpCode.OP_JMP:
 				case OpCode.OP_FORLOOP:
 				case OpCode.OP_FORPREP:
-					Console.Write("{0}, {1}", A, sBx);
+					fprintf(stdout, "%d, %d", A, sBx);
 					break;
 			}
-			Console.WriteLine();
+			fprintf(stdout, "\n");
 
 		}
 

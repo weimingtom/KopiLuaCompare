@@ -1322,7 +1322,7 @@ namespace KopiLua
 			Environment.Exit(-1); //FIXME:???
 		}
 		
-		public static lua_Number floor(lua_Number a)
+		public static double floor(double a)
 		{
 			return Math.Floor(a);
 		}
@@ -1369,29 +1369,28 @@ namespace KopiLua
 		
 		public static int remove(CharPtr filename)
 		{
-		  	int result = 1;
+		  	int result = 0;
 		  	try 
 		  	{
 		  		File.Delete(filename.ToString());
 		  	} 
 		  	catch 
 		  	{
-		  		result = 0;
+		  		result = -1;
 		  	}
 		  	return result;
 		}
 		
 		public static int rename(CharPtr fromname, CharPtr toname)
 		{
-			int result;
+			int result = 0;
 			try
 			{
 				File.Move(fromname.ToString(), toname.ToString());
-				result = 0;
 			}
 			catch
 			{
-				result = 1; // todo: this should be a proper error code
+				result = -1; // todo: this should be a proper error code
 			}
 		  	return result;
 		}
@@ -1495,6 +1494,99 @@ namespace KopiLua
 			  		sw.WriteLine(DateTime.Now.ToString("yyyy-MM-dd HH-mm-ss") + "   ---   " + strLog);
 		  		}
 		  	}
+		}
+		
+		public static int abs(int x)
+		{
+			return Math.Abs(x);
+		}
+		
+		public static double abs(double x)
+		{
+			return Math.Abs(x);
+		}
+		
+		public static double sin(double x)
+		{
+			return Math.Sin(x);
+		}
+		
+		public static double sinh(double x)
+		{
+			return Math.Sinh(x);
+		}
+		
+		public static double cos(double x)
+		{
+			return Math.Cos(x);
+		}
+		
+		public static double cosh(double x)
+		{
+			return Math.Cosh(x);
+		}
+		
+		public static double tan(double x)
+		{
+			return Math.Tan(x);
+		}
+		
+		public static double tanh(double x)
+		{
+			return Math.Tanh(x);
+		}
+		
+		public static double asin(double x)
+		{
+			return Math.Asin(x);
+		}
+		
+		public static double acos(double x)
+		{
+			return Math.Acos(x);
+		}
+		
+		public static double atan(double x)
+		{
+			return Math.Atan(x);
+		}
+		
+		public static double atan2(double x, double y)
+		{
+			return Math.Atan2(x, y);
+		}
+		
+		public static double ceil(double x)
+		{
+			return Math.Ceiling(x);
+		}
+		
+		public static double sqrt(double x)
+		{
+			return Math.Sqrt(x);
+		}
+		
+		public static double pow(double x, double y)
+		{
+			return Math.Pow(x, y);
+		}
+		
+		public static double exp(double x)
+		{
+			return Math.Exp(x);
+		}
+		
+		private const int RAND_MAX = int.MaxValue;
+		private static Random rng = new Random();
+
+		public static int rand()
+		{
+			return rng.Next(RAND_MAX);
+		}
+		
+		public static void srand(uint seed)
+		{
+			rng = new Random((int)seed);
 		}
 	}
 }

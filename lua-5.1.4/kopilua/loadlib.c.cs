@@ -9,11 +9,6 @@
 */
 
 using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -37,15 +32,7 @@ namespace KopiLua
 		public const int ERRLIB			= 1;
 		public const int ERRFUNC		= 2;
 
-		//public static void setprogdir(lua_State L) { }
-
-		public static void setprogdir(lua_State L)
-		{
-			CharPtr buff = Directory.GetCurrentDirectory();
-			luaL_gsub(L, lua_tostring(L, -1), LUA_EXECDIR, buff);
-			lua_remove(L, -2);  /* remove original string */
-		}
-
+		public static void setprogdir(lua_State L) { }
 
 		#if LUA_DL_DLOPEN
 		/*

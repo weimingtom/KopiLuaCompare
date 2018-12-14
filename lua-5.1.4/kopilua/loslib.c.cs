@@ -5,11 +5,6 @@
 */
 
 using System;
-using System.Threading;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -36,45 +31,31 @@ namespace KopiLua
 
 
 		private static int os_execute (lua_State L) {
-			CharPtr strCmdLine = "/C regenresx " + luaL_optstring(L, 1, null);
-			System.Diagnostics.Process proc = new System.Diagnostics.Process();
-			proc.EnableRaisingEvents=false;
-			proc.StartInfo.FileName = "CMD.exe";
-			proc.StartInfo.Arguments = strCmdLine.ToString();
-			proc.Start();
-			proc.WaitForExit();
-			lua_pushinteger(L, proc.ExitCode);
+			lua_pushinteger(L, system(luaL_optstring(L, 1, null)));
 			return 1;
 		}
 
 
 		private static int os_remove (lua_State L) {
 		  CharPtr filename = luaL_checkstring(L, 1);
-		  int result = 1;
-		  try {File.Delete(filename.ToString());} catch {result = 0;}
-		  return os_pushresult(L, result, filename);
+		  return os_pushresult(L, remove(filename) == 0 ? 1 : 0, filename);
 		}
 
 
 		private static int os_rename (lua_State L) {
-			CharPtr fromname = luaL_checkstring(L, 1);
+		  CharPtr fromname = luaL_checkstring(L, 1);
 		  CharPtr toname = luaL_checkstring(L, 2);
-		  int result;
-		  try
-		  {
-			  File.Move(fromname.ToString(), toname.ToString());
-			  result = 0;
-		  }
-		  catch
-		  {
-			  result = 1; // todo: this should be a proper error code
-		  }
-		  return os_pushresult(L, result, fromname);
+		  return os_pushresult(L, rename(fromname, toname) == 0 ? 1 : 0, fromname);
 		}
 
 
 		private static int os_tmpname (lua_State L) {
-		  lua_pushstring(L, Path.GetTempFileName());
+		  CharPtr buff = new CharPtr(new char[LUA_TMPNAMBUFSIZE]);
+		  int err = 0;
+		  lua_tmpnam(buff, ref err);
+		  if (err != 0)
+		    return luaL_error(L, "unable to generate a unique filename");
+		  lua_pushstring(L, buff);
 		  return 1;
 		}
 

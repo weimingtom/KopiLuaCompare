@@ -156,8 +156,10 @@ namespace KopiLua
 		private static void buffreplace (LexState ls, char from, char to) {
 		  uint n = luaZ_bufflen(ls.buff);
 		  CharPtr p = luaZ_buffer(ls.buff);
-		  while ((n--) != 0)
+		  while (n != 0) {
+			  n--;
 			  if (p[n] == from) p[n] = to;
+		  }
 		}
 
 

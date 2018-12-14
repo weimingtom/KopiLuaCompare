@@ -6,12 +6,8 @@
 
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
 
 namespace KopiLua
 {

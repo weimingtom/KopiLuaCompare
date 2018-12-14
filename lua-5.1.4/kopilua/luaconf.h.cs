@@ -668,7 +668,7 @@ namespace KopiLua
 		** insecure) or if you want the original tmpnam anyway.  By default, Lua
 		** uses tmpnam except when POSIX is available, where it uses mkstemp.
 		*/
-		#if loslib_c || luaall_c
+		//#if loslib_c || luaall_c
 
 		#if LUA_USE_MKSTEMP
 		//#include <unistd.h>
@@ -681,10 +681,10 @@ namespace KopiLua
 
 		#else
 			public const int LUA_TMPNAMBUFSIZE	= L_tmpnam;
-			public static void lua_tmpnam(CharPtr b, int e)		{ e = (tmpnam(b) == null) ? 1 : 0; }
+			public static void lua_tmpnam(CharPtr b, ref int e)		{ e = (tmpnam(b) == null) ? 1 : 0; }
 		#endif
 
-		#endif
+		//#endif
 
 
 		/*

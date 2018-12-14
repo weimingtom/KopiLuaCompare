@@ -79,7 +79,7 @@ namespace KopiLua
 		*/
 		private static Node hashnum (Table t, lua_Number n) {
     	  byte[] a = BitConverter.GetBytes(n);
-		  for (int i = 1; i < a.Length; i++) a[0] += a[i];
+		  for (int i = 1; i < a.Length; i++) a[0] = (byte)(((int)(a[0]) + (int)(a[i])) & 0xff);
 		  return hashmod(t, (int)a[0]);
 		}
 

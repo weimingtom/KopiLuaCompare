@@ -18,9 +18,9 @@ namespace KopiLua
 		/*
 		** some userful bit tricks
 		*/
-		public static int resetbits(ref lu_byte x, int m) { x &= (lu_byte)~m; return x; }
-		public static int setbits(ref lu_byte x, int m) { x |= (lu_byte)m; return x; }
-		public static bool testbits(lu_byte x, int m) { return (x & (lu_byte)m) != 0; }
+		public static int resetbits(ref lu_byte x, int m) { x &= (lu_byte)(~m & 0xff); return x; }
+		public static int setbits(ref lu_byte x, int m) { x |= (lu_byte)(m & 0xff); return x; }
+		public static bool testbits(lu_byte x, int m) { return (x & (lu_byte)(m & 0xff)) != 0; }
 		public static int bitmask(int b)	{return 1<<b;}
 		public static int bit2mask(int b1, int b2)	{return (bitmask(b1) | bitmask(b2));}
 		public static int l_setbit(ref lu_byte x, int b) { return setbits(ref x, bitmask(b)); }

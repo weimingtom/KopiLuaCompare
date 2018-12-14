@@ -93,11 +93,11 @@ namespace KopiLua
 		//#define UNUSED(x)	((void)(x))	/* to avoid warnings */
 
 
-		public static lu_byte cast_byte(int i) { return (lu_byte)i; }
-		public static lu_byte cast_byte(long i) { return (lu_byte)(int)i; }
+		public static lu_byte cast_byte(int i) { return (lu_byte)(i & 0xff); }
+		public static lu_byte cast_byte(long i) { return (lu_byte)((int)(i) & 0xff); }
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
-		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)i; }
-		public static lu_byte cast_byte(object i) { return (lu_byte)(int)(i); }
+		public static lu_byte cast_byte(lua_Number i) { return (lu_byte)((int)(i) & 0xff); }
+		public static lu_byte cast_byte(object i) { return (lu_byte)((int)(i) & 0xff); }
 
 		public static int cast_int(int i) { return (int)i; }
 		public static int cast_int(long i) { return (int)(int)i; }

@@ -4,9 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace KopiLua
 {
@@ -20,67 +17,67 @@ namespace KopiLua
 
 
 		private static int math_abs (lua_State L) {
-		  lua_pushnumber(L, Math.Abs(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, abs(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_sin (lua_State L) {
-		  lua_pushnumber(L, Math.Sin(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sin(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_sinh (lua_State L) {
-		  lua_pushnumber(L, Math.Sinh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sinh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_cos (lua_State L) {
-		  lua_pushnumber(L, Math.Cos(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, cos(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_cosh (lua_State L) {
-		  lua_pushnumber(L, Math.Cosh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, cosh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_tan (lua_State L) {
-		  lua_pushnumber(L, Math.Tan(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, tan(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_tanh (lua_State L) {
-		  lua_pushnumber(L, Math.Tanh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, tanh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_asin (lua_State L) {
-		  lua_pushnumber(L, Math.Asin(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, asin(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_acos (lua_State L) {
-		  lua_pushnumber(L, Math.Acos(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, acos(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_atan (lua_State L) {
-		  lua_pushnumber(L, Math.Atan(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, atan(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_atan2 (lua_State L) {
-		  lua_pushnumber(L, Math.Atan2(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, atan2(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
 		private static int math_ceil (lua_State L) {
-		  lua_pushnumber(L, Math.Ceiling(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, ceil(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_floor (lua_State L) {
-		  lua_pushnumber(L, Math.Floor(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, floor(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
@@ -98,27 +95,27 @@ namespace KopiLua
 		}
 
 		private static int math_sqrt (lua_State L) {
-		  lua_pushnumber(L, Math.Sqrt(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sqrt(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_pow (lua_State L) {
-		  lua_pushnumber(L, Math.Pow(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, pow(luaL_checknumber(L, 1), luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
 		private static int math_log (lua_State L) {
-		  lua_pushnumber(L, Math.Log(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, log(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_log10 (lua_State L) {
-		  lua_pushnumber(L, Math.Log10(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, log10(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_exp (lua_State L) {
-		  lua_pushnumber(L, Math.Exp(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, exp(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
@@ -173,13 +170,11 @@ namespace KopiLua
 		  return 1;
 		}
 
-		private static Random rng = new Random();
-
 		private static int math_random (lua_State L) {
 		  /* the `%' avoids the (rare) case of r==1, and is needed also because on
 			 some systems (SunOS!) `rand()' may return a value larger than RAND_MAX */
-		  //lua_Number r = (lua_Number)(rng.Next()%RAND_MAX) / (lua_Number)RAND_MAX;
-			lua_Number r = (lua_Number)rng.NextDouble();
+		  lua_Number r = (lua_Number)(rand()%RAND_MAX) / (lua_Number)RAND_MAX;
+			
 		  switch (lua_gettop(L)) {  /* check number of arguments */
 			case 0: {  /* no arguments */
 			  lua_pushnumber(L, r);  /* Number between 0 and 1 */
@@ -188,14 +183,14 @@ namespace KopiLua
 			case 1: {  /* only upper limit */
 			  int u = luaL_checkint(L, 1);
 			  luaL_argcheck(L, 1<=u, 1, "interval is empty");
-			  lua_pushnumber(L, Math.Floor(r*u)+1);  /* int between 1 and `u' */
+			  lua_pushnumber(L, floor(r*u)+1);  /* int between 1 and `u' */
 			  break;
 			}
 			case 2: {  /* lower and upper limits */
 			  int l = luaL_checkint(L, 1);
 			  int u = luaL_checkint(L, 2);
 			  luaL_argcheck(L, l<=u, 2, "interval is empty");
-			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* int between `l' and `u' */
+			  lua_pushnumber(L, floor(r * (u - l + 1)) + l);  /* int between `l' and `u' */
 			  break;
 			}
 			default: return luaL_error(L, "wrong number of arguments");
@@ -205,8 +200,7 @@ namespace KopiLua
 
 
 		private static int math_randomseed (lua_State L) {
-		  //srand(luaL_checkint(L, 1));
-			rng = new Random(luaL_checkint(L, 1));
+		  srand((uint)luaL_checkint(L, 1));
 		  return 0;
 		}
 
