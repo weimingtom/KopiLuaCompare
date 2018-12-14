@@ -1,6 +1,6 @@
 * Merge https://github.com/Myndale/KopiLua Samples  
 
-(not done, pending)
+(not done, pending, todo)
 
 ----------------------
 (-) lua-5.1.4  

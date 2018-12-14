@@ -4,9 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
-
 namespace KopiLua
 {
 	using ptrdiff_t = System.Int32;
@@ -130,22 +127,9 @@ namespace KopiLua
 
 		private static int writer (lua_State L, object b, uint size, object B)
 		{
-			if (b.GetType() != typeof(CharPtr))
-			{
-				using (MemoryStream stream = new MemoryStream())
-				{
-					BinaryFormatter formatter = new BinaryFormatter();
-					formatter.Serialize(stream, b);
-					stream.Flush();
-					byte[] bytes = stream.GetBuffer();
-					char[] chars = new char[bytes.Length];
-					for (int i = 0; i < bytes.Length; i++)
-						chars[i] = (char)bytes[i];
-					b = new CharPtr(chars);
-				}
-			}
+			b = object_to_charptr2(b);
 			luaL_addlstring((luaL_Buffer)B, (CharPtr)b, size);
-		  return 0;
+		    return 0;
 		}
 
 

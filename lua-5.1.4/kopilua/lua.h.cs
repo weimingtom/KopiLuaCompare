@@ -4,15 +4,11 @@
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
 */
-
 using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Runtime.InteropServices;
 
 namespace KopiLua
 {
-	using lua_Number = Double;
+	using lua_Number = System.Double;
 	using lua_Integer = System.Int32;
 	
 	public partial class Lua

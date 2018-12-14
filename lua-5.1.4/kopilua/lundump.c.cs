@@ -5,8 +5,6 @@
 */
 
 using System;
-using System.Collections;
-using System.Runtime.InteropServices;
 
 namespace KopiLua
 {
@@ -44,24 +42,21 @@ namespace KopiLua
 
 		public static object LoadMem(LoadState S, Type t)
 		{
-			int size = Marshal.SizeOf(t);
+			int size = get_type_size(t);
 			CharPtr str = new char[size];
 			LoadBlock(S, str, size);
 			byte[] bytes = new byte[str.chars.Length];
 			for (int i = 0; i < str.chars.Length; i++)
 				bytes[i] = (byte)str.chars[i];
-			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
-			object b = Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), t);
-			pinnedPacket.Free();
-			return b;
+			return bytes_to_object(bytes, t);
 		}
 
 		public static object LoadMem(LoadState S, Type t, int n)
 		{
-			ArrayList array = new ArrayList();
+			object[] objs = new object[n];
 			for (int i=0; i<n; i++)
-				array.Add(LoadMem(S, t));
-			return array.ToArray(t);
+				objs[i] = LoadMem(S, t);
+			return array_to_array(objs, t);
 		}
 		public static lu_byte LoadByte(LoadState S)		{return (lu_byte)LoadChar(S);}
 		public static object LoadVar(LoadState S, Type t) { return LoadMem(S, t); }

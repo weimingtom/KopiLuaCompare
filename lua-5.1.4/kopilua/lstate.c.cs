@@ -4,9 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Runtime.InteropServices;
-
 namespace KopiLua
 {
 	using lu_byte = System.Byte;
@@ -21,7 +18,7 @@ namespace KopiLua
 	{
 
 
-		public static int state_size(object x) { return Marshal.SizeOf(x) + LUAI_EXTRASPACE; }
+		public static int state_size(object x) { return get_object_size(x) + LUAI_EXTRASPACE; }
 		/*
 		public static lu_byte fromstate(object l)
 		{

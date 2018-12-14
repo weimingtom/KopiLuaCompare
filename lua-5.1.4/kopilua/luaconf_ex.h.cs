@@ -1,8 +1,11 @@
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Serialization.Formatters.Binary;
 using AT.MIN;
 
 namespace KopiLua
@@ -1361,7 +1364,7 @@ namespace KopiLua
 		public static int system(CharPtr cmd) 
 		{
 			CharPtr strCmdLine = "/C regenresx " + cmd;
-			System.Diagnostics.Process proc = new System.Diagnostics.Process();
+			Process proc = new Process();
 			proc.EnableRaisingEvents=false;
 			proc.StartInfo.FileName = "CMD.exe";
 			proc.StartInfo.Arguments = strCmdLine.ToString();
@@ -1421,7 +1424,7 @@ namespace KopiLua
 			{
 				return Convert.ToDouble(str.ToString());
 			}
-			catch (System.OverflowException)
+			catch (OverflowException)
 			{
 				// this is a hack, fix it - mjf
 				if (str[0] == '-')
@@ -1619,6 +1622,66 @@ namespace KopiLua
 			List<string> newargs = new List<string>(args);
 			newargs.RemoveRange(0, n);
 			return newargs.ToArray();
+		}
+		
+		public static CharPtr object_to_charptr(object b)
+		{
+			int size = Marshal.SizeOf(b);
+			IntPtr ptr = Marshal.AllocHGlobal(size);
+			Marshal.StructureToPtr(b, ptr, false);
+			byte[] bytes = new byte[size];
+			Marshal.Copy(ptr, bytes, 0, size);	
+			char[] ch = new char[bytes.Length];
+			for (int i = 0; i < bytes.Length; i++)
+				ch[i] = (char)bytes[i];
+			CharPtr str = ch;			
+			return str;
+		}
+		
+		public static object object_to_charptr2(object b)
+		{
+			if (b.GetType() != typeof(CharPtr))
+			{
+				using (MemoryStream stream = new MemoryStream())
+				{
+					BinaryFormatter formatter = new BinaryFormatter();
+					formatter.Serialize(stream, b);
+					stream.Flush();
+					byte[] bytes = stream.GetBuffer();
+					char[] chars = new char[bytes.Length];
+					for (int i = 0; i < bytes.Length; i++)
+						chars[i] = (char)bytes[i];
+					b = new CharPtr(chars);
+				}
+			}
+			return b;	
+		}
+		
+		public static int get_object_size(object x)
+		{
+			return Marshal.SizeOf(x);
+		}
+		
+		public static int get_type_size(Type x)
+		{
+			return Marshal.SizeOf(x);
+		}
+		
+		public static object array_to_array(object[] objs, Type t)
+		{
+			int n = objs.Length;
+			ArrayList array = new ArrayList();
+			for (int i=0; i<n; i++)
+				array.Add(objs[i]);
+			return array.ToArray(t);
+		}
+		
+		public static object bytes_to_object(byte[] bytes, Type t)
+		{
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			object b = Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), t);
+			pinnedPacket.Free();
+			return b;
 		}
 	}
 }

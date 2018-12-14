@@ -4,12 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using System.Runtime.InteropServices;
-
 namespace KopiLua
 {
 	using lua_Number = System.Double;

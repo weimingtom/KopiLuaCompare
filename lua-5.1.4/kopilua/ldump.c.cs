@@ -5,7 +5,6 @@
 */
 
 using System;
-using System.Runtime.InteropServices;
 
 namespace KopiLua
 {
@@ -25,15 +24,7 @@ namespace KopiLua
 
 		public static void DumpMem(object b, DumpState D)
 		{
-			int size = Marshal.SizeOf(b);
-			IntPtr ptr = Marshal.AllocHGlobal(size);
-			Marshal.StructureToPtr(b, ptr, false);
-			byte[] bytes = new byte[size];
-			Marshal.Copy(ptr, bytes, 0, size);
-			char[] ch = new char[bytes.Length];
-			for (int i = 0; i < bytes.Length; i++)
-				ch[i] = (char)bytes[i];
-			CharPtr str = ch;
+			CharPtr str = Lua.object_to_charptr(b);
 			DumpBlock(str, (uint)str.chars.Length, D);
 		}
 
