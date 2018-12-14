@@ -4,12 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Runtime.InteropServices;
-using System.Diagnostics;
-
 namespace KopiLua
 {
 	using lu_int32 = System.UInt32;

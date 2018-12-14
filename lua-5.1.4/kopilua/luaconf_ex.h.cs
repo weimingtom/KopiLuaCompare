@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Collections.Generic;
+using System.Reflection;
 using AT.MIN;
 
 namespace KopiLua
@@ -584,6 +586,7 @@ namespace KopiLua
 			Tools.printf(str.ToString(), argv);
 		}
 
+		//FIXME:see lua_number2str, s = String.Format("{0}", n);
 		public static int sprintf(CharPtr buffer, CharPtr str, params object[] argv)
 		{
 			string temp = Tools.sprintf(str.ToString(), argv);
@@ -1587,6 +1590,35 @@ namespace KopiLua
 		public static void srand(uint seed)
 		{
 			rng = new Random((int)seed);
+		}
+		
+		public static void debug_assert(bool condition)
+		{
+			Debug.Assert(condition);
+		}
+		
+		public static void debug_assert(bool condition, string message)
+		{
+			Debug.Assert(condition, message);
+		}
+		
+		public static void debug_writeLine(string line)
+		{
+			Debug.WriteLine(line);
+		}
+		
+		public static string[] get_args(string[] args)
+		{
+			List<string> newargs = new List<string>(args);
+			newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
+			return newargs.ToArray();
+		}
+		
+		public static string[] string_array_plus(string[] args, int n)
+		{
+			List<string> newargs = new List<string>(args);
+			newargs.RemoveRange(0, n);
+			return newargs.ToArray();
 		}
 	}
 }

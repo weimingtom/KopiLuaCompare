@@ -5,7 +5,6 @@
 */
 
 using System;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -115,7 +114,7 @@ namespace KopiLua
 				for (int i = 0; i < new_size; i++)
 				{
 					ArrayElement elem = new_block[i] as ArrayElement;
-					Debug.Assert(elem != null, String.Format("Need to derive type {0} from ArrayElement", typeof(T).ToString()));
+					debug_assert(elem != null, String.Format("Need to derive type {0} from ArrayElement", typeof(T).ToString()));
 					elem.set_index(i);
 					elem.set_array(new_block);
 				}

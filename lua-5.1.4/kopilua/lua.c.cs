@@ -5,13 +5,6 @@
 */
 
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using System.Reflection;
-using KopiLua;
-
 namespace KopiLua
 {
 	public class Program
@@ -48,7 +41,7 @@ namespace KopiLua
 
 		static void print_usage()
 		{
-			Console.Error.Write(
+			Lua.fprintf(Lua.stderr,
 			"usage: {0} [options] [script [args]].\n" +
 			"Available options are:\n" +
 			"  -e stat  execute string " + Lua.LUA_QL("stat").ToString() + "\n" +
@@ -59,7 +52,7 @@ namespace KopiLua
 			"  -        execute stdin and stop handling options\n"
 			,
 			progname);
-			Console.Error.Flush();
+			Lua.fflush(Lua.stderr);
 		}
 
 
@@ -437,16 +430,15 @@ namespace KopiLua
 		}
 
 
-		public static int Main(string[] args)
+		public static int Main(string[] args_)
 		{
 			//Main_(args);
 			
 			// prepend the exe name to the arg list as it's done in C
 			// so that we don't have to change any of the args indexing
 			// code above
-			List<string> newargs = new List<string>(args);
-			newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
-			args = (string[])newargs.ToArray();
+		    string[] args = Lua.get_args(args_);
+		    int argc = args.Length;
 
 			int status;
 			Smain s = new Smain();

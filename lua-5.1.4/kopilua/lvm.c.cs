@@ -5,7 +5,6 @@
 */
 
 using System;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -42,7 +41,8 @@ namespace KopiLua
 			return 0;
 		  else {
 			lua_Number n = nvalue(obj);
-			CharPtr s = lua_number2str(n);
+			CharPtr s = new CharPtr(new char[LUAI_MAXNUMBER2STR]);
+			lua_number2str(s, n);
 			setsvalue2s(L, obj, luaS_new(L, s));
 			return 1;
 		  }
@@ -335,7 +335,7 @@ namespace KopiLua
 		** some macros for common tasks in `luaV_execute'
 		*/
 
-		public static void runtime_check(lua_State L, bool c)	{ Debug.Assert(c); }
+		public static void runtime_check(lua_State L, bool c)	{ debug_assert(c); }
 
 		//#define RA(i)	(base+GETARG_A(i))
 		/* to be used after possible stack reallocation */

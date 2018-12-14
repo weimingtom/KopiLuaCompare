@@ -5,10 +5,7 @@
 */
 
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -33,7 +30,7 @@ namespace KopiLua
 		*/
 		public static lua_State tostate(object l)
 		{
-			Debug.Assert(LUAI_EXTRASPACE == 0, "LUAI_EXTRASPACE not supported");
+			debug_assert(LUAI_EXTRASPACE == 0, "LUAI_EXTRASPACE not supported");
 			return (lua_State)l;
 		}
 

@@ -4,13 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-using AT.MIN;
-
 namespace KopiLua
 {
 	using LUA_INTEGER	= System.Int32;
@@ -533,7 +526,7 @@ namespace KopiLua
 		*/
 		public const string LUA_NUMBER_SCAN = "%lf";
 		public const string LUA_NUMBER_FMT = "%.14g";
-		public static CharPtr lua_number2str(double n) { return String.Format("{0}", n); }
+		public static void lua_number2str(CharPtr s, double n) { sprintf(s, LUA_NUMBER_FMT, n); } //s = String.Format("{0}", n);
 		public const int LUAI_MAXNUMBER2STR = 32; /* 16 digits, sign, point, and \0 */
 		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
 
@@ -548,8 +541,8 @@ namespace KopiLua
 		public static lua_Number luai_numsub(lua_Number a, lua_Number b) { return ((a) - (b)); }
 		public static lua_Number luai_nummul(lua_Number a, lua_Number b) { return ((a) * (b)); }
 		public static lua_Number luai_numdiv(lua_Number a, lua_Number b) { return ((a) / (b)); }
-		public static lua_Number luai_nummod(lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); }
-		public static lua_Number luai_numpow(lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }
+		public static lua_Number luai_nummod(lua_Number a, lua_Number b) { return ((a) - floor((a) / (b)) * (b)); }
+		public static lua_Number luai_numpow(lua_Number a, lua_Number b) { return (pow(a, b)); }
 		public static lua_Number luai_numunm(lua_Number a) { return (-(a)); }
 		public static bool luai_numeq(lua_Number a, lua_Number b) { return ((a) == (b)); }
 		public static bool luai_numlt(lua_Number a, lua_Number b) { return ((a) < (b)); }
@@ -611,7 +604,7 @@ namespace KopiLua
 		*/
 		//#define LUAI_USER_ALIGNMENT_T	union { double u; void *s; long l; }
 
-		public class LuaException : Exception
+		public class LuaException : System.Exception
 		{
 			public lua_State L;
 			public lua_longjmp c;

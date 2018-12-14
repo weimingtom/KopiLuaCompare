@@ -4,12 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text;
-using System.Runtime.InteropServices;
-
 namespace KopiLua
 {
 	using lu_byte = System.Byte;

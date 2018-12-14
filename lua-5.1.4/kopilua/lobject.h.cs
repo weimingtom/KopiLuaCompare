@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 
 namespace KopiLua
 {
@@ -82,7 +81,7 @@ namespace KopiLua
 			public void set_array(object array)
 			{
 				this.values = (lua_TValue[])array;
-				Debug.Assert(this.values != null);
+				debug_assert(this.values != null);
 			}
 
 			public lua_TValue this[int offset]
@@ -112,37 +111,37 @@ namespace KopiLua
 
 			public static int operator -(lua_TValue value, lua_TValue[] array)
 			{
-				Debug.Assert(value.values == array);
+				debug_assert(value.values == array);
 				return value.index;
 			}
 
 			public static int operator -(lua_TValue a, lua_TValue b)
 			{
-				Debug.Assert(a.values == b.values);
+				debug_assert(a.values == b.values);
 				return a.index - b.index;
 			}
 			
 			public static bool operator <(lua_TValue a, lua_TValue b)
 			{
-				Debug.Assert(a.values == b.values);
+				debug_assert(a.values == b.values);
 				return a.index < b.index;
 			}
 
 			public static bool operator <=(lua_TValue a, lua_TValue b)
 			{
-				Debug.Assert(a.values == b.values);
+				debug_assert(a.values == b.values);
 				return a.index <= b.index;
 			}
 
 			public static bool operator >(lua_TValue a, lua_TValue b)
 			{
-				Debug.Assert(a.values == b.values);
+				debug_assert(a.values == b.values);
 				return a.index > b.index;
 			}
 
 			public static bool operator >=(lua_TValue a, lua_TValue b)
 			{
-				Debug.Assert(a.values == b.values);
+				debug_assert(a.values == b.values);
 				return a.index >= b.index;
 			}
 			
@@ -575,7 +574,7 @@ namespace KopiLua
 			public void set_array(object array)
 			{
 				this.values = (Node[])array;
-				Debug.Assert(this.values != null);
+				debug_assert(this.values != null);
 			}
 
 			public static int ids = 0;
@@ -618,7 +617,7 @@ namespace KopiLua
 
 			public static int operator -(Node n1, Node n2)
 			{
-				Debug.Assert(n1.values == n2.values);
+				debug_assert(n1.values == n2.values);
 				return n1.index - n2.index;
 			}
 
@@ -634,10 +633,10 @@ namespace KopiLua
 				return node[1];
 			}
 
-			public static bool operator >(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index > n2.index; }
-			public static bool operator >=(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index >= n2.index; }
-			public static bool operator <(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index < n2.index; }
-			public static bool operator <=(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index <= n2.index; }
+			public static bool operator >(Node n1, Node n2) { debug_assert(n1.values == n2.values); return n1.index > n2.index; }
+			public static bool operator >=(Node n1, Node n2) { debug_assert(n1.values == n2.values); return n1.index >= n2.index; }
+			public static bool operator <(Node n1, Node n2) { debug_assert(n1.values == n2.values); return n1.index < n2.index; }
+			public static bool operator <=(Node n1, Node n2) { debug_assert(n1.values == n2.values); return n1.index <= n2.index; }
 			public static bool operator ==(Node n1, Node n2)
 			{
 				object o1 = n1 as Node;

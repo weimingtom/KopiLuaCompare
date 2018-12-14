@@ -4,11 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 namespace KopiLua
 {
@@ -149,7 +144,7 @@ namespace KopiLua
 		  luaM_freearray<Instruction>(L, f.code);
 		  luaM_freearray<Proto>(L, f.p);
 		  luaM_freearray<TValue>(L, f.k);
-		  luaM_freearray<Int32>(L, f.lineinfo);
+		  luaM_freearray<int>(L, f.lineinfo);
 		  luaM_freearray<LocVar>(L, f.locvars);
 		  luaM_freearray<TString>(L, f.upvalues);
 		  luaM_free(L, f);

@@ -4,12 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.IO;
-using System.Reflection;
-using KopiLua;
 
 namespace KopiLua
 {
@@ -49,13 +43,13 @@ namespace KopiLua
 		static void fatal(Lua.CharPtr message)
 		{
 		 Lua.fprintf(Lua.stderr,"%s: %s\n",progname,message);
-		 Environment.Exit(Lua.EXIT_FAILURE);
+		 Lua.exit(Lua.EXIT_FAILURE);
 		}
 
 		static void cannot(Lua.CharPtr what)
 		{
 		 Lua.fprintf(Lua.stderr,"%s: cannot %s %s: %s\n",progname,what,output,Lua.strerror(Lua.errno));
-		 Environment.Exit(Lua.EXIT_FAILURE);
+		 Lua.exit(Lua.EXIT_FAILURE);
 		}
 
 		static void usage(Lua.CharPtr message)
@@ -75,7 +69,7 @@ namespace KopiLua
 		 "  -v       show version information\n" +
 		 "  --       stop handling options\n",
 		 progname,Output);
-		 Environment.Exit(Lua.EXIT_FAILURE);
+		 Lua.exit(Lua.EXIT_FAILURE);
 		}
 
 		//#define	IS(s)	(strcmp(argv[i],s)==0)
@@ -122,7 +116,7 @@ namespace KopiLua
 		 if (version!=0)
 		 {
 		  Lua.printf("%s  %s\n",Lua.LUA_RELEASE,Lua.LUA_COPYRIGHT);
-		  if (version==argc-1) Environment.Exit(Lua.EXIT_SUCCESS);
+		  if (version==argc-1) Lua.exit(Lua.EXIT_SUCCESS);
 		 }
 		 return i;
 		}
@@ -196,21 +190,18 @@ namespace KopiLua
 		 return 0;
 		}
 
-		static int Main_luac(string[] args)
+		static int Main_luac(string[] args_)
 		{
 		 // prepend the exe name to the arg list as it's done in C
 		 // so that we don't have to change any of the args indexing
 		 // code above
-		 List<string> newargs = new List<string>(args);
-		 newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
-		 args = (string[])newargs.ToArray();
-
+		 string[] args = Lua.get_args(args_);
+		 int argc = args.Length;
+		 
 		 Lua.lua_State L;
 		 Smain s = new Smain();
-		 int argc = args.Length;
 		 int i=doargs(argc,args);
-		 newargs.RemoveRange(0, i);
-		 argc -= i; args = (string[])newargs.ToArray();
+		 argc -= i; args = Lua.string_array_plus(args, i);
 		 if (argc<=0) usage("no input files given");
 		 L=Lua.lua_open();
 		 if (L==null) fatal("not enough memory for state");

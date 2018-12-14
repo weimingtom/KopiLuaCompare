@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace KopiLua
 {
 	public partial class Lua
@@ -35,7 +33,7 @@ namespace KopiLua
 
 		public static T[] luaM_reallocvector<T>(lua_State L, ref T[] v, int oldn, int n)
 		{
-			Debug.Assert((v == null && oldn == 0) || (v.Length == oldn));
+			debug_assert((v == null && oldn == 0) || (v.Length == oldn));
 			v = luaM_reallocv<T>(L, v, n);
 			return v;
 		}

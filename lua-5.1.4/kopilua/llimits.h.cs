@@ -6,11 +6,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-
 namespace KopiLua
 {
 	using lu_int32 = System.UInt32;
@@ -41,7 +36,7 @@ namespace KopiLua
 		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2;
 
 
-		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
+		public const int MAX_INT = (int.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
 
 		/*
 		** conversion of pointer to integer
@@ -64,10 +59,8 @@ namespace KopiLua
 
 #if lua_assert
 
-		[Conditional("DEBUG")]
 		public static void lua_assert(bool c) {Debug.Assert(c);}
 
-		[Conditional("DEBUG")]
 		public static void lua_assert(int c) { Debug.Assert(c != 0); }
 
 		public static object check_exp(bool c, object e)		{lua_assert(c); return e;}
@@ -75,10 +68,8 @@ namespace KopiLua
 
 #else
 
-		[Conditional("DEBUG")]
 		public static void lua_assert(bool c) {}
 
-		[Conditional("DEBUG")]
 		public static void lua_assert(int c) {}
 
 		public static object check_exp(bool c, object e) { return e; }
@@ -86,7 +77,6 @@ namespace KopiLua
 
 #endif
 
-		[Conditional("DEBUG")]
 		public static void api_check(object o, bool e)		{lua_assert(e);}
 		public static void api_check(object o, int e) { lua_assert(e!=0); }
 
@@ -103,14 +93,14 @@ namespace KopiLua
 		public static int cast_int(long i) { return (int)(int)i; }
 		public static int cast_int(bool i) { return i ? (int)1 : (int)0; }
 		public static int cast_int(lua_Number i) { return (int)i; }
-		public static int cast_int(Instruction i) { return Convert.ToInt32(i); }
-		public static int cast_int(object i) { Debug.Assert(false, "Can't convert int."); return Convert.ToInt32(i); }
+		public static int cast_int(Instruction i) { return (int)i; }
+		public static int cast_int(object i) { debug_assert(false, "Can't convert int."); return 0;/*Convert.ToInt32(i);*/ }
 
 		public static lua_Number cast_num(int i) { return (lua_Number)i; }
 		public static lua_Number cast_num(long i) { return (lua_Number)i; }
 		public static lua_Number cast_num(bool i) { return i ? (lua_Number)1 : (lua_Number)0; }
 		public static lua_Number cast_num(ulong i) { return (lua_Number)i; }
-		public static lua_Number cast_num(object i) { Debug.Assert(false, "Can't convert number."); return Convert.ToSingle(i); }
+		public static lua_Number cast_num(object i) { debug_assert(false, "Can't convert number."); return 0;/*return Convert.ToSingle(i);*/ }
 
 		/*
 		** type for virtual-machine instructions

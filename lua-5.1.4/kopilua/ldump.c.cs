@@ -5,14 +5,7 @@
 */
 
 using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Text;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
-using System.Runtime.Serialization.Formatters.Binary;
-using System.Runtime.Serialization;
-
 
 namespace KopiLua
 {
@@ -47,7 +40,7 @@ namespace KopiLua
 		public static void DumpMem(object b, int n, DumpState D)
 		{
 			Array array = b as Array;
-			Debug.Assert(array.Length == n);
+			debug_assert(array.Length == n);
 			for (int i = 0; i < n; i++)
 				DumpMem(array.GetValue(i), D);
 		}

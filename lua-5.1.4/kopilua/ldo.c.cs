@@ -4,12 +4,6 @@
 ** See Copyright Notice in lua.h
 */
 
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Diagnostics;
-using System.Threading;
-
 namespace KopiLua
 {
 	using lua_Integer = System.Int32;
@@ -93,7 +87,7 @@ namespace KopiLua
 			  lua_unlock(L);
 			  G(L).panic(L);
 			}
-			Environment.Exit(EXIT_FAILURE);
+			exit(EXIT_FAILURE);
 		  }
 		}
 
@@ -115,10 +109,10 @@ namespace KopiLua
 			  f(L, ud);
 		  }
 #if CATCH_EXCEPTIONS
-          catch (Exception e)
+          catch (System.Exception e)
 		  {
-          	  Debug.Assert(e is LuaException, "Exception isn't LuaException");
-          	  Debug.WriteLine(e); //FIXME:added for debug
+          	  debug_assert(e is LuaException, "Exception isn't LuaException");
+          	  debug_writeLine(e.ToString()); //FIXME:added for debug
 		      if (lj.status == 0)
 		          lj.status = -1;
 		  }

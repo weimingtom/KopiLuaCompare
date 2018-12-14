@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace KopiLua
 {
 	using lu_byte = System.Byte;
@@ -51,7 +49,7 @@ namespace KopiLua
 			public void set_array(object array)
 			{
 				this.values = (CallInfo[])array;
-				Debug.Assert(this.values != null);
+				debug_assert(this.values != null);
 			}
 
 			public CallInfo this[int offset]
@@ -71,37 +69,37 @@ namespace KopiLua
 
 			public static int operator -(CallInfo ci, CallInfo[] values)
 			{
-				Debug.Assert(ci.values == values);
+				debug_assert(ci.values == values);
 				return ci.index;
 			}
 
 			public static int operator -(CallInfo ci1, CallInfo ci2)
 			{
-				Debug.Assert(ci1.values == ci2.values);
+				debug_assert(ci1.values == ci2.values);
 				return ci1.index - ci2.index;
 			}
 
 			public static bool operator <(CallInfo ci1, CallInfo ci2)
 			{
-				Debug.Assert(ci1.values == ci2.values);
+				debug_assert(ci1.values == ci2.values);
 				return ci1.index < ci2.index;
 			}
 
 			public static bool operator <=(CallInfo ci1, CallInfo ci2)
 			{
-				Debug.Assert(ci1.values == ci2.values);
+				debug_assert(ci1.values == ci2.values);
 				return ci1.index <= ci2.index;
 			}
 
 			public static bool operator >(CallInfo ci1, CallInfo ci2)
 			{
-				Debug.Assert(ci1.values == ci2.values);
+				debug_assert(ci1.values == ci2.values);
 				return ci1.index > ci2.index;
 			}
 
 			public static bool operator >=(CallInfo ci1, CallInfo ci2)
 			{
-				Debug.Assert(ci1.values == ci2.values);
+				debug_assert(ci1.values == ci2.values);
 				return ci1.index >= ci2.index;
 			}
 
@@ -282,7 +280,7 @@ namespace KopiLua
 			{
 				// don't actually need this
 				this.vals = (ArrayRef[])vals;
-				Debug.Assert(this.vals != null);
+				debug_assert(this.vals != null);
 			}
 
 			// ArrayRef is used to reference GCObject objects in an array, the next two members
