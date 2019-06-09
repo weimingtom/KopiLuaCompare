@@ -24,7 +24,7 @@ namespace KopiLua
 	{
 
         /* how much to allocate before next GC step */
-		private const int GCSTEPSIZE	= 1024; //FIXME: uint->int
+		//private const int GCSTEPSIZE	= 1024; //FIXME: uint->int
 
         /* maximum number of elements to sweep in each single step */
 		private const int GCSWEEPMAX		= 40;

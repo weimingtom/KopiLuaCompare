@@ -1055,12 +1055,12 @@ namespace KopiLua
 		        luaC_forcestep(L);  /* do a single step */
 		      }
 		      else {
-		        lu_mem debt = cast(lu_mem, data) * 1024 - GCSTEPSIZE;
-		        if (g->gcrunning)
-		          debt += g->GCdebt;  /* include current debt */
-		        luaE_setdebt(g, debt);
+		  		lu_mem debt = (lu_mem)(data) * 1024 - GCSTEPSIZE;
+		        if (g.gcrunning != 0)
+		        	debt += (uint)g.GCdebt;  /* include current debt */
+		        luaE_setdebt(g, (int)debt);
 		        luaC_forcestep(L);
-		        if (g->gcstate == GCSpause)  /* end of cycle? */
+		        if (g.gcstate == GCSpause)  /* end of cycle? */
 		          res = 1;  /* signal it */
 		      }
 		      break;

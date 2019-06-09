@@ -276,7 +276,7 @@ namespace KopiLua
 		  return plib;
 		}
 
-		static void ll_addtoclib (lua_State *L, const char *path, void *plib) {
+		private static void ll_addtoclib (lua_State L, CharPtr path, object plib) {
 		  lua_getfield(L, LUA_REGISTRYINDEX, CLIBS);
 		  lua_pushlightuserdata(L, plib);
 		  lua_pushvalue(L, -1);
@@ -692,7 +692,7 @@ namespace KopiLua
 
 		public readonly static lua_CFunction[] searchers =
 		  {searcher_preload, searcher_Lua, searcher_C, searcher_Croot, null};
-		private static void createsearcherstable (lua_State *L) {
+		private static void createsearcherstable (lua_State L) {
 		  int i;
 		  /* create 'searchers' table */
 		  lua_createtable(L, searchers.Length - 1, 0); //FIXME:changed, sizeof(searchers)/sizeof(searchers[0]) -1

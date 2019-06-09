@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.19 2011/05/03 16:01:57 roberto Exp $
+** $Id: lstring.c,v 2.24 2012/05/11 14:14:42 roberto Exp $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -18,6 +18,49 @@ namespace KopiLua
 	{
 
 
+		/*
+		** Lua will use at most ~(2^LUAI_HASHLIMIT) bytes from a string to
+		** compute its hash
+		*/
+		//#if !defined(LUAI_HASHLIMIT)
+		public const int LUAI_HASHLIMIT	= 5;
+		//#endif
+
+
+		/*
+		** equality for long strings
+		*/
+		public static int luaS_eqlngstr (TString a, TString b) {
+		  size_t len = a->tsv.len;
+		  lua_assert(a->tsv.tt == LUA_TLNGSTR && b->tsv.tt == LUA_TLNGSTR);
+		  return (a == b) ||  /* same instance or... */
+		    ((len == b->tsv.len) &&  /* equal length and ... */
+		     (memcmp(getstr(a), getstr(b), len) == 0));  /* equal contents */
+		}
+
+
+		/*
+		** equality for strings
+		*/
+		private static int luaS_eqstr (TString a, TString b) {
+		  return (a->tsv.tt == b->tsv.tt) &&
+		         (a->tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b) : luaS_eqlngstr(a, b));
+		}
+
+
+		private static uint luaS_hash (CharPtr str, uint l, uint seed) {
+		  uint h = seed ^ l;
+		  uint l1;
+		  uint step = (l >> LUAI_HASHLIMIT) + 1;
+		  for (l1 = l; l1 >= step; l1 -= step)
+		    h = h ^ ((h<<5) + (h>>2) + cast_byte(str[l1 - 1]));
+		  return h;
+		}
+
+
+		/*
+		** resizes the string table
+		*/
 		public static void luaS_resize (lua_State L, int newsize) {
 		  int i;
 		  stringtable tb = G(L).strt;
@@ -49,53 +92,81 @@ namespace KopiLua
 		}
 
 
-		public static TString newlstr (lua_State L, CharPtr str, uint l,
-											   uint h) {
-		  uint totalsize;  /* total size of TString object */
-		  GCObjectRef list;  /* (pointer to) list where it will be inserted */
+		/*
+		** creates a new string object
+		*/
+		private static TString createstrobj (lua_State L, CharPtr str, uint l,
+		                              int tag, uint h, GCObjectRef list) {
 		  TString ts;
-		  stringtable tb = G(L).strt;
-		  if (l+1 > MAX_SIZET /GetUnmanagedSize(typeof(char)))
-		    luaM_toobig(L);
-		  if ((tb.nuse > (int)tb.size) && (tb.size <= MAX_INT/2))
-		    luaS_resize(L, tb.size*2);  /* too crowded */
-		  totalsize = (uint)(GetUnmanagedSize(typeof(TString)) + ((l + 1) * GetUnmanagedSize(typeof(char))));//FIXME:(uint)
-		  list = new ArrayRef(tb.hash, (int)lmod(h, tb.size)); //FIXME:(int)
-		  ts = luaC_newobj<TString>(L, LUA_TSTRING, totalsize, list, 0).ts;
-		  ts.tsv.len = l;
-		  ts.tsv.hash = h;
-		  ts.tsv.reserved = 0;
-		  //memcpy(ts+1, str, l*GetUnmanagedSize(typeof(char)));
-		  memcpy(ts.str.chars, str.chars, str.index, (int)l); //FIXME:changed 
-		  ts.str[l] = '\0';  /* ending 0 */
-		  tb.nuse++;
+		  uint totalsize;  /* total size of TString object */
+		  totalsize = sizeof(TString) + ((l + 1) * sizeof(char));
+		  ts = luaC_newobj(L, tag, totalsize, list, 0)->ts;
+		  ts->tsv.len = l;
+		  ts->tsv.hash = h;
+		  ts->tsv.extra = 0;
+		  memcpy(ts+1, str, l*1); //FIXME:sizeof(char) == 1
+		  ((char *)(ts+1))[l] = '\0';  /* ending 0 */
 		  return ts;
 		}
 
 
-		public static TString luaS_newlstr (lua_State L, CharPtr str, uint l) {
+		/*
+		** creates a new short string, inserting it into string table
+		*/
+		static TString newshrstr (lua_State L, CharPtr str, uint l,
+		                                       uint h) {
+		  GCObjectRef list;  /* (pointer to) list where it will be inserted */
+		  stringtable tb = G(L).strt;
+		  TString s;
+		  if (tb.nuse >= (lu_int32)(tb->size) && tb->size <= MAX_INT/2)
+		    luaS_resize(L, tb.size*2);  /* too crowded */
+		  list = tb->hash[lmod(h, tb.size)];
+		  s = createstrobj(L, str, l, LUA_TSHRSTR, h, list);
+		  tb->nuse++;
+		  return s;
+		}
+
+
+		/*
+		** checks whether short string exists and reuses it or creates a new one
+		*/
+		static TString internshrstr (lua_State L, CharPtr str, uint l) {
 		  GCObject o;
-		  uint h = (uint)l;  /* seed */
-		  uint step = (l>>5)+1;  /* if string is too long, don't hash all its chars */
-		  uint l1;
-		  for (l1=l; l1>=step; l1-=step)  /* compute hash */
-			h = h ^ ((h<<5)+(h>>2)+(byte)str[l1-1]);
-		  for (o = G(L).strt.hash[lmod(h, G(L).strt.size)];
-			   o != null;
-			   o = gch(o).next) {
-			TString ts = rawgco2ts(o);			
-			if (h == ts.tsv.hash && 
-			    ts.tsv.len == l &&
-				(memcmp(str, getstr(ts), l * 1) == 0)) { //FIXME: changed, sizeof(char)
-			  if (isdead(G(L), o)) /* string is dead (but was not collected yet)? */
-                changewhite(o);  /* resurrect it */
-			  return ts;
-			}
+		  global_State g = G(L);
+		  uint h = luaS_hash(str, l, g->seed);
+		  for (o = g->strt.hash[lmod(h, g->strt.size)];
+		       o != NULL;
+		       o = gch(o)->next) {
+		    TString ts = rawgco2ts(o);
+		    if (h == ts.tsv.hash &&
+		        ts.tsv.len == l &&
+		        (memcmp(str, getstr(ts), l * 1) == 0)) { //FIXME:sizeof(char) == 1
+		      if (isdead(G(L), o))  /* string is dead (but was not collected yet)? */
+		        changewhite(o);  /* resurrect it */
+		      return ts;
+		    }
 		  }
-		  return newlstr(L, str, l, h);  /* not found; create a new string */
-        }
+		  return newshrstr(L, str, l, h);  /* not found; create a new string */
+		}
 
 
+		/*
+		** new string (with explicit length)
+		*/
+		public static TString luaS_newlstr (lua_State L, CharPtr str, uint l) {
+		  if (l <= LUAI_MAXSHORTLEN)  /* short string? */
+		    return internshrstr(L, str, l);
+		  else {
+		    if (l + 1 > (MAX_SIZET - sizeof(TString))/sizeof(char))
+		      luaM_toobig(L);
+		    return createstrobj(L, str, l, LUA_TLNGSTR, G(L)->seed, NULL);
+		  }
+		}
+
+
+		/*
+		** new zero-terminated string
+		*/
 		public static TString luaS_new (lua_State L, CharPtr str) {
 		  return luaS_newlstr(L, str, (uint)strlen(str)); //FIXME:added, (uint)
 		}

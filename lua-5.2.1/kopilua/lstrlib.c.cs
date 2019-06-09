@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.173 2011/11/30 18:24:56 roberto Exp $
+** $Id: lstrlib.c,v 1.176 2012/05/23 15:37:09 roberto Exp $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -33,7 +33,7 @@ namespace KopiLua
 
 	
 	
-		private static char uchar(char c) {return c;}
+		private static char uchar(char c)	{return c;}
 		
 		private static int str_len (lua_State L) {
 		  uint l;
@@ -120,7 +120,9 @@ namespace KopiLua
 		    CharPtr p = luaL_buffinitsize(L, b, totallen);
 		    while (n-- > 1) {  /* first n-1 copies (followed by separator) */
 		      memcpy(p, s, l * 1); p += l; //FIXME:changed, sizeof(char)
-		      memcpy(p, sep, lsep * 1); p += lsep; //FIXME:changed, sizeof(char)
+		      if (lsep > 0) {  /* avoid empty 'memcpy' (may be expensive) */
+		        memcpy(p, sep, lsep * 1); p += lsep; //FIXME:changed, sizeof(char)
+		      }
 		    }
 		    memcpy(p, s, l * sizeof(char));  /* last copy (not followed by separator) */
 		    luaL_pushresultsize(b, totallen);
@@ -778,24 +780,17 @@ namespace KopiLua
 		//#if !defined(LUA_INTFRMLEN)	/* { */
 		//#if defined(LUA_USE_LONGLONG)
 
-		//#define LUA_INTFRMLEN           "ll"
-		//#define LUA_INTFRM_T            long long
+		//#define LUA_INTFRMLEN		"ll"
+		//#define LUA_INTFRM_T		long long
 
 		//#else
 
 		private const string LUA_INTFRMLEN = "l";
-		//#define LUA_INTFRM_T            long
+		//#define LUA_INTFRM_T		long
 
 		//#endif
         //#endif				/* } */
 
-		//#define MAX_UINTFRM	((lua_Number)(~(unsigned LUA_INTFRM_T)0))
-		//#define MAX_INTFRM	((lua_Number)((~(unsigned LUA_INTFRM_T)0)/2))
-		//#define MIN_INTFRM	(-(lua_Number)((~(unsigned LUA_INTFRM_T)0)/2) - 1)
-		//FIXME:???here not sure
-		private const uint MAX_UINTFRM = uint.MaxValue / 2;
-		private const int MAX_INTFRM = int.MaxValue / 2;
-		private const int MIN_INTFRM = int.MinValue / 2 - 1;
 		
 		/*
 		** LUA_FLTFRMLEN is the length modifier for float conversions in
@@ -805,7 +800,7 @@ namespace KopiLua
 		//#if !defined(LUA_FLTFRMLEN)
 
 		private const string LUA_FLTFRMLEN = "";
-		//#define LUA_FLTFRM_T            double //FIXME:???
+		//#define LUA_FLTFRM_T		double //FIXME:???
 
 		//#endif
 		/* maximum size of each formatted item (> len(format('%99.99f', -1e308))) */
@@ -909,19 +904,22 @@ namespace KopiLua
 						break;
 					  }
 					  case 'd':  case 'i': {
-			            lua_Number n = luaL_checknumber(L, arg);
-			            luaL_argcheck(L, (MIN_INTFRM - 1) < n && n < (MAX_INTFRM + 1), arg,
-			                          "not a number in proper range");
-			            addlenmod(form, LUA_INTFRMLEN);
-			            nb = sprintf(buff, form, (LUA_INTFRM_T)n);
+			            LUA_INTFRM_T ni = (LUA_INTFRM_T)n;
+				        lua_Number diff = n - (lua_Number)ni;
+				        luaL_argcheck(L, -1 < diff && diff < 1, arg,
+				                      "not a number in proper range");
+				        addlenmod(form, LUA_INTFRMLEN);
+				        nb = sprintf(buff, form, ni);
 			            break;
 			          }
 					  case 'o':  case 'u':  case 'x':  case 'X':  {
 				        lua_Number n = luaL_checknumber(L, arg);
-			            luaL_argcheck(L, 0 <= n && n < (MAX_UINTFRM + 1), arg,
-			                          "not a non-negative number in proper range");
-			            addlenmod(form, LUA_INTFRMLEN);
-			            nb = sprintf(buff, form, (ulong)n); //FIXME:changed, (unsigned LUA_INTFRM_T)
+			            unsigned LUA_INTFRM_T ni = (unsigned LUA_INTFRM_T)n;
+				        lua_Number diff = n - (lua_Number)ni;
+				        luaL_argcheck(L, -1 < diff && diff < 1, arg,
+				                      "not a non-negative number in proper range");
+				        addlenmod(form, LUA_INTFRMLEN);
+				        nb = sprintf(buff, form, ni);
 					    break;
 					  }
 					  case 'e':  case 'E':  case 'f':

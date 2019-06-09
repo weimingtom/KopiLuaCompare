@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.38 2011/11/30 12:35:05 roberto Exp $
+** $Id: loslib.c,v 1.39 2012/05/23 15:37:09 roberto Exp $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -29,9 +29,10 @@ namespace KopiLua
 		//#if !defined(LUA_USE_POSIX)
 		private static CharPtr[] LUA_STRFTIMEOPTIONS = new CharPtr[] { "aAbBcdHIjmMpSUwWxXyYz%", "" };
 		//#else
-		//#define LUA_STRFTIMEOPTIONS     { "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
-		//                                "E", "cCxXyY",  \
-		//                                "O", "deHImMSuUVwWy" }
+		//#define LUA_STRFTIMEOPTIONS \
+		//	{ "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "" \
+		//	  "", "E", "cCxXyY",  \
+		//	  "O", "deHImMSuUVwWy" }
 		//#endif
 
 		//#endif
@@ -54,7 +55,7 @@ namespace KopiLua
 		//#elif !defined(lua_tmpnam)
 
 		public const int LUA_TMPNAMBUFSIZE = L_tmpnam;
-		public static void lua_tmpnam(CharPtr b, out int e)         { e = (tmpnam(b) == null)?1:0; }
+		public static void lua_tmpnam(CharPtr b, out int e)		{ e = (tmpnam(b) == null)?1:0; }
 
 		//#endif
 

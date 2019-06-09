@@ -1,3 +1,8 @@
+/*
+** $Id: lstate.h,v 2.81 2012/06/08 15:14:04 roberto Exp $
+** Global State
+** See Copyright Notice in lua.h
+*/
 using System.Diagnostics;
 
 namespace KopiLua
@@ -146,6 +151,7 @@ namespace KopiLua
 			public CallInfo previous, next;  /* dynamic call link */
 			public short nresults;  /* expected number of results from this function */
 			public lu_byte callstatus;
+			public ptrdiff_t extra;
 			public class _u {
 			    public class _l {  /* only for Lua functions */
 			      public StkId base_;  /* base for this function */
@@ -156,7 +162,6 @@ namespace KopiLua
 			      public int ctx;  /* context info. in case of yields */
 			      public lua_CFunction k;  /* continuation in case of yields */
 			      public ptrdiff_t old_errfunc;
-			      public ptrdiff_t extra;
 			      public lu_byte old_allowhook;
 			      public lu_byte status;
 			    };
@@ -176,6 +181,7 @@ namespace KopiLua
 		public const int CIST_YPCALL = 	(1<<4);	/* call is a yieldable protected call */
 		public const int CIST_STAT = 	(1<<5);	/* call has an error status (pcall) */
 		public const int CIST_TAIL = (1<<6); /* call was tail called */
+		public const int CIST_HOOKYIELD	= (1<<7);	/* last hook called yielded */
 
 
 		public static int isLua(CallInfo ci)	{return ((ci.callstatus & CIST_LUA) != 0) ? 1 : 0;}
@@ -189,9 +195,11 @@ namespace KopiLua
 		  public object ud;         /* auxiliary data to `frealloc' */
 		  public lu_mem totalbytes;  /* number of bytes currently allocated - GCdebt */
 		  public l_mem GCdebt;  /* bytes allocated not yet compensated by the collector */
-		  public lu_mem lastmajormem;  /* memory in use after last major collection */
+		  public lu_mem GCmemtrav;  /* memory traversed by the GC */
+		  public lu_mem GCestimate;  /* an estimate of the non-garbage memory in use */
 		  public stringtable strt = new stringtable();  /* hash table for strings */
 		  public TValue l_registry = new TValue();
+		  public uint seed;  /* randomized seed for hashes */
 		  public lu_byte currentwhite;
 		  public lu_byte gcstate;  /* state of garbage collector */
           public lu_byte gckind;  /* kind of GC running */
@@ -199,7 +207,8 @@ namespace KopiLua
 		  public int sweepstrgc;  /* position of sweep in `strt' */
 		  public GCObject allgc;  /* list of all collectable objects */
 		  public GCObject finobj;  /* list of collectable objects with finalizers */
-		  public GCObjectRef sweepgc;  /* current position of sweep */
+		  public GCObjectRef sweepgc;  /* current position of sweep in list 'allgc' */
+  		  public GCObjectRef sweepfin;  /* current position of sweep in list 'finobj' */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
 		  public GCObject weak;  /* list of tables with weak values */
@@ -425,11 +434,15 @@ namespace KopiLua
 		}
 		
 		/* macros to convert a GCObject into a specific value */
-		public static TString rawgco2ts(GCObject o) { return (TString)check_exp(o.gch.tt == LUA_TSTRING, o.ts); }
+		public static TString rawgco2ts(GCObject o) 
+			{ return (TString)check_exp(novariant(o.gch.tt) == LUA_TSTRING, o.ts); }
 		public static TString gco2ts(GCObject o) { return (TString)(rawgco2ts(o).tsv); }
 		public static Udata rawgco2u(GCObject o) { return (Udata)check_exp(o.gch.tt == LUA_TUSERDATA, o.u); }
 		public static Udata gco2u(GCObject o) { return (Udata)(rawgco2u(o).uv); }
-		public static Closure gco2cl(GCObject o) { return (Closure)check_exp(o.gch.tt == LUA_TFUNCTION, o.cl); }
+		public static Udata gco2lcl(GCObject o)	{ return (Udata)check_exp((o)->gch.tt == LUA_TLCL, o.cl.l); }
+		public static Udata gco2ccl(GCObject o)	{ return (Udata)check_exp((o)->gch.tt == LUA_TCCL, o.cl.c); }
+		public static Udata gco2cl(GCObject o)  {
+			check_exp(novariant(o.gch.tt) == LUA_TFUNCTION, o.cl); }
 		public static Table gco2t(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
 		public static Proto gco2p(GCObject o) { return (Proto)check_exp(o.gch.tt == LUA_TPROTO, o.p); }
 		public static UpVal gco2uv(GCObject o) { return (UpVal)check_exp(o.gch.tt == LUA_TUPVAL, o.uv); }

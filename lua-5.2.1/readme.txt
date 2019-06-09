@@ -46,5 +46,60 @@ loadlib.c
 
 //------------------------------
 
+11:31 2019/6/9
+lobject.h
+11:34 2019/6/9
+loslib.c
+12:09 2019/6/9
+lparser.c
+12:12 2019/6/9
+lparser.h
+12:15 2019/6/9
+lstate.c
+12:21 2019/6/9
+lstate.h
+12:28 2019/6/9
+lstring.c  //luaS_newudata(lua_State L, Type t, Table e)????
+12:30 2019/6/9
+lstring.h
+12:35 2019/6/9
+lstrlib.c
+12:39 2019/6/9
+ltable.c
+12:41 2019/6/9
+lua.c
+13:49 2019/6/9
+lua.h
+13:55 2019/6/9
+luaconf.h
+14:01 2019/6/9
+lundump.c
+14:03 2019/6/9
+lundump.h
+14:15 2019/6/9
+lvm.c
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---------------------------
+
+
+lobject.h
+
+/* check whether a number is valid (useful only for NaN trick) */
+//public static void luai_checknum(lua_State L, TValue o, luai_checknum_func c)	{ /* empty */ } //FIXME:???
+		
+		
 
 

@@ -28,7 +28,7 @@ namespace KopiLua
 		/* how much to allocate before next GC step */
 		//#if !defined(GCSTEPSIZE)
 		/* ~100 small strings */
-		public const int GCSTEPSIZE =	((int)(100 * sizeof(TString)))
+		public const int GCSTEPSIZE =	((int)(100 * 16)); //FIXME:sizeof(TString) == 16
 		//#endif
 
 

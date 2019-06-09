@@ -110,6 +110,8 @@ namespace KopiLua
 		 f.code = (Instruction[])LoadVector(S, typeof(Instruction), n);
 		}
 
+		//static Proto* LoadFunction(LoadState* S);
+
 		private static void LoadConstants(LoadState S, Proto f)
 		{
 		 int i,n;

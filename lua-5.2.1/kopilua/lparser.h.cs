@@ -1,3 +1,8 @@
+/*
+** $Id: lparser.h,v 1.70 2012/05/08 13:53:33 roberto Exp $
+** Lua Parser
+** See Copyright Notice in lua.h
+*/
 using System.Diagnostics;
 
 namespace KopiLua
@@ -166,5 +171,9 @@ namespace KopiLua
 		  public lu_byte nups;  /* number of upvalues */
 		  public lu_byte freereg;  /* first free register */
 		};
+
+		//LUAI_FUNC Closure *luaY_parser (lua_State *L, ZIO *z, Mbuffer *buff,
+		//                                Dyndata *dyd, const char *name, int firstchar);
+
 	}
 }

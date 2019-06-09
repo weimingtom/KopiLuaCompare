@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.203 2011/12/12 16:34:03 roberto Exp $
+** $Id: lua.c,v 1.205 2012/05/23 15:37:09 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -53,13 +53,13 @@ namespace KopiLua
 		*/
 		//#if defined(LUA_USE_ISATTY)
 		//#include <unistd.h>
-		//#define lua_stdin_is_tty()      isatty(0)
+		//#define lua_stdin_is_tty()	isatty(0)
 		//#elif defined(LUA_WIN)
 		//#include <io.h>
 		//#include <stdio.h>
-		//#define lua_stdin_is_tty()      _isatty(_fileno(stdin))
+		//#define lua_stdin_is_tty()	_isatty(_fileno(stdin))
 		//#else
-		//#define lua_stdin_is_tty()      1  /* assume stdin is a tty */
+		//#define lua_stdin_is_tty()	1  /* assume stdin is a tty */
 		//FIXME:???
 		public static int lua_stdin_is_tty() {return 1;}
 		//#endif
@@ -76,19 +76,19 @@ namespace KopiLua
 		//#include <stdio.h>
 		//#include <readline/readline.h>
 		//#include <readline/history.h>
-		//#define lua_readline(L,b,p)     ((void)L, ((b)=readline(p)) != NULL)
+		//#define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
 		//#define lua_saveline(L,idx) \
 		//        if (lua_rawlen(L,idx) > 0)  /* non-empty line? */ \
 		//          add_history(lua_tostring(L, idx));  /* add it to history */
-		//#define lua_freeline(L,b)       ((void)L, free(b))
+		//#define lua_freeline(L,b)	((void)L, free(b))
 
 		//#elif !defined(lua_readline)
 
-		private static int lua_readline(Lua.lua_State L, Lua.CharPtr b, Lua.CharPtr p) {
+		private static int lua_readline(Lua.lua_State L, Lua.CharPtr b, Lua.CharPtr p)	{
 		        /*(void)L,*/ Lua.fputs(p, Lua.stdout); Lua.fflush(Lua.stdout);  /* show prompt */
 		        return (Lua.fgets(b/*, LUA_MAXINPUT*/, Lua.stdin) != null) ? 1 : 0;}  /* get line */ //FIXME: no Lua_MAXINPUT
-		private static void lua_saveline(Lua.lua_State L, int idx)     { /*(void)L; (void)idx;*/ }
-		private static void lua_freeline(Lua.lua_State L, object b)       { /*(void)L; (void)b;*/ }
+		private static void lua_saveline(Lua.lua_State L, int idx)	{ /*(void)L; (void)idx;*/ }
+		private static void lua_freeline(Lua.lua_State L, object b)	{ /*(void)L; (void)b;*/ }
 
 		//#endif
 
@@ -234,16 +234,11 @@ namespace KopiLua
 
 		static int dolibrary(Lua.lua_State L, Lua.CharPtr name) {
 		  int status;
-		  Lua.lua_pushglobaltable(L);
-		  Lua.lua_getfield(L, -1, "require");
-		  Lua.lua_pushstring(L, name);
-		  status = docall(L, 1, 1);
-		  if (status == Lua.LUA_OK) {
-		    Lua.lua_setfield(L, -2, name);  /* global[name] = require return */
-		    Lua.lua_pop(L, 1);  /* remove global table */
-		  }
-		  else
-		    Lua.lua_remove(L, -2);  /* remove global table (below error msg.) */
+		  lua_getglobal(L, "require");
+		  lua_pushstring(L, name);
+		  status = docall(L, 1, 1);  /* call 'require(name)' */
+		  if (status == LUA_OK)
+		    lua_setglobal(L, name);  /* global[name] = require return */
 		  return report(L, status);
 		}
 

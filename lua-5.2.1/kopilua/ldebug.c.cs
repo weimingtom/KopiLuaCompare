@@ -18,7 +18,7 @@ namespace KopiLua
 	public partial class Lua
 	{
 
-		static boolean noLuaClosure(Closure f)		{ return ((f) == NULL || (f)->c.tt == LUA_TCCL); }
+		private static bool noLuaClosure(Closure f)		{ return (f == null || f.c.tt == LUA_TCCL); }
 
 
         //static const char *getfuncname (lua_State *L, CallInfo *ci, const char **name);

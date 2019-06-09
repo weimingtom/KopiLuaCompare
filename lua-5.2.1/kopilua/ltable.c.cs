@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.67 2011/11/30 12:41:45 roberto Exp $
+** $Id: ltable.c,v 2.71 2012/05/23 15:37:09 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -49,10 +49,10 @@ namespace KopiLua
 
 
 		//public static Node gnode(Table t, int i)	{return t.node[i];}
-		public static Node hashpow2(Table t, lua_Number n)      {return gnode(t, (int)lmod(n, sizenode(t)));}
+		public static Node hashpow2(Table t, lua_Number n)		{return gnode(t, (int)lmod(n, sizenode(t)));}
 		
-		public static Node hashstr(Table t, TString str)  {return hashpow2(t, str.tsv.hash);}
-		public static Node hashboolean(Table t, int p)        {return hashpow2(t, p);}
+		public static Node hashstr(Table t, TString str)		{return hashpow2(t, str.tsv.hash);}
+		public static Node hashboolean(Table t, int p)		{return hashpow2(t, p);}
 
 
 		/*
@@ -104,7 +104,15 @@ namespace KopiLua
 		  switch (ttype(key)) {
 			case LUA_TNUMBER:
 			  return hashnum(t, nvalue(key));
-			case LUA_TSTRING:
+			case LUA_TLNGSTR: {
+		      TString *s = rawtsvalue(key);
+		      if (s->tsv.extra == 0) {  /* no hash? */
+		        s->tsv.hash = luaS_hash(getstr(s), s->tsv.len, s->tsv.hash);
+		        s->tsv.extra = 1;  /* now it has its hash */
+		      }
+		      return hashstr(t, rawtsvalue(key));
+		    }
+		    case LUA_TSHRSTR:
 			  return hashstr(t, rawtsvalue(key));
 			case LUA_TBOOLEAN:
 			  return hashboolean(t, bvalue(key));
@@ -462,12 +470,13 @@ namespace KopiLua
 
 
 		/*
-		** search function for strings
+		** search function for short strings
 		*/
 		public static TValue luaH_getstr (Table t, TString key) {
 		  Node n = hashstr(t, key);
+		  lua_assert(key->tsv.tt == LUA_TSHRSTR);
 		  do {  /* check whether `key' is somewhere in the chain */
-			if (ttisstring(gkey(n)) && eqstr(rawtsvalue(gkey(n)), key))
+			if (ttisshrstring(gkey(n)) && eqshrstr(rawtsvalue(gkey(n)), key))
 			  return gval(n);  /* that's it */
 			else n = gnext(n);
 		  } while (n != null);
@@ -479,9 +488,9 @@ namespace KopiLua
 		** main search function
 		*/
 		public static TValue luaH_get (Table t, TValue key) {
-		  switch (ttypenv(key)) {
+		  switch (ttype(key)) {
 			case LUA_TNIL: return luaO_nilobject;
-			case LUA_TSTRING: return luaH_getstr(t, rawtsvalue(key));
+			case LUA_TSHRSTR: return luaH_getstr(t, rawtsvalue(key));
 			case LUA_TNUMBER: {
 			  int k;
 			  lua_Number n = nvalue(key);

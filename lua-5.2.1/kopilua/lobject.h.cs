@@ -1,3 +1,8 @@
+/*
+** $Id: lobject.h,v 2.70 2012/05/11 14:10:50 roberto Exp $
+** Type definitions for Lua objects
+** See Copyright Notice in lua.h
+*/
 using System;
 using System.Diagnostics;
 
@@ -32,6 +37,9 @@ namespace KopiLua
 		** bits 4-5: variant bits
 		** bit 6: whether value is collectable
 		*/
+		
+		public const int VARBITS = (3 << 4);
+
 
 		/*
 		** LUA_TFUNCTION variants:
@@ -44,6 +52,12 @@ namespace KopiLua
 		public const int LUA_TLCL = (LUA_TFUNCTION | (0 << 4));  /* Lua closure */
 		public const int LUA_TLCF = (LUA_TFUNCTION | (1 << 4));  /* light C function */
 		public const int LUA_TCCL = (LUA_TFUNCTION | (2 << 4));  /* C closure */
+
+
+		/*
+		** LUA_TSTRING variants */
+		public const int LUA_TSHRSTR = (LUA_TSTRING | (0 << 4));  /* short strings */
+		public const int LUA_TLNGSTR = (LUA_TSTRING | (1 << 4));  /* long strings */
 
 
 		/* Bit mark for collectable types */
@@ -249,23 +263,29 @@ namespace KopiLua
 		/* raw type tag of a TValue */
 		public static int rttype(TValue o) { return o.tt_; }
 
+		/* tag with no variants (bits 0-3) */
+		public static int novariant(int x)	{ return ((x) & 0x0F); }
+
 		/* type tag of a TValue (bits 0-3 for tags + variant bits 4-5) */
 		public static int ttype(TValue o) { return (rttype(o) & 0x3F); }
 
 
 		/* type tag of a TValue with no variants (bits 0-3) */
-		public static int ttypenv(TValue o) { return (rttype(o) & 0x0F); }
+		public static int ttypenv(TValue o) { return novariant(rttype(o)); }
 
 
 		/* Macros to test type */
 		public static bool checktag(TValue o, int t)	    {return (rttype(o) == t);}
+		public static bool checktype(TValue o, int t)		{return (ttypenv(o) == (t));}
 		public static bool ttisnumber(TValue o)		{return checktag(o, LUA_TNUMBER);}		
 		public static bool ttisnil(TValue o)	{return checktag(o, LUA_TNIL);}
 		public static bool ttisboolean(TValue o)	{return checktag(o, LUA_TBOOLEAN);}
 		public static bool ttislightuserdata(TValue o)	{return checktag(o, LUA_TLIGHTUSERDATA);}
-		public static bool ttisstring(TValue o)	{return checktag(o, ctb(LUA_TSTRING));}
+		public static bool ttisstring(TValue o)		{return checktype((o), LUA_TSTRING);}
+		public static bool ttisshrstring(TValue o)	{return checktag((o), ctb(LUA_TSHRSTR));}
+		public static bool ttislngstring(TValue o)	{return checktag((o), ctb(LUA_TLNGSTR));}
 		public static bool ttistable(TValue o)	{return checktag(o, ctb(LUA_TTABLE));}
-		public static bool ttisfunction(TValue o)	{return (ttypenv(o) == LUA_TFUNCTION);}
+		public static bool ttisfunction(TValue o)		{return checktype(o, LUA_TFUNCTION);}
 		public static bool ttisclosure(TValue o) {return ((rttype(o) & 0x1F) == LUA_TFUNCTION);}
 		public static bool ttisCclosure(TValue o) {return checktag(o, ctb(LUA_TCCL));}
 		public static bool ttisLclosure(TValue o) {return checktag((o), ctb(LUA_TLCL));}
@@ -301,7 +321,7 @@ namespace KopiLua
 
 
 		/* Macros for internal tests */
-		public static bool righttt(TValue obj) { return (ttypenv(obj) == gcvalue(obj).gch.tt); }
+		public static bool righttt(TValue obj) { return (ttype(obj) == gcvalue(obj).gch.tt); }
 
 		public static void checkliveness(global_State g, TValue obj) {
 			lua_longassert(!iscollectable(obj) || 
@@ -333,7 +353,8 @@ namespace KopiLua
 	
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) 
 		  {  TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TSTRING)); //FIXME:chagned, val_(io)
+		     TString x_ = (x);
+		     io.value_.gc=(GCObject)x_; settt_(io, ctb(x_.tsv.tt)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setuvalue(lua_State L, TValue obj, GCObject x) 
@@ -359,11 +380,6 @@ namespace KopiLua
 		public static void sethvalue(lua_State L, TValue obj, Table x)
 		  { TValue io=obj; 
 		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TTABLE)); //FIXME:chagned, val_(io)
-			 checkliveness(G(L),io); }
-
-		public static void setptvalue(lua_State L, TValue obj, Proto x)
-		  { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TPROTO)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 		
 		public static void setdeadvalue(TValue obj) { settt_(obj, LUA_TDEADKEY); }
@@ -413,6 +429,8 @@ namespace KopiLua
 		public static void setsvalue2n(lua_State L, TValue obj, TString x) { setsvalue(L, obj, x); }
 
 
+		/* check whether a number is valid (useful only for NaN trick) */
+		//public static void luai_checknum(lua_State L, TValue o, luai_checknum_func c)	{ /* empty */ } //FIXME:???
 
 		//----------------------------------
 		//FIXME:removed, see below
@@ -422,9 +440,7 @@ namespace KopiLua
 		** =======================================================
 		*/
 
-		//#if defined(LUA_NANTRICK) \
-		// || defined(LUA_NANTRICK_LE) \
-		// || defined(LUA_NANTRICK_BE)
+		//#if defined(LUA_NANTRICK)
 
 		/*
 		** numbers are represented in the 'd_' field. All other values have the
@@ -432,7 +448,16 @@ namespace KopiLua
 		** a "signaled NaN", which is never generated by regular operations by
 		** the CPU (nor by 'strtod')
 		*/
-		//#if !defined(NNMARK)
+
+		/* allows for external implementation for part of the trick */
+		//#if !defined(NNMARK)	/* { */
+
+
+		//#if !defined(LUA_IEEEENDIAN)
+		//#error option 'LUA_NANTRICK' needs 'LUA_IEEEENDIAN'
+		//#endif
+
+
 		//#define NNMARK		0x7FF7A500
 		//#define NNMASK		0x7FFFFF00
 		//#endif
@@ -440,7 +465,7 @@ namespace KopiLua
 		//#undef TValuefields
 		//#undef NILCONSTANT
 
-		//#if defined(LUA_NANTRICK_LE)
+		//#if (LUA_IEEEENDIAN == 0)	/* { */
 
 		/* little endian */
 		//#define TValuefields  \
@@ -451,7 +476,7 @@ namespace KopiLua
 		//#define d_(o)		((o)->u.d__)
 		//#define tt_(o)		((o)->u.i.tt__)
 
-		//#elif defined(LUA_NANTRICK_BE)
+		//#else				/* }{ */
 
 		/* big endian */
 		//#define TValuefields  \
@@ -462,8 +487,7 @@ namespace KopiLua
 		//#define d_(o)		((o)->u.d__)
 		//#define tt_(o)		((o)->u.i.tt__)
 
-		//#elif !defined(TValuefields)
-		//#error option 'LUA_NANTRICK' needs declaration for 'TValuefields'
+		//#endif				/* } */
 
 		//#endif
 
@@ -506,7 +530,9 @@ namespace KopiLua
 		*/
 
 		//#undef checktag
+		//#undef checktype
 		//#define checktag(o,t)	(tt_(o) == tag2tt(t))
+		//#define checktype(o,t)	(ctb(tt_(o) | VARBITS) == ctb(tag2tt(t) | VARBITS))
 
 		//#undef ttisequal
 		//#define ttisequal(o1,o2)  \
@@ -514,12 +540,10 @@ namespace KopiLua
 
 
 
+		//#undef luai_checknum
 		//#define luai_checknum(L,o,c)	{ if (!ttisnumber(o)) c; }
 
 
-		//#else
-
-		//#define luai_checknum(L,o,c)	{ /* empty */ }
 
 		//#endif
 		/* }====================================================== */
@@ -560,7 +584,7 @@ namespace KopiLua
 		*/
 		public class TString_tsv : GCObject { //FIXME:added
             //CommonHeader;
-			public lu_byte reserved;
+			public lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
 			public uint hash;
 			public uint len;  /* number of characters in string */
 		};	
@@ -727,7 +751,7 @@ namespace KopiLua
 		*/
 
 		public class ClosureHeader : GCObject {
-			/*CommonHeader; */public lu_byte isC; public lu_byte nupvalues; public GCObject gclist;};
+			/*CommonHeader; */public lu_byte nupvalues; public GCObject gclist;};
 
 		public class ClosureType {
 

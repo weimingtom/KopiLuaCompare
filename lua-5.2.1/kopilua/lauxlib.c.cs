@@ -631,7 +631,7 @@ namespace KopiLua
 		  int c = (cp = skipBOM(lf));
 		  if (c == '#') {  /* first line is a comment (Unix exec. file)? */
 		    do {  /* skip first line */
-		      c = getc(lf->f);
+		      c = getc(lf.f);
 		    } while (c != EOF && c != '\n') ;
 		    cp = getc(lf.f);  /* skip end-of-line, if present */
 		    return 1;  /* there was a comment */

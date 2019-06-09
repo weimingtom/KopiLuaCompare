@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.147 2011/12/07 14:43:55 roberto Exp $
+** $Id: lvm.c,v 2.152 2012/06/08 15:14:04 roberto Exp $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -55,10 +55,15 @@ namespace KopiLua
 		private static void traceexec (lua_State L) {
           CallInfo ci = L.ci;
 		  lu_byte mask = L.hookmask;
-		  if (((mask & LUA_MASKCOUNT) != 0) && (L.hookcount == 0)) {
-			resethookcount(L);
-			luaD_hook(L, LUA_HOOKCOUNT, -1);
+		  int counthook = ((mask & LUA_MASKCOUNT) && L->hookcount == 0);
+		  if (counthook)
+		    resethookcount(L);  /* reset count */
+		  if (ci->callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
+		    ci->callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
+		    return;  /* do not call hook again (VM yielded, so it did not move) */
 		  }
+		  if (counthook)
+		    luaD_hook(L, LUA_HOOKCOUNT, -1);  /* call count hook */
 		  if ((mask & LUA_MASKLINE) != 0) {
 			Proto p = ci_func(ci).p;
 			int npc = pcRel(ci.u.l.savedpc, p);
@@ -66,11 +71,15 @@ namespace KopiLua
 		    if (npc == 0 ||  /* call linehook when enter a new function, */
 		        ci.u.l.savedpc <= L.oldpc ||  /* when jump back (loop), or when */
 		        newline != getfuncline(p, pcRel(L.oldpc, p)))  /* enter a new line */
-			  luaD_hook(L, LUA_HOOKLINE, newline);
+			  luaD_hook(L, LUA_HOOKLINE, newline);  /* call line hook */
 		  }
           L.oldpc = ci.u.l.savedpc;
 		  if (L.status == LUA_YIELD) {  /* did hook yield? */
+		  	if (counthook)
+      		  L->hookcount = 1;  /* undo decrement to zero */
           	InstructionPtr.dec(ref ci.u.l.savedpc);  /* undo increment (resume will increment it again) */
+		    ci->callstatus |= CIST_HOOKYIELD;  /* mark that it yieled */
+		    ci->func = L->top - 1;  /* protect stack below results */			
 		    luaD_throw(L, LUA_YIELD);
 		  }
 		}
@@ -262,7 +271,8 @@ namespace KopiLua
 			case LUA_TBOOLEAN: return (bvalue(t1) == bvalue(t2)) ? 1 : 0;  /* true must be 1 !! */
 			case LUA_TLIGHTUSERDATA: return (pvalue(t1) == pvalue(t2)) ? 1 : 0;
 		    case LUA_TLCF: return (fvalue(t1) == fvalue(t2)) ? 1 : 0;
-		    case LUA_TSTRING: return (eqstr(rawtsvalue(t1), rawtsvalue(t2))) ? 1 : 0;
+		    case LUA_TSHRSTR: return eqshrstr(rawtsvalue(t1), rawtsvalue(t2));
+    		case LUA_TLNGSTR: return luaS_eqlngstr(rawtsvalue(t1), rawtsvalue(t2));
 			case LUA_TUSERDATA: {
 			  if (uvalue(t1) == uvalue(t2)) return 1;
               else if (L == null) return 0;
@@ -297,7 +307,7 @@ namespace KopiLua
 			else if (tsvalue(top-1).len == 0)  /* second operand is empty? */
 		      tostring(L, top - 2);  /* result is first operand */
 		    else if (ttisstring(top-2) && tsvalue(top-2).len == 0) {
-		      setsvalue2s(L, top-2, rawtsvalue(top-1));  /* result is second op. */
+		      setobjs2s(L, top - 2, top - 1);  /* result is second op. */
 		    } 
 			else {
 			  /* at least two non-empty string values; get as many as possible */
@@ -400,7 +410,8 @@ namespace KopiLua
 		  int nup = p.sizeupvalues;
 		  Upvaldesc[] uv = p.upvalues;
 		  int i;
-		  Closure ncl = luaF_newLclosure(L, p);
+		  Closure ncl = luaF_newLclosure(L, nup);
+  		  ncl.l.p = p;
 		  setclLvalue(L, ra, ncl);  /* anchor new closure in stack */
 		  for (i = 0; i < nup; i++) {  /* fill in its upvalues */
 		    if (uv[i].instack!=0)  /* upvalue refers to local variable? */
@@ -516,7 +527,13 @@ namespace KopiLua
 
 		//#define Protect(x)	{ {x;}; base = ci->u.l.base_; } //FIXME:
 
-		//#define checkGC(L,c)	Protect(luaC_condGC(L, c); luai_threadyield(L);) //FIXME:
+		//#define checkGC(L,c)	\
+		//	Protect( luaC_condGC(L,{L->top = (c);  /* limit of live values */ \
+        //                  luaC_step(L); \
+        //                  L->top = ci->top;})  /* restore top */ \
+        //   	luai_threadyield(L); )
+		
+		
 		public delegate lua_Number op_delegate(lua_State L, lua_Number a, lua_Number b); //FIXME:added
 		public static void arith_op(lua_State L, op_delegate op, TMS tm, StkId base_, Instruction i, TValue[] k, StkId ra/*, InstructionPtr pc*/, CallInfo ci) {
 		        TValue rb = RKB(L, base_, i, k);
@@ -733,7 +750,8 @@ namespace KopiLua
                     	L.top = ra + 1;  /* limit of live values */
 			          	luaC_step(L);
 			          	L.top = ci.top;  /* restore top */
-                    }); luai_threadyield(L);
+                    }); 
+					luai_threadyield(L);
 		        base_ = ci.u.l.base_;
 				//);
 				break;
@@ -815,7 +833,9 @@ namespace KopiLua
 		        	luaC_condGC(L, delegate() {//checkGC()
                     	L.top = (ra >= rb ? ra + 1 : rb);  /* limit of live values */
 		          		luaC_step(L);
-                    }); luai_threadyield(L);
+						L.top = ci.top;  /* restore top */
+                    }); 
+					luai_threadyield(L);
 		        base_ = ci.u.l.base_;
 				//};
 				L.top = ci.top;  /* restore top */
@@ -1021,7 +1041,8 @@ namespace KopiLua
 			          	L.top = ra + 1;  /* limit of live values */
 			          	luaC_step(L);
 			          	L.top = ci.top;  /* restore top */
-                    }); luai_threadyield(L);
+                    }); 
+					luai_threadyield(L);
 		        base_ = ci.u.l.base_;
 				//};
 				break;

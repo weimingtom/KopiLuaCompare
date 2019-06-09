@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 1.71 2011/12/07 10:39:12 lhf Exp $
+** $Id: lundump.c,v 2.22 2012/05/08 13:53:33 roberto Exp $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -31,7 +31,7 @@ namespace KopiLua
 			public CharPtr name;
 		};
 
-		static void error(LoadState S, CharPtr why)
+		public static void/*l_noret*/ error(LoadState S, CharPtr why)
 		{
 		 luaO_pushfstring(S.L,"%s: %s precompiled chunk",S.name,why);
 		 luaD_throw(S.L,LUA_ERRSYNTAX);
@@ -63,7 +63,7 @@ namespace KopiLua
 		public static object LoadVector(LoadState S, Type t, int n) {return LoadMem(S, t, n);} //FIXME:changed, ref->return
 
 		//#if !defined(luai_verifycode)
-		public static Proto luai_verifycode(lua_State L, Mbuffer b, Proto f) { return f; }
+		public static void luai_verifycode(lua_State L, Mbuffer b, Proto f) { /* empty */ }
 		//#endif
 
 		private static void LoadBlock(LoadState S, CharPtr b, int size)
@@ -110,6 +110,8 @@ namespace KopiLua
 		 f.code = (Instruction[])LoadVector(S, typeof(Instruction), n);
 		}
 
+		//static void LoadFunction(LoadState* S, Proto* f);
+
 		private static void LoadConstants(LoadState S, Proto f)
 		{
 		 int i,n;
@@ -135,13 +137,18 @@ namespace KopiLua
 		   case LUA_TSTRING:
 			setsvalue2n(S.L, o, LoadString(S));
 			break;
+		   default: lua_assert(0);
 		  }
 		 }
 		 n=LoadInt(S);
 		 f.p=luaM_newvector<Proto>(S.L,n);
 		 f.sizep=n;
 		 for (i=0; i<n; i++) f.p[i]=null;
-		 for (i=0; i<n; i++) f.p[i]=LoadFunction(S);
+		 for (i=0; i<n; i++) 
+		 {
+		    f.p[i]=luaF_newproto(S.L);
+		 	LoadFunction(S,f.p[i]);
+		 }
 		}
 
 		private static void LoadUpvalues(LoadState S, Proto f)
@@ -180,10 +187,8 @@ namespace KopiLua
 		 for (i=0; i<n; i++) f.upvalues[i].name=LoadString(S);
 		}
 
-		private static Proto LoadFunction(LoadState S)
+		private static void LoadFunction(LoadState S, Proto f)
 		{
-		 Proto f=luaF_newproto(S.L);
-		 setptvalue2s(S.L,S.L.top,f); incr_top(S.L);
 		 f.linedefined=LoadInt(S);
 		 f.lastlinedefined=LoadInt(S);
 		 f.numparams=LoadByte(S);
@@ -193,8 +198,6 @@ namespace KopiLua
 		 LoadConstants(S,f);
          LoadUpvalues(S,f);
 		 LoadDebug(S,f);
-		 StkId.dec(ref S.L.top);
-		 return f;
 		}
 
 		/* the code below must be consistent with the code in luaU_header */
@@ -219,9 +222,10 @@ namespace KopiLua
 		/*
 		** load precompiled chunk
 		*/
-		public static Proto luaU_undump (lua_State L, ZIO Z, Mbuffer buff, CharPtr name)
+		public static Closure luaU_undump (lua_State L, ZIO Z, Mbuffer buff, CharPtr name)
 		{
 		 LoadState S = new LoadState();
+		 Closure cl;
 		 if (name[0] == '@' || name[0] == '=')
 		  S.name = name+1;
 		 else if (name[0]==LUA_SIGNATURE[0])
@@ -232,7 +236,19 @@ namespace KopiLua
 		 S.Z=Z;
 		 S.b=buff;
 		 LoadHeader(S);
-		 return luai_verifycode(L,buff,LoadFunction(S));
+		 cl=luaF_newLclosure(L,1);
+		 setclLvalue(L,L->top,cl); incr_top(L);
+		 cl->l.p=luaF_newproto(L);
+		 LoadFunction(&S,cl->l.p);
+		 if (cl->l.p->sizeupvalues != 1)
+		 {
+		  Proto* p=cl->l.p;
+		  cl=luaF_newLclosure(L,cl->l.p->sizeupvalues);
+		  cl->l.p=p;
+		  setclLvalue(L,L->top-1,cl);
+		 }
+		 luai_verifycode(L,buff,cl->l.p);
+		 return cl;
 		}
 
 		private static int MYINT(CharPtr s) { return (s[0]-'0'); }
