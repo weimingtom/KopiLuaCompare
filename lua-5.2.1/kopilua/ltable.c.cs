@@ -105,10 +105,10 @@ namespace KopiLua
 			case LUA_TNUMBER:
 			  return hashnum(t, nvalue(key));
 			case LUA_TLNGSTR: {
-		      TString *s = rawtsvalue(key);
-		      if (s->tsv.extra == 0) {  /* no hash? */
-		        s->tsv.hash = luaS_hash(getstr(s), s->tsv.len, s->tsv.hash);
-		        s->tsv.extra = 1;  /* now it has its hash */
+		      TString s = rawtsvalue(key);
+		      if (s.tsv.extra == 0) {  /* no hash? */
+		        s.tsv.hash = luaS_hash(getstr(s), s.tsv.len, s.tsv.hash);
+		        s.tsv.extra = 1;  /* now it has its hash */
 		      }
 		      return hashstr(t, rawtsvalue(key));
 		    }
@@ -474,7 +474,7 @@ namespace KopiLua
 		*/
 		public static TValue luaH_getstr (Table t, TString key) {
 		  Node n = hashstr(t, key);
-		  lua_assert(key->tsv.tt == LUA_TSHRSTR);
+		  lua_assert(key.tsv.tt == LUA_TSHRSTR);
 		  do {  /* check whether `key' is somewhere in the chain */
 			if (ttisshrstring(gkey(n)) && eqshrstr(rawtsvalue(gkey(n)), key))
 			  return gval(n);  /* that's it */

@@ -102,4 +102,13 @@ lobject.h
 		
 		
 
+----------------------------
+
+
+//FIXME:???not implemented
+private static LX fromstate(lua_State L) { 
+ throw new Exception("not implemented"); //FIXME:???
+ return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+} 
+
 

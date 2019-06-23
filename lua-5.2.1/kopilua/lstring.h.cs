@@ -33,7 +33,7 @@ namespace KopiLua
 		/*
 		** equality for short strings, which are always internalized
 		*/
-		public static bool eqshrstr(TString a, TString b) { return check_exp((a)->tsv.tt == LUA_TSHRSTR, (a) == (b)); }
+		public static bool eqshrstr(TString a, TString b) { return (bool)check_exp(a.tsv.tt == LUA_TSHRSTR, (a) == (b)); }
 		
 
 		//LUAI_FUNC unsigned int luaS_hash (const char *str, size_t l, unsigned int seed);

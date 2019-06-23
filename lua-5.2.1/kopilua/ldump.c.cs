@@ -130,7 +130,7 @@ namespace KopiLua
 		   case LUA_TSTRING:
 			DumpString(rawtsvalue(o),D);
 			break;
-		   default: lua_assert(0);
+		   default: lua_assert(0); break;
 		  }
 		 }
 		 n=f.sizep;

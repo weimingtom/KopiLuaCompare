@@ -224,16 +224,16 @@ namespace KopiLua
 		** will reject ill-formed numerals.
 		*/		
 		private static void read_numeral (LexState ls, SemInfo seminfo) {
-		  const char *expo = "Ee";
-		  int first = ls->current;		
+		  CharPtr expo = new CharPtr("Ee");
+		  int first = ls.current;		
 		  lua_assert(lisdigit(ls.current));
 		  save_and_next(ls);
-		  if (first == '0' && check_next(ls, "Xx"))  /* hexadecimal? */
+		  if (first == '0' && check_next(ls, "Xx") != 0)  /* hexadecimal? */
 		      expo = "Pp";
 		  for (;;) {
-		    if (check_next(ls, expo))  /* exponent part? */
+		    if (check_next(ls, expo) != 0)  /* exponent part? */
 		      check_next(ls, "+-");  /* optional exponent sign */
-		    if (lisxdigit(ls->current) || ls->current == '.')
+		    if (lisxdigit(ls.current) != 0 || ls.current == '.')
 		      save_and_next(ls);
 		    else  break;
 		  }

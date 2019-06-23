@@ -213,7 +213,7 @@ namespace KopiLua
 		  int i;
 		  Upvaldesc[] up = fs.f.upvalues;
 		  for (i = 0; i < fs.nups; i++) {
-		    if (luaS_eqstr(up[i].name, name)) return i;
+		    if (luaS_eqstr(up[i].name, name) != 0) return i;
 		  }
 		  return -1;  /* not found */
 		}
@@ -237,7 +237,7 @@ namespace KopiLua
 		private static int searchvar (FuncState fs, TString n) {
 		  int i;
 		  for (i=fs.nactvar-1; i >= 0; i--) {
-		  	if (luaS_eqstr(n, getlocvar(fs, i).varname))
+		  	if (luaS_eqstr(n, getlocvar(fs, i).varname) != 0)
 			  return i;
 		  }
 		  return -1;  /* not found */
@@ -360,7 +360,7 @@ namespace KopiLua
 		  /* check labels in current block for a match */
 		  for (i = bl.firstlabel; i < dyd.label.n; i++) {
 		    Labeldesc lb = dyd.label.arr[i];
-		    if (luaS_eqstr(lb.name, gt.name)) {  /* correct label? */
+		    if (luaS_eqstr(lb.name, gt.name) != 0) {  /* correct label? */
 		      if (gt.nactvar > lb.nactvar &&
 		          (bl.upval!=0 || dyd.label.n > bl.firstlabel))
 		        luaK_patchclose(ls.fs, gt.pc, lb.nactvar);
@@ -394,7 +394,7 @@ namespace KopiLua
 		  Labellist gl = ls.dyd.gt;
 		  int i = ls.fs.bl.firstgoto;
 		  while (i < gl.n) {
-		    if (luaS_eqstr(gl.arr[i].name, lb.name))
+		    if (luaS_eqstr(gl.arr[i].name, lb.name) != 0)
 		      closegoto(ls, i, lb);
 		    else
 		      i++;
@@ -493,8 +493,8 @@ namespace KopiLua
 		  Proto f = fs.f;  /* prototype of current function */
 		  if (fs.np >= f.sizep) {
 		    int oldsize = f.sizep;
-		    luaM_growvector(L, f.p, fs.np, f->sizep, Proto *, MAXARG_Bx, "functions");
-		    while (oldsize < f->sizep) f->p[oldsize++] = NULL;
+		    luaM_growvector<Proto>(L, ref f.p, fs.np, ref f.sizep, /*Proto *,*/MAXARG_Bx, "functions");
+		    while (oldsize < f.sizep) f.p[oldsize++] = null;
 		  }
 		  f.p[fs.np++] = clp = luaF_newproto(L);
 		  luaC_objbarrier(L, f, clp);
@@ -505,7 +505,7 @@ namespace KopiLua
 		** codes instruction to create new closure in parent function
 		*/
 		private static void codeclosure (LexState ls, expdesc v) {
-		  FuncState *fs = ls->fs->prev;
+		  FuncState fs = ls.fs.prev;
 		  init_exp(v, expkind.VRELOCABLE, luaK_codeABx(fs, OpCode.OP_CLOSURE, 0, (uint)(fs.np - 1)));
   		  luaK_exp2nextreg(fs, v);  /* fix it at stack top (for GC) */
 		}
@@ -1212,7 +1212,7 @@ namespace KopiLua
 		private static void checkrepeated (FuncState fs, Labellist ll, TString label) {
 		  int i;
 		  for (i = fs.bl.firstlabel; i < ll.n; i++) {
-		    if (luaS_eqstr(label, ll.arr[i].name)) {
+		    if (luaS_eqstr(label, ll.arr[i].name)!=0) {
 		      CharPtr msg = luaO_pushfstring(fs.ls.L,
 		                          "label " + LUA_QS + " already defined on line %d",
 		                          getstr(label), ll.arr[i].line);
@@ -1501,14 +1501,14 @@ namespace KopiLua
 		  /* stat -> func | assignment */
 		  FuncState fs = ls.fs;
 		  LHS_assign v = new LHS_assign();
-		  suffixedexp(ls, &v.v);
-		  if (ls->t.token == '=' || ls->t.token == ',') { /* stat -> assignment ? */
-		    v.prev = NULL;
-		    assignment(ls, &v, 1);
+		  suffixedexp(ls, v.v);
+		  if (ls.t.token == '=' || ls.t.token == ',') { /* stat -> assignment ? */
+		    v.prev = null;
+		    assignment(ls, v, 1);
 		  }
 		  else {  /* stat -> func */
-		    check_condition(ls, v.v.k == VCALL, "syntax error");
-		    SETARG_C(getcode(fs, &v.v), 1);  /* call statement uses no results */
+		    check_condition(ls, v.v.k == expkind.VCALL, "syntax error");
+		    SETARG_C(getcode(fs, v.v), 1);  /* call statement uses no results */
 		  }
 		}
 
@@ -1625,33 +1625,33 @@ namespace KopiLua
 		  expdesc v = new expdesc();
 		  open_func(ls, fs, bl);
 		  fs.f.is_vararg = 1;  /* main function is always vararg */
-		  init_exp(v, VLOCAL, 0);  /* create and... */
+		  init_exp(v, expkind.VLOCAL, 0);  /* create and... */
 		  newupvalue(fs, ls.envn, v);  /* ...set environment upvalue */
 		  luaX_next(ls);  /* read first token */
 		  statlist(ls);  /* parse main body */
-		  check(ls, TK_EOS);
+		  check(ls, (int)RESERVED.TK_EOS);
 		  close_func(ls);
 		}
 
 
 		private static Closure luaY_parser (lua_State L, ZIO z, Mbuffer buff,
 		                    Dyndata dyd, CharPtr name, int firstchar) {
-		  LexState lexstate;
-		  FuncState funcstate;
-		  Closure *cl = luaF_newLclosure(L, 1);  /* create main closure */
+		  LexState lexstate = new LexState();
+		  FuncState funcstate = new FuncState();
+		  Closure cl = luaF_newLclosure(L, 1);  /* create main closure */
 		  /* anchor closure (to avoid being collected) */
-		  setclLvalue(L, L->top, cl);
+		  setclLvalue(L, L.top, cl);
 		  incr_top(L);
-		  funcstate.f = cl->l.p = luaF_newproto(L);
-		  funcstate.f->source = luaS_new(L, name);  /* create and anchor TString */
+		  funcstate.f = cl.l.p = luaF_newproto(L);
+		  funcstate.f.source = luaS_new(L, name);  /* create and anchor TString */
 		  lexstate.buff = buff;
 		  lexstate.dyd = dyd;
-		  dyd->actvar.n = dyd->gt.n = dyd->label.n = 0;
-		  luaX_setinput(L, &lexstate, z, funcstate.f->source, firstchar);
-		  mainfunc(&lexstate, &funcstate);
-		  lua_assert(!funcstate.prev && funcstate.nups == 1 && !lexstate.fs);
+		  dyd.actvar.n = dyd.gt.n = dyd.label.n = 0;
+		  luaX_setinput(L, lexstate, z, funcstate.f.source, firstchar);
+		  mainfunc(lexstate, funcstate);
+		  lua_assert(null == funcstate.prev && funcstate.nups == 1 && null == lexstate.fs);
 		  /* all scopes should be correctly finished */
-		  lua_assert(dyd->actvar.n == 0 && dyd->gt.n == 0 && dyd->label.n == 0);
+		  lua_assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);
 		  return cl;  /* it's on the stack too */
 		}
 

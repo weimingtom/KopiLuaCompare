@@ -137,7 +137,7 @@ namespace KopiLua
 		   case LUA_TSTRING:
 			setsvalue2n(S.L, o, LoadString(S));
 			break;
-		   default: lua_assert(0);
+		   default: lua_assert(0); break;
 		  }
 		 }
 		 n=LoadInt(S);
@@ -237,17 +237,17 @@ namespace KopiLua
 		 S.b=buff;
 		 LoadHeader(S);
 		 cl=luaF_newLclosure(L,1);
-		 setclLvalue(L,L->top,cl); incr_top(L);
-		 cl->l.p=luaF_newproto(L);
-		 LoadFunction(&S,cl->l.p);
-		 if (cl->l.p->sizeupvalues != 1)
+		 setclLvalue(L,L.top,cl); incr_top(L);
+		 cl.l.p=luaF_newproto(L);
+		 LoadFunction(S,cl.l.p);
+		 if (cl.l.p.sizeupvalues != 1)
 		 {
-		  Proto* p=cl->l.p;
-		  cl=luaF_newLclosure(L,cl->l.p->sizeupvalues);
-		  cl->l.p=p;
-		  setclLvalue(L,L->top-1,cl);
+		  Proto p=cl.l.p;
+		  cl=luaF_newLclosure(L,cl.l.p.sizeupvalues);
+		  cl.l.p=p;
+		  setclLvalue(L,L.top-1,cl);
 		 }
-		 luai_verifycode(L,buff,cl->l.p);
+		 luai_verifycode(L,buff,cl.l.p);
 		 return cl;
 		}
 

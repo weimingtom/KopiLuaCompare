@@ -268,7 +268,7 @@ namespace KopiLua
 
 
 		private static object ll_checkclib (lua_State L, CharPtr path) {
-		  void *plib;
+		  object plib;
 		  lua_getfield(L, LUA_REGISTRYINDEX, CLIBS);
 		  lua_getfield(L, -1, path);
 		  plib = lua_touserdata(L, -1);  /* plib = CLIBS[path] */
@@ -302,19 +302,19 @@ namespace KopiLua
 
 
 		private static int ll_loadfunc (lua_State L, CharPtr path, CharPtr sym) {
-		  void *reg = ll_checkclib(L, path);  /* check loaded C libraries */
-		  if (reg == NULL) {  /* must load library? */
-		    reg = ll_load(L, path, *sym == '*');
-		    if (reg == NULL) return ERRLIB;  /* unable to load library */
+		  object reg = ll_checkclib(L, path);  /* check loaded C libraries */
+		  if (reg == null) {  /* must load library? */
+		  	reg = ll_load(L, path, sym[0] == '*'?1:0);
+		    if (reg == null) return ERRLIB;  /* unable to load library */
 		    ll_addtoclib(L, path, reg);
 		  }
-		  if (*sym == '*') {  /* loading only library (no function)? */
+		  if (sym[0] == '*') {  /* loading only library (no function)? */
 		    lua_pushboolean(L, 1);  /* return 'true' */
 		    return 0;  /* no errors */
 		  }
 		  else {
 		    lua_CFunction f = ll_sym(L, reg, sym);
-		    if (f == NULL)
+		    if (f == null)
 		      return ERRFUNC;  /* unable to find function */
 		    lua_pushcfunction(L, f);  /* else create new function */
 		    return 0;  /* no errors */

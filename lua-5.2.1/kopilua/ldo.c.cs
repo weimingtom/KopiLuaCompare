@@ -687,10 +687,10 @@ namespace KopiLua
 		    checkmode(L, p.mode, "text");
 		    cl = luaY_parser(L, p.z, p.buff, p.dyd, p.name, c);
 		  }
-		  lua_assert(cl.l.nupvalues == cl.l.p->sizeupvalues);
+		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
 		  for (i = 0; i < cl.l.nupvalues; i++) {  /* initialize upvalues */
 		    UpVal up = luaF_newupval(L);
-		    cl.>l.upvals[i] = up;
+		    cl.l.upvals[i] = up;
 		    luaC_objbarrier(L, cl, up);
 		  }
 		}

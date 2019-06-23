@@ -55,14 +55,14 @@ namespace KopiLua
 		private static void traceexec (lua_State L) {
           CallInfo ci = L.ci;
 		  lu_byte mask = L.hookmask;
-		  int counthook = ((mask & LUA_MASKCOUNT) && L->hookcount == 0);
-		  if (counthook)
+		  int counthook = ((mask & LUA_MASKCOUNT) && L.hookcount == 0);
+		  if (counthook != 0)
 		    resethookcount(L);  /* reset count */
-		  if (ci->callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
-		    ci->callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
+		  if (ci.callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
+		    ci.callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
 		    return;  /* do not call hook again (VM yielded, so it did not move) */
 		  }
-		  if (counthook)
+		  if (counthook != 0)
 		    luaD_hook(L, LUA_HOOKCOUNT, -1);  /* call count hook */
 		  if ((mask & LUA_MASKLINE) != 0) {
 			Proto p = ci_func(ci).p;
@@ -75,11 +75,11 @@ namespace KopiLua
 		  }
           L.oldpc = ci.u.l.savedpc;
 		  if (L.status == LUA_YIELD) {  /* did hook yield? */
-		  	if (counthook)
-      		  L->hookcount = 1;  /* undo decrement to zero */
+		  	if (counthook != 0)
+      		  L.hookcount = 1;  /* undo decrement to zero */
           	InstructionPtr.dec(ref ci.u.l.savedpc);  /* undo increment (resume will increment it again) */
-		    ci->callstatus |= CIST_HOOKYIELD;  /* mark that it yieled */
-		    ci->func = L->top - 1;  /* protect stack below results */			
+		    ci.callstatus |= CIST_HOOKYIELD;  /* mark that it yieled */
+		    ci.func = L.top - 1;  /* protect stack below results */			
 		    luaD_throw(L, LUA_YIELD);
 		  }
 		}
@@ -271,7 +271,7 @@ namespace KopiLua
 			case LUA_TBOOLEAN: return (bvalue(t1) == bvalue(t2)) ? 1 : 0;  /* true must be 1 !! */
 			case LUA_TLIGHTUSERDATA: return (pvalue(t1) == pvalue(t2)) ? 1 : 0;
 		    case LUA_TLCF: return (fvalue(t1) == fvalue(t2)) ? 1 : 0;
-		    case LUA_TSHRSTR: return eqshrstr(rawtsvalue(t1), rawtsvalue(t2));
+		    case LUA_TSHRSTR: return eqshrstr(rawtsvalue(t1), rawtsvalue(t2))?1:0;
     		case LUA_TLNGSTR: return luaS_eqlngstr(rawtsvalue(t1), rawtsvalue(t2));
 			case LUA_TUSERDATA: {
 			  if (uvalue(t1) == uvalue(t2)) return 1;

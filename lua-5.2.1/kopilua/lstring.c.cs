@@ -43,8 +43,8 @@ namespace KopiLua
 		** equality for strings
 		*/
 		private static int luaS_eqstr (TString a, TString b) {
-		  return (a->tsv.tt == b->tsv.tt) &&
-		         (a->tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b) : luaS_eqlngstr(a, b));
+		  return (a.tsv.tt == b.tsv.tt) &&
+		  	(a.tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b)?1:0 : luaS_eqlngstr(a, b));
 		}
 
 
@@ -101,9 +101,9 @@ namespace KopiLua
 		  uint totalsize;  /* total size of TString object */
 		  totalsize = sizeof(TString) + ((l + 1) * sizeof(char));
 		  ts = luaC_newobj(L, tag, totalsize, list, 0)->ts;
-		  ts->tsv.len = l;
-		  ts->tsv.hash = h;
-		  ts->tsv.extra = 0;
+		  ts.tsv.len = l;
+		  ts.tsv.hash = h;
+		  ts.tsv.extra = 0;
 		  memcpy(ts+1, str, l*1); //FIXME:sizeof(char) == 1
 		  ((char *)(ts+1))[l] = '\0';  /* ending 0 */
 		  return ts;
@@ -118,11 +118,11 @@ namespace KopiLua
 		  GCObjectRef list;  /* (pointer to) list where it will be inserted */
 		  stringtable tb = G(L).strt;
 		  TString s;
-		  if (tb.nuse >= (lu_int32)(tb->size) && tb->size <= MAX_INT/2)
+		  if (tb.nuse >= (lu_int32)(tb.size) && tb.size <= MAX_INT/2)
 		    luaS_resize(L, tb.size*2);  /* too crowded */
-		  list = tb->hash[lmod(h, tb.size)];
+		  list = tb.hash[lmod(h, tb.size)];
 		  s = createstrobj(L, str, l, LUA_TSHRSTR, h, list);
-		  tb->nuse++;
+		  tb.nuse++;
 		  return s;
 		}
 
@@ -133,10 +133,10 @@ namespace KopiLua
 		static TString internshrstr (lua_State L, CharPtr str, uint l) {
 		  GCObject o;
 		  global_State g = G(L);
-		  uint h = luaS_hash(str, l, g->seed);
-		  for (o = g->strt.hash[lmod(h, g->strt.size)];
-		       o != NULL;
-		       o = gch(o)->next) {
+		  uint h = luaS_hash(str, l, g.seed);
+		  for (o = g.strt.hash[lmod(h, g.strt.size)];
+		       o != null;
+		       o = gch(o).next) {
 		    TString ts = rawgco2ts(o);
 		    if (h == ts.tsv.hash &&
 		        ts.tsv.len == l &&
@@ -159,7 +159,7 @@ namespace KopiLua
 		  else {
 		    if (l + 1 > (MAX_SIZET - sizeof(TString))/sizeof(char))
 		      luaM_toobig(L);
-		    return createstrobj(L, str, l, LUA_TLNGSTR, G(L)->seed, NULL);
+		    return createstrobj(L, str, l, LUA_TLNGSTR, G(L).seed, null);
 		  }
 		}
 

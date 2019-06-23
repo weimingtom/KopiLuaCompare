@@ -353,7 +353,7 @@ namespace KopiLua
 	
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) 
 		  {  TValue io=obj; 
-		     TString x_ = (x);
+			 TString x_ = (TString)x;
 		     io.value_.gc=(GCObject)x_; settt_(io, ctb(x_.tsv.tt)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
@@ -411,7 +411,7 @@ namespace KopiLua
 		public static void sethvalue2s(lua_State L, TValue obj, Table x) { sethvalue(L, obj, x); }
 
 		//#define setptvalue2s	setptvalue
-		public static void setptvalue2s(lua_State L, TValue obj, Proto x) { setptvalue(L, obj, x); }
+		//public static void setptvalue2s(lua_State L, TValue obj, Proto x) { setptvalue(L, obj, x); }
 
 		///* from table to same table */
 		//#define setobjt2t	setobj
@@ -751,7 +751,7 @@ namespace KopiLua
 		*/
 
 		public class ClosureHeader : GCObject {
-			/*CommonHeader; */public lu_byte nupvalues; public GCObject gclist;};
+			/*CommonHeader; */public lu_byte nupvalues; public GCObject gclist;} //FIXME:change here, please check ClosureType's getters and setters
 
 		public class ClosureType {
 
@@ -760,10 +760,10 @@ namespace KopiLua
 			public static implicit operator ClosureHeader(ClosureType ctype) {return ctype.header;}
 			public ClosureType(ClosureHeader header) {this.header = header;}
 
-			public lu_byte isC { get { return header.isC; } set { header.isC = value; } }
 			public lu_byte nupvalues { get { return header.nupvalues; } set { header.nupvalues = value; } }
 			public GCObject gclist { get { return header.gclist; } set { header.gclist = value; } }
 			//public Table env { get { return header.env; } set { header.env = value; } }//FIXME:removed
+			public byte tt { get { return header.tt; } set { header.tt = value; } }
 		}
 
 		public class CClosure : ClosureType {
