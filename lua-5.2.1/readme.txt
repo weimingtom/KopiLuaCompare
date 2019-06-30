@@ -1,4 +1,4 @@
-todo:lgc.c
+ï»¿todo:lgc.c
 
 
 lmem.c???
@@ -113,14 +113,14 @@ private static LX fromstate(lua_State L) {
 
 
 ------------------------------
-³£Á¿ÖµÎÞ·¨×ª»»Îªbyte
+å¸¸é‡å€¼æ— æ³•è½¬æ¢ä¸ºbyte
 
 ci.callstatus &= ~CIST_HOOKYIELD  /* erase mark */
 ->
 ci.callstatus &= (byte)((~CIST_HOOKYIELD) & 0xff);  /* erase mark */
 
 ------------------------------
-º¯Êý×ªÖ¸Õë
+å‡½æ•°è½¬æŒ‡é’ˆ
 
 		delegate lua_State lua_newstate_delegate (lua_Alloc f, object ud);
 		private static uint makeseed (lua_State L) {
