@@ -112,3 +112,28 @@ private static LX fromstate(lua_State L) {
 } 
 
 
+------------------------------
+常量值无法转换为byte
+
+ci.callstatus &= ~CIST_HOOKYIELD  /* erase mark */
+->
+ci.callstatus &= (byte)((~CIST_HOOKYIELD) & 0xff);  /* erase mark */
+
+------------------------------
+函数转指针
+
+		delegate lua_State lua_newstate_delegate (lua_Alloc f, object ud);
+		private static uint makeseed (lua_State L) {
+		  CharPtr buff = new CharPtr(new char[4 * GetUnmanagedSize(typeof(uint))]);
+		  uint h = luai_makeseed();
+		  int p = 0;
+		  addbuff(buff, p, L);  /* heap variable */
+		  addbuff(buff, p, h);  /* local variable */
+		  addbuff(buff, p, luaO_nilobject);  /* global variable */
+		  lua_newstate_delegate _d = lua_newstate;
+		  addbuff(buff, p, Marshal.GetFunctionPointerForDelegate(_d));  /* public function */
+		  lua_assert(p == buff.chars.Length);
+		  return luaS_hash(buff, (uint)p, h);
+		}
+		
+-------------------------------

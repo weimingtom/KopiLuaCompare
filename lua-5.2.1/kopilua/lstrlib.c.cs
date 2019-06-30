@@ -904,6 +904,7 @@ namespace KopiLua
 						break;
 					  }
 					  case 'd':  case 'i': {
+				  		lua_Number n = luaL_checknumber(L, arg);
 			            LUA_INTFRM_T ni = (LUA_INTFRM_T)n;
 				        lua_Number diff = n - (lua_Number)ni;
 				        luaL_argcheck(L, -1 < diff && diff < 1, arg,
@@ -914,7 +915,7 @@ namespace KopiLua
 			          }
 					  case 'o':  case 'u':  case 'x':  case 'X':  {
 				        lua_Number n = luaL_checknumber(L, arg);
-			            unsigned LUA_INTFRM_T ni = (unsigned LUA_INTFRM_T)n;
+			            UNSIGNED_LUA_INTFRM_T ni = (UNSIGNED_LUA_INTFRM_T)n;
 				        lua_Number diff = n - (lua_Number)ni;
 				        luaL_argcheck(L, -1 < diff && diff < 1, arg,
 				                      "not a non-negative number in proper range");

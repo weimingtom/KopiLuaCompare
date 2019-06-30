@@ -55,11 +55,11 @@ namespace KopiLua
 		private static void traceexec (lua_State L) {
           CallInfo ci = L.ci;
 		  lu_byte mask = L.hookmask;
-		  int counthook = ((mask & LUA_MASKCOUNT) && L.hookcount == 0);
+		  int counthook = ((mask & LUA_MASKCOUNT) != 0 && L.hookcount == 0) ? 1 : 0;
 		  if (counthook != 0)
 		    resethookcount(L);  /* reset count */
-		  if (ci.callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
-		    ci.callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
+		  if ((ci.callstatus & CIST_HOOKYIELD) != 0) {  /* called hook last time? */
+		  	ci.callstatus &= (byte)((~CIST_HOOKYIELD) & 0xff);  /* erase mark */
 		    return;  /* do not call hook again (VM yielded, so it did not move) */
 		  }
 		  if (counthook != 0)

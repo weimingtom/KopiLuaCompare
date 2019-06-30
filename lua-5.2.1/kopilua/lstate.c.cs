@@ -44,7 +44,7 @@ namespace KopiLua
 		*/
 		//#if !defined(luai_makeseed)
 		//#include <time.h>
-		//#define luai_makeseed()		cast(size_t, time(NULL))
+		private static uint luai_makeseed() { return (uint)(DateTime.Now.Ticks); } //cast(size_t, time(NULL))
 		//#endif
 
 
@@ -83,19 +83,22 @@ namespace KopiLua
 		** randomness..
 		*/
 		private static void addbuff(CharPtr b, int p, object e)
-			{ size_t t = (size_t)(e);
-		    memcpy(buff + p, t, sizeof(t)); p += sizeof(t); }
+			{ uint t = (uint)(e);
+			memcpy(b + p, CharPtr.FromNumber(t), (uint)GetUnmanagedSize(typeof(uint))); p += GetUnmanagedSize(typeof(uint)); }
 
+		delegate lua_State lua_newstate_delegate (lua_Alloc f, object ud);
 		private static uint makeseed (lua_State L) {
-		  CharPtr buff = new CharPtr(new char[4 * sizeof(size_t)]);
+		  throw new Exception("not implemented"); //FIXME:???
+		  CharPtr buff = new CharPtr(new char[4 * GetUnmanagedSize(typeof(uint))]);
 		  uint h = luai_makeseed();
 		  int p = 0;
 		  addbuff(buff, p, L);  /* heap variable */
-		  addbuff(buff, p, ref h);  /* local variable */
+		  addbuff(buff, p, h);  /* local variable */
 		  addbuff(buff, p, luaO_nilobject);  /* global variable */
-		  addbuff(buff, p, lua_newstate);  /* public function */
-		  lua_assert(p == sizeof(buff));
-		  return luaS_hash(buff, p, h);
+		  lua_newstate_delegate _d = lua_newstate;
+		  addbuff(buff, p, Marshal.GetFunctionPointerForDelegate(_d));  /* public function */
+		  lua_assert(p == buff.chars.Length);
+		  return luaS_hash(buff, (uint)p, h);
 		}
 
 

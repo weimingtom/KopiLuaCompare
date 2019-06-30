@@ -234,11 +234,11 @@ namespace KopiLua
 
 		static int dolibrary(Lua.lua_State L, Lua.CharPtr name) {
 		  int status;
-		  lua_getglobal(L, "require");
-		  lua_pushstring(L, name);
+		  Lua.lua_getglobal(L, "require");
+		  Lua.lua_pushstring(L, name);
 		  status = docall(L, 1, 1);  /* call 'require(name)' */
-		  if (status == LUA_OK)
-		    lua_setglobal(L, name);  /* global[name] = require return */
+		  if (status == Lua.LUA_OK)
+		    Lua.lua_setglobal(L, name);  /* global[name] = require return */
 		  return report(L, status);
 		}
 

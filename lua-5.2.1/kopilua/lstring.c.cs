@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 namespace KopiLua
 {
 	using lu_byte = System.Byte;
+	using lu_int32 = System.UInt32;
 
 	public partial class Lua
 	{
@@ -31,11 +32,11 @@ namespace KopiLua
 		** equality for long strings
 		*/
 		public static int luaS_eqlngstr (TString a, TString b) {
-		  size_t len = a->tsv.len;
-		  lua_assert(a->tsv.tt == LUA_TLNGSTR && b->tsv.tt == LUA_TLNGSTR);
-		  return (a == b) ||  /* same instance or... */
-		    ((len == b->tsv.len) &&  /* equal length and ... */
-		     (memcmp(getstr(a), getstr(b), len) == 0));  /* equal contents */
+		  uint len = a.tsv.len;
+		  lua_assert(a.tsv.tt == LUA_TLNGSTR && b.tsv.tt == LUA_TLNGSTR);
+		  return ((a == b) ||  /* same instance or... */
+		    ((len == b.tsv.len) &&  /* equal length and ... */
+		    (memcmp(getstr(a), getstr(b), len) == 0))) ? 1 : 0;  /* equal contents */
 		}
 
 
@@ -43,8 +44,8 @@ namespace KopiLua
 		** equality for strings
 		*/
 		private static int luaS_eqstr (TString a, TString b) {
-		  return (a.tsv.tt == b.tsv.tt) &&
-		  	(a.tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b)?1:0 : luaS_eqlngstr(a, b));
+		  return ((a.tsv.tt == b.tsv.tt) &&
+			(a.tsv.tt == LUA_TSHRSTR ? eqshrstr(a, b) : luaS_eqlngstr(a, b)!=0)) ? 1 : 0;
 		}
 
 
@@ -91,7 +92,6 @@ namespace KopiLua
 		  tb.size = newsize;
 		}
 
-
 		/*
 		** creates a new string object
 		*/
@@ -99,13 +99,13 @@ namespace KopiLua
 		                              int tag, uint h, GCObjectRef list) {
 		  TString ts;
 		  uint totalsize;  /* total size of TString object */
-		  totalsize = sizeof(TString) + ((l + 1) * sizeof(char));
-		  ts = luaC_newobj(L, tag, totalsize, list, 0)->ts;
+		  totalsize = (uint)(GetUnmanagedSize(typeof(TString)) + ((l + 1) * GetUnmanagedSize(typeof(char))));
+		  ts = luaC_newobj<TString>(L, tag, totalsize, list, 0).ts;
 		  ts.tsv.len = l;
 		  ts.tsv.hash = h;
 		  ts.tsv.extra = 0;
-		  memcpy(ts+1, str, l*1); //FIXME:sizeof(char) == 1
-		  ((char *)(ts+1))[l] = '\0';  /* ending 0 */
+		  memcpy(ts.str, str, l*1); //FIXME:sizeof(char) == 1
+		  ts.str[l] = '\0';  /* ending 0 */
 		  return ts;
 		}
 
@@ -120,7 +120,7 @@ namespace KopiLua
 		  TString s;
 		  if (tb.nuse >= (lu_int32)(tb.size) && tb.size <= MAX_INT/2)
 		    luaS_resize(L, tb.size*2);  /* too crowded */
-		  list = tb.hash[lmod(h, tb.size)];
+		  list = new ArrayRef(tb.hash, (int)lmod(h, tb.size));
 		  s = createstrobj(L, str, l, LUA_TSHRSTR, h, list);
 		  tb.nuse++;
 		  return s;
@@ -157,7 +157,7 @@ namespace KopiLua
 		  if (l <= LUAI_MAXSHORTLEN)  /* short string? */
 		    return internshrstr(L, str, l);
 		  else {
-		    if (l + 1 > (MAX_SIZET - sizeof(TString))/sizeof(char))
+		    if (l + 1 > (MAX_SIZET - GetUnmanagedSize(typeof(TString)))/GetUnmanagedSize(typeof(char)))
 		      luaM_toobig(L);
 		    return createstrobj(L, str, l, LUA_TLNGSTR, G(L).seed, null);
 		  }
