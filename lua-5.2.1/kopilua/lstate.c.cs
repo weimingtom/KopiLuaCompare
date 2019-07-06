@@ -44,7 +44,7 @@ namespace KopiLua
 		*/
 		//#if !defined(luai_makeseed)
 		//#include <time.h>
-		private static uint luai_makeseed() { return (uint)(DateTime.Now.Ticks); } //cast(size_t, time(NULL))
+		private static uint luai_makeseed() { return (uint)(time(null)); } //cast(size_t, time(NULL))
 		//#endif
 
 
@@ -83,12 +83,15 @@ namespace KopiLua
 		** randomness..
 		*/
 		private static void addbuff(CharPtr b, int p, object e)
-			{ uint t = (uint)(e);
+			{ 
+			//https://blog.csdn.net/yingwang9/article/details/82215619
+			GCHandle handle1 = GCHandle.Alloc(e);IntPtr ptr = GCHandle.ToIntPtr(handle1);	
+			uint t = (uint)(ptr);
 			memcpy(b + p, CharPtr.FromNumber(t), (uint)GetUnmanagedSize(typeof(uint))); p += GetUnmanagedSize(typeof(uint)); }
 
 		delegate lua_State lua_newstate_delegate (lua_Alloc f, object ud);
 		private static uint makeseed (lua_State L) {
-		  throw new Exception("not implemented"); //FIXME:???
+		  //throw new Exception("not implemented"); //FIXME:???
 		  CharPtr buff = new CharPtr(new char[4 * GetUnmanagedSize(typeof(uint))]);
 		  uint h = luai_makeseed();
 		  int p = 0;

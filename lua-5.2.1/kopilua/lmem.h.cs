@@ -15,7 +15,7 @@ namespace KopiLua
 		//public static void luaM_freearray(lua_State L, object b, int n, Type t) { luaM_reallocv(L, b, n, 0, Marshal.SizeOf(b)); }
 
 		// C# has it's own gc, so nothing to do here...in theory...
-		public static void luaM_freemem<T>(lua_State L, T b) { luaM_realloc_<T>(L, new T[] {b}, 0); }
+		public static void luaM_freemem<T>(lua_State L, T b, uint s) { luaM_realloc_<T>(L, new T[] {b}, 0); SubtractTotalBytes(L, s); } //FIXME: added
 		public static void luaM_free<T>(lua_State L, T b) { luaM_realloc_<T>(L, new T[] {b}, 0); }
 		public static void luaM_freearray<T>(lua_State L, T[] b) { luaM_reallocv(L, b, 0); } //FIXME:???
 

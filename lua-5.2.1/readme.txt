@@ -137,3 +137,64 @@ ci.callstatus &= (byte)((~CIST_HOOKYIELD) & 0xff);  /* erase mark */
 		}
 		
 -------------------------------
+
+TODO:替换time(NULL)
+
+done, see here:
+
+		/*
+		** a macro to help the creation of a unique random seed when a state is
+		** created; the seed is used to randomize hashes.
+		*/
+		//#if !defined(luai_makeseed)
+		//#include <time.h>
+---------->		private static uint luai_makeseed() { return (uint)(time(null)); } //cast(size_t, time(NULL))
+		//#endif
+
+
+-------------------------------
+
+			  //luaM_freemem(L, o, sizestring(gco2ts(o)));
+			  SubtractTotalBytes(L, sizestring(gco2ts(o))); //FIXME:???
+			  luaM_freemem(L, gco2ts(o)); //FIXME:???
+			  break;
+			  
+-----------------------------
+
+
+			return GetUnmanagedSize(typeof(Proto)) + GetUnmanagedSize(typeof(Instruction)) * f.sizecode +
+Proto *--------->			             GetUnmanagedSize(typeof(Proto)) * f.sizep + //FIXME:Proto *
+ 			             GetUnmanagedSize(typeof(TValue)) * f.sizek +
+			             GetUnmanagedSize(typeof(int)) * f.sizelineinfo +
+			             GetUnmanagedSize(typeof(LocVar)) * f.sizelocvars +
+			             GetUnmanagedSize(typeof(Upvaldesc)) * f.sizeupvalues;
+
+
+
+------------------------------
+TODO: object to ptr
+
+
+		/*
+		** Compute an initial seed as random as possible. In ANSI, rely on
+		** Address Space Layout Randomization (if present) to increase
+		** randomness..
+		*/
+		private static void addbuff(CharPtr b, int p, object e)
+			{ 
+			//https://blog.csdn.net/yingwang9/article/details/82215619
+--------->			GCHandle handle1 = GCHandle.Alloc(e);IntPtr ptr = GCHandle.ToIntPtr(handle1);	
+			uint t = (uint)(ptr);
+			memcpy(b + p, CharPtr.FromNumber(t), (uint)GetUnmanagedSize(typeof(uint))); p += GetUnmanagedSize(typeof(uint)); }
+
+		delegate lua_State lua_newstate_delegate (lua_Alloc f, object ud);
+		private static uint makeseed (lua_State L) {
+--------->		  //throw new Exception("not implemented"); //FIXME:???
+		  CharPtr buff = new CharPtr(new char[4 * GetUnmanagedSize(typeof(uint))]);
+		  uint h = luai_makeseed();
+		  int p = 0;
+		  
+-----------------------------------------
+
+
+

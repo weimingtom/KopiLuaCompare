@@ -439,8 +439,8 @@ namespace KopiLua
 		public static TString gco2ts(GCObject o) { return (TString)(rawgco2ts(o).tsv); }
 		public static Udata rawgco2u(GCObject o) { return (Udata)check_exp(o.gch.tt == LUA_TUSERDATA, o.u); }
 		public static Udata gco2u(GCObject o) { return (Udata)(rawgco2u(o).uv); }
-		public static Udata gco2lcl(GCObject o)	{ return (Udata)check_exp(o.gch.tt == LUA_TLCL, o.cl.l); }
-		public static Udata gco2ccl(GCObject o)	{ return (Udata)check_exp(o.gch.tt == LUA_TCCL, o.cl.c); }
+		public static LClosure gco2lcl(GCObject o)	{ return (LClosure)check_exp(o.gch.tt == LUA_TLCL, o.cl.l); }
+		public static CClosure gco2ccl(GCObject o)	{ return (CClosure)check_exp(o.gch.tt == LUA_TCCL, o.cl.c); }
 		public static Closure gco2cl(GCObject o)  {
 			return (Closure)check_exp(novariant(o.gch.tt) == LUA_TFUNCTION, o.cl); }
 		public static Table gco2t(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }

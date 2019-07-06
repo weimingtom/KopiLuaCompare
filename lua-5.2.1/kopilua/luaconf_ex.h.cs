@@ -1518,5 +1518,18 @@ namespace KopiLua
 		  		}
 		  	}
 		}
+		
+		public static long time(object p) 
+		{
+			if (p == null)
+			{
+				return DateTime.Now.Ticks;
+			}
+			else
+			{
+				throw new Exception("time(NULL);");
+				return 0;
+			}
+		}
 	}
 }
