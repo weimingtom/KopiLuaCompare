@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.164 2012/06/08 15:14:04 roberto Exp $
+** $Id: lapi.c,v 2.171 2013/03/16 21:10:18 roberto Exp $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -32,8 +32,16 @@ namespace KopiLua
 		/* corresponding test */
 		private static bool isvalid(int o) { return (o != luaO_nilobject); }
 
-		public static void api_checkvalidindex(lua_State L, int i) { api_check(L, isvalid(i), "invalid index"); }
+		/* test for pseudo index */
+		public static bool ispseudo(i)	{ return	((i) <= LUA_REGISTRYINDEX);}
 
+		/* test for valid but not pseudo index */
+		public static bool isstackindex(i, o)	{ return (isvalid(o) && !ispseudo(i)); }
+
+		public static void api_checkvalidindex(lua_State L, int o) { api_check(L, isvalid(o), "invalid index"); }
+
+		public static void api_checkstackindex(lua_State L, i, o)  {
+			return api_check(L, isstackindex(i, o), "index not in the stack"); }
 
 		static TValue index2addr (lua_State L, int idx) {
           CallInfo ci = L.ci;
@@ -43,7 +51,7 @@ namespace KopiLua
 			if (o >= L.top) return (TValue)(luaO_nilobject); //FIXME:changed, return NONVALIDVALUE;
 			else return o;
 		  }
-		  else if (idx > LUA_REGISTRYINDEX) {
+		  else if (!ispseudo(idx)) {  /* negative index */
 			api_check(L, idx != 0 && -idx <= L.top - (ci.func + 1), "invalid index");
 			return L.top + idx;
 		  }
@@ -137,7 +145,7 @@ namespace KopiLua
 		** convert an acceptable stack index into an absolute index
 		*/
 		public static int lua_absindex (lua_State L, int idx) {
-		  return (idx > 0 || idx <= LUA_REGISTRYINDEX)
+		  return (idx > 0 || ispseudo(idx))
 		         ? idx
 		         : cast_int(L.top - L.ci.func + idx);
 		}
@@ -169,7 +177,7 @@ namespace KopiLua
 		  StkId p;
 		  lua_lock(L);
 		  p = index2addr(L, idx);
-		  api_checkvalidindex(L, p);
+		  api_checkstackindex(L, idx, p);
 		  while ((p=p[1]) < L.top) setobjs2s(L, p-1, p);
 		  StkId.dec(ref L.top);
 		  lua_unlock(L);
@@ -181,8 +189,9 @@ namespace KopiLua
 		  StkId q;
 		  lua_lock(L);
 		  p = index2addr(L, idx);
-		  api_checkvalidindex(L, p);
-		  for (q = L.top; q>p; StkId.dec(ref q)) setobjs2s(L, q, q-1);
+		  api_checkstackindex(L, idx, p);
+		  for (q = L.top; q>p; StkId.dec(ref q))  /* use L->top as a temporary */ 
+		  	setobjs2s(L, q, q - 1);
 		  setobjs2s(L, p, L.top);
 		  lua_unlock(L);
 		}
@@ -212,7 +221,6 @@ namespace KopiLua
 		  TValue fr;
 		  lua_lock(L);
 		  fr = index2addr(L, fromidx);
-		  api_checkvalidindex(L, fr);
 		  moveto(L, fr, toidx);
 		  lua_unlock(L);
 		}
@@ -290,7 +298,7 @@ namespace KopiLua
 		  o1 = L.top - 2;
 		  o2 = L.top - 1;
 		  if (ttisnumber(o1) && ttisnumber(o2)) {
-		    changenvalue(o1, luaO_arith(op, nvalue(o1), nvalue(o2)));
+		    setnvalue(o1, luaO_arith(op, nvalue(o1), nvalue(o2)));
           }
 		  else
 		    luaV_arith(L, o1, o1, o2, (TMS)(op - LUA_OPADD + TMS.TM_ADD));
@@ -613,7 +621,6 @@ namespace KopiLua
 		  StkId t;
 		  lua_lock(L);
 		  t = index2addr(L, idx);
-		  api_checkvalidindex(L, t);
 		  luaV_gettable(L, t, L.top - 1, L.top - 1);
 		  lua_unlock(L);
 		}
@@ -623,7 +630,6 @@ namespace KopiLua
 		  StkId t;
 		  lua_lock(L);
 		  t = index2addr(L, idx);
-		  api_checkvalidindex(L, t);
 		  setsvalue2s(L, L.top, luaS_new(L, k));
 		  api_incr_top(L);
           luaV_gettable(L, t, L.top - 1, L.top - 1);
@@ -711,7 +717,6 @@ namespace KopiLua
 		  StkId o;
 		  lua_lock(L);
 		  o = index2addr(L, idx);
-		  api_checkvalidindex(L, o);
 		  api_check(L, ttisuserdata(o), "userdata expected");
 		  if (uvalue(o).env != null) {
 		    sethvalue(L, L.top, uvalue(o).env);
@@ -745,7 +750,6 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 2);
 		  t = index2addr(L, idx);
-		  api_checkvalidindex(L, t);
 		  luaV_settable(L, t, L.top - 2, L.top - 1);
 		  L.top -= 2;  /* pop index and value */
 		  lua_unlock(L);
@@ -757,7 +761,6 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  t = index2addr(L, idx);
-		  api_checkvalidindex(L, t);
 		  setsvalue2s(L, StkId.inc(ref L.top), luaS_new(L, k));
 		  luaV_settable(L, t, L.top - 1, L.top - 2);
 		  L.top -= 2;  /* pop value and key */
@@ -813,7 +816,6 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  obj = index2addr(L, objindex);
-		  api_checkvalidindex(L, obj);
 		  if (ttisnil(L.top - 1))
 			  mt = null;
 		  else {
@@ -823,10 +825,9 @@ namespace KopiLua
 		  switch (ttypenv(obj)) {
 			case LUA_TTABLE: {
 			  hvalue(obj).metatable = mt;
-			  if (mt != null) {
+			  if (mt != null)
 				luaC_objbarrierback(L, gcvalue(obj), mt);
-                luaC_checkfinalizer(L, gcvalue(obj), mt); //FIXME: changed, delete space
-			  }
+              luaC_checkfinalizer(L, gcvalue(obj), mt); //FIXME: changed, delete space
 			  break;
 			}
 			case LUA_TUSERDATA: {
@@ -853,7 +854,6 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  o = index2addr(L, idx);
-		  api_checkvalidindex(L, o);
 		  api_check(L, ttisuserdata(o), "userdata expected");
 		  if (ttisnil(L.top - 1))
 		    uvalue(o).env = null;
@@ -943,7 +943,7 @@ namespace KopiLua
 			func = 0;
 		  else {
 			StkId o = index2addr(L, errfunc);
-			api_checkvalidindex(L, o);
+			api_checkstackindex(L, errfunc, o);
 			func = savestack(L, o);
 		  }
 		  c.func = L.top - (nargs+1);  /* function to be called */
@@ -1013,7 +1013,7 @@ namespace KopiLua
 		}
 
 
-		public static int  lua_status (lua_State L) {
+		public static int lua_status (lua_State L) {
 		  return L.status;
 		}
 
@@ -1111,7 +1111,7 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  luaG_errormsg(L);
-		  lua_unlock(L);
+		  /* code unreachable; will unlock when control actually leaves the kernel */
 		  return 0;  /* to avoid warnings */
 		}
 

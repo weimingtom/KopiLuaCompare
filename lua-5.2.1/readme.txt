@@ -195,6 +195,8 @@ TODO: object to ptr
 		  int p = 0;
 		  
 -----------------------------------------
+封装一下
 
+GCHandle handle1 = GCHandle.Alloc(e);IntPtr ptr = GCHandle.ToIntPtr(handle1);	
 
 
