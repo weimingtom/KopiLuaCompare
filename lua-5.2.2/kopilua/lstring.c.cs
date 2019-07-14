@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.24 2012/05/11 14:14:42 roberto Exp $
+** $Id: lstring.c,v 2.26 2013/01/08 13:50:10 roberto Exp $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -50,7 +50,7 @@ namespace KopiLua
 
 
 		private static uint luaS_hash (CharPtr str, uint l, uint seed) {
-		  uint h = seed ^ l;
+		  uint h = seed ^ (uint)(l);
 		  uint l1;
 		  uint step = (l >> LUAI_HASHLIMIT) + 1;
 		  for (l1 = l; l1 >= step; l1 -= step)

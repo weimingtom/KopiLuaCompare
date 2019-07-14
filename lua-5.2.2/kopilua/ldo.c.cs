@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.c,v 2.105 2012/06/08 15:14:04 roberto Exp $
+** $Id: ldo.c,v 2.108 2012/10/01 14:05:04 roberto Exp $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -338,6 +338,7 @@ namespace KopiLua
 		      ci.top = L.top + LUA_MINSTACK;
 		      lua_assert(ci.top <= L.stack_last);
 		      ci.callstatus = 0;
+			  luaC_checkGC(L);  /* stack grow uses memory */
 		      if ((L.hookmask & LUA_MASKCALL)!=0)
 		        luaD_hook(L, LUA_HOOKCALL, -1);
 		      lua_unlock(L);
@@ -357,6 +358,7 @@ namespace KopiLua
 		      ci.top = L.top + LUA_MINSTACK;
 		      lua_assert(ci.top <= L.stack_last);
 		      ci.callstatus = 0;
+			  luaC_checkGC(L);  /* stack grow uses memory */
 		      if ((L.hookmask & LUA_MASKCALL)!=0)
 		        luaD_hook(L, LUA_HOOKCALL, -1);
 		      lua_unlock(L);
@@ -384,6 +386,7 @@ namespace KopiLua
 			  ci.u.l.savedpc = new InstructionPtr(p.code, 0);  /* starting point */ //FIXME:??? //FIXME:???
               ci.callstatus = CIST_LUA;
 			  L.top = ci.top;
+			  luaC_checkGC(L);  /* stack grow uses memory */
 			  if ((L.hookmask & LUA_MASKCALL) != 0)
 			    callhook(L, ci);
 			  return 0;
@@ -443,7 +446,6 @@ namespace KopiLua
 			luaV_execute(L);  /* call it */
           if (allowyield==0) L.nny--;
 		  L.nCcalls--;
-		  luaC_checkGC(L);
 		}
 
 
@@ -452,7 +454,11 @@ namespace KopiLua
 		  int n;
 		  lua_assert(ci.u.c.k != null);  /* must have a continuation */
 		  lua_assert(L.nny == 0);
-		  /* finish 'lua_callk' */
+		  if ((ci.callstatus & CIST_YPCALL)!=0) {  /* was inside a pcall? */
+		  	ci.callstatus &= (byte)((~CIST_YPCALL) & 0xff);  /* finish 'lua_pcall' */
+		    L.errfunc = ci.u.c.old_errfunc;
+		  }
+		  /* finish 'lua_callk'/'lua_pcall' */
 		  adjustresults(L, ci.nresults);
 		  /* call continuation function */
 		  if ((ci.callstatus & CIST_STAT) == 0)  /* no call status? */
@@ -523,7 +529,7 @@ namespace KopiLua
 		private static void/*l_noret*/ resume_error (lua_State L, CharPtr msg, StkId firstArg) {
 		  L.top = firstArg;  /* remove args from the stack */
 		  setsvalue2s(L, L.top, luaS_new(L, msg));  /* push error message */
-		  incr_top(L);
+		  api_incr_top(L);
 		  luaD_throw(L, -1);  /* jump back to 'lua_resume' */
 		}
 
@@ -608,7 +614,7 @@ namespace KopiLua
 		  api_checknelems(L, nresults);
 		  if (L.nny > 0) {
 		    if (L != G(L).mainthread)
-		      luaG_runerror(L, "attempt to yield across metamethod/C-call boundary");
+		      luaG_runerror(L, "attempt to yield across a C-call boundary");
 		    else
 		      luaG_runerror(L, "attempt to yield from outside a coroutine");
 		  }

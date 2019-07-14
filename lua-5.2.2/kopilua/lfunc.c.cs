@@ -1,5 +1,5 @@
 /*
-** $Id: lfunc.c,v 2.29 2012/05/08 13:53:33 roberto Exp $
+** $Id: lfunc.c,v 2.30 2012/10/03 12:36:46 roberto Exp $
 ** Auxiliary functions to manipulate prototypes and closures
 ** See Copyright Notice in lua.h
 */
@@ -60,12 +60,12 @@ namespace KopiLua
 		  while (pp.get() != null && (p = gco2uv(pp.get())).v >= level) {
             GCObject o = obj2gco(p);
 			lua_assert(p.v != p.u.value_);
+		  	lua_assert(!isold(o) || isold(obj2gco(L)));
 			if (p.v == level) {  /* found a corresponding upvalue? */
 			  if (isdead(g, o))  /* is it dead? */
 				changewhite(o);  /* ressurrect it */
 			  return p;
 			}
-            resetoldbit(o);  /* may create a newer upval after this one */
 			pp = new NextRef(p); //FIXME:???pp = &p->next;
 		  }
 		  /* not found: create a new one */

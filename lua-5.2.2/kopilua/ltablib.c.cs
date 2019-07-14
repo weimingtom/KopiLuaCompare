@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.63 2011/11/28 17:26:30 roberto Exp $
+** $Id: ltablib.c,v 1.65 2013/03/07 18:17:24 roberto Exp $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -14,8 +14,7 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		private static int aux_getn(lua_State L, int n)	
-			{luaL_checktype(L, n, LUA_TTABLE); return luaL_len(L, n);}
+		private static int aux_getn(lua_State L, int n)	{luaL_checktype(L, n, LUA_TTABLE); return luaL_len(L, n);}
 
 
 
@@ -49,7 +48,7 @@ namespace KopiLua
 			case 3: {
 			  int i;
 			  pos = luaL_checkint(L, 2);  /* 2nd argument is the position */
-			  if (pos > e) e = pos;  /* `grow' array if necessary */
+			  luaL_argcheck(L, 1 <= pos && pos <= e, 2, "position out of bounds");
 			  for (i = e; i > pos; i--) {  /* move up elements */
 				lua_rawgeti(L, 1, i-1);
 				lua_rawseti(L, 1, i);  /* t[i] = t[i-1] */
@@ -66,17 +65,17 @@ namespace KopiLua
 
 
 		private static int tremove (lua_State L) {
-		  int e = aux_getn(L, 1);
-		  int pos = luaL_optint(L, 2, e);
-		  if (!(1 <= pos && pos <= e))  /* position is outside bounds? */
-		    return 0;  /* nothing to remove */
+		  int size = aux_getn(L, 1);
+		  int pos = luaL_optint(L, 2, size);
+		  if (pos != size)  /* validate 'pos' if given */
+    		luaL_argcheck(L, 1 <= pos && pos <= size + 1, 1, "position out of bounds");
 		  lua_rawgeti(L, 1, pos);  /* result = t[pos] */
-		  for ( ;pos<e; pos++) {
+		  for ( ; pos < size; pos++) {
 			lua_rawgeti(L, 1, pos+1);
 			lua_rawseti(L, 1, pos);  /* t[pos] = t[pos+1] */
 		  }
 		  lua_pushnil(L);
-		  lua_rawseti(L, 1, e);  /* t[e] = nil */
+		  lua_rawseti(L, 1, pos);  /* t[pos] = nil */
 		  return 1;
 		}
 

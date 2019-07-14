@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.55 2011/11/30 19:30:16 roberto Exp $
+** $Id: lobject.c,v 2.58 2013/02/20 14:08:56 roberto Exp $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -104,7 +104,7 @@ namespace KopiLua
 
 		private static lua_Number readhexa (ref CharPtr s, lua_Number r, ref int count) {
 		  for (; lisxdigit(cast_uchar(s[0])) != 0; s.inc()) {  /* read integer part */
-			r = (r * 16.0) + cast_num(luaO_hexavalue(cast_uchar(s[0]))); s.inc();
+			r = (r * cast_num(16.0)) + cast_num(luaO_hexavalue(cast_uchar(s[0]))); s.inc();
 		    count++;
 		  }
 		  return r;
@@ -150,7 +150,7 @@ namespace KopiLua
 		  endptr = (CharPtr)(s);  /* valid up to here */
 		 ret:
 		  if (neg != 0) r = -r;
-		  return ldexp(r, e);
+		  return ldexp(r, e); //FIXME:l_mathop(ldexp)
 		}
 
 //		#endif
@@ -174,8 +174,7 @@ namespace KopiLua
 
 
 		private static void pushstr (lua_State L, CharPtr str, uint l) {
-		  setsvalue2s(L, L.top, luaS_newlstr(L, str, l));
-		  incr_top(L);
+		  setsvalue2s(L, L.top, luaS_newlstr(L, str, l)); StkId.inc(ref L.top);
 		}
 
 
@@ -186,8 +185,8 @@ namespace KopiLua
 		  for (;;) {
 		    CharPtr e = strchr(fmt, '%');
 		    if (e == null) break;
-		    setsvalue2s(L, L.top, luaS_newlstr(L, fmt, (uint)(e-fmt)));
-		    incr_top(L);
+		  	luaD_checkstack(L, 2);  /* fmt + item */
+		  	pushstr(L, fmt, (uint)(e - fmt));
 		    switch (e[1]) {
 		      case 's': {
 				  object o = argp[parm_index++]; //FIXME: changed
@@ -205,13 +204,11 @@ namespace KopiLua
 		        break;
 		      }
 		      case 'd': {
-		        setnvalue(L.top, (int)argp[parm_index++]);
-		        incr_top(L);
+		        setnvalue(L.top, (int)argp[parm_index++]); StkId.inc(ref L.top);
 		        break;
 		      }
 		      case 'f': {
-		        setnvalue(L.top, (l_uacNumber)argp[parm_index++]);
-		        incr_top(L);
+		        setnvalue(L.top, (l_uacNumber)argp[parm_index++]); StkId.inc(ref L.top);
 		        break;
 		      }
 		      case 'p': {
@@ -234,6 +231,7 @@ namespace KopiLua
 		    n += 2;
 		    fmt = e+2;
 		  }
+		  luaD_checkstack(L, 1);
 		  pushstr(L, fmt, (uint)strlen(fmt)); //FIXME:changed, (uint)
 		  if (n > 0) luaV_concat(L, n+1);
 		  return svalue(L.top - 1);

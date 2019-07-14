@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.70 2012/05/11 14:10:50 roberto Exp $
+** $Id: lobject.h,v 2.71 2012/09/11 18:21:44 roberto Exp $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -54,8 +54,7 @@ namespace KopiLua
 		public const int LUA_TCCL = (LUA_TFUNCTION | (2 << 4));  /* C closure */
 
 
-		/*
-		** LUA_TSTRING variants */
+		/* Variant tags for strings */
 		public const int LUA_TSHRSTR = (LUA_TSTRING | (0 << 4));  /* short strings */
 		public const int LUA_TLNGSTR = (LUA_TSTRING | (1 << 4));  /* long strings */
 
@@ -333,8 +332,6 @@ namespace KopiLua
 
 		public static void setnvalue(TValue obj, lua_Number x)
 		  { TValue io=obj; setNum_(io, x); settt_(io, LUA_TNUMBER);} //FIXME:num_=>setNum_
-
-		public static void changenvalue(TValue o, lua_Number x) { check_exp(ttisnumber(o), setNum_(o, x));} //FIXME:num_=>setNum_
 
 		public static void setnilvalue(TValue obj) { settt_(obj, LUA_TNIL);}
 

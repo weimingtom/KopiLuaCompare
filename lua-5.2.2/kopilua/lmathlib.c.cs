@@ -14,14 +14,10 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		/* macro 'l_tg' allows the addition of an 'l' or 'f' to all math operations */
-		//#if !defined(l_tg)
-		//#define l_tg(x)		(x) //FIXME: not used here
-		//#endif
 
         //#undef PI
-		public const double PI = 3.1415926535897932384626433832795;
-		public const double RADIANS_PER_DEGREE = PI / 180.0;
+		public const double PI = (lua_Number)(3.1415926535897932384626433832795);
+		public const double RADIANS_PER_DEGREE = (lua_Number)(PI / 180.0);
 
 
 		private static int math_abs (lua_State L) {
@@ -110,8 +106,9 @@ namespace KopiLua
 		}
 
 		private static int math_pow (lua_State L) {
-		  lua_pushnumber(L, Math.Pow(luaL_checknumber(L, 1), 
-		                             luaL_checknumber(L, 2)));
+		  lua_Number x = luaL_checknumber(L, 1);
+		  lua_Number y = luaL_checknumber(L, 2);		
+		  lua_pushnumber(L, Math.Pow(x, y));
 		  return 1;
 		}
 
@@ -122,7 +119,7 @@ namespace KopiLua
 		    res = log(x);
 		  else {
 		    lua_Number base_ = luaL_checknumber(L, 2);
-		    if (base_ == 10.0) res = log10(x);
+		    if (base_ == (lua_Number)10.0) res = log10(x);
 		    else res = log(x)/log(base_);
 		  }
 		  lua_pushnumber(L, res);
@@ -159,8 +156,9 @@ namespace KopiLua
 		}
 
 		private static int math_ldexp (lua_State L) {
-		  lua_pushnumber(L, ldexp(luaL_checknumber(L, 1), 
-		                          luaL_checkint(L, 2)));
+		  lua_Number x = luaL_checknumber(L, 1);
+  		  int ep = luaL_checkint(L, 2);
+		  lua_pushnumber(L, ldexp(x, ep));
 		  return 1;
 		}
 
@@ -207,15 +205,15 @@ namespace KopiLua
 			}
 			case 1: {  /* only upper limit */
 		      lua_Number u = luaL_checknumber(L, 1);
-		      luaL_argcheck(L, 1.0 <= u, 1, "interval is empty");
-		      lua_pushnumber(L, floor(r*u) + 1.0);  /* int between 1 and `u' */
+		      luaL_argcheck(L, (lua_Number)1.0 <= u, 1, "interval is empty");
+		      lua_pushnumber(L, floor(r*u) + (lua_Number)(1.0));  /* [1, u] */
 			  break;
 			}
 			case 2: {  /* lower and upper limits */
 		      lua_Number l = luaL_checknumber(L, 1);
 		      lua_Number u = luaL_checknumber(L, 2);
 			  luaL_argcheck(L, l<=u, 2, "interval is empty");
-			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* int between `l' and `u' */
+			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* [l, u] */
 			  break;
 			}
 			default: return luaL_error(L, "wrong number of arguments");

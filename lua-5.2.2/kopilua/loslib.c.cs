@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.39 2012/05/23 15:37:09 roberto Exp $
+** $Id: loslib.c,v 1.40 2012/10/19 15:54:02 roberto Exp $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -99,7 +99,7 @@ namespace KopiLua
 		private static int os_rename (lua_State L) {
 		  CharPtr fromname = luaL_checkstring(L, 1);
 		  CharPtr toname = luaL_checkstring(L, 2);
-		  return luaL_fileresult(L, (rename(fromname, toname) == 0)?1:0, fromname);
+		  return luaL_fileresult(L, (rename(fromname, toname) == 0)?1:0, null);
 		}
 
 

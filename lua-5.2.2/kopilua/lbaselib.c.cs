@@ -1,5 +1,5 @@
 /*
-** $Id: lbaselib.c,v 1.274 2012/04/27 14:13:19 roberto Exp $
+** $Id: lbaselib.c,v 1.276 2013/02/21 13:44:53 roberto Exp $
 ** Basic library
 ** See Copyright Notice in lua.h
 */
@@ -239,10 +239,16 @@ namespace KopiLua
 		}
 
 
-		private static int load_aux (lua_State L, int status) {
-		  if (status == LUA_OK)
+		private static int load_aux (lua_State L, int status, int envidx) {
+		  if (status == LUA_OK) {
+		    if (envidx != 0) {  /* 'env' parameter? */
+		      lua_pushvalue(L, envidx);  /* environment for loaded function */
+		      if (null == lua_setupvalue(L, -2, 1))  /* set it as 1st upvalue */
+		        lua_pop(L, 1);  /* remove 'env' if not used by previous call */
+		    }		  
 			return 1;
-		  else {
+		  }
+		  else {  /* error (message is on top of the stack) */
 			lua_pushnil(L);
 			lua_insert(L, -2);  /* put before error message */
 			return 2;  /* return nil plus error message */
@@ -253,13 +259,9 @@ namespace KopiLua
 		private static int luaB_loadfile (lua_State L) {
 		  CharPtr fname = luaL_optstring(L, 1, null);
 		  CharPtr mode = luaL_optstring(L, 2, null);
-		  int env = lua_isnone(L, 3)?0:1;  /* 'env' parameter? */
+		  int env = (!lua_isnone(L, 3) ? 3 : 0);  /* 'env' index or 0 if no 'env' */
 		  int status = luaL_loadfilex(L, fname, mode);
-		  if (status == LUA_OK && env!=0) {  /* 'env' parameter? */
-		    lua_pushvalue(L, 3);
-		    lua_setupvalue(L, -2, 1);  /* set it as 1st upvalue of loaded chunk */
-		  }
-		  return load_aux(L, status);
+		  return load_aux(L, status, env);
 		}
 
 
@@ -304,9 +306,9 @@ namespace KopiLua
 		private static int luaB_load (lua_State L) {
 		  int status;
 		  uint l;
-		  int top = lua_gettop(L);
 		  CharPtr s = lua_tolstring(L, 1, out l);
 		  CharPtr mode = luaL_optstring(L, 3, "bt");
+		  int env = (!lua_isnone(L, 4) ? 4 : 0);  /* 'env' index or 0 if no 'env' */
 		  if (s != null) {  /* loading a string? */
 		    CharPtr chunkname = luaL_optstring(L, 2, s);
 			status = luaL_loadbufferx(L, s, l, chunkname, mode);
@@ -317,11 +319,7 @@ namespace KopiLua
 			lua_settop(L, RESERVEDSLOT);  /* create reserved slot */
 			status = lua_load(L, generic_reader, null, chunkname, mode);
 		  }
-		  if (status == LUA_OK && top >= 4) {  /* is there an 'env' argument */
-		    lua_pushvalue(L, 4);  /* environment for loaded function */
-			lua_setupvalue(L, -2, 1);  /* set it as 1st upvalue */
-	      }
-		  return load_aux(L, status);
+		  return load_aux(L, status, env);
 		}
 
 		/* }====================================================== */

@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.128 2012/05/20 14:51:23 roberto Exp $
+** $Id: lparser.c,v 2.130 2013/02/06 13:37:39 roberto Exp $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -236,7 +236,7 @@ namespace KopiLua
 
 		private static int searchvar (FuncState fs, TString n) {
 		  int i;
-		  for (i=fs.nactvar-1; i >= 0; i--) {
+		  for (i=(int)(fs.nactvar)-1; i >= 0; i--) {
 		  	if (luaS_eqstr(n, getlocvar(fs, i).varname) != 0)
 			  return i;
 		  }
@@ -502,12 +502,15 @@ namespace KopiLua
 		}
 
 		/*
-		** codes instruction to create new closure in parent function
+		** codes instruction to create new closure in parent function.
+		** The OP_CLOSURE instruction must use the last available register,
+		** so that, if it invokes the GC, the GC knows which registers
+		** are in use at that time.
 		*/
 		private static void codeclosure (LexState ls, expdesc v) {
 		  FuncState fs = ls.fs.prev;
 		  init_exp(v, expkind.VRELOCABLE, luaK_codeABx(fs, OpCode.OP_CLOSURE, 0, (uint)(fs.np - 1)));
-  		  luaK_exp2nextreg(fs, v);  /* fix it at stack top (for GC) */
+  		  luaK_exp2nextreg(fs, v);  /* fix it at the last register */
 		}
 
 

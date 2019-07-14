@@ -5,6 +5,13 @@ namespace KopiLua
 	public partial class Lua
 	{
 
+		/*
+		** This macro avoids the runtime division MAX_SIZET/(e), as 'e' is
+		** always constant.
+		** The macro is somewhat complex to avoid warnings:
+		** +1 avoids warnings of "comparison has constant result";
+		** cast to 'void' avoids warnings of "value unused".
+		*/
 		public static T[] luaM_reallocv<T>(lua_State L, T[] block, int new_size)
 		{
 			return (T[])luaM_realloc_(L, block, new_size);

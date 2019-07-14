@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.205 2012/05/23 15:37:09 roberto Exp $
+** $Id: lua.c,v 1.206 2012/09/29 20:07:06 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -248,7 +248,6 @@ namespace KopiLua
 			Lua.lua_getglobal(L, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
 			p = Lua.lua_tostring(L, -1);
 			if (p == null) p = ((firstline!=0) ? LUA_PROMPT : LUA_PROMPT2);
-			Lua.lua_pop(L, 1);  /* remove global */
 			return p;
 		}
 
@@ -274,7 +273,9 @@ namespace KopiLua
 			Lua.CharPtr b = new Lua.CharPtr(buffer);
 			int l;
 			Lua.CharPtr prmt = get_prompt(L, firstline);
-			if (lua_readline(L, b, prmt) == 0)
+			int readstatus = lua_readline(L, b, prmt);
+			Lua.lua_pop(L, 1);  /* remove result from 'get_prompt' */
+			if (readstatus == 0)
 				return 0;  /* no input */
 			l = Lua.strlen(b);
 			if (l > 0 && b[l - 1] == '\n')  /* line ends with newline? */

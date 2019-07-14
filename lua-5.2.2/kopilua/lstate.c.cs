@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.98 2012/05/30 12:33:44 roberto Exp $
+** $Id: lstate.c,v 2.99 2012/10/02 17:40:53 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -44,7 +44,7 @@ namespace KopiLua
 		*/
 		//#if !defined(luai_makeseed)
 		//#include <time.h>
-		private static uint luai_makeseed() { return (uint)(time(null)); } //cast(size_t, time(NULL))
+		private static uint luai_makeseed() { return (uint)(time(null)); } //cast(unsigned int, time(NULL))
 		//#endif
 
 

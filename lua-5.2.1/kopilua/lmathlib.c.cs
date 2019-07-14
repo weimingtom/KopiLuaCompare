@@ -208,14 +208,14 @@ namespace KopiLua
 			case 1: {  /* only upper limit */
 		      lua_Number u = luaL_checknumber(L, 1);
 		      luaL_argcheck(L, 1.0 <= u, 1, "interval is empty");
-		      lua_pushnumber(L, floor(r*u) + 1.0);  /* int between 1 and `u' */
+		      lua_pushnumber(L, floor(r*u) + 1.0);  /* int in [1, u] */
 			  break;
 			}
 			case 2: {  /* lower and upper limits */
 		      lua_Number l = luaL_checknumber(L, 1);
 		      lua_Number u = luaL_checknumber(L, 2);
 			  luaL_argcheck(L, l<=u, 2, "interval is empty");
-			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* int between `l' and `u' */
+			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* int in [l, u] */
 			  break;
 			}
 			default: return luaL_error(L, "wrong number of arguments");

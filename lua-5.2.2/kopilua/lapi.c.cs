@@ -33,15 +33,15 @@ namespace KopiLua
 		private static bool isvalid(int o) { return (o != luaO_nilobject); }
 
 		/* test for pseudo index */
-		public static bool ispseudo(i)	{ return	((i) <= LUA_REGISTRYINDEX);}
+		public static bool ispseudo(int i)	{ return	((i) <= LUA_REGISTRYINDEX);}
 
 		/* test for valid but not pseudo index */
-		public static bool isstackindex(i, o)	{ return (isvalid(o) && !ispseudo(i)); }
+		public static bool isstackindex(int i, StkId o)	{ return (isvalid(o) && !ispseudo(i)); }
 
 		public static void api_checkvalidindex(lua_State L, int o) { api_check(L, isvalid(o), "invalid index"); }
 
-		public static void api_checkstackindex(lua_State L, i, o)  {
-			return api_check(L, isstackindex(i, o), "index not in the stack"); }
+		public static void api_checkstackindex(lua_State L, int i, StkId o)  {
+			api_check(L, isstackindex(i, o), "index not in the stack"); }
 
 		static TValue index2addr (lua_State L, int idx) {
           CallInfo ci = L.ci;

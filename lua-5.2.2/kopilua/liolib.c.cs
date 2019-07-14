@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.108 2011/11/25 12:50:03 roberto Exp $
+** $Id: liolib.c,v 2.111 2013/03/21 13:57:27 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -29,6 +29,27 @@ namespace KopiLua
 		*/
 		//#if !defined(_FILE_OFFSET_BITS)
 		private const int _FILE_OFFSET_BITS = 64;
+		//#endif
+
+
+		//#if !defined(lua_checkmode)
+
+		/*
+		** Check whether 'mode' matches '[rwa]%+?b?'.
+		** Change this macro to accept other modes for 'fopen' besides
+		** the standard ones.
+		*/
+		public static bool lua_checkmode(CharPtr mode) {
+			if (!(mode[0] != '\0')) return false;
+			if (!(strchr("rwa", mode[0]) != null)) { mode.inc(); return false;}
+			mode.inc();
+			if (!(mode[0] != '+')) return false;
+			mode.inc(); /* skip if char is '+' */
+			if (!(mode[0] != 'b')) return false;
+			mode.inc(); /* skip if char is 'b' */
+			if (!(mode[0] == '\0')) return false;
+			return true;}
+
 		//#endif
 
 		/*
@@ -212,14 +233,8 @@ namespace KopiLua
 		  CharPtr filename = luaL_checkstring(L, 1);
 		  CharPtr mode = luaL_optstring(L, 2, "r");
 		  LStream p = newfile(L);
-		  int i = 0;
-		  /* check whether 'mode' matches '[rwa]%+?b?' */
-		  if (!(mode[i] != '\0' && strchr("rwa", mode[i++]) != null &&
-		       (mode[i] != '+' || ++i != 0) &&  /* skip if char is '+' */
-		       (mode[i] != 'b' || ++i != 0) &&  /* skip if char is 'b' */
-		       (mode[i] == '\0')))
-		    return luaL_error(L, "invalid mode " + LUA_QS +
-		                  " (should match " + LUA_QL("[rwa]%%+?b?") + ")", mode);
+		  CharPtr md = mode;  /* to traverse/check mode */
+		  luaL_argcheck(L, lua_checkmode(md), 2, "invalid mode");
 		  p.f = fopen(filename, mode);
 		  return (p.f == null) ? luaL_fileresult(L, 0, filename) : 1;
 		}

@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.60 2011/08/30 16:26:41 roberto Exp $
+** $Id: lcode.c,v 2.62 2012/08/16 17:34:28 roberto Exp $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -325,8 +325,7 @@ namespace KopiLua
 		  setnvalue(o, r);
 		  if (r == 0 || luai_numisnan(null, r)) {  /* handle -0 and NaN */
 		    /* use raw representation as key to avoid numeric problems */
-		    setsvalue(L, L.top, luaS_newlstr(L, CharPtr.FromNumber(r), (uint)GetUnmanagedSize(typeof(lua_Number)))); //FIXME:???
-		     incr_top(L);
+		    setsvalue(L, L.top, luaS_newlstr(L, CharPtr.FromNumber(r), (uint)GetUnmanagedSize(typeof(lua_Number)))); StkId.inc(ref L.top); //FIXME:???
 		     n = addk(fs, L.top - 1, o);
 		     StkId.dec(ref L.top);
 		  }
@@ -421,7 +420,7 @@ namespace KopiLua
 			  luaK_nil(fs, reg, 1);
 			  break;
 			}
-			case expkind.VFALSE:  case expkind.VTRUE: {
+			case expkind.VFALSE: case expkind.VTRUE: {
 				luaK_codeABC(fs, OpCode.OP_LOADBOOL, reg, (e.k == expkind.VTRUE) ? 1 : 0, 0);
 			  break;
 			}

@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.172 2012/05/11 14:14:42 roberto Exp $
+** $Id: luaconf.h,v 1.176 2013/03/16 21:10:18 roberto Exp $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -57,7 +57,7 @@ namespace KopiLua
 		//#define LUA_USE_POSIX
 		//#define LUA_USE_DLOPEN		/* needs an extra library: -ldl */
 		//#define LUA_USE_READLINE	/* needs some extra libraries */
-		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hexa formats */
+		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hex formats */
 		//#define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
 		//#define LUA_USE_LONGLONG	/* assume support for long long */
 		//#endif
@@ -66,7 +66,7 @@ namespace KopiLua
 		//#define LUA_USE_POSIX
 		//#define LUA_USE_DLOPEN    /* does not need -ldl */
 		//#define LUA_USE_READLINE	/* needs an extra library: -lreadline */
-		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hexa formats */
+		//#define LUA_USE_STRTODHEX	/* assume 'strtod' handles hex formats */
 		//#define LUA_USE_AFORMAT		/* assume 'printf' handles 'aA' specifiers */
 		//#define LUA_USE_LONGLONG	/* assume support for long long */
 		//#endif
@@ -419,6 +419,11 @@ namespace KopiLua
 		public static int lua_number2str(ref CharPtr s, double n) { return sprintf(s, LUA_NUMBER_FMT, n); } //FIXME:changed, sprintf->String.Format //FIXME: not assign, fill
 		public const int LUAI_MAXNUMBER2STR = 32; /* 16 digits, sign, point, and \0 */
 
+		/*
+		@@ l_mathop allows the addition of an 'l' or 'f' to all math operations
+		*/
+		//#define l_mathop(x)		(x)
+
 
 		/*
 		@@ lua_str2number converts a decimal numeric string to a number.
@@ -443,8 +448,8 @@ namespace KopiLua
 		//FIXME:???not defined
 		//#if defined(lobject_c) || defined(lvm_c)
 		//#include <math.h>
-		public static lua_Number luai_nummod(lua_State L, lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); }
-		public static lua_Number luai_numpow(lua_State L, lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }		
+		public static lua_Number luai_nummod(lua_State L, lua_Number a, lua_Number b) { return ((a) - Math.Floor((a) / (b)) * (b)); } //FIXME:l_mathop(floor)
+		public static lua_Number luai_numpow(lua_State L, lua_Number a, lua_Number b) { return (Math.Pow(a, b)); }		 //FIXME:l_mathop(pow)
 		//#endif
 
 		/* these are quite standard operations */
@@ -482,13 +487,12 @@ namespace KopiLua
 		*/
 
         //FIXME:<---------------------removed
-		//#if defined(LUA_CORE) && \
-    	//	defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)	/* { */
+		//#if defined(LUA_NUMBER_DOUBLE) && !defined(LUA_ANSI)	/* { */
 		/*
 		** The next definitions activate some tricks to speed up the
 		** conversion from doubles to integer types, mainly to LUA_UNSIGNED.
 		**
-		@@ MS_ASMTRICK uses Microsoft assembler to avoid clashes with a
+		@@ LUA_MSASMTRICK uses Microsoft assembler to avoid clashes with a
 		** DirectX idiosyncrasy.
 		**
 		@@ LUA_IEEE754TRICK uses a trick that should work on any machine
@@ -512,7 +516,7 @@ namespace KopiLua
 		/* Microsoft compiler on a Pentium (32 bit) ? */
 		//#if defined(LUA_WIN) && defined(_MSC_VER) && defined(_M_IX86)	/* { */
 
-		//#define MS_ASMTRICK
+		//#define LUA_MSASMTRICK
 		//#define LUA_IEEEENDIAN		0
 		//#define LUA_NANTRICK
 

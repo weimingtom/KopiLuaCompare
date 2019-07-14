@@ -1,5 +1,5 @@
 /*
-** $Id: llimits.h,v 1.99 2012/05/28 20:32:28 roberto Exp $
+** $Id: llimits.h,v 1.103 2013/02/20 14:08:56 roberto Exp $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -281,7 +281,7 @@ namespace KopiLua
 		** both small and large values (outside the range of integers).
 		*/
 
-		//#if defined(MS_ASMTRICK)	/* { */
+		//#if defined(MS_ASMTRICK) || defined(LUA_MSASMTRICK)	/* { */
 		/* trick with Microsoft assembler for X86 */
 
 		//#define lua_number2int(i,n)  __asm {__asm fld n   __asm fistp i}
@@ -337,7 +337,7 @@ namespace KopiLua
 
 		//#if !defined(lua_number2unsigned)	/* { */
 		/* the following definition assures proper modulo behavior */
-		//#if defined(LUA_NUMBER_DOUBLE)
+		//#if defined(LUA_NUMBER_DOUBLE) || defined(LUA_NUMBER_FLOAT)
 		//#include <math.h>
 		//#define SUPUNSIGNED	((lua_Number)(~(lua_Unsigned)0) + 1)
 		//#define lua_number2unsigned(i,n)  \
@@ -375,7 +375,7 @@ namespace KopiLua
 		private static void lua_number2unsigned(out lua_Unsigned i, lua_Number n) { i= (lua_Unsigned)((lua_Integer)n & 0xffffffff); } //FIXME: ((lua_Unsigned)n) may be equal 0 under mono   
 		private static lua_Number lua_unsigned2number(lua_Unsigned u) { return (lua_Number)u; }
 		public static void luai_hashnum(out int i, lua_Number d) { int e;
-		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue???
+		  d = frexp(d, out e) * (lua_Number)(Int32.MaxValue - /*DBL_MAX_EXP*/Double.MaxValue); //FIXME:DBL_MAX_EXP==Double.MaxValue??? //FIXME:l_mathop
 		  lua_number2int(out i, d); i += e; }
 		
 		/*

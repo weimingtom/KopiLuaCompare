@@ -22,11 +22,11 @@ namespace KopiLua
 		public const string LUA_VERSION_MAJOR = "5";
 		public const string LUA_VERSION_MINOR = "2";
         public const int LUA_VERSION_NUM = 502;
-		public const string LUA_VERSION_RELEASE = "1";
+		public const string LUA_VERSION_RELEASE = "2";
 
 		public const string LUA_VERSION = "Lua " + LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR;
 		public const string LUA_RELEASE	= LUA_VERSION + "." + LUA_VERSION_RELEASE;
-		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2012 Lua.org, PUC-Rio";
+		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2013 Lua.org, PUC-Rio";
 		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
 
 
@@ -122,6 +122,12 @@ namespace KopiLua
 		//#endif
 
         //<-----------------------------ignore
+
+
+/*
+** RCS ident string
+*/
+//extern const char lua_ident[];
 
 
 /*
@@ -327,7 +333,7 @@ namespace KopiLua
 
 
 		/******************************************************************************
-        * Copyright (C) 1994-2012 Lua.org, PUC-Rio.
+        * Copyright (C) 1994-2013 Lua.org, PUC-Rio.
 		*
 		* Permission is hereby granted, free of charge, to any person obtaining
 		* a copy of this software and associated documentation files (the
