@@ -1189,7 +1189,7 @@ namespace KopiLua
 		    debt = stddebtest(g, g.GCestimate);  /* pause until next cycle */
 		  else
 		    debt = (debt / stepmul) * STEPMULADJ;  /* convert 'work units' to Kb */
-		  luaE_setdebt(g, stddebt(g));
+		  luaE_setdebt(g, debt);
 		}
 
 

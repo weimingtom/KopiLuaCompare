@@ -1,6 +1,17 @@
-todo:lgc.c
-todo:lgc.h
+﻿(x, 17:16 2019-7-21) todo:lgc.c
+(x) todo:lgc.h
+		private static lu_mem singlestep (lua_State L) {
+		  global_State g = G(L);
+		  switch (g.gcstate) {
+			case GCSpause: {
+		      /* start to count memory traversed */
+		      g.GCmemtrav = (uint)(g.strt.size * 4); //FIXME:??? sizeof(GCObject*);
+
 todo:math_abs, l_tg,...., replace Math.xxx
+（FIXME: 之前的版本没有修改这里！！！）
+（FIXME: 同步luaconf_ex.h！！！）
+
+
 (x, 16:11 2019-7-21) todo:lstrlib.c
 
 -----------------
@@ -130,5 +141,30 @@ luaconf.h
 
 11:13 2019/7/14
 lvm.c
+
+--------------------------
+
+        //FIXME:???not implemented
+        private static LX fromstate(lua_State L) { 
+		 throw new Exception("not implemented"); //FIXME:???
+		 return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+        } 
+
+
+----------------------------
+
+
+		public static long time(object p) 
+		{
+			if (p == null)
+			{
+				return DateTime.Now.Ticks;
+			}
+			else
+			{
+				throw new Exception("time(NULL);");
+				return 0;
+			}
+		}
 
 

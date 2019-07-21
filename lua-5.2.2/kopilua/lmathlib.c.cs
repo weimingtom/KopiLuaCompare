@@ -21,68 +21,68 @@ namespace KopiLua
 
 
 		private static int math_abs (lua_State L) {
-		  lua_pushnumber(L, Math.Abs(luaL_checknumber(L, 1))); //FIXME:l_tg(fabs), same below
+		  lua_pushnumber(L, fabs(luaL_checknumber(L, 1))); //FIXME:l_tg(fabs), same below
 		  return 1;
 		}
 
 		private static int math_sin (lua_State L) {
-		  lua_pushnumber(L, Math.Sin(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sin(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_sinh (lua_State L) {
-		  lua_pushnumber(L, Math.Sinh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sinh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_cos (lua_State L) {
-		  lua_pushnumber(L, Math.Cos(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, cos(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_cosh (lua_State L) {
-		  lua_pushnumber(L, Math.Cosh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, cosh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_tan (lua_State L) {
-		  lua_pushnumber(L, Math.Tan(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, tan(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_tanh (lua_State L) {
-		  lua_pushnumber(L, Math.Tanh(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, tanh(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_asin (lua_State L) {
-		  lua_pushnumber(L, Math.Asin(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, asin(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_acos (lua_State L) {
-		  lua_pushnumber(L, Math.Acos(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, acos(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_atan (lua_State L) {
-		  lua_pushnumber(L, Math.Atan(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, atan(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_atan2 (lua_State L) {
-		  lua_pushnumber(L, Math.Atan2(luaL_checknumber(L, 1), 
-		                               luaL_checknumber(L, 2)));
+		  lua_pushnumber(L, atan2(luaL_checknumber(L, 1), 
+		                          luaL_checknumber(L, 2)));
 		  return 1;
 		}
 
 		private static int math_ceil (lua_State L) {
-		  lua_pushnumber(L, Math.Ceiling(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, ceil(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_floor (lua_State L) {
-		  lua_pushnumber(L, Math.Floor(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, floor(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
@@ -101,14 +101,14 @@ namespace KopiLua
 		}
 
 		private static int math_sqrt (lua_State L) {
-		  lua_pushnumber(L, Math.Sqrt(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, sqrt(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 		private static int math_pow (lua_State L) {
 		  lua_Number x = luaL_checknumber(L, 1);
 		  lua_Number y = luaL_checknumber(L, 2);		
-		  lua_pushnumber(L, Math.Pow(x, y));
+		  lua_pushnumber(L, pow(x, y));
 		  return 1;
 		}
 
@@ -128,13 +128,13 @@ namespace KopiLua
 
 //#if defined(LUA_COMPAT_LOG10)
 		private static int math_log10 (lua_State L) {
-		  lua_pushnumber(L, Math.Log10(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, log10(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 //#endif
 
 		private static int math_exp (lua_State L) {
-		  lua_pushnumber(L, Math.Exp(luaL_checknumber(L, 1)));
+		  lua_pushnumber(L, exp(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
@@ -213,7 +213,7 @@ namespace KopiLua
 		      lua_Number l = luaL_checknumber(L, 1);
 		      lua_Number u = luaL_checknumber(L, 2);
 			  luaL_argcheck(L, l<=u, 2, "interval is empty");
-			  lua_pushnumber(L, Math.Floor(r * (u - l + 1)) + l);  /* [l, u] */
+			  lua_pushnumber(L, floor(r * (u - l + 1)) + l);  /* [l, u] */
 			  break;
 			}
 			default: return luaL_error(L, "wrong number of arguments");

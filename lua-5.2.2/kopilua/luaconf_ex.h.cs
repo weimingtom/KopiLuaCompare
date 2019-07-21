@@ -1066,14 +1066,14 @@ namespace KopiLua
 			return str;
 		}
 
-		public static double frexp(double x, out int expptr)
+		public static lua_Number frexp(lua_Number x, out int expptr)
 		{
 			expptr = (int)Math.Log(x, 2) + 1;
 			double s = x / Math.Pow(2, expptr);
 			return s;
 		}
 
-		public static double ldexp(double x, int expptr)
+		public static lua_Number ldexp(lua_Number x, int expptr)
 		{
 			return x * Math.Pow(2, expptr);
 		}
@@ -1349,12 +1349,12 @@ namespace KopiLua
 			return Math.Floor(a);
 		}
 		
-		public static double log(double d)
+		public static lua_Number log(lua_Number d)
 		{
 			return Math.Log(d);
 		}
 
-		public static double log10(double d)
+		public static lua_Number log10(lua_Number d)
 		{
 			return Math.Log10(d);
 		}	
@@ -1531,5 +1531,22 @@ namespace KopiLua
 				return 0;
 			}
 		}
+		
+		public static lua_Number fabs(lua_Number v) { return Math.Abs(v); }
+		public static lua_Number sin(lua_Number v) { return Math.Sin(v); }
+		public static lua_Number sinh(lua_Number v) { return Math.Sinh(v); }
+		public static lua_Number cos(lua_Number v) { return Math.Cos(v); }
+		public static lua_Number cosh(lua_Number v) { return Math.Cosh(v); }
+		public static lua_Number tan(lua_Number v) { return Math.Tan(v); }
+		public static lua_Number tanh(lua_Number v) { return Math.Tanh(v); }		
+		public static lua_Number asin(lua_Number v) { return Math.Asin(v); }
+		public static lua_Number acos(lua_Number v) { return Math.Acos(v); }	
+		public static lua_Number atan(lua_Number v) { return Math.Atan(v); }	
+		public static lua_Number atan2(lua_Number y, lua_Number x) { return Math.Atan2(y, x); }	
+		public static lua_Number ceil(lua_Number v) { return Math.Ceiling(v); }	
+		//public static lua_Number floor(lua_Number v) { return Math.Floor(v); }			
+		public static lua_Number sqrt(lua_Number v) { return Math.Sqrt(v); }	
+		public static lua_Number pow(lua_Number x, lua_Number y) { return Math.Pow(x, y); }	
+		public static lua_Number exp(lua_Number v) { return Math.Exp(v); }	
 	}
 }
