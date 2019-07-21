@@ -332,6 +332,8 @@ namespace KopiLua
 		  }
 		}
 
+		//static const char *match (MatchState *ms, const char *s, const char *p);
+
 
 		private static CharPtr matchbalance (MatchState ms, CharPtr s,
 										   CharPtr p) {

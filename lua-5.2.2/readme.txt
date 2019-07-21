@@ -1,8 +1,7 @@
 todo:lgc.c
 todo:lgc.h
 todo:math_abs, l_tg,...., replace Math.xxx
-todo:lstrlib.c
-
+(x, 16:11 2019-7-21) todo:lstrlib.c
 
 -----------------
 0:08 2019-7-14
