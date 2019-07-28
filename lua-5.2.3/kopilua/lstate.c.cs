@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.99 2012/10/02 17:40:53 roberto Exp $
+** $Id: lstate.c,v 2.99.1.2 2013/11/08 17:45:31 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -198,6 +198,8 @@ namespace KopiLua
 		  g.memerrmsg = luaS_newliteral(L, MEMERRMSG);
 		  luaS_fix(g.memerrmsg);  /* it should never be collected */
 		  g.gcrunning = 1;  /* allow gc */
+		  g.version = lua_version(null);
+		  luai_userstateopen(L);		  
 		}
 
 
@@ -228,6 +230,8 @@ namespace KopiLua
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_freeallobjects(L);  /* collect all objects */
+		  if (g.version != null)  /* closing a fully built state? */
+		    luai_userstateclose(L);		  
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);
@@ -295,7 +299,7 @@ namespace KopiLua
 		  setnilvalue(g.l_registry);
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
-          g.version = lua_version(null);
+          g.version = null;
 		  g.gcstate = GCSpause;
 		  g.allgc = null;
   		  g.finobj = null;
@@ -314,8 +318,6 @@ namespace KopiLua
 			close_state(L);
 			L = null;
 		  }
-		  else
-			luai_userstateopen(L);
 		  return L;
 		}
 
@@ -323,7 +325,6 @@ namespace KopiLua
 		public static void lua_close (lua_State L) {
 		  L = G(L).mainthread;  /* only the main thread can be closed */
 		  lua_lock(L);
-		  luai_userstateclose(L);
 		  close_state(L);
 		}
 

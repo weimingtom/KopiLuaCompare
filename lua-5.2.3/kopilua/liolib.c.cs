@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.111 2013/03/21 13:57:27 roberto Exp $
+** ** $Id: liolib.c,v 2.112.1.1 2013/04/12 18:48:47 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -23,11 +23,11 @@ namespace KopiLua
 
 
 		/*
-		** POSIX idiosyncrasy!
 		** This definition must come before the inclusion of 'stdio.h'; it
 		** should not affect non-POSIX systems
 		*/
 		//#if !defined(_FILE_OFFSET_BITS)
+		private const int _LARGEFILE_SOURCE	= 1;
 		private const int _FILE_OFFSET_BITS = 64;
 		//#endif
 
@@ -87,34 +87,35 @@ namespace KopiLua
 
 		/*
 		** {======================================================
-		** lua_fseek/lua_ftell: configuration for longer offsets
+		** lua_fseek: configuration for longer offsets
 		** =======================================================
 		*/
 
-		//#if !defined(lua_fseek)	/* { */
+		//#if !defined(lua_fseek)	&& !defined(LUA_ANSI)	/* { */
 
-		//#if defined(LUA_USE_POSIX)
+		//#if defined(LUA_USE_POSIX)	/* { */
 
 		//#define l_fseek(f,o,w)		fseeko(f,o,w)
 		//#define l_ftell(f)		ftello(f)
 		//#define l_seeknum		off_t
 
 		//#elif defined(LUA_WIN) && !defined(_CRTIMP_TYPEINFO) \
-		//   && defined(_MSC_VER) && (_MSC_VER >= 1400)
+		//   && defined(_MSC_VER) && (_MSC_VER >= 1400)	/* }{ */
 		/* Windows (but not DDK) and Visual C++ 2005 or higher */
 
 		//#define l_fseek(f,o,w)		_fseeki64(f,o,w)
 		//#define l_ftell(f)		_ftelli64(f)
 		//#define l_seeknum		__int64
 
-		//#else
+		//#endif	/* } */
 
+		//#endif			/* } */
+
+
+		//#if !defined(l_fseek)		/* default definitions */
 		private static int l_fseek(StreamProxy f, long o, int w) { return fseek(f,o,w);}
 		private static int l_ftell(StreamProxy f) { return ftell(f);}
 		//#define l_seeknum		long
-
-		//#endif
-
 		//#endif			/* } */
 
 		/* }====================================================== */

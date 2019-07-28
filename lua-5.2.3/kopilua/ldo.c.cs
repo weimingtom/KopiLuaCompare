@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.c,v 2.108 2012/10/01 14:05:04 roberto Exp $
+** $Id: ldo.c,v 2.108.1.3 2013/11/08 18:22:50 roberto Exp $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -286,6 +286,7 @@ namespace KopiLua
 		  StkId base_, fixed_;
 		  lua_assert(actual >= nfixargs);
 		  /* move fixed parameters to final position */
+		  luaD_checkstack(L, p.maxstacksize);  /* check again for new 'base' */
 		  fixed_ = L.top - actual;  /* first fixed argument */
 		  base_ = L.top;  /* final position of first argument */
 		  for (i=0; i<nfixargs; i++) {
@@ -371,12 +372,18 @@ namespace KopiLua
 		    case LUA_TLCL: {  /* Lua function: prepare its call */
 			  StkId base_;
 			  Proto p = clLvalue(func).p;
-			  luaD_checkstack(L, p.maxstacksize);
-			  func = restorestack(L, funcr);
 		      n = cast_int(L.top - func) - 1;  /* number of real arguments */
+			  luaD_checkstack(L, p.maxstacksize);
 		      for (; n < p.numparams; n++)
 		        setnilvalue(lua_TValue.inc(ref L.top));  /* complete missing arguments */
-              base_ = (p.is_vararg==0) ? func + 1 : adjust_varargs(L, p, n);
+		      if (0 == p.is_vararg) {
+		        func = restorestack(L, funcr);
+		        base_ = func + 1;
+		      }
+		      else {
+		        base_ = adjust_varargs(L, p, n);
+		        func = restorestack(L, funcr);  /* previous call can change stack */
+		      }
 			  ci = next_ci(L);  /* now `enter' new function */
 			  ci.nresults = (short)nresults; //FIXME:added, (short)
 			  ci.func = func;
@@ -578,6 +585,7 @@ namespace KopiLua
 
 		public static int lua_resume (lua_State L, lua_State from, int nargs) {
 		  int status;
+		  int oldnny = L.nny;  /* save 'nny' */
 		  lua_lock(L);
 		  luai_userstateresume(L, nargs);
 		  L.nCcalls = (ushort)((from != null) ? from.nCcalls + 1 : 1); //FIXME:added, (ushort)
@@ -599,7 +607,7 @@ namespace KopiLua
 			  }
 			  lua_assert(status == L.status);
 		  }
-          L.nny = 1;  /* do not allow yields */
+		  L.nny = (ushort)oldnny;  /* restore 'nny' */
 		  L.nCcalls--;
           lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : (uint)0));
 		  lua_unlock(L);

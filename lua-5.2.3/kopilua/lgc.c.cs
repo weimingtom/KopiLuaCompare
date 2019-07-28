@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.140 2013/03/16 21:10:18 roberto Exp $
+** $Id: lgc.c,v 2.140.1.2 2013/04/26 18:22:05 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -517,11 +517,12 @@ namespace KopiLua
 		}
 
 		private static lu_mem traversestack (global_State g, lua_State th) {
+		  int n = 0;
 		  StkId[] o_ = th.stack; //FIXME:???o_
 		  if (o_ == null) //FIXME:???o_
 		    return 1;  /* stack not completely built yet */
 		  StkId o = new lua_TValue(o_); //FIXME:o_->o
-		  for (; o < th.top; /*StkId.inc(ref o)*/o = o + 1) {//FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
+		  for (; o < th.top; /*StkId.inc(ref o)*/o = o + 1) {  /* mark live elements in the stack */ //FIXME:L.stack->new StkId(L.stack[0]) //FIXME:don't use StackId.inc(), overflow ([-1])
 		    markvalue(g, o);
 		    
 		    //------------------------
@@ -544,7 +545,13 @@ namespace KopiLua
 		      //------------------------
 		  	}
 		  }
-		  return (uint)(GetUnmanagedSize(typeof(lua_State)) + GetUnmanagedSize(typeof(TValue)) * th.stacksize);
+		  else {  /* count call infos to compute size */
+		    CallInfo ci;
+		    for (ci = th.base_ci; ci != th.ci; ci = ci.next)
+		      n++;
+		  }		  
+		  return (uint)(GetUnmanagedSize(typeof(lua_State)) + GetUnmanagedSize(typeof(TValue)) * th.stacksize +
+         				GetUnmanagedSize(typeof(CallInfo)) * n);
 		}
 
 

@@ -242,7 +242,7 @@ namespace KopiLua
 		}
 
 /*
-** $Id: print.c,v 1.68 2011/09/30 10:21:20 lhf Exp $
+** $Id: print.c,v 1.69 2013/07/04 01:03:46 lhf Exp $
 ** print bytecodes
 ** See Copyright Notice in lua.h
 */
@@ -282,7 +282,7 @@ namespace KopiLua
 		private static void PrintConstant(Lua.Proto f, int i)
 		{
 		 /*const*/ TValue o=f.k[i];
-		 switch (Lua.ttype(o))
+		 switch (Lua.ttypenv(o))
 		 {
 		  case Lua.LUA_TNIL:
 			Lua.printf("nil");

@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.90 2012/08/16 17:34:28 roberto Exp $
+** $Id: ldebug.c,v 2.90.1.3 2013/05/16 16:04:15 roberto Exp $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -314,6 +314,12 @@ namespace KopiLua
 		  name = "?";  /* no reasonable name found */
 		}
 
+		private static int filterpc (int pc, int jmptarget) {
+		  if (pc < jmptarget)  /* is code conditional (inside a jump)? */
+		    return -1;  /* cannot know who sets that register */
+		  else return pc;  /* current position sets that register */
+		}
+
 
 		/*
 		** try to find last instruction before 'lastpc' that modified register 'reg'
@@ -321,6 +327,7 @@ namespace KopiLua
 		private static int findsetreg (Proto p, int lastpc, int reg) {
 		  int pc;
 		  int setreg = -1;  /* keep last instruction that changed 'reg' */
+		  int jmptarget = 0;  /* any code before this address is conditional */
 		  for (pc = 0; pc < lastpc; pc++) {
 		    Instruction i = p.code[pc];
 		    OpCode op = GET_OPCODE(i);
@@ -329,33 +336,38 @@ namespace KopiLua
 		      case OpCode.OP_LOADNIL: {
 		        int b = GETARG_B(i);
 		        if (a <= reg && reg <= a + b)  /* set registers from 'a' to 'a+b' */
-		          setreg = pc;
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		      }
 		      case OpCode.OP_TFORCALL: {
-		        if (reg >= a + 2) setreg = pc;  /* affect all regs above its base */
+		        if (reg >= a + 2)  /* affect all regs above its base */
+					setreg = filterpc(pc, jmptarget);
 		        break;
 		      }
 		      case OpCode.OP_CALL:
 		      case OpCode.OP_TAILCALL: {
-		        if (reg >= a) setreg = pc;  /* affect all registers above base */
+		        if (reg >= a)  /* affect all registers above base */
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		      }
 		      case OpCode.OP_JMP: {
 		        int b = GETARG_sBx(i);
 		        int dest = pc + 1 + b;
 		        /* jump is forward and do not skip `lastpc'? */
-		        if (pc < dest && dest <= lastpc)
-		          pc += b;  /* do the jump */
+		        if (pc < dest && dest <= lastpc) {
+		          if (dest > jmptarget)
+		            jmptarget = dest;  /* update 'jmptarget' */
+		        }
 		        break;
 		      }
 		      case OpCode.OP_TEST: {
-		        if (reg == a) setreg = pc;  /* jumped code can change 'a' */
+		        if (reg == a)  /* jumped code can change 'a' */
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		      }
 		      default:
-		        if (testAMode(op)!=0 && reg == a)  /* any instruction that set A */
-		          setreg = pc;
+		        if (testAMode(op) != 0 && reg == a)  /* any instruction that set A */
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		    }
 		  }
@@ -506,7 +518,7 @@ namespace KopiLua
 
 		public static void/*l_noret*/ luaG_concaterror (lua_State L, StkId p1, StkId p2) {
 		  if (ttisstring(p1) || ttisnumber(p1)) p1 = p2;
-		  lua_assert(!ttisstring(p1) && !ttisnumber(p2));
+		  lua_assert(!ttisstring(p1) && !ttisnumber(p1));
 		  luaG_typeerror(L, p1, "concatenate");
 		}
 
