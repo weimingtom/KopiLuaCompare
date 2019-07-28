@@ -1,4 +1,10 @@
-﻿namespace KopiLua
+﻿/*
+** $Id: lapi.h,v 2.7.1.1 2013/04/12 18:48:47 roberto Exp $
+** Auxiliary functions from Lua API
+** See Copyright Notice in lua.h
+*/
+
+namespace KopiLua
 {
 	using StkId = Lua.lua_TValue;
 	

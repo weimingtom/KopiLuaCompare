@@ -1,3 +1,9 @@
+/*
+** $Id: llex.h,v 1.72.1.1 2013/04/12 18:48:47 roberto Exp $
+** Lexical Analyzer
+** See Copyright Notice in lua.h
+*/
+
 namespace KopiLua
 {
 	using lua_Number = System.Double;

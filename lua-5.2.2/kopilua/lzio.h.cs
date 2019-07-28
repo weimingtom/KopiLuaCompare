@@ -1,3 +1,10 @@
+/*
+** $Id: lzio.h,v 1.26 2011/07/15 12:48:03 roberto Exp $
+** Buffered streams
+** See Copyright Notice in lua.h
+*/
+
+
 namespace KopiLua
 {
 	public partial class Lua

@@ -1,3 +1,9 @@
+/*
+** $Id: lvm.h,v 2.18 2013/01/08 14:06:55 roberto Exp $
+** Lua virtual machine
+** See Copyright Notice in lua.h
+*/
+
 namespace KopiLua
 {
 	using TValue = Lua.lua_TValue;

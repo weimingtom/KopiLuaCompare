@@ -1,3 +1,9 @@
+/*
+** $Id: ldebug.h,v 2.7.1.1 2013/04/12 18:48:47 roberto Exp $
+** Auxiliary functions from Debug Interface module
+** See Copyright Notice in lua.h
+*/
+
 using System.Diagnostics;
 
 namespace KopiLua

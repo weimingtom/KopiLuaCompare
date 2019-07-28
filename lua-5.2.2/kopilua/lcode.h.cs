@@ -1,3 +1,9 @@
+/*
+** $Id: lcode.h,v 1.58 2011/08/30 16:26:41 roberto Exp $
+** Code generator for Lua
+** See Copyright Notice in lua.h
+*/
+
 namespace KopiLua
 {
 	public partial class Lua

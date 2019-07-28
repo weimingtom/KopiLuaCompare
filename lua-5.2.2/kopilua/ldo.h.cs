@@ -1,3 +1,9 @@
+/*
+** $Id: ldo.h,v 2.20 2011/11/29 15:55:08 roberto Exp $
+** Stack and Call structure of Lua
+** See Copyright Notice in lua.h
+*/
+
 namespace KopiLua
 {
 	using StkId = Lua.lua_TValue;
