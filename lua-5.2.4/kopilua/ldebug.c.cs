@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.90.1.3 2013/05/16 16:04:15 roberto Exp $
+** $Id: ldebug.c,v 2.90.1.4 2015/02/19 17:05:13 roberto Exp $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -32,6 +32,15 @@ namespace KopiLua
 
 		private static int currentline (CallInfo ci) {
 		  return getfuncline(ci_func(ci).p, currentpc(ci));
+		}
+
+		private static void swapextra (lua_State L) {
+		  if (L.status == LUA_YIELD) {
+		    CallInfo ci = L.ci;  /* get function that yielded */
+		    StkId temp = ci.func;  /* exchange its 'func' and 'extra' values */
+		    ci.func = restorestack(L, ci.extra);
+		    ci.extra = savestack(L, temp);
+		  }
 		}
 
 
@@ -132,6 +141,7 @@ namespace KopiLua
 		public static CharPtr lua_getlocal (lua_State L, lua_Debug ar, int n) {
 		  CharPtr name;
 		  lua_lock(L);
+		  swapextra(L);
 		  if (ar == null) {  /* information about non-active function? */
 		    if (!isLfunction(L.top - 1))  /* not a Lua function? */
 		      name = null;
@@ -146,6 +156,7 @@ namespace KopiLua
 		      api_incr_top(L);
 		    }
 		  }
+		  swapextra(L);
 		  lua_unlock(L);
 		  return name;
 		}
@@ -153,11 +164,14 @@ namespace KopiLua
 
 		public static CharPtr lua_setlocal (lua_State L, lua_Debug ar, int n) {
 		  StkId pos = null;  /* to avoid warnings */
-		  CharPtr name = findlocal(L, ar.i_ci, n, ref pos);
+		  CharPtr name;
 		  lua_lock(L);
+		  swapextra(L);
+		  name = findlocal(L, ar.i_ci, n, ref pos);
 		  if (name != null)
 			  setobjs2s(L, pos, L.top-1);
 		  StkId.dec(ref L.top);  /* pop value */
+		  swapextra(L);
 		  lua_unlock(L);
 		  return name;
 		}
@@ -257,6 +271,7 @@ namespace KopiLua
 		  CallInfo ci;
           StkId func;
 		  lua_lock(L);
+		  swapextra(L);
 		  if (what == '>') {
             ci = null;
 			func = L.top - 1;
@@ -275,6 +290,7 @@ namespace KopiLua
 			setobjs2s(L, L.top, func);
 			api_incr_top(L);
 		  }
+		  swapextra(L);
 		  if (strchr(what, 'L') != null)
 			collectvalidlines(L, cl);
 		  lua_unlock(L);

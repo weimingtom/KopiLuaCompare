@@ -23,6 +23,7 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 * lua-5.2.1 (done, since 2019-07-06, not tested)  
 * lua-5.2.2 (done, since 2019-07-21, not tested)  
 * lua-5.2.3 (done, since 2019-07-28, not tested)  
+* lua-5.2.4 (done, since 2019-08-03, not tested)  
 * lua-5.3.4 (pending)  
 
 ## About status above    

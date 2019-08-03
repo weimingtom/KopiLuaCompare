@@ -1,26 +1,17 @@
-11:19 2019-7-28
-lbitlib.c
-11:24 2019-7-28
+17:29 2019-8-3
+lopcodes.h
+luaconf.h
+17:34 2019-8-3
+ldblib.c
+17:38 2019-8-3
 ldebug.c
-11:29 2019-7-28
-ldo.c
-11:37 2019-7-28
+17:40 2019-8-3
 lgc.c
-11:41 2019-7-28
-liolib.c
-11:42 2019-7-28
+17:41 2019-8-3
 llex.c
-11:45 2019-7-28
-lstate.c
-11:47 2019-7-28
-ltable.h
-11:49 2019-7-28
+17:43 2019-8-3
+lobject.h
+17:46 2019-8-3
+ltablib.c
+17:48 2019-8-3
 lua.h
-luac.c
-
---------------------------
-
-		/* returns the key, given the value of a table entry */
-		public static TValue keyfromval(object v) { throw new Exception("not implemented"); //FIXME:
-			return ((gkey((Node)((CharPtr)(v)) - 0/*- offsetof(Node, i_val)*/))); } //FIXME:- offsetof(Node, i_val)
-			

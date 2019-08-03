@@ -312,7 +312,6 @@ namespace KopiLua
 		  lua_pushthread(L1); lua_xmove(L1, L, 1);
 		  lua_pushvalue(L, arg+1);
 		  lua_rawset(L, -3);  /* set new hook */
-
 		  lua_sethook(L1, func, mask, count);  /* set hooks */
 		  return 0;
 		}

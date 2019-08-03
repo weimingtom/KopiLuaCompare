@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.65.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: ltablib.c,v 1.65.1.2 2014/05/07 16:32:55 roberto Exp $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -133,18 +133,19 @@ namespace KopiLua
 
 
 		private static int unpack (lua_State L) {
-		  int i, e, n;
+		  int i, e;
+		  uint n;
 		  luaL_checktype(L, 1, LUA_TTABLE);
 		  i = luaL_optint(L, 2, 1);
 		  e = luaL_opt_integer(L, luaL_checkint, 3, luaL_len(L, 1)); //FIXME:changed, original luaL_opt
 		  if (i > e) return 0;  /* empty range */
-		  n = e - i + 1;  /* number of elements */
-		  if (n <= 0 || lua_checkstack(L, n)==0)  /* n <= 0 means arith. overflow */
+		  n = (uint)e - (uint)i;  /* number of elements minus 1 */
+		  if (n > (int.MaxValue - 10) || lua_checkstack(L, (int)(++n))==0)
 		    return luaL_error(L, "too many results to unpack");
 		  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
 		  while (i++ < e)  /* push arg[i + 1...e] */
 		    lua_rawgeti(L, 1, i);
-		  return n;
+		  return (int)n;
 		}
 
 		/* }====================================================== */

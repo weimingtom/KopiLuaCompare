@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.71.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: lobject.h,v 2.71.1.2 2014/05/07 14:14:58 roberto Exp $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -923,12 +923,12 @@ namespace KopiLua
 		public class Table : GCObject {
 		  public lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
 		  public lu_byte lsizenode;  /* log2 of size of `node' array */
-		  public Table metatable;
+		  public int sizearray;  /* size of `array' array */
 		  public TValue[] array;  /* array part */
 		  public Node[] node;
 		  public int lastfree;  /* any free position is before this position */ //FIXME: this is differente from original code, use t.node[t.lastfree] to get Node value
+		  public Table metatable;
 		  public GCObject gclist;
-		  public int sizearray;  /* size of `array' array */
 		};
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.c,v 2.140.1.2 2013/04/26 18:22:05 roberto Exp $
+** $Id: lgc.c,v 2.140.1.3 2014/09/01 16:55:08 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -421,7 +421,7 @@ namespace KopiLua
 		      reallymarkobject(g, gcvalue(gval(n)));  /* mark it now */
 		    }
 		  }
-		  if (prop!=0)
+		  if (g.gcstate != GCSatomic || prop!=0)
 		    linktable(h, ref g.ephemeron);  /* have to propagate again */
 		  else if (hasclears!=0)  /* does table have white keys? */
 		    linktable(h, ref g.allweak);  /* may have to clean white keys */

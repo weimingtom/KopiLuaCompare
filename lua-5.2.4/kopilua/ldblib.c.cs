@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.132.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: ldblib.c,v 1.132.1.2 2015/02/19 17:16:55 roberto Exp $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -15,6 +15,11 @@ namespace KopiLua
 
 		private const string HOOKKEY = "_HKEY";
 
+
+		private static void checkstack (lua_State L, lua_State L1, int n) {
+		  if (L != L1 && 0==lua_checkstack(L1, n))
+		    luaL_error(L, "stack overflow");
+		}
 
 
 		private static int db_getregistry (lua_State L) {
@@ -109,6 +114,7 @@ namespace KopiLua
 		  int arg;
 		  lua_State L1 = getthread(L, out arg);
 		  CharPtr options = luaL_optstring(L, arg+2, "flnStu");
+		  checkstack(L, L1, 3);
 		  if (lua_isnumber(L, arg+1) != 0) {
 			if (lua_getstack(L1, (int)lua_tointeger(L, arg+1), ar)==0) {
 			  lua_pushnil(L);  /* level out of range */
@@ -168,6 +174,7 @@ namespace KopiLua
 		  else {  /* stack-level argument */
 			if (lua_getstack(L1, luaL_checkint(L, arg+1), ar)==0)  /* out of range? */
 			  return luaL_argerror(L, arg+1, "level out of range");
+			checkstack(L, L1, 1);
 			name = lua_getlocal(L1, ar, nvar);
 			if (name != null) {
 			  lua_xmove(L1, L, 1);  /* push local value */
@@ -191,6 +198,7 @@ namespace KopiLua
 			return luaL_argerror(L, arg+1, "level out of range");
 		  luaL_checkany(L, arg+3);
 		  lua_settop(L, arg+3);
+		  checkstack(L, L1, 1);
 		  lua_xmove(L, L1, 1);
 		  lua_pushstring(L, lua_setlocal(L1, ar, luaL_checkint(L, arg+2)));
 		  return 1;
@@ -309,10 +317,10 @@ namespace KopiLua
 		    lua_pushvalue(L, -1);
 		    lua_setmetatable(L, -2);  /* setmetatable(hooktable) = hooktable */
 		  }
+		  checkstack(L, L1, 1);
 		  lua_pushthread(L1); lua_xmove(L1, L, 1);
 		  lua_pushvalue(L, arg+1);
 		  lua_rawset(L, -3);  /* set new hook */
-
 		  lua_sethook(L1, func, mask, count);  /* set hooks */
 		  return 0;
 		}
@@ -328,6 +336,7 @@ namespace KopiLua
 			lua_pushliteral(L, "external hook");
 		  else {
 		    gethooktable(L);
+			checkstack(L, L1, 1);
 		    lua_pushthread(L1); lua_xmove(L1, L, 1);
 		    lua_rawget(L, -2);   /* get hook */
 		    lua_remove(L, -2);  /* remove hook table */
