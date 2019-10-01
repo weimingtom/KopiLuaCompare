@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.h,v 1.120.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: lauxlib.h,v 1.122 2013/06/27 18:32:33 roberto Exp $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -34,8 +34,11 @@ namespace KopiLua
 		  public lua_CFunction func;
 		};
 
-		//LUALIB_API void (luaL_checkversion_) (lua_State *L, lua_Number ver);
-		public static void luaL_checkversion(lua_State L) { luaL_checkversion_(L, LUA_VERSION_NUM); }
+		#define LUAL_NUMSIZES	(sizeof(lua_Integer)*16 + sizeof(lua_Number))
+
+		//LUALIB_API void (luaL_checkversion_) (lua_State *L, int ver, size_t sz);
+		public static void luaL_checkversion(lua_State L) 
+			{ luaL_checkversion_(L, LUA_VERSION_NUM, LUAL_NUMSIZES); }
 
 		/* pre-defined references */
 		public const int LUA_NOREF = (-2);
@@ -53,7 +56,8 @@ namespace KopiLua
 		public static void luaL_newlibtable(lua_State L, luaL_Reg[] l) {
 			lua_createtable(L, 0, l.Length-1); } //FIXME: changed, sizeof(l)/sizeof((l)[0]) - 1)
 
-		public static void luaL_newlib(lua_State L, luaL_Reg[] l) { luaL_newlibtable(L,l); luaL_setfuncs(L,l,0); }
+		public static void luaL_newlib(lua_State L, luaL_Reg[] l) 
+			{ luaL_checkversion(L), luaL_newlibtable(L,l), luaL_setfuncs(L,l,0); }
 
 		public static void luaL_argcheck(lua_State L, bool cond, int numarg, string extramsg) {
 			if (!cond)

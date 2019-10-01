@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.112.1.1 2013/04/12 18:48:47 roberto Exp $
+** $Id: liolib.c,v 2.114 2013/06/07 19:01:35 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -354,6 +354,19 @@ namespace KopiLua
 		*/
 
 
+		private static int read_integer (lua_State L, StreamProxy f) {
+		  lua_Integer d;
+		  if (fscanf(f, LUA_INTEGER_SCAN, &d) == 1) {
+		    lua_pushinteger(L, d);
+		    return 1;
+		  }
+		  else {
+		   lua_pushnil(L);  /* "result" to be removed */
+		   return 0;  /* read fails */
+		  }
+		}
+
+
 		private static int read_number (lua_State L, StreamProxy f) {
 		  //lua_Number d; //FIXME:???
 		  object[] parms = { (object)(double)0.0 }; //FIXME:???
@@ -450,6 +463,9 @@ namespace KopiLua
 				CharPtr p = lua_tostring(L, n);
 				luaL_argcheck(L, (p!=null) && (p[0] == '*'), n, "invalid option");
 				switch (p[1]) {
+		          case 'i':  /* integer */
+		            success = read_integer(L, f);
+		            break;				
 				  case 'n':  /* number */
 					success = read_number(L, f);
 					break;
@@ -525,8 +541,10 @@ namespace KopiLua
 		  for (; (nargs--) != 0; arg++) {
 			if (lua_type(L, arg) == LUA_TNUMBER) {
 			  /* optimization: could be done exactly as for strings */
-			  status = ((status!=0) &&
-				  (fprintf(f, LUA_NUMBER_FMT, lua_tonumber(L, arg)) > 0)) ? 1 : 0;
+		      int len = lua_isinteger(L, arg)
+		                ? fprintf(f, LUA_INTEGER_FMT, lua_tointeger(L, arg))
+		                : fprintf(f, LUA_NUMBER_FMT, lua_tonumber(L, arg));
+		      status = status && (len > 0);
 			}
 			else {
 			  uint l;

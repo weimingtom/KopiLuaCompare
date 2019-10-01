@@ -41,6 +41,12 @@ lua-5.3.3/kopilua/bin/
 lua-5.3.3/kopilua/obj/
 lua-5.3.4/kopilua/bin/
 lua-5.3.4/kopilua/obj/
+lua-5.3.0-work1/kopilua/bin/
+lua-5.3.0-work1/kopilua/obj/
+lua-5.3.0-work2/kopilua/bin/
+lua-5.3.0-work2/kopilua/obj/
+lua-5.3.0-work3/kopilua/bin/
+lua-5.3.0-work3/kopilua/obj/
 
 *.class
 
