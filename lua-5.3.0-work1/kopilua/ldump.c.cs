@@ -19,6 +19,7 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using TValue = Lua.lua_TValue;
 	using lu_byte = System.Byte;
+	using lua_Integer = System.Int32;
 
 	public partial class Lua
 	{
@@ -84,7 +85,7 @@ namespace KopiLua
 		 DumpVar(x,D);
 		}
 
-		private static void DumpInteger(lua_Integer x, DumpState* D)
+		private static void DumpInteger(lua_Integer x, DumpState D)
 		{
 		 DumpVar(x,D);
 		}

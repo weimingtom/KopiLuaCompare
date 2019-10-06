@@ -259,12 +259,12 @@ namespace KopiLua
 
 		public static int lua_isinteger (lua_State L, int idx) {
 		  StkId o = index2addr(L, idx);
-		  return ttisinteger(o);
+		  return ttisinteger(o) ? 1 : 0;
 		}
 
 
 		public static int lua_isnumber (lua_State L, int idx) {
-		  lua_Number n;
+		  lua_Number n = 0;
 		  TValue o = index2addr(L, idx);
 		  return tonumber(ref o, ref n);
 		}
@@ -313,7 +313,7 @@ namespace KopiLua
 		  o2 = index2addr(L, index2);
 		  if (isvalid(o1) && isvalid(o2)) {
 		    switch (op) {
-		  	  case LUA_OPEQ: i = luaV_equalobj(L, o1, o2) ? 1 : 0; break;
+		  	  case LUA_OPEQ: i = luaV_equalobj(L, o1, o2); break;
 		      case LUA_OPLT: i = luaV_lessthan(L, o1, o2); break;
 		      case LUA_OPLE: i = luaV_lessequal(L, o1, o2); break;
 		      default: api_check(L, 0, "invalid option"); break; //FIXME:break added
@@ -324,13 +324,13 @@ namespace KopiLua
 		}
 
 
-		public static int lua_strtonum (lua_State *L, const char *s, size_t len) {
-		  lua_Integer i; lua_Number n;
-		  if (luaO_str2int(s, len, &i)) {  /* try as an integer */
-		    setivalue(L->top, i);
+		public static int lua_strtonum (lua_State L, CharPtr s, uint len) {
+		  lua_Integer i = 0; lua_Number n;
+		  if (luaO_str2int(s, len, ref i) != 0) {  /* try as an integer */
+		    setivalue(L.top, i);
 		  }
-		  else if (luaO_str2d(s, len, &n)) {  /* else try as a float */
-		    setnvalue(L->top, n);
+		  else if (luaO_str2d(s, len, out n) != 0) {  /* else try as a float */
+		    setnvalue(L.top, n);
 		  }
 		  else
 		    return 0;  /* conversion failed */
@@ -339,31 +339,31 @@ namespace KopiLua
 		}
 
 
-		public static lua_Number lua_tonumberx (lua_State *L, int idx, int *pisnum) {
-		  lua_Number n;
-		  const TValue *o = index2addr(L, idx);
-		  int isnum = tonumber(o, &n);
-		  if (!isnum)
+		public static lua_Number lua_tonumberx (lua_State L, int idx, ref int pisnum) {
+		  lua_Number n = 0;
+		  TValue o = index2addr(L, idx);
+		  int isnum = tonumber(ref o, ref n);
+		  if (0==isnum)
 		    n = 0;  /* call to 'tonumber' may change 'n' even if it fails */
-		  if (pisnum) *pisnum = isnum;
+		  /*if (pisnum)*/ pisnum = isnum;
 		  return n;
 		}
 
 
-		public static lua_Integer lua_tointegerx (lua_State *L, int idx, int *pisnum) {
-		  lua_Integer res;
-		  const TValue *o = index2addr(L, idx);
-		  int isnum = tointeger(o, &res);
-		  if (!isnum)
+		public static lua_Integer lua_tointegerx (lua_State L, int idx, ref int pisnum) {
+		  lua_Integer res = 0;
+		  TValue o = index2addr(L, idx);
+		  int isnum = tointeger(ref o, ref res);
+		  if (0==isnum)
 		    res = 0;  /* call to 'tointeger' may change 'n' even if it fails */
-		  if (pisnum) *pisnum = isnum;
+		  /*if (pisnum)*/ pisnum = isnum;
 		  return res;
 		}
 
 
-		public static lua_Unsigned lua_tounsignedx (lua_State *L, int idx, int *pisnum) {
+		public static lua_Unsigned lua_tounsignedx (lua_State L, int idx, ref int pisnum) {
 		  lua_Unsigned res = 0;
-		  const TValue *o = index2addr(L, idx);
+		  TValue o = index2addr(L, idx);
 		  int isnum = 0;
 		  switch (ttype(o)) {
 		    case LUA_TNUMINT: {
@@ -372,25 +372,25 @@ namespace KopiLua
 		      break;
 		    }
 		    case LUA_TNUMFLT: {
-		      const lua_Number twop = (~(lua_Unsigned)0) + cast_num(1);
+		      lua_Number twop = (~(lua_Unsigned)0) + cast_num(1);
 		      lua_Number n = fltvalue(o);
 		      int neg = 0;
-		      n = l_floor(n);
+		      n = floor(n);
 		      if (n < 0) {
 		        neg = 1;
 		        n = -n;
 		      }
-		      n = l_mathop(fmod)(n, twop);
+		      n = fmod(n, twop);
 		      if (luai_numisnan(L,n))   /* not a number? */
 		        break;  /* not an integer, too */
 		      res = cast_unsigned(n);
-		      if (neg) res = 0u - res;
+		      if (neg!=0) res = 0u - res;
 		      isnum = 1;
 		      break;
 		    }
 		    default: break;
 		  }
-		  if (pisnum) *pisnum = isnum;
+		  /*if (pisnum)*/ pisnum = isnum;
 		  return res;
 		}
 

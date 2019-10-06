@@ -966,7 +966,7 @@ namespace KopiLua
 		}
 
 
-		public static void luaL_checkversion_ (lua_State L, int ver, size_t sz) {
+		public static void luaL_checkversion_ (lua_State L, int ver, uint sz) {
 		  lua_Number[] v = lua_version(L);
 		  if (v != lua_version(null))
 		    luaL_error(L, "multiple Lua VMs detected");

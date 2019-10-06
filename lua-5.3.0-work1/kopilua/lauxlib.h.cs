@@ -34,7 +34,7 @@ namespace KopiLua
 		  public lua_CFunction func;
 		};
 
-		#define LUAL_NUMSIZES	(sizeof(lua_Integer)*16 + sizeof(lua_Number))
+		private const int LUAL_NUMSIZES	= (sizeof(lua_Integer)*16 + sizeof(lua_Number));
 
 		//LUALIB_API void (luaL_checkversion_) (lua_State *L, int ver, size_t sz);
 		public static void luaL_checkversion(lua_State L) 
@@ -57,7 +57,7 @@ namespace KopiLua
 			lua_createtable(L, 0, l.Length-1); } //FIXME: changed, sizeof(l)/sizeof((l)[0]) - 1)
 
 		public static void luaL_newlib(lua_State L, luaL_Reg[] l) 
-			{ luaL_checkversion(L), luaL_newlibtable(L,l), luaL_setfuncs(L,l,0); }
+			{ luaL_checkversion(L); luaL_newlibtable(L,l); luaL_setfuncs(L,l,0); }
 
 		public static void luaL_argcheck(lua_State L, bool cond, int numarg, string extramsg) {
 			if (!cond)

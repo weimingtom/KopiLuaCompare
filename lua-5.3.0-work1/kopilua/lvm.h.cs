@@ -8,20 +8,28 @@ namespace KopiLua
 {
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
+	using lua_Integer = System.Int32;
+	using lua_Number = System.Double;
 	
 	public partial class Lua
 	{
 		public static int tostring(lua_State L, StkId o) { return (ttisstring(o) || (luaV_tostring(L, o) != 0)) ? 1 : 0; }
 
-		public static int tonumber(ref StkId o, TValue n) 
-			{ return ttisfloat(o) ? (*(n) = fltvalue(o), 1) : luaV_tonumber_(o,n); }
+		public static int tonumber(ref StkId o, ref lua_Number n) 
+			{ if (ttisfloat(o)) { n = fltvalue(o); return 1; } else { return luaV_tonumber_(o, ref n);} }
 
-		#define tointeger(o,i) \
-			(ttisinteger(o) ? (*(i) = ivalue(o), 1) : luaV_tointeger_(o,i))
+		public static int tointeger(ref StkId o, ref lua_Integer i)
+			{ if (ttisinteger(o)) { i = ivalue(o); return 1; } else { return luaV_tointeger_(o, ref i); } }
 
-		#define intop(op,v1,v2) \
-			cast_integer(cast_unsigned(v1) op cast_unsigned(v2))
+		//FIXME:changed, see intop
+		//FIXME:???Lua_Number
+		public static int intop_plus(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) + (uint)(v2));}
+		public static int intop_minus(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) - (uint)(v2));}
+		public static int intop_mul(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) * (uint)(v2));}
 
-		#define luaV_rawequalobj(t1,t2)		luaV_equalobj(NULL,t1,t2)
+		public static int luaV_rawequalobj(TValue t1,TValue t2) { return luaV_equalobj(null,t1,t2); }
 	}
 }

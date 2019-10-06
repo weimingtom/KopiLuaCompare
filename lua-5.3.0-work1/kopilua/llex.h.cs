@@ -7,6 +7,7 @@
 namespace KopiLua
 {
 	using lua_Number = System.Double;
+	using lua_Integer = System.Int32;
 	
 	public partial class Lua
 	{

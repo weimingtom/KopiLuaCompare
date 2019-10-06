@@ -139,7 +139,7 @@ namespace KopiLua
 		  e = luaL_opt_integer(L, luaL_checkint, 3, luaL_len(L, 1)); //FIXME:changed, original luaL_opt
 		  if (i > e) return 0;  /* empty range */
 		  n = e - i + 1;  /* number of elements */
-		  if (n <= 0 || !lua_checkstack(L, n))  /* n <= 0 means arith. overflow */
+		  if (n <= 0 || 0==lua_checkstack(L, n))  /* n <= 0 means arith. overflow */
 		    return luaL_error(L, "too many results to unpack");
 		  lua_rawgeti(L, 1, i);  /* push arg[i] (avoiding overflow problems) */
 		  while (i++ < e)  /* push arg[i + 1...e] */

@@ -13,6 +13,7 @@ namespace KopiLua
 	using lu_byte = System.Byte;
 	using lua_Number = System.Double;
 	using Instruction = System.UInt32;
+	using lua_Integer = System.Int32;
 	
 	public partial class Lua
 	{
@@ -60,8 +61,8 @@ namespace KopiLua
 
 
 		/* Variant tags for numbers */
-		#define LUA_TNUMFLT	(LUA_TNUMBER | (0 << 4))  /* float numbers */
-		#define LUA_TNUMINT	(LUA_TNUMBER | (1 << 4))  /* integer numbers */
+		public const int LUA_TNUMFLT = (LUA_TNUMBER | (0 << 4));  /* float numbers */
+		public const int LUA_TNUMINT = (LUA_TNUMBER | (1 << 4));  /* integer numbers */
 
 
 		/* Bit mark for collectable types */
@@ -278,8 +279,8 @@ namespace KopiLua
 		public static bool checktag(TValue o, int t)	    {return (rttype(o) == t);}
 		public static bool checktype(TValue o, int t)		{return (ttnov(o) == (t));}
 		public static bool ttisnumber(TValue o)		{return checktype(o, LUA_TNUMBER);}	
-		#define ttisfloat(o)		checktag((o), LUA_TNUMFLT)
-		#define ttisinteger(o)		checktag((o), LUA_TNUMINT)			
+		public static bool ttisfloat(TValue o)		{return checktag(o, LUA_TNUMFLT); }
+		public static bool ttisinteger(TValue o)	{ return checktag(o, LUA_TNUMINT); }
 		public static bool ttisnil(TValue o)	{return checktag(o, LUA_TNIL);}
 		public static bool ttisboolean(TValue o)	{return checktag(o, LUA_TBOOLEAN);}
 		public static bool ttislightuserdata(TValue o)	{return checktag(o, LUA_TLIGHTUSERDATA);}
@@ -298,8 +299,8 @@ namespace KopiLua
 		
 
 		/* Macros to access values */
-		#define ivalue(o)	check_exp(ttisinteger(o), val_(o).i)
-		#define fltvalue(o)	check_exp(ttisfloat(o), val_(o).n)
+		public static lua_Integer ivalue(TValue o)	{ return (lua_Integer)check_exp(ttisinteger(o), val_(o).i); }
+		public static lua_Number fltvalue(TValue o) { return (lua_Number)check_exp(ttisfloat(o), val_(o).n); }
 		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), val_(o).gc); }
 		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), val_(o).p); }
 		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), val_(o).gc.ts); }
@@ -334,17 +335,17 @@ namespace KopiLua
 		public static void settt_(TValue o, int t) {o.tt_=t;}
 
 		public static void setnvalue(TValue obj, lua_Number x)
-		  { TValue io=obj; val_(io).n=(x); settt_(io, LUA_TNUMFLT);}
+		  { TValue io=obj; io.value_.n=x; settt_(io, LUA_TNUMFLT);}
 
-		#define setivalue(obj,x) \
-		  { TValue *io=(obj); val_(io).i=(x); settt_(io, LUA_TNUMINT); }
+		public static void setivalue(TValue obj, lua_Integer x)
+		  { TValue io=obj; io.value_.i=x; settt_(io, LUA_TNUMINT);}
 
 		public static void setnilvalue(TValue obj) { settt_(obj, LUA_TNIL);}
 
 		public static void setfvalue(TValue obj, lua_CFunction x) 
 		  { TValue io=obj; io.value_.f=x; settt_(io, LUA_TLCF); } //FIXME:chagned, val_(io)
 		
-		public static void setpvalue( TValue obj, object x) 
+		public static void setpvalue(TValue obj, object x) 
 		  { TValue io=obj; io.value_.p=x; settt_(io, LUA_TLIGHTUSERDATA);} //FIXME:chagned, val_(io)
 
 		public static void setbvalue(TValue obj, int x) 
@@ -433,8 +434,8 @@ namespace KopiLua
 
 
 		/* check whether a number is valid (useful only for NaN trick) */
-		//public static void luai_checknum(lua_State L, TValue o, luai_checknum_func c)	{ /* empty */ } //FIXME:???
-
+		public static void luai_checknum(lua_State L, TValue o, luai_checknum_func c)	{ /* empty */ }
+		public delegate void luai_checknum_func();
 
 
 		/*

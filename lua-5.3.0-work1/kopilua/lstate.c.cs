@@ -295,7 +295,7 @@ namespace KopiLua
 		  setnilvalue(g.l_registry);
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
-          g.version = lua_version(NULL);
+          g.version = lua_version(null);
 		  g.gcstate = GCSpause;
 		  g.allgc = null;
   		  g.finobj = null;

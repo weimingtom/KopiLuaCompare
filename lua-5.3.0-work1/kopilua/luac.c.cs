@@ -242,8 +242,8 @@ namespace KopiLua
 		}
 
 
-		#define nvalue(x) 0
-		#define ttypenv(x) ttnov(x)
+		private static double nvalue__(TValue x) { return 0; }
+		private static int ttypenv__(TValue x) { return Lua.ttnov(x); }
 /*
 ** $Id: print.c,v 1.69 2013/07/04 01:03:46 lhf Exp $
 ** print bytecodes
@@ -285,7 +285,7 @@ namespace KopiLua
 		private static void PrintConstant(Lua.Proto f, int i)
 		{
 		 /*const*/ TValue o=f.k[i];
-		 switch (Lua.ttypenv(o))
+		 switch (ttypenv__(o))
 		 {
 		  case Lua.LUA_TNIL:
 			Lua.printf("nil");
@@ -294,7 +294,7 @@ namespace KopiLua
 			Lua.printf(Lua.bvalue(o) != 0 ? "true" : "false");
 			break;
 		  case Lua.LUA_TNUMBER:
-			Lua.printf(Lua.LUA_NUMBER_FMT,Lua.nvalue(o));
+			Lua.printf(Lua.LUA_NUMBER_FMT,nvalue__(o));
 			break;
 		  case Lua.LUA_TSTRING:
 			PrintString(Lua.rawtsvalue(o));

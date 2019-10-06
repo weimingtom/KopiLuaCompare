@@ -244,17 +244,17 @@ namespace KopiLua
 		    else  break;
 		  }
 		  save(ls, '\0');
-		  if (!isf) {
-		    if (!luaO_str2int(luaZ_buffer(ls->buff), luaZ_bufflen(ls->buff) - 1,
-		                      &seminfo->i))
-		      lexerror(ls, "malformed number", TK_INT);
-		    return TK_INT;
+		  if (0==isf) {
+		    if (0==luaO_str2int(luaZ_buffer(ls.buff), luaZ_bufflen(ls.buff) - 1,
+		                      ref seminfo.i))
+		      lexerror(ls, "malformed number", (int)RESERVED.TK_INT);
+		    return (int)RESERVED.TK_INT;
 		  }
 		  else {		  
 			buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
 			if (buff2d(ls.buff, out seminfo.r) == 0)  /* format error? */
 			  trydecpoint(ls, seminfo); /* try to update decimal point separator */
-		    return TK_FLT;
+			return (int)RESERVED.TK_FLT;
 		  }
 		}
 
@@ -468,8 +468,8 @@ namespace KopiLua
 			  }
 			  case '/': {
 		        next(ls);
-		        if (ls->current != '/') return '/';
-		        else { next(ls); return TK_IDIV; }
+		        if (ls.current != '/') return '/';
+		        else { next(ls); return (int)RESERVED.TK_IDIV; }
 		      }
 			  case '~': {
 				next(ls);

@@ -57,7 +57,7 @@ namespace KopiLua
 		  lua_Integer start = posrelat(luaL_checkinteger(L, 2), l);
 		  lua_Integer end = posrelat(luaL_optinteger(L, 3, -1), l);
 		  if (start < 1) start = 1;
-		  if (end > (lua_Integer)l) end = l;
+		  if (end > (lua_Integer)l) end = (lua_Integer)l;
 		  if (start <= end)
 			lua_pushlstring(L, s + start-1, (uint)(end - start+1));
 		  else lua_pushliteral(L, "");
@@ -103,11 +103,11 @@ namespace KopiLua
 		}
 
 		/* reasonable limit to avoid arithmetic overflow and strings too big */
-		#if INT_MAX / 2 <= 0x10000000
-		#define MAXSIZE		((size_t)(INT_MAX / 2))
-		#else
-		#define MAXSIZE		((size_t)0x10000000)
-		#endif
+		//#if INT_MAX / 2 <= 0x10000000
+		public const uint MAXSIZE = (uint)(int.MaxValue / 2); //FIXME: //((size_t)(INT_MAX / 2));
+		//#else
+		//#define MAXSIZE		((size_t)0x10000000)
+		//#endif
 
 		private static int str_rep (lua_State L) {
 		  uint l, lsep;
@@ -141,7 +141,7 @@ namespace KopiLua
 		  lua_Integer pose = posrelat(luaL_optinteger(L, 3, (int)posi), l);
 		  int n, i;
 		  if (posi < 1) posi = 1;
-		  if (pose > (lua_Integer)l) pose = l;
+		  if (pose > (lua_Integer)l) pose = (lua_Integer)l;
 		  if (posi > pose) return 0;  /* empty interval; return no values */
 		  n = (int)(pose -  posi + 1);
 		  if (posi + n <= pose)  /* arithmetic overflow? */
@@ -621,7 +621,7 @@ namespace KopiLua
           /* explicit request or no special characters? */
 		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) || nospecials(p, lp)!=0)) {
 			/* do a plain search */
-			CharPtr s2 = lmemfind(s + init - 1, ls - init + 1, p, lp);
+			CharPtr s2 = lmemfind(s + init - 1, (uint)(ls - init + 1), p, lp);
 			if (s2 != null) {
 			  lua_pushinteger(L, s2 - s + 1);
 			  lua_pushinteger(L, (int)(s2 - s + lp));

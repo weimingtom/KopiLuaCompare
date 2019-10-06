@@ -14,6 +14,9 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using Instruction = System.UInt32;
+	using lua_Number = System.Double;
+	using lua_Integer = System.Int32;
+	using lu_byte = System.Byte;
 
 	public partial class Lua
 	{
@@ -488,22 +491,22 @@ namespace KopiLua
 		}
 
 
-		private static const char *varinfo (lua_State *L, const TValue *o) {
-		  const char *name;
-		  CallInfo *ci = L->ci;
-		  const char *kind = NULL;
-		  if (isLua(ci)) {
-		    kind = getupvalname(ci, o, &name);  /* check whether 'o' is an upvalue */
-		    if (!kind && isinstack(ci, o))  /* no? try a register */
-		      kind = getobjname(ci_func(ci)->p, currentpc(ci),
-		                        cast_int(o - ci->u.l.base), &name);
+		private static CharPtr varinfo (lua_State L, TValue o) {
+		  CharPtr name = null;
+		  CallInfo ci = L.ci;
+		  CharPtr kind = null;
+		  if (isLua(ci)!=0) {
+		    kind = getupvalname(ci, o, ref name);  /* check whether 'o' is an upvalue */
+		    if (kind==null && isinstack(ci, o)!=0)  /* no? try a register */
+		      kind = getobjname(ci_func(ci).p, currentpc(ci),
+		                        cast_int(o - ci.u.l.base_), ref name);
 		  }
-		  return (kind) ? luaO_pushfstring(L, " (%s " LUA_QS ")", kind, name) : "";
+		  return (kind!=null) ? luaO_pushfstring(L, " (%s " + LUA_QS + ")", kind, name) : "";
 		}
 
 
-		public static void/*l_noret*/ luaG_typeerror (lua_State *L, const TValue *o, const char *op) {
-		  const char *t = objtypename(o);
+		public static void/*l_noret*/ luaG_typeerror (lua_State L, TValue o, CharPtr op) {
+		  CharPtr t = objtypename(o);
 		  luaG_runerror(L, "attempt to %s a %s value%s", op, t, varinfo(L, o));
 		}
 
@@ -516,15 +519,15 @@ namespace KopiLua
 
 
 		public static void/*l_noret*/ luaG_aritherror (lua_State L, TValue p1, TValue p2) {
-		  lua_Number temp;
-		  if (!tonumber(p1, ref temp))
+		  lua_Number temp = 0;
+		  if (0==tonumber(ref p1, ref temp))
 			p2 = p1;  /* first operand is wrong */
 		  luaG_typeerror(L, p2, "perform arithmetic on");
 		}
 
 		public static void/*l_noret*/ luaG_tointerror (lua_State L, /*const*/ TValue p1, /*const*/ TValue p2) {
-		  lua_Integer temp;
-		  if (!tointeger(p1, ref temp))
+		  lua_Integer temp = 0;
+		  if (0==tointeger(ref p1, ref temp))
 		    p2 = p1;
 		  luaG_runerror(L, "attempt to convert an out of range float%s to an integer",
 		                   varinfo(L, p2));
@@ -580,33 +583,33 @@ namespace KopiLua
 
 
 		public static void luaG_traceexec (lua_State L) {
-		  CallInfo *ci = L->ci;
-		  lu_byte mask = L->hookmask;
-		  int counthook = ((mask & LUA_MASKCOUNT) && L->hookcount == 0);
-		  if (counthook)
+		  CallInfo ci = L.ci;
+		  lu_byte mask = L.hookmask;
+		  int counthook = ((mask & LUA_MASKCOUNT)!=0 && L.hookcount == 0) ? 1 : 0;
+		  if (counthook!=0)
 		    resethookcount(L);  /* reset count */
-		  if (ci->callstatus & CIST_HOOKYIELD) {  /* called hook last time? */
-		    ci->callstatus &= ~CIST_HOOKYIELD;  /* erase mark */
+		  if ((ci.callstatus & CIST_HOOKYIELD)!=0) {  /* called hook last time? */
+		  	ci.callstatus &= (byte)((~CIST_HOOKYIELD) & 0xff);  /* erase mark */
 		    return;  /* do not call hook again (VM yielded, so it did not move) */
 		  }
-		  if (counthook)
+		  if (counthook!=0)
 		    luaD_hook(L, LUA_HOOKCOUNT, -1);  /* call count hook */
-		  if (mask & LUA_MASKLINE) {
-		    Proto *p = ci_func(ci)->p;
-		    int npc = pcRel(ci->u.l.savedpc, p);
+		  if ((mask & LUA_MASKLINE)!=0) {
+		    Proto p = ci_func(ci).p;
+		    int npc = pcRel(ci.u.l.savedpc, p);
 		    int newline = getfuncline(p, npc);
 		    if (npc == 0 ||  /* call linehook when enter a new function, */
-		        ci->u.l.savedpc <= L->oldpc ||  /* when jump back (loop), or when */
-		        newline != getfuncline(p, pcRel(L->oldpc, p)))  /* enter a new line */
+		        ci.u.l.savedpc <= L.oldpc ||  /* when jump back (loop), or when */
+		        newline != getfuncline(p, pcRel(L.oldpc, p)))  /* enter a new line */
 		      luaD_hook(L, LUA_HOOKLINE, newline);  /* call line hook */
 		  }
-		  L->oldpc = ci->u.l.savedpc;
-		  if (L->status == LUA_YIELD) {  /* did hook yield? */
-		    if (counthook)
-		      L->hookcount = 1;  /* undo decrement to zero */
-		    ci->u.l.savedpc--;  /* undo increment (resume will increment it again) */
-		    ci->callstatus |= CIST_HOOKYIELD;  /* mark that it yielded */
-		    ci->func = L->top - 1;  /* protect stack below results */
+		  L.oldpc = ci.u.l.savedpc;
+		  if (L.status == LUA_YIELD) {  /* did hook yield? */
+		    if (counthook!=0)
+		      L.hookcount = 1;  /* undo decrement to zero */
+		    InstructionPtr.dec(ref ci.u.l.savedpc);  /* undo increment (resume will increment it again) */
+		    ci.callstatus |= CIST_HOOKYIELD;  /* mark that it yielded */
+		    ci.func = L.top - 1;  /* protect stack below results */
 		    luaD_throw(L, LUA_YIELD);
 		  }
 		}

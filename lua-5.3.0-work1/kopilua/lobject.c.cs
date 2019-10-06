@@ -19,6 +19,8 @@ namespace KopiLua
 	using l_uacNumber = System.Double;
 	using Instruction = System.UInt32;
 	using lu_int32 = System.UInt32;
+	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -69,12 +71,12 @@ namespace KopiLua
 		  return l + log_2[x];
 		}
 
-		private static lua_Integer intarith (lua_State *L, int op, lua_Integer v1,
+		private static lua_Integer intarith (lua_State L, int op, lua_Integer v1,
 		                                                   lua_Integer v2) {
 		  switch (op) {
-		    case LUA_OPADD: return intop(+, v1, v2);
-		    case LUA_OPSUB:return intop(-, v1, v2);
-		    case LUA_OPMUL:return intop(*, v1, v2);
+		    case LUA_OPADD: return intop_plus(v1, v2);
+		    case LUA_OPSUB:return intop_minus(v1, v2);
+		    case LUA_OPMUL:return intop_mul(v1, v2);
 		    case LUA_OPMOD: return luaV_mod(L, v1, v2);
 		    case LUA_OPPOW: return luaV_pow(v1, v2);
 		    case LUA_OPUNM: return -v1;
@@ -95,32 +97,32 @@ namespace KopiLua
 		  }
 		}
 
-		public static void luaO_arith (lua_State *L, int op, const TValue *p1, const TValue *p2,
-		                 TValue *res) {
+		public static void luaO_arith (lua_State L, int op, TValue p1, TValue p2,
+		                 TValue res) {
 		  if (op == LUA_OPIDIV) {  /* operates only on integers */
-		    lua_Integer i1; lua_Integer i2;
-		    if (tointeger(p1, &i1) && tointeger(p2, &i2)) {
+		    lua_Integer i1 = 0; lua_Integer i2 = 0;
+		    if (tointeger(ref p1, ref i1)!=0 && tointeger(ref p2, ref i2)!=0) {
 		      setivalue(res, luaV_div(L, i1, i2));
 		      return;
 		    }
 		    /* else go to the end */
 		  }
 		  else {  /* other operations */
-		    lua_Number n1; lua_Number n2;
+		    lua_Number n1 = 0; lua_Number n2 = 0;
 		    if (ttisinteger(p1) && ttisinteger(p2) && op != LUA_OPDIV &&
 		        (op != LUA_OPPOW || ivalue(p2) >= 0)) {
 		      setivalue(res, intarith(L, op, ivalue(p1), ivalue(p2)));
 		      return;
 		    }
-		    else if (tonumber(p1, &n1) && tonumber(p2, &n2)) {
+		    else if (tonumber(ref p1, ref n1)!=0 && tonumber(ref p2, ref n2)!=0) {
 		      setnvalue(res, numarith(op, n1, n2));
 		      return;
 		    }
 		    /* else go to the end */
 		  }
 		  /* could not perform raw operation; try metmethod */
-		  lua_assert(L != NULL);  /* cannot fail when folding (compile time) */
-		  luaT_trybinTM(L, p1, p2, res, cast(TMS, op - LUA_OPADD + TM_ADD));
+		  lua_assert(L != null);  /* cannot fail when folding (compile time) */
+		  luaT_trybinTM(L, p1, p2, res, (TMS)(op - LUA_OPADD + TMS.TM_ADD));
 		}
 
 
@@ -146,9 +148,9 @@ namespace KopiLua
 		** systems, you can leave 'lua_strx2number' undefined and Lua will
 		** provide its own implementation.
 		*/
-		#if defined(LUA_USE_STRTODHEX)
-		#define lua_strx2number(s,p)    lua_str2number(s,p)
-		#endif
+		//#if defined(LUA_USE_STRTODHEX)
+		//#define lua_strx2number(s,p)    lua_str2number(s,p)
+		//#endif
 
 
 		//#if !defined(lua_strx2number)
@@ -158,7 +160,7 @@ namespace KopiLua
 
 		/* maximum number of significant digits to read (to avoid overflows
 		   even with single floats) */
-		#define MAXSIGDIG	30
+		public const int MAXSIGDIG = 30;
 
 
 
@@ -167,57 +169,59 @@ namespace KopiLua
 		** C99 specification for 'strtod'
 		*/
 		private static lua_Number lua_strx2number (CharPtr s, out CharPtr endptr) {
+		  s = new CharPtr(s); //FIXME: added
 		  lua_Number r = 0.0;  /* result (accumulator) */
 		  int sigdig = 0;  /* number of significant digits */
 		  int nosigdig = 0;  /* number of non-significant digits */
 		  int e = 0;  /* exponent correction */
 		  int neg = 0;  /* 1 if number is negative */
 		  int dot = 0;  /* true after seen a dot */
-		  *endptr = cast(char *, s);  /* nothing is valid yet */
-		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-		  neg = isneg(&s);  /* check signal */
-		  if (!(*s == '0' && (*(s + 1) == 'x' || *(s + 1) == 'X')))  /* check '0x' */
+		  endptr = (CharPtr)(s);  /* nothing is valid yet */
+		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip initial spaces */
+		  neg = isneg(ref s);  /* check signal */
+		  if (!(s[0] == '0' && (s[1] == 'x' || s[1] == 'X')))  /* check '0x' */
 		    return 0.0;  /* invalid format (no '0x') */
-		  for (s += 2; ; s++) {  /* skip '0x' and read numeral */
-		    if (*s == '.') {
-		      if (dot) break;  /* second dot? stop loop */
+		  for (s += 2; ; s.inc()) {  /* skip '0x' and read numeral */
+		    if (s[0] == '.') {
+		      if (dot!=0) break;  /* second dot? stop loop */
 		      else dot = 1;
 		    }
-		    else if (lisxdigit(cast_uchar(*s))) {
-		      if (sigdig == 0 && *s == '0') {  /* non-significant zero? */
+		    else if (lisxdigit((byte)(s[0]))!=0) {
+		      if (sigdig == 0 && s[0] == '0') {  /* non-significant zero? */
 		        nosigdig++;
-		        if (dot) e--;  /* zero after dot? correct exponent */
+		        if (dot!=0) e--;  /* zero after dot? correct exponent */
 		      }
 		      else {
 		        if (++sigdig <= MAXSIGDIG) {  /* can read it without overflow? */
-		          r = (r * cast_num(16.0)) + luaO_hexavalue(cast_uchar(*s));
-		          if (dot) e--;  /* decimal digit */
+		    	  r = (r * cast_num(16.0)) + luaO_hexavalue((byte)(s[0]));
+		          if (dot!=0) e--;  /* decimal digit */
 		        }
 		        else  /* too many digits; ignore */ 
-		          if (!dot) e++;  /* still count it for exponent */
+		          if (dot==0) e++;  /* still count it for exponent */
 		      }
 		    }
 		    else break;  /* neither a dot nor a digit */
 		  }
 		  if (nosigdig + sigdig == 0)  /* no digits? */
 		    return 0.0;  /* invalid format */
-		  *endptr = cast(char *, s);  /* valid up to here */
+		  endptr = (CharPtr)(s);  /* valid up to here */
 		  e *= 4;  /* each digit multiplies/divides value by 2^4 */
-		  if (*s == 'p' || *s == 'P') {  /* exponent part? */
+		  if (s[0] == 'p' || s[0] == 'P') {  /* exponent part? */
 		    int exp1 = 0;  /* exponent value */
 		    int neg1;  /* exponent signal */
-		    s++;  /* skip 'p' */
-		    neg1 = isneg(&s);  /* signal */
-		    if (!lisdigit(cast_uchar(*s)))
+		    s.inc();  /* skip 'p' */
+		    neg1 = isneg(ref s);  /* signal */
+		    if (0==lisdigit((byte)(s[0])))
 		      return 0.0;  /* invalid; must have at least one digit */
-		    while (lisdigit(cast_uchar(*s)))  /* read exponent */
-		      exp1 = exp1 * 10 + *(s++) - '0';
-		    if (neg1) exp1 = -exp1;
+		    while (lisdigit((byte)(s[0]))!=0) {  /* read exponent */
+		    	exp1 = exp1 * 10 + s[0] - '0'; s.inc();
+		    }
+		    if (neg1!=0) exp1 = -exp1;
 		    e += exp1;
-		    *endptr = cast(char *, s);  /* valid up to here */
+		    endptr = (CharPtr)(s);  /* valid up to here */
 		  }
-		  if (neg) r = -r;
-		  return l_mathop(ldexp)(r, e);
+		  if (neg!=0) r = -r;
+		  return ldexp(r, e);
 		}
 
 //		#endif
@@ -239,32 +243,33 @@ namespace KopiLua
 		}
 
 
-		public static int luaO_str2int (const char *s, size_t len, lua_Integer *result) {
-		  const char *ends = s + len;
+		public static int luaO_str2int (CharPtr s, uint len, ref lua_Integer result) {
+		  s = new CharPtr(s); //FIXME:added			
+		  CharPtr ends = s + len;
 		  lua_Unsigned a = 0;
 		  int empty = 1;
 		  int neg;
-		  while (lisspace(cast_uchar(*s))) s++;  /* skip initial spaces */
-		  neg = isneg(&s);
+		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip initial spaces */
+		  neg = isneg(ref s);
 		  if (s[0] == '0' &&
 		      (s[1] == 'x' || s[1] == 'X')) {  /* hexa? */
 		    s += 2;  /* skip '0x' */
-		    for (; lisxdigit(cast_uchar(*s)); s++) {
-		      a = a * 16 + luaO_hexavalue(cast_uchar(*s));
+		    for (; lisxdigit((byte)(s[0]))!=0; s.inc()) {
+		      a = (uint)(a * 16 + luaO_hexavalue(cast_uchar(s[0])));
 		      empty = 0;
 		    }
 		  }
 		  else {  /* decimal */
-		    for (; lisdigit(cast_uchar(*s)); s++) {
-		      a = a * 10 + luaO_hexavalue(cast_uchar(*s));
+		  	for (; lisdigit(cast_uchar(s[0]))!=0; s.inc()) {
+		  	  a = (uint)(a * 10 + luaO_hexavalue(cast_uchar(s[0])));
 		      empty = 0;
 		    }
 		  }
-		  while (lisspace(cast_uchar(*s))) s++;  /* skip trailing spaces */
-		  if (empty || s != ends) return 0;  /* something wrong in the numeral */
+		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip trailing spaces */
+		  if (empty!=0 || s != ends) return 0;  /* something wrong in the numeral */
 		  else {
-		    if (neg) *result = -cast(lua_Integer, a);
-		    else *result = cast(lua_Integer, a);
+		  	if (neg!=0) result = -((lua_Integer)a);
+		  	else result = (lua_Integer)(a);
 		    return 1;
 		  }
 		}
@@ -300,11 +305,11 @@ namespace KopiLua
 		        break;
 		      }
 		      case 'd': {
-		        setivalue(L->top++, cast_int(va_arg(argp, int)));
+		        setivalue(L.top, (int)argp[parm_index++]); StkId.inc(ref L.top);
 		        break;
 		      }
 		      case 'I': {
-		        setivalue(L->top++, cast_integer(va_arg(argp, lua_Integer)));
+		        setivalue(L.top, cast_integer((lua_Integer)argp[parm_index++])); StkId.inc(ref L.top);
 		        break;
 		      }
 		      case 'f': {

@@ -15,31 +15,31 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using Instruction = System.UInt32;
 	using StkId = Lua.lua_TValue;
-
+	using lua_Integer = System.Int32;
 
 	public partial class Lua
 	{
 
 		/* test for x == -0 */
-		#if defined(signbit)
-		#define isminuszero(x)	((x) == 0.0 && signbit(x))
-		#else
-		#define isminuszero(x)	((x) == 0.0 && 1.0/(x) < 0.0)
-		#endif
+		//#if defined(signbit)
+		//#define isminuszero(x)	((x) == 0.0 && signbit(x))
+		//#else
+		private static bool isminuszero(double x)	{ return ((x) == 0.0 && 1.0/(x) < 0.0); }
+		//#endif
 
 
 		public static bool hasjumps(expdesc e)	{return e.t != e.f;}
 
 
 		private static int tonumeral(expdesc e, TValue v) {
-		  if (e->t != NO_JUMP || e->f != NO_JUMP)
+		  if (e.t != NO_JUMP || e.f != NO_JUMP)
 		    return 0;  /* not a numeral */
-		  switch (e->k) {
-		    case VKINT:
-		      if (v) setivalue(v, e->u.ival);
+		  switch (e.k) {
+		    case expkind.VKINT:
+		      if (v!=0) setivalue(v, e.u.ival);
 		      return 1;
-		    case VKFLT:
-		      if (v) setnvalue(v, e->u.nval);
+		    case expkind.VKFLT:
+		      if (v!=0) setnvalue(v, e.u.nval);
 		      return 1;
 		    default: return 0;
 		  }
@@ -339,11 +339,11 @@ namespace KopiLua
 		** use userdata as key to avoid collision with float with same value;
 		** conversion to 'void*' used only for hash, no "precision" problems
 		*/
-		public static int luaK_intK (FuncState *fs, lua_Integer n) {
-		  TValue k, o;
-		  setpvalue(&k, cast(void*, cast(size_t, n)));
-		  setivalue(&o, n);
-		  return addk(fs, &k, &o);
+		public static int luaK_intK (FuncState fs, lua_Integer n) {
+		  TValue k = new TValue(); TValue o = new TValue();
+		  setpvalue(k, (object)((uint)n));
+		  setivalue(o, n);
+		  return addk(fs, k, o);
 		}
 
 
@@ -352,11 +352,11 @@ namespace KopiLua
 		** problems with the hashing. (NaN is not ** a valid key,
 		** -0.0 collides with +0.0.)
 		*/ 
-		private static int luaK_numberK (FuncState *fs, lua_Number r) {
-		  TValue o;
-		  lua_assert(!luai_numisnan(NULL, r) && !isminuszero(r));
-		  setnvalue(&o, r);
-		  return addk(fs, &o, &o);
+		private static int luaK_numberK (FuncState fs, lua_Number r) {
+		  TValue o = new TValue();
+		  lua_assert(!luai_numisnan(null, r) && !isminuszero(r));
+		  setnvalue(o, r);
+		  return addk(fs, o, o);
 		}
 
 
@@ -454,11 +454,11 @@ namespace KopiLua
 			  break;
 			}
 			case expkind.VKFLT: {
-		      luaK_codek(fs, reg, luaK_numberK(fs, e->u.nval));
+		      luaK_codek(fs, reg, luaK_numberK(fs, e.u.nval));
 		      break;
 		    }
 		    case expkind.VKINT: {
-		      luaK_codek(fs, reg, luaK_intK(fs, e->u.ival));
+		      luaK_codek(fs, reg, luaK_intK(fs, e.u.ival));
 		      break;
 		    }
 			case expkind.VRELOCABLE: {
@@ -562,18 +562,19 @@ namespace KopiLua
 			  }
 			  else break;
 			}
-		    case VKINT: {
-		      e->u.info = luaK_intK(fs, e->u.ival);
-		      e->k = VK;
-		      goto vk;
+		    case expkind.VKINT: {
+		      e.u.info = luaK_intK(fs, e.u.ival);
+		      e.k = expkind.VK;
+		      goto case expkind.VK;
 		    }
-		    case VKFLT: {
-		      e->u.info = luaK_numberK(fs, e->u.nval);
-		      e->k = VK;
+		    case expkind.VKFLT: {
+		      e.u.info = luaK_numberK(fs, e.u.nval);
+		      e.k = expkind.VK;
 		      /* go through */
+		      goto case expkind.VK;
 		    }
 			case expkind.VK: {
-			  vk:
+			  //vk:
 			  if (e.u.info <= MAXINDEXRK)  /* constant fit in argC? */
 				return RKASK(e.u.info);
 			  else break;
@@ -741,26 +742,26 @@ namespace KopiLua
 
 
 		private static int constfolding (OpCode op, expdesc e1, expdesc e2) {
-		  TValue v1, v2, res;
-		  lua_Integer i;
-		  if (!tonumeral(e1, &v1) || !tonumeral(e2, &v2))
+		  TValue v1 = new TValue(); TValue v2 = new TValue(); TValue res = new TValue();
+		  lua_Integer i = 0;
+		  if (0==tonumeral(e1, v1) || 0==tonumeral(e2, v2))
 		    return 0;
-		  if (op == OP_IDIV &&
-		        (!tointeger(&v1, &i) || !tointeger(&v2, &i) || i == 0))
+		  if (op == OpCode.OP_IDIV &&
+		        (0==tointeger(ref v1, ref i) || 0==tointeger(ref v2, ref i) || i == 0))
 		    return 0;  /* avoid division by 0 and conversion errors */
-		  if (op == OP_MOD && ttisinteger(&v1) && ttisinteger(&v2) && ivalue(&v2) == 0)
+		  if (op == OpCode.OP_MOD && ttisinteger(v1) && ttisinteger(v2) && ivalue(v2) == 0)
 		    return 0;  /* avoid module by 0 at compile time */
-		  luaO_arith(NULL, op - OP_ADD + LUA_OPADD, &v1, &v2, &res);
-		  if (ttisinteger(&res)) {
-		    e1->k = VKINT;
-		    e1->u.ival = ivalue(&res);
+		  luaO_arith(null, op - OpCode.OP_ADD + LUA_OPADD, v1, v2, res);
+		  if (ttisinteger(res)) {
+		    e1.k = expkind.VKINT;
+		    e1.u.ival = ivalue(res);
 		  }
 		  else {
-		    lua_Number n = fltvalue(&res);
-		    if (luai_numisnan(NULL, n) || isminuszero(n))
+		    lua_Number n = fltvalue(res);
+		    if (luai_numisnan(null, n) || isminuszero(n))
 		      return 0;  /* folds neither NaN nor -0 */
-		    e1->k = VKFLT;
-		    e1->u.nval = n;
+		    e1.k = expkind.VKFLT;
+		    e1.u.nval = n;
 		  }
 		  return 1;
 		}
@@ -768,7 +769,7 @@ namespace KopiLua
 
 		private static void codearith (FuncState fs, OpCode op, 
 		                               expdesc e1, expdesc e2, int line) {
-  		  if (!constfolding(op, e1, e2)) {  /* could not fold operation? */
+  		  if (0==constfolding(op, e1, e2)) {  /* could not fold operation? */
 			int o2 = (op != OpCode.OP_UNM && op != OpCode.OP_LEN) ? luaK_exp2RK(fs, e2) : 0;
 			int o1 = luaK_exp2RK(fs, e1);
 		    if (o1 > o2) {
@@ -807,7 +808,7 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKFLT; e2.u.nval = 0;
 		  switch (op) {
 			case UnOpr.OPR_MINUS: {
-		  	  if (!constfolding(OP_UNM, e, e)) {  /* cannot fold it? */
+		  	  if (0==constfolding(OpCode.OP_UNM, e, e)) {  /* cannot fold it? */
 				luaK_exp2anyreg(fs, e);
 			    codearith(fs, OpCode.OP_UNM, e, e2, line);
               }

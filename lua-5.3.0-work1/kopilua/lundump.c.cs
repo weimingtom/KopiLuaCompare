@@ -20,6 +20,7 @@ namespace KopiLua
 	using lu_byte = System.Byte;
 	using StkId = Lua.lua_TValue;
 	using Instruction = System.UInt32;
+	using lua_Integer = System.Int32;
 
 	public partial class Lua
 	{
@@ -91,9 +92,7 @@ namespace KopiLua
 
 		private static lua_Integer LoadInteger(LoadState S)
 		{
-		 lua_Integer x;
-		 LoadVar(S,x);
-		 return x;
+		 return (lua_Integer)LoadVar(S, typeof(lua_Integer));
 		}
 
 		private static TString LoadString(LoadState S)

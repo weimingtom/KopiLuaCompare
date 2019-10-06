@@ -1,5 +1,98 @@
 FIXME: loslib.c, os_date and os_time not sync
 
+-------------------
+
+
+		public static lua_Integer luaV_mod (lua_State L, lua_Integer x, lua_Integer y) {
+		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
+		    if (y == 0)
+		      luaG_runerror(L, "attempt to perform 'n%%0'");
+		    else  /* -1 */
+		      return 0;   /* avoid overflow with 0x80000... */
+		  }
+		  else {
+		    lua_Integer r = x % y;
+		    if (r == 0 || (x ^ y) >= 0)
+		      return r;
+		    else
+		      return r + y;  /* correct 'mod' for negative case */
+		  }
+---------->		  return 0; //FIXME:
+		}
+
+-------------------
+
+public static lua_Integer luaV_div (lua_State L, lua_Integer x, lua_Integer y) {
+		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
+		    if (y == 0)
+		      luaG_runerror(L, "attempt to divide by zero");
+		    else  /* -1 */
+		      return -x;   /* avoid overflow with 0x80000... */
+		  }
+		  else {
+		    lua_Integer d = x / y;  /* perform division */
+		    if ((x ^ y) >= 0 || x % y == 0)   /* same signal or no rest? */
+		      return d;
+		    else
+		      return d - 1;  /* correct 'div' for negative case */
+		  }
+-------->		  return 0; //FIXME:
+		}
+
+
+-------------------
+
+		public const int CHAR_BIT = 8;
+		public const int DBL_MAX_EXP = 1024;
+		public const int INT_MAX = 0x7fffffff;
+		
+-------------------
+
+		//FIXME:changed, see intop
+		//FIXME:???Lua_Number
+		public static int intop_plus(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) + (uint)(v2));}
+		public static int intop_minus(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) - (uint)(v2));}
+		public static int intop_mul(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) * (uint)(v2));}
+
+-------------------
+
+		  s = new CharPtr(s); //FIXME:added	
+
+-------------------
+
+		public const int CHAR_BIT = 8;
+
+-------------------
+
+		  lua_Integer i = 0; lua_Number n;
+ref -> out, no i=0 ------->		  if (luaO_str2int(s, len, ref i) != 0) {  /* try as an integer */
+		    setivalue(L.top, i);
+		  }
+		  
+
+---------------------
+FIXME:???Int32, Int64
+using lua_Integer = System.Int32;
+
+
+
+
+---------------------
+/* reasonable limit to avoid arithmetic overflow and strings too big */
+//#if INT_MAX / 2 <= 0x10000000
+---------->public const uint MAXSIZE = (uint)(int.MaxValue / 2); //FIXME: //((size_t)(INT_MAX / 2));
+//#else
+//#define MAXSIZE		((size_t)0x10000000)
+//#endif
+
+
+
+
+
+---------------------
 
 10:46 2019/10/1
 lapi.c

@@ -11,6 +11,8 @@ using System.Text;
 namespace KopiLua
 {
 	using lua_Number = System.Double;
+	using lua_Integer = System.Int32;
+	using lua_Unsigned = System.UInt32;
 
 	public partial class Lua
 	{
@@ -40,25 +42,25 @@ namespace KopiLua
 
 		private const string SPACECHARS = " \f\n\r\t\v";
 
-		private static int b_str2int (CharPtr s, CharPtr e, int base, lua_Integer pn) {
+		private static int b_str2int (CharPtr s, CharPtr e, int base_, ref lua_Integer pn) {
 		  lua_Unsigned n = 0;
 		  int neg = 0;
 		  s += strspn(s, SPACECHARS);  /* skip initial spaces */
-		  if (*s == '-') { s++; neg = 1; }  /* handle signal */
-		  else if (*s == '+') s++;
-		  if (!isalnum((unsigned char)*s))  /* no digit? */
+		  if (s[0] == '-') { s.inc(); neg = 1; }  /* handle signal */
+		  else if (s[0] == '+') s.inc();
+		  if (!isalnum((byte)s[0]))  /* no digit? */
 		    return 0;
 		  do {
-		    int digit = (isdigit((unsigned char)*s)) ? *s - '0'
-		                   : toupper((unsigned char)*s) - 'A' + 10;
-		    if (digit >= base) return 0;  /* invalid numeral */
-		    n = n * base + digit;
-		    s++;
-		  } while (isalnum((unsigned char)*s));
+		    int digit = (isdigit((byte)s[0])) ? s[0] - '0'
+		    	: toupper((byte)s[0]) - 'A' + 10;
+		    if (digit >= base_) return 0;  /* invalid numeral */
+		    n = (lua_Unsigned)(n * base_ + digit);
+		    s.inc();
+		  } while (isalnum((byte)s[0]));
 		  s += strspn(s, SPACECHARS);  /* skip trailing spaces */
 		  if (s != e)  /* invalid trailing characters? */
 		    return 0;
-		  *pn = (neg) ? -(lua_Integer)n : (lua_Integer)n;
+		  pn = (neg!=0) ? -(lua_Integer)n : (lua_Integer)n;
 		  return 1;
 		}
 
@@ -71,22 +73,22 @@ namespace KopiLua
 		      return 1;
 		    }
 		    else {
-		      size_t l;
-		      const char *s = lua_tolstring(L, 1, &l);
-		      if (s != NULL && lua_strtonum(L, s, l))  /* can convert to a number? */
+		      uint l;
+		      CharPtr s = lua_tolstring(L, 1, out l);
+		      if (s != null && lua_strtonum(L, s, l) != 0)  /* can convert to a number? */
 		        return 1;
 		      /* else not a number */
 		    }
 		  }
 		  else {
-		    size_t l;
-		    const char *s;
-		    lua_Integer n;
-		    int base = luaL_checkint(L, 2);
+		    uint l;
+		    CharPtr s;
+		    lua_Integer n = 0;
+		    int base_ = luaL_checkint(L, 2);
 		    luaL_checktype(L, 1, LUA_TSTRING);  /* before 'luaL_checklstring'! */
-		    s = luaL_checklstring(L, 1, &l);
-		    luaL_argcheck(L, 2 <= base && base <= 36, 2, "base out of range");
-		    if (b_str2int(s, s + l, base, &n)) {
+		    s = luaL_checklstring(L, 1, out l);
+		    luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
+		    if (b_str2int(s, s + l, base_, ref n)!=0) {
 		      lua_pushinteger(L, n);
 		      return 1;
 		    }  /* else not a number */

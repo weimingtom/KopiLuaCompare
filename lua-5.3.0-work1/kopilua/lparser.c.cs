@@ -936,13 +936,13 @@ namespace KopiLua
 						  constructor | FUNCTION body | suffixedexp */
 		  switch (ls.t.token) {
 			case (int)RESERVED.TK_FLT: {
-		      init_exp(v, VKFLT, 0);
-		      v->u.nval = ls->t.seminfo.r;
+		      init_exp(v, expkind.VKFLT, 0);
+		      v.u.nval = ls.t.seminfo.r;
 		      break;
 		    }
 		    case (int)RESERVED.TK_INT: {
-		      init_exp(v, VKINT, 0);
-		      v->u.ival = ls->t.seminfo.i;
+		      init_exp(v, expkind.VKINT, 0);
+		      v.u.ival = ls.t.seminfo.i;
 		      break;
 		    }
 			case (int)RESERVED.TK_STRING: {
@@ -1002,7 +1002,7 @@ namespace KopiLua
 			case '-': return BinOpr.OPR_SUB;
 			case '*': return BinOpr.OPR_MUL;
 			case '/': return BinOpr.OPR_DIV;
-			case TK_IDIV: return BinOpr.OPR_IDIV;
+			case (int)RESERVED.TK_IDIV: return BinOpr.OPR_IDIV;
 			case '%': return BinOpr.OPR_MOD;
 			case '^': return BinOpr.OPR_POW;
 			case (int)RESERVED.TK_CONCAT: return BinOpr.OPR_CONCAT;

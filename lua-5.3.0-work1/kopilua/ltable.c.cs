@@ -18,6 +18,7 @@ namespace KopiLua
 	using StkId = Lua.lua_TValue;
 	using lua_Number = System.Double;
 	using lu_byte = System.Byte;
+	using lua_Integer = System.Int32;
 	
 	public partial class Lua
 	{
@@ -53,7 +54,7 @@ namespace KopiLua
 		
 		public static Node hashstr(Table t, TString str)		{return hashpow2(t, str.tsv.hash);}
 		public static Node hashboolean(Table t, int p)		{return hashpow2(t, p);}
-		#define hashint(t,i)		hashpow2(t, i)
+		public static Node hashint(Table t, lua_Integer i)		{ return hashpow2(t, i);}
 
 
 		/*
@@ -68,8 +69,8 @@ namespace KopiLua
 
 		/* checks whether a float has a value representable as a lua_Integer
 		   (and does the conversion if so) */
-		#define numisinteger(x,i) \
-			(((x) == l_floor(x)) && luaV_numtointeger(x, i))
+		public static bool numisinteger(lua_Number x, ref lua_Integer i) 
+			{ return (((x) == floor(x)) && luaV_numtointeger(x, ref i)!=0); }
 
 
         //FIXME:see below
@@ -92,7 +93,7 @@ namespace KopiLua
 		*/
 		private static Node hashfloat (Table t, lua_Number n) {
 		  int i;
-		  n = l_mathop(frexp)(n, &i) * cast_num(INT_MAX - DBL_MAX_EXP);
+		  n = frexp(n, out i) * cast_num(INT_MAX - DBL_MAX_EXP);
 		  i += cast_int(n);
 		  if (i < 0) {
 		    if ((uint)(i) == 0u - i)  /* use unsigned to avoid overflows */
@@ -423,7 +424,7 @@ namespace KopiLua
 		  if (ttisnil(key)) luaG_runerror(L, "table index is nil");
 		  else if (ttisfloat(key)) {
 		    lua_Number n = fltvalue(key);
-		    lua_Integer k;
+		    lua_Integer k = 0;
 		    if (luai_numisnan(L, n))
 		      luaG_runerror(L, "table index is NaN");
 		    if (numisinteger(n, ref k)) {  /* index is int? */
@@ -509,8 +510,8 @@ namespace KopiLua
 			case LUA_TNUMINT: return luaH_getint(t, ivalue(key));
 			case LUA_TNIL: return luaO_nilobject;
 			case LUA_TNUMFLT: {
-			  lua_Integer k;
-      		  if (numisinteger(fltvalue(key), &k)) /* index is int? */
+			  lua_Integer k = 0;
+      		  if (numisinteger(fltvalue(key), ref k)) /* index is int? */
 				return luaH_getint(t, k);  /* use specialized version */
 			  /* else go through */
 			  goto default;
@@ -547,7 +548,7 @@ namespace KopiLua
 		  	cell = (TValue)(p);
 		  else {
 		  	TValue k = new TValue();
-		    setivalue(&k, key);
+		    setivalue(k, key);
 		    cell = luaH_newkey(L, t, k);
 		  }
 		  setobj2t(L, cell, value_);
@@ -561,7 +562,7 @@ namespace KopiLua
 		  /* find `i' and `j' such that i is present and j is not */
 		  while (!ttisnil(luaH_getint(t, (int)j))) { //FIXME:(int)
 			i = j;
-			if (j > cast(unsigned int, MAX_INT)/2) {  /* overflow? */
+			if (j > ((uint)(MAX_INT))/2) {  /* overflow? */
 			  /* table was built with bad purposes: resort to linear search */
 			  i = 1;
 			  while (!ttisnil(luaH_getint(t, (int)i))) i++; //FIXME:(int)

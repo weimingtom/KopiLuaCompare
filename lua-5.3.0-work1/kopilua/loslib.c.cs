@@ -257,7 +257,7 @@ namespace KopiLua
 			int isdst = getboolfield(L, "isdst");	// todo: implement this - mjf
 			t = new DateTime(year, month, day, hour, min, sec);
 		  }
-		  lua_pushinteger(L, t.Ticks);
+		  lua_pushinteger(L, (int)(t.Ticks));
 		  return 1;
 		}
 

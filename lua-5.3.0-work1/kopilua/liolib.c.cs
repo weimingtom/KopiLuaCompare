@@ -355,9 +355,9 @@ namespace KopiLua
 
 
 		private static int read_integer (lua_State L, StreamProxy f) {
-		  lua_Integer d;
-		  if (fscanf(f, LUA_INTEGER_SCAN, &d) == 1) {
-		    lua_pushinteger(L, d);
+		  lua_Integer[] d = new lua_Integer[] {0};
+		  if (fscanf(f, LUA_INTEGER_SCAN, d) == 1) {
+		  	lua_pushinteger(L, d[0]);
 		    return 1;
 		  }
 		  else {
@@ -541,10 +541,10 @@ namespace KopiLua
 		  for (; (nargs--) != 0; arg++) {
 			if (lua_type(L, arg) == LUA_TNUMBER) {
 			  /* optimization: could be done exactly as for strings */
-		      int len = lua_isinteger(L, arg)
+		      int len = lua_isinteger(L, arg) != 0
 		                ? fprintf(f, LUA_INTEGER_FMT, lua_tointeger(L, arg))
 		                : fprintf(f, LUA_NUMBER_FMT, lua_tonumber(L, arg));
-		      status = status && (len > 0);
+		      status = (status != 0 && (len > 0)) ? 1 : 0;
 			}
 			else {
 			  uint l;

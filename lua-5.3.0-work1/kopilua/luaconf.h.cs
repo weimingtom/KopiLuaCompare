@@ -22,6 +22,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using lua_Number = System.Double;
 	using LUA_INT32 = System.Int32;
+	using lua_Integer = System.Int32;
 
 	public partial class Lua
 	{
@@ -388,180 +389,180 @@ namespace KopiLua
 
 
 
-
-/*
-** {==================================================================
-** The following definitions set the numeric types for Lua.
-** Lua should work fine with 32-bit or 64-bit integers mixed with
-** 32-bit or 64-bit floats. The usual configurations are 64-bit
-** integers and floats (the default) and 32-bit integers and floats.
-** ===================================================================
-*/
-
-/*
-@@ LUA_INTSIZE defines size for Lua integer: 1=int, 2=long, 3=long long
-@@ LUA_FLOATSIZE defines size for Lua float: 1=float, 2=double, 3=long double
-** Default is long long + double
-*/
-#define LUA_INTSIZE		3
-#define LUA_FLOATSIZE		2
-
-
-/*
-@@ LUA_NUMBER is the floating-point type used by Lua.
-**
-@@ LUAI_UACNUMBER is the result of an 'usual argument conversion'
-@* over a floating number.
-**
-@@ LUA_NUMBER_FRMLEN is the length modifier for writing floats.
-@@ LUA_NUMBER_SCAN is the format for reading floats.
-@@ LUA_NUMBER_FMT is the format for writing floats.
-@@ lua_number2str converts a floats to a string.
-**
-@@ l_mathop allows the addition of an 'l' or 'f' to all math operations
-**
-@@ lua_str2number converts a decimal numeric string to a number.
-*/
-
-#if LUA_FLOATSIZE == 1	/* { single float */
-
-#define LUA_NUMBER	float
-
-#define LUAI_UACNUMBER	double
-
-#define LUA_NUMBER_FRMLEN	""
-#define LUA_NUMBER_SCAN		"%f"
-#define LUA_NUMBER_FMT		"%.7g"
-
-#define l_mathop(op)		op##f
-
-#define lua_str2number(s,p)	strtof((s), (p))
-
-
-#elif LUA_FLOATSIZE == 3	/* }{ long double */
-
-#define LUA_NUMBER	long double
-
-#define LUAI_UACNUMBER	long double
-
-#define LUA_NUMBER_FRMLEN	"L"
-#define LUA_NUMBER_SCAN		"%Lf"
-#define LUA_NUMBER_FMT		"%.19Lg"
-
-#define l_mathop(op)		op##l
-
-#define lua_str2number(s,p)	strtold((s), (p))
-
-#else	/* }{ default: double */
-
-#define LUA_NUMBER	double
-
-#define LUAI_UACNUMBER	double
-
-#define LUA_NUMBER_FRMLEN	""
-#define LUA_NUMBER_SCAN		"%lf"
-#define LUA_NUMBER_FMT		"%.14g"
-
-#define l_mathop(op)		op
-
-#define lua_str2number(s,p)	strtod((s), (p))
-
-#endif	/* } */
-
-
-#if defined(LUA_ANSI)
-/* C89 does not support 'opf' variants for math functions */
-#undef l_mathop
-#define l_mathop(op)		(lua_Number)op
-#endif
-
-
-#if defined(LUA_ANSI) || defined(_WIN32)
-/* C89 and Windows do not support 'strtof'... */
-#undef lua_str2number
-#define lua_str2number(s,p)	((lua_Number)strtod((s), (p)))
-#endif
-
-
-#define l_floor(x)		(l_mathop(floor)(x))
-
-#define lua_number2str(s,n)	sprintf((s), LUA_NUMBER_FMT, (n))
-
-
-/*
-@@ The luai_num* macros define the primitive operations over numbers.
-@* They should work for any size of floating numbers.
-*/
-
-/* the following operations need the math library */
-#if defined(lobject_c) || defined(lvm_c)
-#include <math.h>
-#define luai_nummod(L,a,b)	((a) - l_floor((a)/(b))*(b))
-#define luai_numpow(L,a,b)	(l_mathop(pow)(a,b))
-#endif
-
-/* these are quite standard operations */
-#if defined(LUA_CORE)
-#define luai_numadd(L,a,b)	((a)+(b))
-#define luai_numsub(L,a,b)	((a)-(b))
-#define luai_nummul(L,a,b)	((a)*(b))
-#define luai_numdiv(L,a,b)	((a)/(b))
-#define luai_numunm(L,a)	(-(a))
-#define luai_numeq(a,b)		((a)==(b))
-#define luai_numlt(L,a,b)	((a)<(b))
-#define luai_numle(L,a,b)	((a)<=(b))
-#define luai_numisnan(L,a)	(!luai_numeq((a), (a)))
-#endif
-
-
-
-/*
-@@ LUA_INTEGER is the integer type used by Lua.
-**
-@@ LUA_UNSIGNED is the unsigned version of LUA_INTEGER.
-**
-@@ LUA_INTEGER_FRMLEN is the length modifier for reading/writing integers.
-@@ LUA_INTEGER_SCAN is the format for reading integers.
-@@ LUA_INTEGER_FMT is the format for writing integers.
-@@ lua_integer2str converts an integer to a string.
-*/
-
-#if LUA_INTSIZE == 1	/* { int */
-
-#define LUA_INTEGER		int
-#define LUA_INTEGER_FRMLEN	""
-
-#elif LUA_INTSIZE == 2	/* }{ long */
-
-#define LUA_INTEGER		long
-#define LUA_INTEGER_FRMLEN	"l"
-
-#else	/* }{ default: long long */
-
-#define LUA_INTEGER		long long
-#define LUA_INTEGER_FRMLEN	"ll"
-
-#endif	/* } */
-
-
-#define LUA_INTEGER_SCAN	"%" LUA_INTEGER_FRMLEN "d"
-#define LUA_INTEGER_FMT		"%" LUA_INTEGER_FRMLEN "d"
-#define lua_integer2str(s,n)	sprintf((s), LUA_INTEGER_FMT, (n))
-
-#define LUA_UNSIGNED		unsigned LUA_INTEGER
-
-/* }================================================================== */
-
-
-
-
-/* =================================================================== */
-
-/*
-** Local configuration. You can use this space to add your redefinitions
-** without modifying the main part of the file.
-*/
-
+		//FIXME: 20191006:here changed begin
+		/*
+		** {==================================================================
+		** The following definitions set the numeric types for Lua.
+		** Lua should work fine with 32-bit or 64-bit integers mixed with
+		** 32-bit or 64-bit floats. The usual configurations are 64-bit
+		** integers and floats (the default) and 32-bit integers and floats.
+		** ===================================================================
+		*/
+		
+		/*
+		@@ LUA_INTSIZE defines size for Lua integer: 1=int, 2=long, 3=long long
+		@@ LUA_FLOATSIZE defines size for Lua float: 1=float, 2=double, 3=long double
+		** Default is long long + double
+		*/
+		public const int LUA_INTSIZE = 3;
+		public const int LUA_FLOATSIZE = 2;
+		
+		
+		/*
+		@@ LUA_NUMBER is the floating-point type used by Lua.
+		**
+		@@ LUAI_UACNUMBER is the result of an 'usual argument conversion'
+		@* over a floating number.
+		**
+		@@ LUA_NUMBER_FRMLEN is the length modifier for writing floats.
+		@@ LUA_NUMBER_SCAN is the format for reading floats.
+		@@ LUA_NUMBER_FMT is the format for writing floats.
+		@@ lua_number2str converts a floats to a string.
+		**
+		@@ l_mathop allows the addition of an 'l' or 'f' to all math operations
+		**
+		@@ lua_str2number converts a decimal numeric string to a number.
+		*/
+		
+		//#if LUA_FLOATSIZE == 1	/* { single float */
+		
+		//#define LUA_NUMBER	float
+		
+		//#define LUAI_UACNUMBER	double
+		
+		//#define LUA_NUMBER_FRMLEN	""
+		//#define LUA_NUMBER_SCAN		"%f"
+		//#define LUA_NUMBER_FMT		"%.7g"
+		
+		//#define l_mathop(op)		op##f
+		
+		//#define lua_str2number(s,p)	strtof((s), (p))
+		
+		
+		//#elif LUA_FLOATSIZE == 3	/* }{ long double */
+		
+		//#define LUA_NUMBER	long double
+		
+		//#define LUAI_UACNUMBER	long double
+		
+		//#define LUA_NUMBER_FRMLEN	"L"
+		//#define LUA_NUMBER_SCAN		"%Lf"
+		//#define LUA_NUMBER_FMT		"%.19Lg"
+		
+		//#define l_mathop(op)		op##l
+		
+		//#define lua_str2number(s,p)	strtold((s), (p))
+		
+		//#else	/* }{ default: double */
+		
+		//#define LUA_NUMBER	double
+		
+		//#define LUAI_UACNUMBER	double
+		
+		public const string LUA_NUMBER_FRMLEN = "";
+		public const string LUA_NUMBER_SCAN = "%lf";
+		public const string LUA_NUMBER_FMT = "%.14g";
+		
+		//#define l_mathop(op)		op
+		
+		public static double lua_str2number(CharPtr s, out CharPtr p) { return strtod(s, out p); }
+		
+		//#endif	/* } */
+		
+		
+		//#if defined(LUA_ANSI)
+		/* C89 does not support 'opf' variants for math functions */
+		//#undef l_mathop
+		//#define l_mathop(op)		(lua_Number)op
+		//#endif
+		
+		
+		//#if defined(LUA_ANSI) || defined(_WIN32)
+		/* C89 and Windows do not support 'strtof'... */
+		//#undef lua_str2number
+		//#define lua_str2number(s,p)	((lua_Number)strtod((s), (p)))
+		//#endif
+		
+		
+		//#define l_floor(x)		(l_mathop(floor)(x))
+		
+		public static int lua_number2str(CharPtr s, lua_Number n) { return sprintf(s, LUA_NUMBER_FMT, n); }
+		
+		
+		/*
+		@@ The luai_num* macros define the primitive operations over numbers.
+		@* They should work for any size of floating numbers.
+		*/
+		
+		/* the following operations need the math library */
+		//#if defined(lobject_c) || defined(lvm_c)
+		//#include <math.h>
+		public static lua_Number luai_nummod(lua_State L, lua_Number a, lua_Number b)	{ return ((a) - floor((a)/(b))*(b));}
+		public static lua_Number luai_numpow(lua_State L, lua_Number a, lua_Number b)	{ return (pow(a,b));}
+		//#endif
+		
+		/* these are quite standard operations */
+		//#if defined(LUA_CORE)
+		public static lua_Number luai_numadd(lua_State L, lua_Number a, lua_Number b) { return ((a)+(b));}
+		public static lua_Number luai_numsub(lua_State L, lua_Number a, lua_Number b) { return ((a)-(b));}
+		public static lua_Number luai_nummul(lua_State L, lua_Number a, lua_Number b) { return ((a)*(b));}
+		public static lua_Number luai_numdiv(lua_State L, lua_Number a, lua_Number b) { return ((a)/(b));}
+		public static lua_Number luai_numunm(lua_State L, lua_Number a) { return (-(a));}
+		public static bool luai_numeq(lua_Number a, lua_Number b) { return ((a)==(b));}
+		public static bool luai_numlt(lua_State L, lua_Number a, lua_Number b) { return ((a)<(b));}
+		public static bool luai_numle(lua_State L, lua_Number a, lua_Number b) { return ((a)<=(b));}
+		public static bool luai_numisnan(lua_State L, lua_Number a)	{ return (!luai_numeq((a), (a)));}
+		//#endif
+		
+		
+		
+		/*
+		@@ LUA_INTEGER is the integer type used by Lua.
+		**
+		@@ LUA_UNSIGNED is the unsigned version of LUA_INTEGER.
+		**
+		@@ LUA_INTEGER_FRMLEN is the length modifier for reading/writing integers.
+		@@ LUA_INTEGER_SCAN is the format for reading integers.
+		@@ LUA_INTEGER_FMT is the format for writing integers.
+		@@ lua_integer2str converts an integer to a string.
+		*/
+		
+		//#if LUA_INTSIZE == 1	/* { int */
+		
+		//#define LUA_INTEGER		int
+		//#define LUA_INTEGER_FRMLEN	""
+		
+		//#elif LUA_INTSIZE == 2	/* }{ long */
+		
+		//#define LUA_INTEGER		long
+		//#define LUA_INTEGER_FRMLEN	"l"
+		
+		//#else	/* }{ default: long long */
+		
+		//#define LUA_INTEGER		long long
+		public const string LUA_INTEGER_FRMLEN	= "ll";
+		
+		//#endif	/* } */
+		
+		
+		public const string LUA_INTEGER_SCAN = "%" + LUA_INTEGER_FRMLEN + "d";
+		public const string LUA_INTEGER_FMT = "%" + LUA_INTEGER_FRMLEN + "d";
+		public static int lua_integer2str(CharPtr s, lua_Integer n)	{ return sprintf(s, LUA_INTEGER_FMT, n); }
+		
+		//#define LUA_UNSIGNED		unsigned LUA_INTEGER
+		
+		/* }================================================================== */
+		
+		
+		
+		
+		/* =================================================================== */
+		
+		/*
+		** Local configuration. You can use this space to add your redefinitions
+		** without modifying the main part of the file.
+		*/
+		//FIXME: 20191006:here changed end
 
 
 

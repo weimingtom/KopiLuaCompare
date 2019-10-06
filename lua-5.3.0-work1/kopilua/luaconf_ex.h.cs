@@ -1548,5 +1548,9 @@ namespace KopiLua
 		public static lua_Number sqrt(lua_Number v) { return Math.Sqrt(v); }	
 		public static lua_Number pow(lua_Number x, lua_Number y) { return Math.Pow(x, y); }	
 		public static lua_Number exp(lua_Number v) { return Math.Exp(v); }	
+		
+		public const int CHAR_BIT = 8;
+		public const int DBL_MAX_EXP = 1024;
+		public const int INT_MAX = 0x7fffffff;
 	}
 }

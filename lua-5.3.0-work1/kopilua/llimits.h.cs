@@ -42,8 +42,8 @@ namespace KopiLua
 		public const uint MAX_SIZET	= uint.MaxValue - 2; //FIXME:changed
 
 		/* maximum size visible for Lua (must be representable in a lua_Integer */
-		public const uint MAX_SIZE = (sizeof(size_t) <= sizeof(lua_Integer) ? MAX_SIZET \
-                          : (size_t)(~(lua_Unsigned)0)-2);
+		public const uint MAX_SIZE = (sizeof(uint) <= sizeof(lua_Integer) ? MAX_SIZET 
+                          : (uint)(~(lua_Unsigned)0)-2);
 
 
 		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2; //FIXME:changed
@@ -55,8 +55,8 @@ namespace KopiLua
 
 
 		/* minimum and maximum values for lua_Integer */
-		#define MAX_INTEGER	((lua_Integer)(~(lua_Unsigned)0 >> 1))
-		#define MIN_INTEGER	(~MAX_INTEGER)
+		public const int MAX_INTEGER = ((lua_Integer)(~(lua_Unsigned)0 >> 1));
+		public const int MIN_INTEGER = (~MAX_INTEGER);
 
 
 		/*
@@ -168,8 +168,8 @@ namespace KopiLua
 				return (byte)((int)i & 0xff);
 			}
 		} //FIXME:???remove?
-		#define cast_integer(i)	cast(lua_Integer, (i))
-		#define cast_unsigned(i)	cast(lua_Unsigned, (i))		
+		public static lua_Integer cast_integer(object i) { return (lua_Integer)(i); }
+		public static lua_Unsigned cast_unsigned(object i) { return (lua_Unsigned)(i); }
 
 		/*
 		** non-return type

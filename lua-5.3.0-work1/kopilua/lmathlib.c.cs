@@ -11,6 +11,7 @@ using System.Text;
 namespace KopiLua
 {
 	using lua_Number = System.Double;
+	using lua_Integer = System.Int32;
 
 	public partial class Lua
 	{
@@ -86,10 +87,10 @@ namespace KopiLua
 		  return 1;
 		}
 
-		private static int math_ifloor (lua_State *L) {
-		  int valid;
-		  lua_Integer n = lua_tointegerx(L, 1, &valid);
-		  if (valid)
+		private static int math_ifloor (lua_State L) {
+		  int valid = 0;
+		  lua_Integer n = lua_tointegerx(L, 1, ref valid);
+		  if (valid!=0)
 		    lua_pushinteger(L, n);
 		  else {
 		    luaL_checktype(L, 1, LUA_TNUMBER);  /* error if not a number */
@@ -112,7 +113,7 @@ namespace KopiLua
 		private static int math_modf (lua_State L) {
 		  lua_Number n = luaL_checknumber(L, 1);
 		  /* integer part (rounds toward zero) */
-		  lua_Number ip = (n < 0) ? -l_mathop(floor)(-n) : l_mathop(floor)(n);
+		  lua_Number ip = (n < 0) ? -floor(-n) : floor(n);
 		  lua_pushnumber(L, ip);
 		  /* fractionary part (test handles inf/-inf) */
 		  lua_pushnumber(L, (n == ip) ? 0.0 : (n - ip));
@@ -251,9 +252,9 @@ namespace KopiLua
 		}
 
 
-		private static int math_isfloat (lua_State *L) {
+		private static int math_isfloat (lua_State L) {
 		  luaL_checkany(L, 1);
-		  lua_pushboolean(L, (lua_type(L, 1) == LUA_TNUMBER && !lua_isinteger(L, 1)));
+		  lua_pushboolean(L, (lua_type(L, 1) == LUA_TNUMBER && 0==lua_isinteger(L, 1))?1:0);
 		  return 1;
 		}
 

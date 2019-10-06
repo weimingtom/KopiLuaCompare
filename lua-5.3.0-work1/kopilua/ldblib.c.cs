@@ -10,17 +10,20 @@ using System.Text;
 
 namespace KopiLua
 {
+	using lua_Integer = System.Int32;
+	using lua_Number = System.Double;
+	
 	public partial class Lua
 	{
 
 		private const string HOOKKEY = "_HKEY";
 
 
-		private static int db_numbits (lua_State *L) {
-		  const char *s = luaL_checkstring(L, 1);
-		  if (*s == 'i')
+		private static int db_numbits (lua_State L) {
+		  CharPtr s = luaL_checkstring(L, 1);
+		  if (s[0] == 'i')
 		    lua_pushinteger(L, sizeof(lua_Integer) * CHAR_BIT);
-		  else if (*s == 'f')
+		  else if (s[0] == 'f')
 		    lua_pushinteger(L, sizeof(lua_Number) * CHAR_BIT);
 		  else
 		    luaL_argerror(L, 1, lua_pushfstring(L, "invalid option '%s'", s));
