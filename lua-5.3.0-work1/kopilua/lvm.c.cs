@@ -286,7 +286,7 @@ namespace KopiLua
 		      /* collect total length */
 		      for (i = 1; i < total && tostring(L, top-i-1)!=0; i++) {
 		        uint l = tsvalue(top-i-1).len;
-		        if (l >= (MAX_SIZE/sizeof(char)) - tl)
+		        if (l >= (MAX_SIZE/1/*sizeof(char)*/) - tl)
 		          luaG_runerror(L, "string length overflow");
 		        tl += l;
 		      }
@@ -295,7 +295,7 @@ namespace KopiLua
 		      n = i;
 		      do {  /* concat all strings */
 		        uint l = tsvalue(top-i).len;
-		        memcpy(buffer+tl, svalue(top-i), l * sizeof(char));
+		        memcpy(buffer+tl, svalue(top-i), l * 1/*sizeof(char)*/);//FIXME: sizeof(char)==1
 		        tl += l;
 		      } while (--i > 0);
 		      setsvalue2s(L, top-n, luaS_newlstr(L, buffer, tl));
@@ -752,107 +752,145 @@ namespace KopiLua
 			  case OpCode.OP_ADD: {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
-		        lua_Number nb; lua_Number nc;
-		        if (ttisinteger(rb)!=0 && ttisinteger(rc)!=0) {
+		        lua_Number nb = 0; lua_Number nc = 0;
+		        if (ttisinteger(rb) && ttisinteger(rc)) {
 		          lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
 		          setivalue(ra, intop_plus(ib, ic));
 		        }
-		        else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_numadd(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_ADD)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_ADD);
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
 				break;
 			  }
 			  case OpCode.OP_SUB: {
 		        TValue rb = RKB(L, base_, i, k);
-		        TValue rc = RKC(i, base_, i, k);
-		        lua_Number nb; lua_Number nc;
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Number nb = 0; lua_Number nc = 0;
 		        if (ttisinteger(rb) && ttisinteger(rc)) {
 		          lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
 		          setivalue(ra, intop_minus(ib, ic));
 		        }
-		        else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_numsub(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SUB)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_SUB);
+		        	base_ = ci.u.l.base_;
+		        	//); 
+		       	}
 				break;
 			  }
 			  case OpCode.OP_MUL: {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
-		        lua_Number nb; lua_Number nc;
+		        lua_Number nb = 0; lua_Number nc = 0;
 		        if (ttisinteger(rb) && ttisinteger(rc)) {
 		          lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
 		          setivalue(ra, intop_mul(ib, ic));
 		        }
-		        else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_nummul(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_MUL)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_MUL);
+		        	base_ = ci.u.l.base_;
+		        	//); 
+		       	}
 				break;
 			  }
 			  case OpCode.OP_DIV: {  /* float division (always with floats) */
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Number nb; lua_Number nc;
-		        if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Number nb = 0; lua_Number nc = 0;
+		        if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_numdiv(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_DIV)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_DIV);
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
 				break;
 			  }
 			  case OpCode.OP_IDIV: {  /* integer division */
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (tointeger(ref rb, ref ib)!=0 && tointeger(ref rc, ref ic)!=0) {
 		          setivalue(ra, luaV_div(L, ib, ic));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_IDIV)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_IDIV);
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
 			  	break;
 			  }
 			  case OpCode.OP_MOD: {
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Number nb; lua_Number nc;
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Number nb = 0; lua_Number nc = 0;
 		        if (ttisinteger(rb) && ttisinteger(rc)) {
 		          lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
 		          setivalue(ra, luaV_mod(L, ib, ic));
 		        }
-		        else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_nummod(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_MOD)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_MOD);
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
 				break;
 			  }
 			  case OpCode.OP_POW: {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
-		        lua_Number nb; lua_Number nc;
+		        lua_Number nb = 0; lua_Number nc = 0;
 		        lua_Integer ic;
 		        if (ttisinteger(rb) && ttisinteger(rc) &&
 		            (ic = ivalue(rc)) >= 0) {
 		          lua_Integer ib = ivalue(rb);
 		          setivalue(ra, luaV_pow(ib, ic));
 		        }
-		        else if (tonumber(rb, &nb) && tonumber(rc, &nc)) {
+		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_numpow(L, nb, nc));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_POW)); }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_POW);
+		        	base_ = ci.u.l.base_;
+		        	//); 
+		        }
 				break;
 			  }
 			  case OpCode.OP_UNM: {
 		        TValue rb = RB(L, base_, i);
-		        lua_Number nb;
+		        lua_Number nb = 0;
 		        if (ttisinteger(rb)) {
 		          lua_Integer ib = ivalue(rb);
 		          setivalue(ra, -ib);
 		        }
-		        else if (tonumber(rb, &nb)) {
+		        else if (tonumber(ref rb, ref nb)!=0) {
 		          setnvalue(ra, luai_numunm(L, nb));
 		        }
 		        else {
-		          Protect(luaT_trybinTM(L, rb, rb, ra, TM_UNM));
+		          	//Protect(
+		          		luaT_trybinTM(L, rb, rb, ra, TMS.TM_UNM);
+		          	base_ = ci.u.l.base_;
+		        	//);
 		        }
 				break;
 			  }
@@ -901,7 +939,7 @@ namespace KopiLua
 				TValue rb = RKB(L, base_, i, k);
 				TValue rc = RKC(L, base_, i, k);
 				//Protect(
-				 if ((luaV_equalobj(L, rb, rc)?1:0) != GETARG_A(i))
+				 if (luaV_equalobj(L, rb, rc) != GETARG_A(i))
 				  	InstructionPtr.inc(ref ci.u.l.savedpc); //FIXME:changed, ++
 				  else
 				  	donextjump(ci, ref i, L);
@@ -1013,7 +1051,7 @@ namespace KopiLua
 		          lua_Integer idx = ivalue(ra) + step; /* increment index */
 		          lua_Integer limit = ivalue(ra + 1);
 		          if ((0 < step) ? (idx <= limit) : (limit <= idx)) {
-		            ci->u.l.savedpc += GETARG_sBx(i);  /* jump back */
+		          	InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));  /* jump back */
 		            setivalue(ra, idx);  /* update internal index... */
 		            setivalue(ra + 3, idx);  /* ...and external index */
 		          }
@@ -1024,7 +1062,7 @@ namespace KopiLua
 		          lua_Number limit = fltvalue(ra + 1);
 		          if (luai_numlt(L, 0, step) ? luai_numle(L, idx, limit)
 		                                     : luai_numle(L, limit, idx)) {
-		            ci->u.l.savedpc += GETARG_sBx(i);  /* jump back */
+		          	InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));  /* jump back */
 		            setnvalue(ra, idx);  /* update internal index... */
 		            setnvalue(ra + 3, idx);  /* ...and external index */
 		          }
@@ -1032,25 +1070,25 @@ namespace KopiLua
 				break;
 			  }
 			  case OpCode.OP_FORPREP: {
-				TValue *init = ra;
-		        TValue *plimit = ra + 1;
-		        TValue *pstep = ra + 2;
+				TValue init = ra;
+		        TValue plimit = ra + 1;
+		        TValue pstep = ra + 2;
 		        if (ttisinteger(ra) && ttisinteger(ra + 1) && ttisinteger(ra + 2)) {
 		          setivalue(ra, ivalue(ra) - ivalue(pstep));
 		        }
 		        else {  /* try with floats */
-		          lua_Number ninit; lua_Number nlimit; lua_Number nstep;
-		          if (!tonumber(plimit, &nlimit))
+		          lua_Number ninit = 0; lua_Number nlimit = 0; lua_Number nstep = 0;
+		          if (0==tonumber(ref plimit, ref nlimit))
 		            luaG_runerror(L, LUA_QL("for") + " limit must be a number");
 		          setnvalue(plimit, nlimit);
-		          if (!tonumber(pstep, &nstep))
+		          if (0==tonumber(ref pstep, ref nstep))
 		            luaG_runerror(L, LUA_QL("for") + " step must be a number");
 		          setnvalue(pstep, nstep);
-		          if (!tonumber(init, &ninit))
+		          if (0==tonumber(ref init, ref ninit))
 		            luaG_runerror(L, LUA_QL("for") + " initial value must be a number");
 		          setnvalue(ra, luai_numsub(L, ninit, nstep));
 		        }
-		        ci->u.l.savedpc += GETARG_sBx(i);
+		        InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));
 				break;
 			  }
 			  case OpCode.OP_TFORCALL: {

@@ -36,10 +36,10 @@ namespace KopiLua
 		    return 0;  /* not a numeral */
 		  switch (e.k) {
 		    case expkind.VKINT:
-		      if (v!=0) setivalue(v, e.u.ival);
+		      if (v!=null) setivalue(v, e.u.ival);
 		      return 1;
 		    case expkind.VKFLT:
-		      if (v!=0) setnvalue(v, e.u.nval);
+		      if (v!=null) setnvalue(v, e.u.nval);
 		      return 1;
 		    default: return 0;
 		  }

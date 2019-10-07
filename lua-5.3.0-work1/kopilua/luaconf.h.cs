@@ -530,7 +530,7 @@ namespace KopiLua
 		//#if LUA_INTSIZE == 1	/* { int */
 		
 		//#define LUA_INTEGER		int
-		//#define LUA_INTEGER_FRMLEN	""
+		public const string LUA_INTEGER_FRMLEN = "";
 		
 		//#elif LUA_INTSIZE == 2	/* }{ long */
 		
@@ -540,7 +540,7 @@ namespace KopiLua
 		//#else	/* }{ default: long long */
 		
 		//#define LUA_INTEGER		long long
-		public const string LUA_INTEGER_FRMLEN	= "ll";
+		//public const string LUA_INTEGER_FRMLEN	= "ll";
 		
 		//#endif	/* } */
 		

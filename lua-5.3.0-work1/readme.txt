@@ -1,7 +1,40 @@
 FIXME: loslib.c, os_date and os_time not sync
 
+---------------
+
+		      do {  /* concat all strings */
+		        uint l = tsvalue(top-i).len;
+sizeof(char)==1, not 2------->		        memcpy(buffer+tl, svalue(top-i), l * sizeof(char));
+		        tl += l;
+		      } while (--i > 0);
+
+!!!after changed!!!:
+
+		        memcpy(buffer+tl, svalue(top-i), l * 1/*sizeof(char)*/);//FIXME: sizeof(char)==1
+
 -------------------
 
+
+		//#if LUA_INTSIZE == 1	/* { int */
+		
+		//#define LUA_INTEGER		int
+----¡·		public const string LUA_INTEGER_FRMLEN = "";
+		
+		//#elif LUA_INTSIZE == 2	/* }{ long */
+		
+		//#define LUA_INTEGER		long
+		//#define LUA_INTEGER_FRMLEN	"l"
+		
+		//#else	/* }{ default: long long */
+		
+		//#define LUA_INTEGER		long long
+not support %lld------¡·		//public const string LUA_INTEGER_FRMLEN	= "ll";
+		
+		//#endif	/* } */
+		
+		
+-------------------
+must return a value
 
 		public static lua_Integer luaV_mod (lua_State L, lua_Integer x, lua_Integer y) {
 		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
@@ -21,6 +54,8 @@ FIXME: loslib.c, os_date and os_time not sync
 		}
 
 -------------------
+must return a value
+
 
 public static lua_Integer luaV_div (lua_State L, lua_Integer x, lua_Integer y) {
 		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */

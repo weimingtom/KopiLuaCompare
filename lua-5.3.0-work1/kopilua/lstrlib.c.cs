@@ -127,7 +127,7 @@ namespace KopiLua
 		        memcpy(p, sep, lsep * 1); p += lsep; //FIXME:changed, sizeof(char)
 		      }
 		    }
-		    memcpy(p, s, l * sizeof(char));  /* last copy (not followed by separator) */
+		    memcpy(p, s, l * 1/*sizeof(char)*/);  /* last copy (not followed by separator) */
 		    luaL_pushresultsize(b, totallen);
 		  }
 		  return 1;

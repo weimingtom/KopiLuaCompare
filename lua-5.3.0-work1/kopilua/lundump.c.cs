@@ -220,8 +220,8 @@ namespace KopiLua
 		 CharPtr h = new char[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
 		 CharPtr s = new char[LUAC_HEADERSIZE]; //FIXME:changed, lu_byte[]
 		 luaU_header(h);
-		 memcpy(s,h,sizeof(char));			/* first char already read */
-		 LoadBlock(S,s+sizeof(char),LUAC_HEADERSIZE-sizeof(char));
+		 memcpy(s,h,1/*sizeof(char)*/);			/* first char already read */
+		 LoadBlock(S,s+1/*sizeof(char)*/,LUAC_HEADERSIZE-1/*sizeof(char)*/);
 		 if (memcmp(h,s,N0)==0) return;
 		 if (memcmp(h,s,N1)!=0) error(S,"not a");
 		 if (memcmp(h,s,N2)!=0) error(S,"version mismatch in");
