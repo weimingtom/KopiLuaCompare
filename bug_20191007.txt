@@ -3,3 +3,11 @@ sizeof(char) need to be replaced with 1
 
 		        memcpy(buffer+tl, svalue(top-i), l * 1/*sizeof(char)*/);//FIXME: sizeof(char)==1
 		        
+(2) from lua-5.3.0-work1
+const char * const
+
+		  s = new CharPtr(s); //FIXME:added	
+		  
+(3) since lua-5.3.0-work1
+
+check if run through int mathod (intop_plus, intop_minus, intop_mul)
