@@ -67,3 +67,7 @@ Lua 5.1.4 performance profile
 
 ## some tips  
 * On Windows, use Ctrl+Z then Enter to exit  
+
+## About SciMark for Lua  
+https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt  
+High score is better  
