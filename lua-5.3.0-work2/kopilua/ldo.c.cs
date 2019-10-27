@@ -1,5 +1,5 @@
 /*
-** $Id: ldo.c,v 2.109 2013/04/19 21:05:04 roberto Exp $
+** $Id: ldo.c,v 2.115 2014/03/21 13:52:33 roberto Exp $
 ** Stack and Call structure of Lua
 ** See Copyright Notice in lua.h
 */
@@ -37,9 +37,10 @@ namespace KopiLua
 		** C++ code, with _longjmp/_setjmp when asked to use them, and with
 		** longjmp/setjmp otherwise.
 		*/
-		//#if !defined(LUAI_THROW)
+		//#if !defined(LUAI_THROW)				/* { */
 
-		//#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)
+		//#if defined(__cplusplus) && !defined(LUA_USE_LONGJMP)	/* { */
+
 		/* C++ exceptions */
 		//#define LUAI_THROW(L,c)		throw(c)
 		//FIXME:added:
@@ -59,21 +60,23 @@ namespace KopiLua
 		}
 		//#define luai_jmpbuf		int  /* dummy variable */
 
-		//#elif defined(LUA_USE_ULONGJMP)
-		/* in Unix, try _longjmp/_setjmp (more efficient) */
+		//#elif defined(LUA_USE_POSIX)				/* }{ */
+
+		/* in POSIX, try _longjmp/_setjmp (more efficient) */
 		//#define LUAI_THROW(L,c)		_longjmp((c)->b, 1)
 		//#define LUAI_TRY(L,c,a)		if (_setjmp((c)->b) == 0) { a }
 		//#define luai_jmpbuf		jmp_buf
 
-		//#else
-		/* default handling with long jumps */
+		//#else							/* }{ */
+
+		/* ANSI handling with long jumps */
 		//#define LUAI_THROW(L,c)		longjmp((c)->b, 1)
 		//#define LUAI_TRY(L,c,a)		if (setjmp((c)->b) == 0) { a }
 		//#define luai_jmpbuf		jmp_buf
 
-		//#endif
+		//#endif							/* } */
 
-		//#endif
+		//#endif							/* } */
 		
 		//FIXME:???
 		public delegate void luai_jmpbuf(lua_Integer b);
@@ -165,10 +168,10 @@ namespace KopiLua
 		   //FIXME:???
 			/* don't need to do this
 		  CallInfo ci;
-		  GCObject up;
+		  UpVal up;
 		  L.top = L.stack[L.top - oldstack];
-		  for (up = L.openupval; up != null; up = up.gch.next)
-			gco2uv(up).v = L.stack[gco2uv(up).v - oldstack];
+		  for (up = L.openupval; up != null; up = up.u.open.next)
+			up.v = L.stack[up.v - oldstack];
 		  for (ci = L.base_ci; ci != null; ci = ci.previous) {
 			  ci.top = L.stack[ci.top - oldstack];
 			ci.func = L.stack[ci.func - oldstack];
@@ -231,7 +234,11 @@ namespace KopiLua
 		  int inuse = stackinuse(L);
 		  int goodsize = inuse + (inuse / 8) + 2*EXTRA_STACK;
 		  if (goodsize > LUAI_MAXSTACK) goodsize = LUAI_MAXSTACK;
-		  if (inuse > LUAI_MAXSTACK ||  /* handling stack overflow? */
+		  if (L->stacksize > LUAI_MAXSTACK)  /* was handling stack overflow? */
+		    luaE_freeCI(L);  /* free all CIs (list grew because of an error) */
+		  else
+		    luaE_shrinkCI(L);  /* shrink list */	  
+		  if (inuse > LUAI_MAXSTACK ||  /* still handling stack overflow? */
 		      goodsize >= L.stacksize) {  /* would grow instead of shrink? */
 		    ;//FIXME:???//condmovestack(L);  /* don't change stack (change only for debugging) */
 		  } else
@@ -585,6 +592,7 @@ namespace KopiLua
 
 		public static int lua_resume (lua_State L, lua_State from, int nargs) {
 		  int status;
+		  int oldnny = L.nny;  /* save 'nny' */
 		  lua_lock(L);
 		  luai_userstateresume(L, nargs);
 		  L.nCcalls = (ushort)((from != null) ? from.nCcalls + 1 : 1); //FIXME:added, (ushort)
@@ -606,7 +614,7 @@ namespace KopiLua
 			  }
 			  lua_assert(status == L.status);
 		  }
-		  L.nny = 1;  /* do not allow yields */
+		  L.nny = oldnny;  /* restore 'nny' */
 		  L.nCcalls--;
           lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : (uint)0));
 		  lua_unlock(L);
@@ -688,7 +696,6 @@ namespace KopiLua
 
 
 		private static void f_parser (lua_State L, object ud) {
-		  int i;
 		  Closure cl;
 		  SParser p = (SParser)ud;
 		  int c = zgetc(p.z);  /* read first character */
@@ -701,11 +708,7 @@ namespace KopiLua
 		    cl = luaY_parser(L, p.z, p.buff, p.dyd, p.name, c);
 		  }
 		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
-		  for (i = 0; i < cl.l.nupvalues; i++) {  /* initialize upvalues */
-		    UpVal up = luaF_newupval(L);
-		    cl.l.upvals[i] = up;
-		    luaC_objbarrier(L, cl, up);
-		  }
+		  luaF_initupvals(L, &cl->l);
 		}
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: ldblib.c,v 1.133 2013/06/25 19:37:00 roberto Exp $
+** $Id: ldblib.c,v 1.137 2014/03/12 20:57:40 roberto Exp $
 ** Interface from Lua to its debug API
 ** See Copyright Notice in lua.h
 */
@@ -66,11 +66,8 @@ namespace KopiLua
 
 
 		private static int db_setuservalue (lua_State L) {
-		  if (lua_type(L, 1) == LUA_TLIGHTUSERDATA)
-		    luaL_argerror(L, 1, "full userdata expected, got light userdata");
 		  luaL_checktype(L, 1, LUA_TUSERDATA);
-		  if (!lua_isnoneornil(L, 2))
-		    luaL_checktype(L, 2, LUA_TTABLE);
+		  luaL_checkany(L, 2);
 		  lua_settop(L, 2);
 		  lua_setuservalue(L, 1);
 		  return 1;
@@ -271,8 +268,7 @@ namespace KopiLua
 		private static void hookf (lua_State L, lua_Debug ar) {
 		  gethooktable(L);
 		  lua_pushthread(L);
-		  lua_rawget(L, -2);
-		  if (lua_isfunction(L, -1)) {
+		  if (lua_rawget(L, -2) == LUA_TFUNCTION) {
 			lua_pushstring(L, hooknames[(int)ar.event_]);
 			if (ar.currentline >= 0)
 			  lua_pushinteger(L, ar.currentline);

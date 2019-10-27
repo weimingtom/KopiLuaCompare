@@ -1,5 +1,5 @@
 /*
-** $Id: ldebug.c,v 2.95 2013/05/06 17:21:59 roberto Exp $
+** $Id: ldebug.c,v 2.97 2013/12/09 14:21:10 roberto Exp $
 ** Debug Interface
 ** See Copyright Notice in lua.h
 */
@@ -43,7 +43,7 @@ namespace KopiLua
 		/*
 		** this function can be called asynchronous (e.g. during a signal)
 		*/
-		public static int lua_sethook (lua_State L, lua_Hook func, int mask, int count) {
+		public static void lua_sethook (lua_State L, lua_Hook func, int mask, int count) {
 		  if (func == null || mask == 0) {  /* turn off hooks? */
 			mask = 0;
 			func = null;
@@ -54,7 +54,6 @@ namespace KopiLua
 		  L.basehookcount = count;
 		  resethookcount(L);
 		  L.hookmask = cast_byte(mask);
-		  return 1;
 		}
 
 
@@ -320,12 +319,20 @@ namespace KopiLua
 		}
 
 
+		private static int filterpc (int pc, int jmptarget) {
+		  if (pc < jmptarget)  /* is code conditional (inside a jump)? */
+		    return -1;  /* cannot know who sets that register */
+		  else return pc;  /* current position sets that register */
+		}
+
+
 		/*
 		** try to find last instruction before 'lastpc' that modified register 'reg'
 		*/
 		private static int findsetreg (Proto p, int lastpc, int reg) {
 		  int pc;
 		  int setreg = -1;  /* keep last instruction that changed 'reg' */
+		  int jmptarget = 0;  /* any code before this address is conditional */
 		  for (pc = 0; pc < lastpc; pc++) {
 		    Instruction i = p.code[pc];
 		    OpCode op = GET_OPCODE(i);
@@ -334,11 +341,12 @@ namespace KopiLua
 		      case OpCode.OP_LOADNIL: {
 		        int b = GETARG_B(i);
 		        if (a <= reg && reg <= a + b)  /* set registers from 'a' to 'a+b' */
-		          setreg = pc;
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		      }
 		      case OpCode.OP_TFORCALL: {
-		        if (reg >= a + 2) setreg = pc;  /* affect all regs above its base */
+		        if (reg >= a + 2)  /* affect all regs above its base */
+		          setreg = filterpc(pc, jmptarget);
 				break;
 		      }
 		      case OpCode.OP_CALL:
@@ -350,17 +358,15 @@ namespace KopiLua
 		        int b = GETARG_sBx(i);
 		        int dest = pc + 1 + b;
 		        /* jump is forward and do not skip `lastpc'? */
-		        if (pc < dest && dest <= lastpc)
-		          pc += b;  /* do the jump */
+		        if (pc < dest && dest <= lastpc) {
+		          if (dest > jmptarget)
+		            jmptarget = dest;  /* update 'jmptarget' */
+		        }
 		        break;
-		      }
-		      case OpCode.OP_TEST: {
-		        if (reg == a) setreg = pc;  /* jumped code can change 'a' */
-        		break;
 		      }
 		      default:
 		        if (testAMode(op) != 0 && reg == a)  /* any instruction that set A */
-		          setreg = pc;
+		          setreg = filterpc(pc, jmptarget);
 		        break;
 		    }
 		  }
