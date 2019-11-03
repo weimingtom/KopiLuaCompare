@@ -224,7 +224,7 @@ namespace KopiLua
 		  return ldexp(r, e);
 		}
 
-//		#endif
+		//#endif
 
 
 		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {

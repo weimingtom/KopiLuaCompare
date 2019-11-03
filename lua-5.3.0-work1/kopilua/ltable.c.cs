@@ -517,12 +517,12 @@ namespace KopiLua
 			  goto default;
 			}
 			default: {
-				Node node = mainposition(t, key); //FIXME: n->node
+			  Node n = mainposition(t, key);
 			  do {  /* check whether `key' is somewhere in the chain */
-				if (luaV_rawequalobj(gkey(node), key) != 0)//FIXME: n->node
-				  return gval(node);  /* that's it *///FIXME: n->node
-				else node = gnext(node);//FIXME: n->node
-			  } while (node != null);//FIXME: n->node
+				if (luaV_rawequalobj(gkey(n), key) != 0)
+				  return gval(n);  /* that's it */
+				else n = gnext(n);
+			  } while (n != null);
 			  return luaO_nilobject;
 			}
 		  }

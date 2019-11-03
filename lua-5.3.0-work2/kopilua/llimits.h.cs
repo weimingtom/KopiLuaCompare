@@ -1,5 +1,5 @@
 /*
-** $Id: llimits.h,v 1.108 2013/06/19 14:27:00 roberto Exp $
+** $Id: llimits.h,v 1.111 2014/03/07 16:19:00 roberto Exp $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -54,10 +54,12 @@ namespace KopiLua
 		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
 
 
-		/* minimum and maximum values for lua_Integer */
-		public const int MAX_INTEGER = ((lua_Integer)(~(lua_Unsigned)0 >> 1));
-		public const int MIN_INTEGER = (~MAX_INTEGER);
+		/* maximum value for a lua_Unsigned */
+		public const lua_Unsigned MAX_UINTEGER = (~(lua_Unsigned)0);
 
+		/* minimum and maximum values for lua_Integer */
+		public const int MAX_INTEGER = ((lua_Integer)(MAX_UINTEGER >> 1));
+		public const int MIN_INTEGER = (~MAX_INTEGER);
 
 		/*
 		** conversion of pointer to integer
@@ -150,6 +152,7 @@ namespace KopiLua
 
 		//#define cast(t, exp)	((t)(exp))
 
+		public static void cast_void(object i)	{ /*cast(void, (i));*/ }
 		public static lu_byte cast_byte(int i) { return (lu_byte)i; }
 		public static lu_byte cast_byte(long i) { return (lu_byte)(int)i; }
 		public static lu_byte cast_byte(bool i) { return i ? (lu_byte)1 : (lu_byte)0; }
@@ -231,7 +234,7 @@ namespace KopiLua
 
 		/* minimum size for the string table (must be power of 2) */
 
-		public const int MINSTRTABSIZE	= 32;
+		public const int MINSTRTABSIZE	= 64;	/* minimum size for "predefined" strings */
 
 
 

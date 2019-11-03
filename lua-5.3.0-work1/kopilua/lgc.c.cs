@@ -300,7 +300,7 @@ namespace KopiLua
 			  g.gray = o;
 			  return;
 			}
-			default: lua_assert(0);  return; //FIXME: add break
+			default: lua_assert(0); return; //FIXME: add break
 		  }
 		  gray2black(o);
   		  g.GCmemtrav += size;
@@ -760,8 +760,6 @@ namespace KopiLua
 		      luaD_shrinkstack(L1);
 		}
 
-		//private static GCObject nullp = null; //FIXME:see nullp in global_State
-		
 		/*
 		** sweep at most 'count' elements from a list of GCObjects erasing dead
 		** objects, where a dead (not alive) object is one marked with the "old"

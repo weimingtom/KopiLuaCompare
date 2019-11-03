@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.90 2013/07/03 17:23:19 roberto Exp $
+** $Id: lmathlib.c,v 1.92 2013/07/22 16:05:53 roberto Exp $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -252,9 +252,16 @@ namespace KopiLua
 		}
 
 
-		private static int math_isfloat (lua_State L) {
+		private static int math_type (lua_State L) {
 		  luaL_checkany(L, 1);
-		  lua_pushboolean(L, (lua_type(L, 1) == LUA_TNUMBER && 0==lua_isinteger(L, 1))?1:0);
+		  if (lua_type(L, 1) == LUA_TNUMBER) {
+		      if (lua_isinteger(L, 1))
+		        lua_pushliteral(L, "integer"); 
+		      else
+		        lua_pushliteral(L, "float"); 
+		  }
+		  else
+		    lua_pushnil(L);
 		  return 1;
 		}
 
@@ -273,7 +280,6 @@ namespace KopiLua
 		  new luaL_Reg("ifloor", math_ifloor),
 		  new luaL_Reg("fmod",   math_fmod),
 		  new luaL_Reg("frexp", math_frexp),
-		  new luaL_Reg("isfloat", math_isfloat),
 		  new luaL_Reg("ldexp", math_ldexp),
 //#if defined(LUA_COMPAT_LOG10)
 		  new luaL_Reg("log10", math_log10),
@@ -291,6 +297,7 @@ namespace KopiLua
 		  new luaL_Reg("sqrt",  math_sqrt),
 		  new luaL_Reg("tanh",   math_tanh),
 		  new luaL_Reg("tan",   math_tan),
+		  new luaL_Reg("type", math_type),
 		  new luaL_Reg(null, null)
 		};
 

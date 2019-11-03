@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.206 2012/09/29 20:07:06 roberto Exp $
+** $Id: lua.c,v 1.210 2014/02/26 15:27:56 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -40,41 +40,52 @@ namespace KopiLua
 		private const int LUA_MAXINPUT = 512;
 		//#endif
 
-		//#if !defined(LUA_INIT)
-		private const string LUA_INIT = "LUA_INIT";
+		//#if !defined(LUA_INIT_VAR)
+		private const string LUA_INIT_VAR = "LUA_INIT";
 		//#endif
 
-		private const string LUA_INITVERSION = 
-			LUA_INIT + "_" + Lua.LUA_VERSION_MAJOR + "_" + Lua.LUA_VERSION_MINOR;
+		private const string LUA_INITVARVERSION = 
+			LUA_INIT_VAR + "_" + Lua.LUA_VERSION_MAJOR + "_" + Lua.LUA_VERSION_MINOR;
 
 
 		/*
 		** lua_stdin_is_tty detects whether the standard input is a 'tty' (that
 		** is, whether we're running lua interactively).
 		*/
-		//#if defined(LUA_USE_ISATTY)
+		//#if !defined(lua_stdin_is_tty)	/* { */
+
+		//#if defined(LUA_USE_POSIX)	/* { */
+		
 		//#include <unistd.h>
 		//#define lua_stdin_is_tty()	isatty(0)
-		//#elif defined(LUA_WIN)
+		
+		//#elif defined(LUA_WIN)		/* }{ */
+		
 		//#include <io.h>
-		//#include <stdio.h>
 		//#define lua_stdin_is_tty()	_isatty(_fileno(stdin))
-		//#else
+		
+		//#else				/* }{ */
+		
+		/* ANSI definition */
 		//#define lua_stdin_is_tty()	1  /* assume stdin is a tty */
 		//FIXME:???
 		public static int lua_stdin_is_tty() {return 1;}
-		//#endif
 		
-
+		//#endif				/* } */
+		
+		//#endif				/* } */
+		
+		
 		/*
 		** lua_readline defines how to show a prompt and then read a line from
 		** the standard input.
 		** lua_saveline defines how to "save" a read line in a "history".
 		** lua_freeline defines how to free a line read by lua_readline.
 		*/
-		//#if defined(LUA_USE_READLINE)
+		//#if !defined(lua_readline)	/* { */
 
-		//#include <stdio.h>
+		//#if defined(LUA_USE_READLINE)	/* { */
+
 		//#include <readline/readline.h>
 		//#include <readline/history.h>
 		//#define lua_readline(L,b,p)	((void)L, ((b)=readline(p)) != NULL)
@@ -83,7 +94,7 @@ namespace KopiLua
 		//          add_history(lua_tostring(L, idx));  /* add it to history */
 		//#define lua_freeline(L,b)	((void)L, free(b))
 
-		//#elif !defined(lua_readline)
+		//#else				/* }{ */
 
 		private static int lua_readline(Lua.lua_State L, Lua.CharPtr b, Lua.CharPtr p)	{
 		        /*(void)L,*/ Lua.fputs(p, Lua.stdout); Lua.fflush(Lua.stdout);  /* show prompt */
@@ -91,7 +102,9 @@ namespace KopiLua
 		private static void lua_saveline(Lua.lua_State L, int idx)	{ /*(void)L; (void)idx;*/ }
 		private static void lua_freeline(Lua.lua_State L, object b)	{ /*(void)L; (void)b;*/ }
 
-		//#endif
+		//#endif				/* } */
+
+		//#endif				/* } */
 
 
 
@@ -269,20 +282,21 @@ namespace KopiLua
 		}
 
 
+		/* prompt the user, read a line, and push it into the Lua stack */
 		static int pushline(Lua.lua_State L, int firstline) {
 			Lua.CharPtr buffer = new char[LUA_MAXINPUT];
 			Lua.CharPtr b = new Lua.CharPtr(buffer);
 			int l;
 			Lua.CharPtr prmt = get_prompt(L, firstline);
 			int readstatus = lua_readline(L, b, prmt);
-			Lua.lua_pop(L, 1);  /* remove result from 'get_prompt' */
 			if (readstatus == 0)
 				return 0;  /* no input */
+			lua_pop(L, 1);  /* remove prompt */
 			l = Lua.strlen(b);
 			if (l > 0 && b[l - 1] == '\n')  /* line ends with newline? */
 				b[l - 1] = '\0';  /* remove it */
-			if ((firstline!=0) && (b[0] == '='))  /* first line starts with `=' ? */
-				Lua.lua_pushfstring(L, "return %s", b + 1);  /* change it to `return' */
+			if ((firstline!=0) && (b[0] == '='))  /* for compatibility with 5.2, ... */
+				Lua.lua_pushfstring(L, "return %s", b + 1);  /* change '=' to 'return' */
 			else
 				Lua.lua_pushstring(L, b);
 			lua_freeline(L, b);
@@ -290,26 +304,49 @@ namespace KopiLua
 		}
 
 
-		static int loadline(Lua.lua_State L) {
-			int status;
-			Lua.lua_settop(L, 0);
-			if (pushline(L, 1)==0)
-				return -1;  /* no input */
-			for (;;) {  /* repeat until gets a complete line */
-			    uint l;
-			    Lua.CharPtr line = Lua.lua_tolstring(L, 1, out l);
-			    Lua.WriteLog(line.ToString());
-			    status = Lua.luaL_loadbuffer(L, line, l, "=stdin");
-				if (incomplete(L, status)==0) break;  /* cannot try to add lines? */
-				if (pushline(L, 0)==0)  /* no more input? */
-					return -1;
-				Lua.lua_pushliteral(L, "\n");  /* add a new line... */
-				Lua.lua_insert(L, -2);  /* ...between the two lines */
-				Lua.lua_concat(L, 3);  /* join them */
-			}
-			lua_saveline(L, 1);
-			Lua.lua_remove(L, 1);  /* remove line */
-			return status;
+		/* try to compile line on the stack as 'return <line>'; on return, stack
+		   has either compiled chunk or original line (if compilation failed) */
+		private static int addreturn (lua_State *L) {
+		  int status;
+		  size_t len; const char *line;
+		  lua_pushliteral(L, "return ");
+		  lua_pushvalue(L, -2);  /* duplicate line */
+		  lua_concat(L, 2);  /* new line is "return ..." */
+		  line = lua_tolstring(L, -1, &len);
+		  if ((status = luaL_loadbuffer(L, line, len, "=stdin")) == LUA_OK)
+		    lua_remove(L, -3);  /* remove original line */
+		  else
+		    lua_pop(L, 2);  /* remove result from 'luaL_loadbuffer' and new line */
+		  return status;
+		}
+
+
+		/* read multiple lines until a complete line */
+		private static int multiline (lua_State *L) {
+		  for (;;) {  /* repeat until gets a complete line */
+		    size_t len;
+		    const char *line = lua_tolstring(L, 1, &len);  /* get what it has */
+		    int status = luaL_loadbuffer(L, line, len, "=stdin");  /* try it */
+		    if (!incomplete(L, status) || !pushline(L, 0))
+		      return status;  /* cannot/should not try to add continuation line */
+		    lua_pushliteral(L, "\n");  /* add newline... */
+		    lua_insert(L, -2);  /* ...between the two lines */
+		    lua_concat(L, 3);  /* join them */
+		  }
+		}
+
+
+		private static int loadline (lua_State *L) {
+		  int status;
+		  lua_settop(L, 0);
+		  if (!pushline(L, 1))
+		    return -1;  /* no input */
+		  if ((status = addreturn(L)) != LUA_OK)  /* 'return ...' did not work? */
+		    status = multiline(L);  /* try as command, maybe with continuation lines */
+		  lua_saveline(L, 1);
+		  lua_remove(L, 1);  /* remove line */
+		  lua_assert(lua_gettop(L) == 1);
+		  return status;
 		}
 
 
@@ -436,10 +473,10 @@ namespace KopiLua
 
 
 		static int handle_luainit(Lua.lua_State L) {
-		  Lua.CharPtr name = "=" + LUA_INITVERSION;
+		  Lua.CharPtr name = "=" + LUA_INITVARVERSION;
 		  Lua.CharPtr init = Lua.getenv(name + 1);
 		  if (init == null) {
-		    name = "=" + LUA_INIT;
+		    name = "=" + LUA_INIT_VAR;
 		    init = Lua.getenv(name + 1);  /* try alternative name */
 		  }
 		  if (init == null) return Lua.LUA_OK;  /* status OK */

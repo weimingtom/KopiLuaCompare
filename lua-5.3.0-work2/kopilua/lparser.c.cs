@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.c,v 2.133 2013/04/26 13:07:53 roberto Exp $
+** $Id: lparser.c,v 2.138 2013/12/30 20:47:58 roberto Exp $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -27,6 +27,10 @@ namespace KopiLua
 		public static int hasmultret(expkind k)		{return ((k) == expkind.VCALL || (k) == expkind.VVARARG) ? 1 : 0;}
 
 
+		/* because all strings are unified by the scanner, the parser
+		   can use pointer equality for string equality */
+		#define eqstr(a,b)	((a) == (b))
+
 
 		/*
 		** nodes for block list (list of active blocks)
@@ -48,14 +52,6 @@ namespace KopiLua
 		//static void expr (LexState *ls, expdesc *v);
 
 
-		private static void anchor_token (LexState ls) {
-		  /* last token from outer function must be EOS */
-		  lua_assert(ls.fs != null || ls.t.token == (int)RESERVED.TK_EOS);
-		  if (ls.t.token == (int)RESERVED.TK_NAME || ls.t.token == (int)RESERVED.TK_STRING) {
-			TString ts = ls.t.seminfo.ts;
-			luaX_newstring(ls, getstr(ts), ts.tsv.len);
-		  }
-		}
 
 
 		/* semantic error */
@@ -213,7 +209,7 @@ namespace KopiLua
 		  int i;
 		  Upvaldesc[] up = fs.f.upvalues;
 		  for (i = 0; i < fs.nups; i++) {
-		    if (luaS_eqstr(up[i].name, name) != 0) return i;
+		    if (eqstr(up[i].name, name) != 0) return i;
 		  }
 		  return -1;  /* not found */
 		}
@@ -237,7 +233,7 @@ namespace KopiLua
 		private static int searchvar (FuncState fs, TString n) {
 		  int i;
 		  for (i=(int)(fs.nactvar)-1; i >= 0; i--) {
-		  	if (luaS_eqstr(n, getlocvar(fs, i).varname) != 0)
+		  	if (eqstr(n, getlocvar(fs, i).varname) != 0)
 			  return i;
 		  }
 		  return -1;  /* not found */
@@ -333,7 +329,7 @@ namespace KopiLua
 		  FuncState fs = ls.fs;
 		  Labellist gl = ls.dyd.gt;
 		  Labeldesc gt = gl.arr[g];
-		  lua_assert(luaS_eqstr(gt.name, label.name));
+		  lua_assert(eqstr(gt.name, label.name));
 		  if (gt.nactvar < label.nactvar) {
             TString vname = getlocvar(fs, gt.nactvar).varname;
 		    CharPtr msg = luaO_pushfstring(ls.L,
@@ -360,7 +356,7 @@ namespace KopiLua
 		  /* check labels in current block for a match */
 		  for (i = bl.firstlabel; i < dyd.label.n; i++) {
 		    Labeldesc lb = dyd.label.arr[i];
-		    if (luaS_eqstr(lb.name, gt.name) != 0) {  /* correct label? */
+		    if (eqstr(lb.name, gt.name) != 0) {  /* correct label? */
 		      if (gt.nactvar > lb.nactvar &&
 		          (bl.upval!=0 || dyd.label.n > bl.firstlabel))
 		        luaK_patchclose(ls.fs, gt.pc, lb.nactvar);
@@ -394,7 +390,7 @@ namespace KopiLua
 		  Labellist gl = ls.dyd.gt;
 		  int i = ls.fs.bl.firstgoto;
 		  while (i < gl.n) {
-		    if (luaS_eqstr(gl.arr[i].name, lb.name) != 0)
+		    if (eqstr(gl.arr[i].name, lb.name) != 0)
 		      closegoto(ls, i, lb);
 		    else
 		      i++;
@@ -515,7 +511,6 @@ namespace KopiLua
 
 
 		private static void open_func (LexState ls, FuncState fs, BlockCnt bl) {
-		  lua_State L = ls.L;
 		  Proto f;
 		  fs.prev = ls.fs;  /* linked list of funcstates */
 		  fs.ls = ls;
@@ -534,10 +529,6 @@ namespace KopiLua
 		  f = fs.f;
 		  f.source = ls.source;
 		  f.maxstacksize = 2;  /* registers 0/1 are always valid */
-		  fs.h = luaH_new(L);
-		  /* anchor table of constants (to avoid being collected) */
-		  sethvalue2s(L, L.top, fs.h);
-		  incr_top(L);
           enterblock(fs, bl, 0);
 		}
 
@@ -566,9 +557,6 @@ namespace KopiLua
 		  f.sizeupvalues = fs.nups;
 		  lua_assert(fs.bl == null);
 		  ls.fs = fs.prev;
-		  /* last token read was anchored in defunct function; must re-anchor it */
-		  anchor_token(ls);
-		  StkId.dec(ref L.top);  /* pop table of constants */
 		  luaC_checkGC(L);
 		}
 
@@ -990,6 +978,7 @@ namespace KopiLua
 		  switch (op) {
 			case (int)RESERVED.TK_NOT: return UnOpr.OPR_NOT;
 			case '-': return UnOpr.OPR_MINUS;
+			case '~': return UnOpr.OPR_BNOT;
 			case '#': return UnOpr.OPR_LEN;
 			default: return UnOpr.OPR_NOUNOPR;
 		  }
@@ -1001,10 +990,15 @@ namespace KopiLua
 			case '+': return BinOpr.OPR_ADD;
 			case '-': return BinOpr.OPR_SUB;
 			case '*': return BinOpr.OPR_MUL;
+		    case '%': return BinOpr.OPR_MOD;
+		    case '^': return BinOpr.OPR_POW;			
 			case '/': return BinOpr.OPR_DIV;
 			case (int)RESERVED.TK_IDIV: return BinOpr.OPR_IDIV;
-			case '%': return BinOpr.OPR_MOD;
-			case '^': return BinOpr.OPR_POW;
+		    case '&': return BinOpr.OPR_BAND;
+		    case '|': return BinOpr.OPR_BOR;
+		    case '~': return BinOpr.OPR_BXOR;
+		    case (int)RESERVED.TK_SHL: return BinOpr.OPR_SHL;
+		    case (int)RESERVED.TK_SHR: return BinOpr.OPR_SHR;
 			case (int)RESERVED.TK_CONCAT: return BinOpr.OPR_CONCAT;
 			case (int)RESERVED.TK_NE: return BinOpr.OPR_NE;
 			case (int)RESERVED.TK_EQ: return BinOpr.OPR_EQ;
@@ -1032,30 +1026,39 @@ namespace KopiLua
 
 		private static priority_[] priority = {  /* ORDER OPR */
 
-			new priority_(6, 6),
-			new priority_(6, 6),				/* `+' `-' */
+		    new priority_(10, 10),          /* '+' '-' */
+		    new priority_(10, 10),
+		   
+		    new priority_(11, 11),          /* '*' '%' */
+		    new priority_(11, 11),
+		   
+		    new priority_(14, 13),          /* '^' (right associative) */
+		   
+		    new priority_(11, 11),          /* '/' '//' */
+		    new priority_(11, 11),
+		   
+		    new priority_(6, 6),            /* '&' '|' '~' */
+		    new priority_(4, 4), 
+			new priority_(5, 5),
 			
-			new priority_(7, 7),
-			new priority_(7, 7),
-			new priority_(7, 7),
-			new priority_(7, 7),				/* '*' '/' '//' '%' */
+			new priority_(7, 7),            /* '<<' '>>' */
+		    new priority_(7, 7),
+			
+			new priority_(9, 8),            /* '..' (right associative) */
 
-			new priority_(10, 9),
-			new priority_(5, 4),				/* ^, .. (right associative) */
-
-			new priority_(3, 3),
+		    new priority_(3, 3),
 			new priority_(3, 3),				
-            new priority_(3, 3),                /* ==, <, <= */
+            new priority_(3, 3),    		/* ==, <, <= */
 												
 			new priority_(3, 3),
 			new priority_(3, 3),
-			new priority_(3, 3),                /* ~=, >, >= */
+			new priority_(3, 3),    		/* ~=, >, >= */
 
 			new priority_(2, 2),
-			new priority_(1, 1)					/* and, or */
+			new priority_(1, 1)				/* and, or */
 		};
 
-		public const int UNARY_PRIORITY	= 8;  /* priority for unary operators */
+		public const int UNARY_PRIORITY	= 12;  /* priority for unary operators */
 
 
 		/*
@@ -1223,7 +1226,7 @@ namespace KopiLua
 		private static void checkrepeated (FuncState fs, Labellist ll, TString label) {
 		  int i;
 		  for (i = fs.bl.firstlabel; i < ll.n; i++) {
-		    if (luaS_eqstr(label, ll.arr[i].name)!=0) {
+		    if (eqstr(label, ll.arr[i].name)!=0) {
 		      CharPtr msg = luaO_pushfstring(fs.ls.L,
 		                          "label " + LUA_QS + " already defined on line %d",
 		                          getstr(label), ll.arr[i].line);
@@ -1650,11 +1653,14 @@ namespace KopiLua
 		  LexState lexstate = new LexState();
 		  FuncState funcstate = new FuncState();
 		  Closure cl = luaF_newLclosure(L, 1);  /* create main closure */
-		  /* anchor closure (to avoid being collected) */
-		  setclLvalue(L, L.top, cl);
+		  setclLvalue(L, L.top, cl);  /* anchor it (to avoid being collected) */
 		  incr_top(L);
+		  lexstate.h = luaH_new(L);  /* create table for scanner */
+		  sethvalue(L, L->top, lexstate.h);  /* anchor it */
+		  incr_top(L);		  
 		  funcstate.f = cl.l.p = luaF_newproto(L);
 		  funcstate.f.source = luaS_new(L, name);  /* create and anchor TString */
+		  luaC_objbarrier(L, funcstate.f, funcstate.f->source);
 		  lexstate.buff = buff;
 		  lexstate.dyd = dyd;
 		  dyd.actvar.n = dyd.gt.n = dyd.label.n = 0;
@@ -1663,7 +1669,8 @@ namespace KopiLua
 		  lua_assert(null == funcstate.prev && funcstate.nups == 1 && null == lexstate.fs);
 		  /* all scopes should be correctly finished */
 		  lua_assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);
-		  return cl;  /* it's on the stack too */
+		  L->top--;  /* remove scanner's table */
+		  return cl;  /* closure is on the stack, too */
 		}
 
 	}

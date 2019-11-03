@@ -387,8 +387,9 @@ namespace KopiLua
 		public const int LUAL_BUFFERSIZE		= 1024; // BUFSIZ; todo: check this - mjf
 		//FIXME: changed here, = BUFSIZ;
 
-
-
+		
+		
+        
 		//FIXME: 20191006:here changed begin
 		/*
 		** {==================================================================

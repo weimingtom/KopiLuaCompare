@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.78 2013/05/14 15:59:04 roberto Exp $
+** $Id: lobject.h,v 2.86 2014/02/19 13:52:42 roberto Exp $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -23,13 +23,12 @@ namespace KopiLua
 		** Extra tags for non-values
 		*/
 		public const int LUA_TPROTO	= LUA_NUMTAGS;
-		public const int LUA_TUPVAL	= (LUA_NUMTAGS+1);
-		public const int LUA_TDEADKEY	= (LUA_NUMTAGS+2);
+		public const int LUA_TDEADKEY	= (LUA_NUMTAGS+1);
 
 		/*
 		** number of all possible tags (including LUA_TNONE but excluding DEADKEY)
 		*/
-		public const int LUA_TOTALTAGS = (LUA_TUPVAL+2);
+		public const int LUA_TOTALTAGS = (LUA_TPROTO+2);
 
 
 		/*
@@ -293,7 +292,7 @@ namespace KopiLua
 		public static bool ttisCclosure(TValue o) {return checktag(o, ctb(LUA_TCCL));}
 		public static bool ttisLclosure(TValue o) {return checktag((o), ctb(LUA_TLCL));}
 		public static bool ttislcf(TValue o) {return checktag((o), LUA_TLCF);}
-		public static bool ttisuserdata(TValue o)	{return checktag(o, ctb(LUA_TUSERDATA));}
+		public static bool ttisfulluserdata(TValue o)	{return checktag(o, ctb(LUA_TUSERDATA));}
 		public static bool ttisthread(TValue o)	{return checktag(o, ctb(LUA_TTHREAD));}
         public static bool ttisdeadkey(TValue o) {return checktag(o, LUA_TDEADKEY);}
 		
@@ -305,7 +304,7 @@ namespace KopiLua
 		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), val_(o).p); }
 		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), val_(o).gc.ts); }
 		public static TString_tsv tsvalue(TValue o) { return rawtsvalue(o).tsv; }
-		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisuserdata(o), val_(o).gc.u); }
+		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisfulluserdata(o), val_(o).gc.u); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
 		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), val_(o).gc.cl);}
 		public static LClosure clLvalue(TValue o) {return (LClosure)check_exp(ttisLclosure(o), val_(o).gc.cl.l);}
@@ -471,8 +470,10 @@ namespace KopiLua
 		public class TString_tsv : GCObject { //FIXME:added
             //CommonHeader;
 			public lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
-			public uint hash;
+
 			public uint len;  /* number of characters in string */
+			public TString hnext;  /* linked list for hash table */
+			public uint hash;
 		};	
 		public class TString : TString_tsv {
 			//public L_Umaxalign dummy;  /* ensures maximum alignment for strings */
@@ -500,9 +501,10 @@ namespace KopiLua
 		** Header for userdata; memory area follows the end of this structure
 		*/
 		public class Udata_uv : GCObject { //FIXME:added
+    		public lu_byte ttuv_;  /* user value's tag */
 			public Table metatable;
-			public Table env;
 			public uint len;  /* number of bytes */
+			public Value user_;  /* user value */
 		};
 		public class Udata : Udata_uv {
 			//public L_Umaxalign dummy;  /* ensures maximum alignment for `local' udata */
@@ -519,6 +521,17 @@ namespace KopiLua
 			// same thing just as easily by allocating a seperate byte array for it instead.
 			public object user_data;
 		};
+
+		#define setuservalue(L,u,o) \
+			{ const TValue *io=(o); Udata *iu = (u); \
+			  iu->uv.user_ = io->value_; iu->uv.ttuv_ = io->tt_; \
+			  checkliveness(G(L),io); }
+
+
+		#define getuservalue(L,u,o) \
+			{ TValue *io=(o); const Udata *iu = (u); \
+			  io->value_ = iu->uv.user_; io->tt_ = iu->uv.ttuv_; \
+			  checkliveness(G(L),io); }
 
 		/*
 		** Description of an upvalue for function prototypes
@@ -595,21 +608,7 @@ namespace KopiLua
 		/*
 		** Lua Upvalues
 		*/
-		public class UpVal : GCObject {
-		  public TValue v;  /* points to stack or to its own value */
-
-			public class _u {
-				public TValue value_ = new TValue();  /* the value (when closed) */
-
-				public class _l {  /* double linked list (when open) */
-				  public UpVal prev;
-				  public UpVal next;
-				};
-
-				public _l l = new _l();
-		  }
-			public new _u u = new _u();
-		};
+		//typedef struct UpVal UpVal;
 		//added
 		public class UpValRef {
 			private UpVal[] _upVals;
@@ -690,11 +689,11 @@ namespace KopiLua
 		public class TKey_nk : TValue
 		{
 			public TKey_nk() { }
-			public TKey_nk(Value value, int tt, Node next) : base(value, tt)
+			public TKey_nk(Value value, int tt, int next) : base(value, tt)
 			{
 				this.next = next;
 			}
-			public Node next;  /* for chaining */
+			public int next;  /* for chaining (offset for next node) */
 		};
 
 		public class TKey {
@@ -839,5 +838,8 @@ namespace KopiLua
 		*/
 		public static TValue luaO_nilobject_ = new TValue(new Value(), LUA_TNIL); //FIXME:??? new Tvalue(null, LUA_TNIL);
 		public static TValue luaO_nilobject = luaO_nilobject_;
+		
+		/* size of buffer for 'luaO_utf8esc' function */
+		public const int UTF8BUFFSZ	 = 8;		
 	}
 }

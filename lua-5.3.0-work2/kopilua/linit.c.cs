@@ -1,5 +1,5 @@
 /*
-** $Id: linit.c,v 1.32 2011/04/08 19:17:36 roberto Exp $
+** $Id: linit.c,v 1.33 2014/02/06 17:32:33 roberto Exp $
 ** Initialization of libraries for lua.c and other clients
 ** See Copyright Notice in lua.h
 */
@@ -33,6 +33,7 @@ namespace KopiLua
 		  new luaL_Reg(LUA_IOLIBNAME, luaopen_io),
 		  new luaL_Reg(LUA_OSLIBNAME, luaopen_os),
 		  new luaL_Reg(LUA_STRLIBNAME, luaopen_string),
+		  new luaL_Reg(LUA_UTF8LIBNAME, luaopen_utf8),
 		  new luaL_Reg(LUA_BITLIBNAME, luaopen_bit32),
 		  new luaL_Reg(LUA_MATHLIBNAME, luaopen_math),
 		  new luaL_Reg(LUA_DBLIBNAME, luaopen_debug),

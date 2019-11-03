@@ -242,7 +242,7 @@ namespace KopiLua
 		}
 
 
-		private static double nvalue__(TValue x) { return 0; }
+		private static lua_Number nvalue__(TValue x) { return ((lua_Number)0); }
 		private static int ttypenv__(TValue x) { return Lua.ttnov(x); }
 /*
 ** $Id: print.c,v 1.69 2013/07/04 01:03:46 lhf Exp $

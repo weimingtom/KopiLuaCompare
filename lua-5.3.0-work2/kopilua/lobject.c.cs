@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.67 2013/06/25 18:58:32 roberto Exp $
+** $Id: lobject.c,v 2.76 2014/03/21 13:52:33 roberto Exp $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -78,51 +78,70 @@ namespace KopiLua
 		    case LUA_OPSUB:return intop_minus(v1, v2);
 		    case LUA_OPMUL:return intop_mul(v1, v2);
 		    case LUA_OPMOD: return luaV_mod(L, v1, v2);
-		    case LUA_OPPOW: return luaV_pow(v1, v2);
-		    case LUA_OPUNM: return -v1;
+		    case LUA_OPPOW: return luaV_pow(L, v1, v2);
+		    case LUA_OPIDIV: return luaV_div(L, v1, v2);
+		    case LUA_OPBAND: return intop(&, v1, v2);
+		    case LUA_OPBOR: return intop(|, v1, v2);
+		    case LUA_OPBXOR: return intop(^, v1, v2);
+		    case LUA_OPSHL: return luaV_shiftl(v1, v2);
+		    case LUA_OPSHR: return luaV_shiftl(v1, -v2);
+		    case LUA_OPUNM: return intop(-, 0, v1);
+		    case LUA_OPBNOT: return intop(^, cast_integer(-1), v1);
 		    default: lua_assert(0); return 0;
 		  }
 		}
 		
-		private static lua_Number numarith (int op, lua_Number v1, lua_Number v2) {
+		private static lua_Number numarith (lua_State L, int op, lua_Number v1, 
+		                                                         lua_Number v2) {
 		  switch (op) {
-		    case LUA_OPADD: return luai_numadd(null, v1, v2);
-		    case LUA_OPSUB: return luai_numsub(null, v1, v2);
-		    case LUA_OPMUL: return luai_nummul(null, v1, v2);
-		    case LUA_OPDIV: return luai_numdiv(null, v1, v2);
-		    case LUA_OPMOD: return luai_nummod(null, v1, v2);
-		    case LUA_OPPOW: return luai_numpow(null, v1, v2);
-		    case LUA_OPUNM: return luai_numunm(null, v1);
+		    case LUA_OPADD: return luai_numadd(L, v1, v2);
+		    case LUA_OPSUB: return luai_numsub(L, v1, v2);
+		    case LUA_OPMUL: return luai_nummul(L, v1, v2);
+		    case LUA_OPDIV: return luai_numdiv(L, v1, v2);
+		    case LUA_OPMOD: return luai_nummod(L, v1, v2);
+		    case LUA_OPPOW: return luai_numpow(L, v1, v2);
+		    case LUA_OPUNM: return luai_numunm(L, v1);
 		    default: lua_assert(0); return 0;
 		  }
 		}
 
 		public static void luaO_arith (lua_State L, int op, TValue p1, TValue p2,
 		                 TValue res) {
-		  if (op == LUA_OPIDIV) {  /* operates only on integers */
-		    lua_Integer i1 = 0; lua_Integer i2 = 0;
-		    if (tointeger(ref p1, ref i1)!=0 && tointeger(ref p2, ref i2)!=0) {
-		      setivalue(res, luaV_div(L, i1, i2));
-		      return;
+		  switch (op) {
+		    case LUA_OPIDIV: case LUA_OPBAND: case LUA_OPBOR:
+		    case LUA_OPBXOR: case LUA_OPSHL: case LUA_OPSHR:
+		    case LUA_OPBNOT: {  /* operates only on integers */
+		      lua_Integer i1; lua_Integer i2;
+		      if (tointeger(p1, &i1) && tointeger(p2, &i2)) {
+		        setivalue(res, intarith(L, op, i1, i2));
+		        return;
+		      }
+		      else break;  /* go to the end */
 		    }
-		    /* else go to the end */
+		    case LUA_OPDIV: {  /* operates only on floats */
+		      lua_Number n1; lua_Number n2;
+		      if (tonumber(p1, &n1) && tonumber(p2, &n2)) {
+		        setnvalue(res, numarith(L, op, n1, n2));
+		        return;
+		      }
+		      else break;  /* go to the end */
+		    }
+		    default: {  /* other operations */
+		      lua_Number n1; lua_Number n2;
+		      if (ttisinteger(p1) && ttisinteger(p2)) {
+		        setivalue(res, intarith(L, op, ivalue(p1), ivalue(p2)));
+		        return;
+		      }
+		      else if (tonumber(p1, &n1) && tonumber(p2, &n2)) {
+		        setnvalue(res, numarith(L, op, n1, n2));
+		        return;
+		      }
+		      else break;  /* go to the end */
+		    }
 		  }
-		  else {  /* other operations */
-		    lua_Number n1 = 0; lua_Number n2 = 0;
-		    if (ttisinteger(p1) && ttisinteger(p2) && op != LUA_OPDIV &&
-		        (op != LUA_OPPOW || ivalue(p2) >= 0)) {
-		      setivalue(res, intarith(L, op, ivalue(p1), ivalue(p2)));
-		      return;
-		    }
-		    else if (tonumber(ref p1, ref n1)!=0 && tonumber(ref p2, ref n2)!=0) {
-		      setnvalue(res, numarith(op, n1, n2));
-		      return;
-		    }
-		    /* else go to the end */
-		  }
-		  /* could not perform raw operation; try metmethod */
-		  lua_assert(L != null);  /* cannot fail when folding (compile time) */
-		  luaT_trybinTM(L, p1, p2, res, (TMS)(op - LUA_OPADD + TMS.TM_ADD));
+		  /* could not perform raw operation; try metamethod */
+		  lua_assert(L != NULL);  /* should not fail when folding (compile time) */
+		  luaT_trybinTM(L, p1, p2, res, cast(TMS, op - LUA_OPADD + TM_ADD));
 		}
 
 
@@ -142,18 +161,22 @@ namespace KopiLua
 
 
 		/*
+		** {======================================================
 		** lua_strx2number converts an hexadecimal numeric string to a number.
 		** In C99, 'strtod' does both conversions. C89, however, has no function
 		** to convert floating hexadecimal strings to numbers. For these
 		** systems, you can leave 'lua_strx2number' undefined and Lua will
 		** provide its own implementation.
+		** =======================================================
 		*/
-		//#if defined(LUA_USE_STRTODHEX)
+		//#if !defined(lua_strx2number)		/* { */
+		
+		//#if defined(LUA_USE_C99)		/* { */
 		//#define lua_strx2number(s,p)    lua_str2number(s,p)
-		//#endif
 
+		//#else					/* }{ */
 
-		//#if !defined(lua_strx2number)
+		/* Lua's implementation for 'lua_strx2number' */
 
 		//#include <math.h>
 
@@ -224,7 +247,11 @@ namespace KopiLua
 		  return ldexp(r, e);
 		}
 
-//		#endif
+		//#endif					/* } */
+
+		//#endif					/* } */
+
+		/* }====================================================== */
 
 
 		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {
@@ -268,18 +295,36 @@ namespace KopiLua
 		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip trailing spaces */
 		  if (empty!=0 || s != ends) return 0;  /* something wrong in the numeral */
 		  else {
-		  	if (neg!=0) result = -((lua_Integer)a);
-		  	else result = (lua_Integer)(a);
+		    result = cast_integer((neg) ? 0u - a : a);
 		    return 1;
 		  }
 		}
+
+
+		public static int luaO_utf8esc (char *buff, unsigned int x) {
+		  int n = 1;  /* number of bytes put in buffer (backwards) */
+		  if (x < 0x80)  /* ascii? */
+		    buff[UTF8BUFFSZ - 1] = x;
+		  else {  /* need continuation bytes */
+		    unsigned int mfb = 0x3f;  /* maximum that fits in first byte */
+		    do {
+		      buff[UTF8BUFFSZ - (n++)] = 0x80 | (x & 0x3f);  /* add continuation byte */
+		      x >>= 6;  /* remove added bits */
+		      mfb >>= 1;  /* now there is one less bit available in first byte */
+		    } while (x > mfb);  /* still needs continuation byte? */
+		    buff[UTF8BUFFSZ - n] = (~mfb << 1) | x;  /* add first byte */
+		  }
+		  return n;
+		}
+
 
 		private static void pushstr (lua_State L, CharPtr str, uint l) {
 		  setsvalue2s(L, L.top, luaS_newlstr(L, str, l)); StkId.inc(ref L.top);
 		}
 
 
-		/* this function handles only `%d', `%c', %f, %p, and `%s' formats */
+		/* this function handles only '%d', '%c', '%f', '%p', and '%s' 
+		   conventional formats, plus Lua-specific '%L' and '%U' */
 		public static CharPtr luaO_pushvfstring (lua_State L, CharPtr fmt, params object[] argp) {
 		  int parm_index = 0; //FIXME: added, for emulating va_arg(argp, xxx)
 		  int n = 0;
@@ -322,6 +367,12 @@ namespace KopiLua
 		        pushstr(L, buff, l);
 		        break;
 		      }
+		      case 'U': {
+		        char buff[UTF8BUFFSZ];
+		        int l = luaO_utf8esc(buff, va_arg(argp, int));
+		        pushstr(L, buff + UTF8BUFFSZ - l, l);
+		        break;
+		      }			  
 		      case '%': {
 		        pushstr(L, "%", 1);
 		        break;

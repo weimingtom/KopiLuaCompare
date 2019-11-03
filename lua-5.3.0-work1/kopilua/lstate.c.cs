@@ -227,7 +227,7 @@ namespace KopiLua
 		private static void close_state (lua_State L) {
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
-		  luaC_freeallobjects(L);  /* collect all objects */	  
+		  luaC_freeallobjects(L);  /* collect all objects */
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);

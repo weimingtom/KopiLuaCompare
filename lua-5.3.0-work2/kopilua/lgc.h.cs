@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.h,v 2.58 2012/09/11 12:53:08 roberto Exp $
+** $Id: lgc.h,v 2.82 2014/03/19 18:51:16 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -37,35 +37,27 @@ namespace KopiLua
 		*/
 		public const int GCSpropagate = 0;
 		public const int GCSatomic = 1;
-		public const int GCSsweepstring = 2;
-		public const int GCSsweepudata = 3;
-		public const int GCSsweep = 4;
-		public const int GCSpause = 5;
+		public const int GCSswpallgc = 2;
+		public const int GCSswpfinobj = 3;
+		public const int GCSswptobefnz = 4;
+		public const int GCSswpend = 5;
+		public const int GCScallfin = 6;
+		public const int GCSpause = 7;
 
 
 		public static bool issweepphase(global_State g)  { return
-			(GCSsweepstring <= g.gcstate && g.gcstate <= GCSsweep); }
+			(GCSswpallgc <= g.gcstate && g.gcstate <= GCSswpend); }
 
-		public static bool isgenerational(global_State g) { return (g.gckind == KGC_GEN); }
 
 		/*
-		** macros to tell when main invariant (white objects cannot point to black
-		** ones) must be kept. During a non-generational collection, the sweep
+		** macro to tell when main invariant (white objects cannot point to black
+		** ones) must be kept. During a collection, the sweep
 		** phase may break the invariant, as objects turned white may point to
 		** still-black objects. The invariant is restored when sweep ends and
-		** all objects are white again. During a generational collection, the
-		** invariant must be kept all times.
+		** all objects are white again.
 		*/
 		
-		public static bool keepinvariant(global_State g)	{ return (isgenerational(g) || g.gcstate <= GCSatomic); }
-
-		/*
-		** Outside the collector, the state in generational mode is kept in
-		** 'propagate', so 'keepinvariant' is always true.
-		*/
-		public static bool keepinvariantout(global_State g)  {
-			return (bool)check_exp(g.gcstate == GCSpropagate || !isgenerational(g),
-			        g.gcstate <= GCSatomic); }
+		public static bool keepinvariant(global_State g)	{ return (g.gcstate <= GCSatomic); }
 			
 		/*
 		** some useful bit tricks
@@ -84,10 +76,7 @@ namespace KopiLua
 		public const int WHITE0BIT		= 0;  /* object is white (type 0) */
 		public const int WHITE1BIT		= 1;  /* object is white (type 1) */
 		public const int BLACKBIT		= 2;  /* object is black */
-		public const int FINALIZEDBIT	= 3;  /* object has been separated for finalization */
-		public const int SEPARATED		= 4;  /* object is in 'finobj' list or in 'tobefnz' */
-		public const int FIXEDBIT		= 5;  /* object is fixed (should not be collected) */
-		public const int OLDBIT		= 6;  /* object is old (only in generational mode) */
+		public const int FINALIZEDBIT	= 3;  /* object has been marked for finalization */
 		/* bit 7 is currently used by tests (luaL_checkmemory) */
 
 		public readonly static int WHITEBITS		= bit2mask(WHITE0BIT, WHITE1BIT);
@@ -98,11 +87,7 @@ namespace KopiLua
 		public static bool isgray(GCObject x)   /* neither white nor black */
 			{ return (!testbits(x.gch.marked, WHITEBITS | bitmask(BLACKBIT))); }
 
-		public static bool isold(GCObject x) { return testbit(x.gch.marked, OLDBIT); }
-
-		/* MOVE OLD rule: whenever an object is moved to the beginning of
-		   a GC list, its old bit must be cleared */
-		public static int resetoldbit(GCObject o) { return resetbit(ref o.gch.marked, OLDBIT); }
+		public static bool tofinalize(GCObject x) { return testbit(x.gch.marked, FINALIZEDBIT); }
 
 		public static int otherwhite(global_State g) { return g.currentwhite ^ WHITEBITS; }
 		public static bool isdeadm(int ow, int m) { return (((m ^ WHITEBITS) & ow)==0); }
@@ -110,8 +95,6 @@ namespace KopiLua
 
 		public static void changewhite(GCObject x) { x.gch.marked ^= (byte)WHITEBITS; }
 		public static void gray2black(GCObject x) { l_setbit(ref x.gch.marked, BLACKBIT); }
-
-		public static bool valiswhite(TValue x) { return (iscollectable(x) && iswhite(gcvalue(x))); }
 
 		public static byte luaC_white(global_State g) { return (byte)(g.currentwhite & WHITEBITS); }
 
@@ -121,21 +104,22 @@ namespace KopiLua
 		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, delegate() {luaC_step(L);}); } //FIXME: macro in {}
 
 
-		public static void luaC_barrier(lua_State L, object p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
+		public static void luaC_barrier(lua_State L, object p, TValue v) { 
+			if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v)))
 			luaC_barrier_(L,obj2gco(p),gcvalue(v)); }
 
-		public static void luaC_barrierback(lua_State L, GCObject p, TValue v) { if (valiswhite(v) && isblack(obj2gco(p)))
-		    luaC_barrierback_(L,p); }
+		public static void luaC_barrierback(lua_State L, GCObject p, TValue v) { 
+			if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v)))
+		    luaC_barrierback_(L,obj2gco(p)); }
 
-		public static void luaC_objbarrier(lua_State L, object p, object o)
-			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p)))
+		public static void luaC_objbarrier(lua_State L, object p, object o) { 
+			if (isblack(obj2gco(p)) && iswhite(obj2gco(o)))
 				luaC_barrier_(L,obj2gco(p),obj2gco(o)); }
 
-		public static void luaC_objbarrierback(lua_State L, GCObject p, object o)
-			{ if (iswhite(obj2gco(o)) && isblack(obj2gco(p))) luaC_barrierback_(L,p); }
+		public static void luaC_upvalbarrier(lua_State L, GCObject uv { 
+			if (iscollectable(uv.v) && !upisopen(uv)) 
+				luaC_upvalbarrier_(L,uv); }
 			
-		public static void luaC_barrierproto(lua_State L, Proto p, Closure c)
-   			{ if (isblack(obj2gco(p))) luaC_barrierproto_(L,p,c); }
 	
 	}
 }

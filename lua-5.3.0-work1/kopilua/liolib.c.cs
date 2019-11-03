@@ -39,7 +39,7 @@ namespace KopiLua
 		** Change this macro to accept other modes for 'fopen' besides
 		** the standard ones.
 		*/
-		public static bool lua_checkmode(CharPtr mode) {
+		private static bool lua_checkmode(CharPtr mode) {
 			if (!(mode[0] != '\0')) return false;
 			if (!(strchr("rwa", mode[0]) != null)) { mode.inc(); return false;}
 			mode.inc();

@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.292 2013/07/05 14:29:51 roberto Exp $
+** $Id: lua.h,v 1.302 2014/03/20 19:42:35 roberto Exp $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -22,11 +22,11 @@ namespace KopiLua
 		public const string LUA_VERSION_MAJOR = "5";
 		public const string LUA_VERSION_MINOR = "3";
         public const int LUA_VERSION_NUM = 503;
-		public const string LUA_VERSION_RELEASE = "0 (work1)";
+		public const string LUA_VERSION_RELEASE = "0 (work2)";
 
 		public const string LUA_VERSION = "Lua " + LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR;
 		public const string LUA_RELEASE	= LUA_VERSION + "." + LUA_VERSION_RELEASE;
-		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2013 Lua.org, PUC-Rio";
+		public const string LUA_COPYRIGHT = LUA_RELEASE + "  Copyright (C) 1994-2014 Lua.org, PUC-Rio";
 		public const string LUA_AUTHORS = "R. Ierusalimschy, L. H. de Figueiredo, W. Celes";
 
 
@@ -163,14 +163,20 @@ namespace KopiLua
 		** Comparison and arithmetic functions
 		*/
 
-		public const int LUA_OPADD = 0;	/* ORDER TM */
+		public const int LUA_OPADD = 0;	/* ORDER TM, ORDER OP */
 		public const int LUA_OPSUB = 1;
 		public const int LUA_OPMUL = 2;
-		public const int LUA_OPDIV = 3;
-		public const int LUA_OPIDIV = 4;
-		public const int LUA_OPMOD = 5;
-		public const int LUA_OPPOW = 6;
-		public const int LUA_OPUNM = 7;
+		public const int LUA_OPMOD = 3;
+		public const int LUA_OPPOW = 4;
+		public const int LUA_OPDIV = 5;
+		public const int LUA_OPIDIV = 6;
+		public const int LUA_OPBAND = 7;
+		public const int LUA_OPBOR = 8;
+		public const int LUA_OPBXOR = 9;
+		public const int LUA_OPSHL = 10;
+		public const int LUA_OPSHR = 11;
+		public const int LUA_OPUNM = 12;
+		public const int LUA_OPBNOT = 13;
 
 
 		public const int LUA_OPEQ = 0;
@@ -222,10 +228,7 @@ namespace KopiLua
 		public const int LUA_GCSTEP			= 5;
 		public const int LUA_GCSETPAUSE		= 6;
 		public const int LUA_GCSETSTEPMUL	= 7;
-		public const int LUA_GCSETMAJORINC	= 8;
 		public const int LUA_GCISRUNNING	= 9;
-		public const int LUA_GCGEN		    = 10;
-		public const int LUA_GCINC          = 11;
 
 
 
@@ -334,7 +337,7 @@ namespace KopiLua
 
 
 		/******************************************************************************
-        * Copyright (C) 1994-2013 Lua.org, PUC-Rio.
+        * Copyright (C) 1994-2014 Lua.org, PUC-Rio.
 		*
 		* Permission is hereby granted, free of charge, to any person obtaining
 		* a copy of this software and associated documentation files (the

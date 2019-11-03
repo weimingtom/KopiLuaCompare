@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.c,v 2.175 2013/06/20 15:02:49 roberto Exp $
+** $Id: lvm.c,v 2.190 2014/03/15 12:29:48 roberto Exp $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -25,7 +25,7 @@ namespace KopiLua
 
 
 		/* limit for table tag-method chains (to avoid loops) */
-		public const int MAXTAGLOOP	= 100;
+		public const int MAXTAGLOOP	= 2000;
 
 
 		/* maximum length of the conversion of a number to a string */
@@ -48,17 +48,9 @@ namespace KopiLua
 		    return 0;
 		  else {
 		  	CharPtr buff = new CharPtr(new char[MAXNUMBER2STR]);
-		    uint len;
-		    if (ttisinteger(obj))
-		      len = (uint)lua_integer2str(buff, ivalue(obj));
-		    else {
-		      len = (uint)lua_number2str(buff, fltvalue(obj));
-		      if (strspn(buff, "-0123456789") == len) {  /* look like an integer? */
-		        buff[len++] = '.';  /* add a '.0' */
-		        buff[len++] = '0';
-		        buff[len] = '\0';
-		      }
-		    }
+	        size_t len = (ttisinteger(obj))
+             ? lua_integer2str(buff, ivalue(obj))
+             : lua_number2str(buff, fltvalue(obj));
 		    setsvalue2s(L, obj, luaS_newlstr(L, buff, len));
 		    return 1;
 		  }
@@ -69,7 +61,7 @@ namespace KopiLua
 		** Check whether a float number is within the range of a lua_Integer.
 		** (The comparisons are tricky because of rounding, which can or
 		** not occur depending on the relative sizes of floats and integers.)
-		** This function is called only when 'n' has an integer value.
+		** This function should be called only when 'n' has an integral value.
 		*/
 		public static int luaV_numtointeger (lua_Number n, ref lua_Integer p) {
 		  if (cast_num(MIN_INTEGER) <= n && n < (MAX_INTEGER + cast_num(1))) {
@@ -117,7 +109,7 @@ namespace KopiLua
 			}
 			t = tm;  /* else repeat with 'tm' */ 
 		  }
-		  luaG_runerror(L, "loop in gettable");
+		  luaG_runerror(L, "gettable chain too long; possible loop");
 		}
 
 		public static bool luaV_settable_sub(lua_State L, Table h, TValue key, ref TValue oldval) //FIXME:added
@@ -145,7 +137,7 @@ namespace KopiLua
 		        /* no metamethod and (now) there is an entry with given key */
 		        setobj2t(L, oldval, val);  /* assign new value to that entry */
 		        invalidateTMcache(h);
-		        luaC_barrierback(L, obj2gco(h), val);
+		        luaC_barrierback(L, h, val);
 		        return;
 		      }
 		      /* else will try the metamethod */
@@ -160,7 +152,7 @@ namespace KopiLua
 		    }
 		    t = tm;  /* else repeat with 'tm' */
 		  }
-		  luaG_runerror(L, "loop in settable");
+		  luaG_runerror(L, "settable chain too long; possible loop");
 		}
 
 
@@ -195,7 +187,7 @@ namespace KopiLua
 		  if (ttisinteger(l) && ttisinteger(r))
 		  	return (ivalue(l) < ivalue(r)) ? 1 : 0;
 		  else if (tonumber(ref l, ref nl)!=0 && tonumber(ref r, ref nr)!=0)
-		  	return luai_numlt(L, nl, nr) ? 1 : 0;
+		  	return luai_numlt(nl, nr) ? 1 : 0;
 		  else if (ttisstring(l) && ttisstring(r))
 		  	return (l_strcmp(rawtsvalue(l), rawtsvalue(r)) < 0) ? 1 : 0;
 		  else if ((res = luaT_callorderTM(L, l, r, TMS.TM_LT)) < 0)
@@ -210,7 +202,7 @@ namespace KopiLua
 		  if (ttisinteger(l) && ttisinteger(r))
 		    return (ivalue(l) <= ivalue(r)) ? 1 : 0;
 		  else if (tonumber(ref l, ref nl)!=0 && tonumber(ref r, ref nr)!=0)
-		    return luai_numle(L, nl, nr) ? 1 : 0;
+		    return luai_numle(nl, nr) ? 1 : 0;
 		  else if (ttisstring(l) && ttisstring(r))
 		  	return (l_strcmp(rawtsvalue(l), rawtsvalue(r)) <= 0) ? 1 : 0;
 		  else if ((res = luaT_callorderTM(L, l, r, TMS.TM_LE)) >= 0)  /* first try `le' */
@@ -335,8 +327,7 @@ namespace KopiLua
 		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
 		    if (y == 0)
 		      luaG_runerror(L, "attempt to divide by zero");
-		    else  /* -1 */
-		      return -x;   /* avoid overflow with 0x80000... */
+		    return intop(-, 0, x);   /* y==-1; avoid overflow with 0x80000...//-1 */
 		  }
 		  else {
 		    lua_Integer d = x / y;  /* perform division */
@@ -353,8 +344,7 @@ namespace KopiLua
 		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
 		    if (y == 0)
 		      luaG_runerror(L, "attempt to perform 'n%%0'");
-		    else  /* -1 */
-		      return 0;   /* avoid overflow with 0x80000... */
+		    return 0;   /* y==-1; avoid overflow with 0x80000...%-1 */
 		  }
 		  else {
 		    lua_Integer r = x % y;
@@ -367,16 +357,36 @@ namespace KopiLua
 		}
 
 
-		public static lua_Integer luaV_pow (lua_Integer x, lua_Integer y) {
-		  lua_Integer r = 1;
-		  lua_assert(y >= 0);
-		  if (y == 0) return r;
-		  for (; y > 1; y >>= 1) {
-		  	if ((y & 1)!=0) r = intop_mul(r, x);
-		    x = intop_mul(x, x);
+		public static lua_Integer luaV_pow (lua_State *L, lua_Integer x, lua_Integer y) {
+		  if (y <= 0) {  /* special cases: 0 or negative exponent */
+		    if (y < 0)
+		      luaG_runerror(L, "integer exponentiation with negative exponent");
+		    return 1;  /* x^0 == 1 */
 		  }
-		  r = intop_mul(r, x);
-		  return r;
+		  else {
+		    lua_Integer r = 1;
+		    for (; y > 1; y >>= 1) {
+		      if (y & 1) r = intop(*, r, x);
+		      x = intop(*, x, x);
+		    }
+		    r = intop(*, r, x);
+		    return r;
+		  }
+		}
+
+
+		/* number of bits in an integer */
+		#define NBITS	cast_int(sizeof(lua_Integer) * CHAR_BIT)
+
+		public static lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y) {
+		  if (y < 0) {  /* shift right? */
+		    if (y <= -NBITS) return 0;
+		    else return cast_integer(cast_unsigned(x) >> (-y));
+		  }
+		  else {  /* shift left */
+		    if (y >= NBITS) return 0;
+		    else return x << y;
+		  }
 		}
 
 
@@ -403,9 +413,9 @@ namespace KopiLua
 
 		/*
 		** create a new Lua closure, push it in the stack, and initialize
-		** its upvalues. Note that the call to 'luaC_barrierproto' must come
-		** before the assignment to 'p->cache', as the function needs the
-		** original value of that field.
+		** its upvalues. Note that the closure is not cached if prototype is
+		** already black (which means that 'cache' was already cleared by the
+		** GC).
 		*/
 		private static void pushclosure (lua_State L, Proto p, UpVal[] encup, StkId base_,
 		                         StkId ra) {
@@ -420,9 +430,11 @@ namespace KopiLua
 		      ncl.l.upvals[i] = luaF_findupval(L, base_ + uv[i].idx);
 		    else  /* get upvalue from enclosing function */
 		      ncl.l.upvals[i] = encup[uv[i].idx];
+		    ncl->l.upvals[i]->refcount++;
+		    /* new closure is white, so we do not need a barrier here */			  
 		  }
-		  luaC_barrierproto(L, p, ncl);
-		  p.cache = ncl;  /* save it on cache for reuse */
+		  if (!isblack(obj2gco(p)))  /* cache will not break GC invariant? */
+		    p->cache = ncl;  /* save it on cache for reuse */
 		}
 
 
@@ -436,7 +448,9 @@ namespace KopiLua
 		  OpCode op = GET_OPCODE(inst);
 		  switch (op) {  /* finish its execution */
 		    case OpCode.OP_ADD: case OpCode.OP_SUB: case OpCode.OP_MUL: case OpCode.OP_DIV: case OpCode.OP_IDIV:
-		    case OpCode.OP_MOD: case OpCode.OP_POW: case OpCode.OP_UNM: case OpCode.OP_LEN:
+		    case OpCode.OP_BAND: case OpCode.OP_BOR: case OpCode.OP_BXOR: case OpCode.OP_SHL: case OpCode.OP_SHR:
+		    case OpCode.OP_MOD: case OpCode.OP_POW:
+		    case OpCode.OP_UNM: case OpCode.OP_BNOT: case OpCode.OP_LEN:
 		    case OpCode.OP_GETTABUP: case OpCode.OP_GETTABLE: case OpCode.OP_SELF: {
 		  	  lua_TValue.dec(ref L.top);//--L.top
 		      setobjs2s(L, base_ + GETARG_A(inst), L.top);
@@ -712,7 +726,7 @@ namespace KopiLua
 			  case OpCode.OP_SETUPVAL: {
 				UpVal uv = cl.upvals[GETARG_B(i)];
 				setobj(L, uv.v, ra);
-				luaC_barrier(L, uv, ra);
+				luaC_upvalbarrier(L, uv, ra);
 				break;
 			  }
 			  case OpCode.OP_SETTABLE: {
@@ -836,6 +850,51 @@ namespace KopiLua
 		        }
 			  	break;
 			  }
+		      vmcase(OP_BAND,
+		        TValue *rb = RKB(i);
+		        TValue *rc = RKC(i);
+		        lua_Integer ib; lua_Integer ic;
+		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		          setivalue(ra, intop(&, ib, ic));
+		        }
+		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BAND)); }
+		      )
+		      vmcase(OP_BOR,
+		        TValue *rb = RKB(i);
+		        TValue *rc = RKC(i);
+		        lua_Integer ib; lua_Integer ic;
+		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		          setivalue(ra, intop(|, ib, ic));
+		        }
+		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BOR)); }
+		      )
+		      vmcase(OP_BXOR,
+		        TValue *rb = RKB(i);
+		        TValue *rc = RKC(i);
+		        lua_Integer ib; lua_Integer ic;
+		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		          setivalue(ra, intop(^, ib, ic));
+		        }
+		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BXOR)); }
+		      )
+		      vmcase(OP_SHL,
+		        TValue *rb = RKB(i);
+		        TValue *rc = RKC(i);
+		        lua_Integer ib; lua_Integer ic;
+		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		          setivalue(ra, luaV_shiftl(ib, ic));
+		        }
+		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SHL)); }
+		      )
+		      vmcase(OP_SHR,
+		        TValue *rb = RKB(i);
+		        TValue *rc = RKC(i);
+		        lua_Integer ib; lua_Integer ic;
+		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		          setivalue(ra, luaV_shiftl(ib, -ic));
+		        }
+		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SHR)); }
+		      )			  
 			  case OpCode.OP_MOD: {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
@@ -859,11 +918,9 @@ namespace KopiLua
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
 		        lua_Number nb = 0; lua_Number nc = 0;
-		        lua_Integer ic;
-		        if (ttisinteger(rb) && ttisinteger(rc) &&
-		            (ic = ivalue(rc)) >= 0) {
-		          lua_Integer ib = ivalue(rb);
-		          setivalue(ra, luaV_pow(ib, ic));
+		        if (ttisinteger(rb) && ttisinteger(rc)) {
+		          lua_Integer ib = ivalue(rb); lua_Integer ic = ivalue(rc);
+		          setivalue(ra, luaV_pow(L, ib, ic));
 		        }
 		        else if (tonumber(ref rb, ref nb)!=0 && tonumber(ref rc, ref nc)!=0) {
 		          setnvalue(ra, luai_numpow(L, nb, nc));
@@ -881,7 +938,7 @@ namespace KopiLua
 		        lua_Number nb = 0;
 		        if (ttisinteger(rb)) {
 		          lua_Integer ib = ivalue(rb);
-		          setivalue(ra, -ib);
+		          setivalue(ra, intop(-, 0, ib));
 		        }
 		        else if (tonumber(ref rb, ref nb)!=0) {
 		          setnvalue(ra, luai_numunm(L, nb));
@@ -894,6 +951,16 @@ namespace KopiLua
 		        }
 				break;
 			  }
+		      vmcase(OP_BNOT,
+		        TValue *rb = RB(i);
+		        lua_Integer ib;
+		        if (tointeger(rb, &ib)) {
+		          setivalue(ra, intop(^, cast_integer(-1), ib));
+		        }
+		        else {
+		          Protect(luaT_trybinTM(L, rb, rb, ra, TM_BNOT));
+		        }
+		      )			  
 			  case OpCode.OP_NOT: {
                 TValue rb = RB(L, base_, i);
 				int res = l_isfalse(rb) == 0 ? 0 : 1;  /* next assignment may change this value */
@@ -1046,7 +1113,7 @@ namespace KopiLua
 				//FIXME: no break;
 			  }
 			  case OpCode.OP_FORLOOP: {
-				if (ttisinteger(ra)) {  /* integer count? */
+				if (ttisinteger(ra)) {  /* integer loop? */
 		          lua_Integer step = ivalue(ra + 2);
 		          lua_Integer idx = ivalue(ra) + step; /* increment index */
 		          lua_Integer limit = ivalue(ra + 1);
@@ -1056,12 +1123,12 @@ namespace KopiLua
 		            setivalue(ra + 3, idx);  /* ...and external index */
 		          }
 		        }
-		        else {  /* floating count */
+		        else {  /* floating loop */
 		          lua_Number step = fltvalue(ra + 2);
 		          lua_Number idx = luai_numadd(L, fltvalue(ra), step); /* inc. index */
 		          lua_Number limit = fltvalue(ra + 1);
-		          if (luai_numlt(L, 0, step) ? luai_numle(L, idx, limit)
-		                                     : luai_numle(L, limit, idx)) {
+		          if (luai_numlt(0, step) ? luai_numle(idx, limit)
+		                                  : luai_numle(limit, idx)) {
 		          	InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));  /* jump back */
 		            setnvalue(ra, idx);  /* update internal index... */
 		            setnvalue(ra + 3, idx);  /* ...and external index */
@@ -1073,10 +1140,11 @@ namespace KopiLua
 				TValue init = ra;
 		        TValue plimit = ra + 1;
 		        TValue pstep = ra + 2;
-		        if (ttisinteger(ra) && ttisinteger(ra + 1) && ttisinteger(ra + 2)) {
-		          setivalue(ra, ivalue(ra) - ivalue(pstep));
+		        if (ttisinteger(init) && ttisinteger(plimit) && ttisinteger(pstep)) {
+		          /* all values are integer */
+		          setivalue(init, ivalue(init) - ivalue(pstep));
 		        }
-		        else {  /* try with floats */
+		        else {  /* try making all values floats */
 		          lua_Number ninit = 0; lua_Number nlimit = 0; lua_Number nstep = 0;
 		          if (0==tonumber(ref plimit, ref nlimit))
 		            luaG_runerror(L, LUA_QL("for") + " limit must be a number");
@@ -1086,7 +1154,7 @@ namespace KopiLua
 		          setnvalue(pstep, nstep);
 		          if (0==tonumber(ref init, ref ninit))
 		            luaG_runerror(L, LUA_QL("for") + " initial value must be a number");
-		          setnvalue(ra, luai_numsub(L, ninit, nstep));
+		          setnvalue(init, luai_numsub(L, ninit, nstep));
 		        }
 		        InstructionPtr.inc(ref ci.u.l.savedpc, GETARG_sBx(i));
 				break;
@@ -1134,7 +1202,7 @@ namespace KopiLua
 				for (; n > 0; n--) {
 				  TValue val = ra+n;
 				  luaH_setint(L, h, last--, val);
-				  luaC_barrierback(L, obj2gco(h), val);
+				  luaC_barrierback(L, h, val);
 				}
                 L.top = ci.top;  /* correct top (in case of previous open call) */
 				break;

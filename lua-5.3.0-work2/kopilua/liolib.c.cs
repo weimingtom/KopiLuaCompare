@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.114 2013/06/07 19:01:35 roberto Exp $
+** $Id: liolib.c,v 2.120 2014/03/19 18:57:42 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -32,14 +32,14 @@ namespace KopiLua
 		//#endif
 
 
-		//#if !defined(lua_checkmode)
+		//#if !defined(l_checkmode)
 
 		/*
 		** Check whether 'mode' matches '[rwa]%+?b?'.
 		** Change this macro to accept other modes for 'fopen' besides
 		** the standard ones.
 		*/
-		public static bool lua_checkmode(CharPtr mode) {
+		private static bool l_checkmode(CharPtr mode) {
 			if (!(mode[0] != '\0')) return false;
 			if (!(strchr("rwa", mode[0]) != null)) { mode.inc(); return false;}
 			mode.inc();
@@ -58,40 +58,57 @@ namespace KopiLua
 		** one through the file streams.
 		** =======================================================
 		*/
-		//#if !defined(lua_popen)	/* { */
+		//#if !defined(l_popen)	/* { */
 
-		//#if defined(LUA_USE_POPEN)	/* { */
+		//#if defined(LUA_USE_POSIX)	/* { */
 
-		//#define lua_popen(L,c,m)        ((void)L, fflush(NULL), popen(c,m))
-		//#define lua_pclose(L,file)      ((void)L, pclose(file))
+		//#define l_popen(L,c,m)        (fflush(NULL), popen(c,m))
+		//#define l_pclose(L,file)      (pclose(file))
 
 		//#elif defined(LUA_WIN)		/* }{ */
 
-		private static StreamProxy lua_popen(lua_State L, CharPtr c, CharPtr m)  { /*(void)L,*/ return _popen(c,m); }
-		private static int lua_pclose(lua_State L, StreamProxy file)  { /*(void)L,*/ return _pclose(file); }
-
+		private static StreamProxy l_popen(lua_State L, CharPtr c, CharPtr m)  { return _popen(c,m); }
+		private static int l_pclose(lua_State L, StreamProxy file)  { return _pclose(file); }
 
 		//#else				/* }{ */
 
-		//#define lua_popen(L,c,m)        ((void)((void)c, m),  \
-		//                luaL_error(L, LUA_QL("popen") " not supported"), (FILE*)0)
-		//#define lua_pclose(L,file)              ((void)((void)L, file), -1)
-
+		/* ANSI definitions */
+		//#define l_popen(L,c,m)  \
+		//	  ((void)((void)c, m), \
+		//	  luaL_error(L, LUA_QL("popen") " not supported"), \
+		//	  (FILE*)0)
+		//#define l_pclose(L,file)		((void)L, (void)file, -1)
 
 		//#endif				/* } */
 
-		//#endif			/* } */
+		//#endif				/* } */
 
 		/* }====================================================== */
 
 
+		//#if !defined(l_getc)		/* { */
+
+		//#if defined(LUA_USE_POSIX)
+		//#define l_getc(f)		getc_unlocked(f)
+		//#define l_lockfile(f)		flockfile(f)
+		//#define l_unlockfile(f)		funlockfile(f)
+		//#else
+		private static void l_getc(StreamProxy f)		{ return getc(f); }
+		private static void l_lockfile(StreamProxy f)		{ /*((void)0);*/ }
+		private static void l_unlockfile(StreamProxy f)		{ /*((void)0);*/ }
+		//#endif
+
+		//#endif				/* } */
+
+
+
 		/*
 		** {======================================================
-		** lua_fseek: configuration for longer offsets
+		** l_fseek: configuration for longer offsets
 		** =======================================================
 		*/
 
-		//#if !defined(lua_fseek)	&& !defined(LUA_ANSI)	/* { */
+		//#if !defined(l_fseek)		/* { */
 
 		//#if defined(LUA_USE_POSIX)	/* { */
 
@@ -101,22 +118,22 @@ namespace KopiLua
 
 		//#elif defined(LUA_WIN) && !defined(_CRTIMP_TYPEINFO) \
 		//   && defined(_MSC_VER) && (_MSC_VER >= 1400)	/* }{ */
-		/* Windows (but not DDK) and Visual C++ 2005 or higher */
 
+		/* Windows (but not DDK) and Visual C++ 2005 or higher */
 		//#define l_fseek(f,o,w)		_fseeki64(f,o,w)
 		//#define l_ftell(f)		_ftelli64(f)
 		//#define l_seeknum		__int64
 
-		//#endif	/* } */
+		//#else				/* }{ */
 
-		//#endif			/* } */
-
-
-		//#if !defined(l_fseek)		/* default definitions */
+		/* ANSI definitions */
 		private static int l_fseek(StreamProxy f, long o, int w) { return fseek(f,o,w);}
 		private static int l_ftell(StreamProxy f) { return ftell(f);}
 		//#define l_seeknum		long
-		//#endif			/* } */
+
+		//#endif				/* } */
+
+		//#endif				/* } */
 
 		/* }====================================================== */
 
@@ -235,7 +252,7 @@ namespace KopiLua
 		  CharPtr mode = luaL_optstring(L, 2, "r");
 		  LStream p = newfile(L);
 		  CharPtr md = mode;  /* to traverse/check mode */
-		  luaL_argcheck(L, lua_checkmode(md), 2, "invalid mode");
+		  luaL_argcheck(L, l_checkmode(md), 2, "invalid mode");
 		  p.f = fopen(filename, mode);
 		  return (p.f == null) ? luaL_fileresult(L, 0, filename) : 1;
 		}
@@ -246,7 +263,7 @@ namespace KopiLua
 		*/
 		private static int io_pclose (lua_State L) {
 		  LStream p = tolstream(L);
-		  return luaL_execresult(L, lua_pclose(L, p.f));
+		  return luaL_execresult(L, l_pclose(L, p.f));
 		}
 
 
@@ -254,7 +271,7 @@ namespace KopiLua
 		  CharPtr filename = luaL_checkstring(L, 1);
 		  CharPtr mode = luaL_optstring(L, 2, "r");
 		  LStream p = newprefile(L);
-		  p.f = lua_popen(L, filename, mode);
+		  p.f = l_popen(L, filename, mode);
           p.closef = io_pclose;
 		  return (p.f == null) ? luaL_fileresult(L, 0, filename) : 1;
 		}
@@ -383,7 +400,7 @@ namespace KopiLua
 
 		private static int test_eof (lua_State L, StreamProxy f) {
 		  int c = getc(f);
-		  ungetc(c, f);
+		  ungetc(c, f);  /* no-op when c == EOF */
 		  lua_pushlstring(L, null, 0);
 		  return (c != EOF) ? 1 : 0;
 		}
@@ -391,40 +408,27 @@ namespace KopiLua
 
 		private static int read_line (lua_State L, StreamProxy f, int chop) {
 		  luaL_Buffer b = new luaL_Buffer();
-		  luaL_buffinit(L, b);
-		  for (;;) {
-			uint l;
-			CharPtr p = luaL_prepbuffer(b);
-			if (fgets(p, f) == null) {  /* eof? */
-			  luaL_pushresult(b);  /* close buffer */
-				return (lua_rawlen(L, -1) > 0) ? 1 : 0;  /* check whether read something */
-			}
-			l = (uint)strlen(p);
-			if (l == 0 || p[l-1] != '\n')
-			  luaL_addsize(b, (uint)(int)l); //FIXME:added, (uint)
-			else {
-			  luaL_addsize(b, (uint)(l - chop));  /* chop 'eol' if needed */ //FIXME:added, (uint)
-			  luaL_pushresult(b);  /* close buffer */
-			  return 1;  /* read at least an `eol' */
-			}
-		  }
+		  int c;
+		  luaL_buffinit(L, &b);
+		  l_lockfile(f);
+		  while ((c = l_getc(f)) != EOF && c != '\n')
+		    luaL_addchar(&b, c);
+		  l_unlockfile(f);
+		  if (!chop && c == '\n') luaL_addchar(&b, c);
+		  luaL_pushresult(&b);  /* close buffer */
+		  return (c == '\n' || lua_rawlen(L, -1) > 0);
 		}
 
 
-		private const int MAX_SIZE_T = MAX_INT;//(~(size_t)0); //FIXME:changed;
-
 		private static void read_all (lua_State L, StreamProxy f) {
-		  uint rlen = LUAL_BUFFERSIZE;  /* how much to read in each cycle */
-		  luaL_Buffer b = new luaL_Buffer();
-		  luaL_buffinit(L, b);
-		  for (;;) {
-		    CharPtr p = luaL_prepbuffsize(b, rlen);
-		    uint nr = (uint)fread(p, 1/*sizeof(char)*/, (int)rlen, f); //FIXME:changed
-		    luaL_addsize(b, nr);
-		    if (nr < rlen) break;  /* eof? */
-		    else if (rlen <= (MAX_SIZE_T / 4))  /* avoid buffers too large */
-		      rlen *= 2;  /* double buffer size at each iteration */
-		  }
+		  uint nr;
+		  luaL_Buffer b;
+		  luaL_buffinit(L, &b);
+		  do {  /* read file in chunks of LUAL_BUFFERSIZE bytes */
+		    char *p = luaL_prepbuffsize(&b, LUAL_BUFFERSIZE);
+		    nr = fread(p, sizeof(char), LUAL_BUFFERSIZE, f);
+		    luaL_addsize(&b, nr);
+		  } while (nr == LUAL_BUFFERSIZE);
 		  luaL_pushresult(b);  /* close buffer */
 		}
 
@@ -574,15 +578,15 @@ namespace KopiLua
 		private static int f_seek (lua_State L) {
 		  StreamProxy f = tofile(L);
 		  int op = luaL_checkoption(L, 2, "cur", f_seek_modenames);
-		  lua_Number p3 = luaL_optnumber(L, 3, 0);
+		  lua_Integer p3 = luaL_optinteger(L, 3, 0);
 		  l_seeknum offset = (l_seeknum)p3;
-		  luaL_argcheck(L, (lua_Number)offset == p3, 3,
+		  luaL_argcheck(L, (lua_Integer)offset == p3, 3,
 		                  "not an integer in proper range");
 		  op = l_fseek(f, offset, f_seek_mode[op]);
 		  if (op != 0)
 			return luaL_fileresult(L, 0, null);  /* error */
 		  else {
-			lua_pushnumber(L, (lua_Number)l_ftell(f));
+			lua_pushinteger(L, (lua_Integer)l_ftell(f));
 			return 1;
 		  }
 		}

@@ -1,5 +1,5 @@
 /*
-** $Id: loslib.c,v 1.41 2013/05/14 15:57:11 roberto Exp $
+** $Id: loslib.c,v 1.45 2014/03/20 19:18:54 roberto Exp $
 ** Standard Operating System library
 ** See Copyright Notice in lua.h
 */
@@ -21,29 +21,43 @@ namespace KopiLua
 	public partial class Lua
 	{
 
+		//#if !defined(LUA_STRFTIMEOPTIONS)	/* { */
 		/*
 		** list of valid conversion specifiers for the 'strftime' function
 		*/
-		//#if !defined(LUA_STRFTIMEOPTIONS)
 
 		//#if !defined(LUA_USE_POSIX)
 		private static CharPtr[] LUA_STRFTIMEOPTIONS = new CharPtr[] { "aAbBcdHIjmMpSUwWxXyYz%", "" };
 		//#else
 		//#define LUA_STRFTIMEOPTIONS \
-		//	{ "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "" \
-		//	  "", "E", "cCxXyY",  \
+		//{ "aAbBcCdDeFgGhHIjmMnprRStTuUVwWxXyYzZ%", "", \
+		//  "E", "cCxXyY",  \
 		//	  "O", "deHImMSuUVwWy" }
 		//#endif
 
-		//#endif
+		//#endif					/* } */
+
+
+		//#if !defined(l_time_t)		/* { */
+		/*
+		** type to represent time_t in Lua
+		*/
+		//#define l_timet			lua_Integer
+		//#define l_pushtime(L,t)		lua_pushinteger(L,(lua_Integer)(t))
+		//#define l_checktime(L,a)	((time_t)luaL_checkinteger(L,a))
+
+		//#endif				/* } */
 
 
 
+		//#if !defined(lua_tmpnam)	/* { */
 		/*
 		** By default, Lua uses tmpnam except when POSIX is available, where it
 		** uses mkstemp.
 		*/
-		//#if defined(LUA_USE_MKSTEMP)
+		
+		//#if defined(LUA_USE_POSIX)	/* { */
+		
 		//#include <unistd.h>
 		//#define LUA_TMPNAMBUFSIZE       32
 		//#define lua_tmpnam(b,e) { \
@@ -52,29 +66,36 @@ namespace KopiLua
 		//        if (e != -1) close(e); \
 		//        e = (e == -1); }
 
-		//#elif !defined(lua_tmpnam)
+		//#else				/* }{ */
 
+		/* ANSI definitions */
 		public const int LUA_TMPNAMBUFSIZE = L_tmpnam;
 		public static void lua_tmpnam(CharPtr b, out int e)		{ e = (tmpnam(b) == null)?1:0; }
 
-		//#endif
+		//#endif				/* } */
 
 
+		
+
+		//#if !defined(l_gmtime)		/* { */
 		/*
 		** By default, Lua uses gmtime/localtime, except when POSIX is available,
 		** where it uses gmtime_r/localtime_r
 		*/
-		//#if defined(LUA_USE_GMTIME_R)
+		
+		//#if defined(LUA_USE_POSIX)	/* { */
 
 		//#define l_gmtime(t,r)		gmtime_r(t,r)
 		//#define l_localtime(t,r)	localtime_r(t,r)
 
-		//#elif !defined(l_gmtime)
+		//#else				/* }{ */
 
 		//#define l_gmtime(t,r)		((void)r, gmtime(t))
 		//#define l_localtime(t,r)  	((void)r, localtime(t))
 
-		//#endif
+		//#endif				/* } */
+
+		//#endif				/* } */
 
 
 
@@ -148,9 +169,8 @@ namespace KopiLua
 
 		private static int getboolfield (lua_State L, CharPtr key) {
 		  int res;
-		  lua_getfield(L, -1, key);
-		  res = lua_isnil(L, -1) ? -1 : lua_toboolean(L, -1);
-		  lua_pop(L, 1);
+		  res = (lua_getfield(L, -1, key) == LUA_TNIL) ? -1 : lua_toboolean(L, -1);
+  		  lua_pop(L, 1);
 		  return res;
 		}
 

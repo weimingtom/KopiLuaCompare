@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.c,v 2.99 2012/10/02 17:40:53 roberto Exp $
+** $Id: lstate.c,v 2.121 2014/02/18 13:46:26 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -27,9 +27,6 @@ namespace KopiLua
 		private const int LUAI_GCPAUSE = 200;  /* 200% */
 		//#endif
 
-		//#if !defined(LUAI_GCMAJOR)
-		private const int LUAI_GCMAJOR = 200;  /* 200% */
-		//#endif
 
 		//#if !defined(LUAI_GCMUL)
 		private const int LUAI_GCMUL = 200; /* GC runs 'twice the speed' of memory allocation */
@@ -125,6 +122,9 @@ namespace KopiLua
 		}
 
 
+		/*
+		** free all CallInfo structures not in use by a thread
+		*/
 		public static void luaE_freeCI (lua_State L) {
 		  CallInfo ci = L.ci;
 		  CallInfo next = ci.next;
@@ -132,6 +132,22 @@ namespace KopiLua
 		  while ((ci = next) != null) {
 		    next = ci.next;
 		    luaM_free(L, ci);
+		  }
+		}
+
+
+		/*
+		** free half of the CallInfo structures not in use by a thread
+		*/
+		public static void luaE_shrinkCI (lua_State *L) {
+		  CallInfo *ci = L->ci;
+		  while (ci->next != NULL) {  /* while there is 'next' */
+		    CallInfo *next2 = ci->next->next;  /* next's next */
+		    if (next2 == NULL) break;
+		    luaM_free(L, ci->next);  /* remove next */
+		    ci->next = next2;  /* remove 'next' from the list */
+		    next2->previous = ci;
+		    ci = next2;
 		  }
 		}
 
@@ -169,22 +185,23 @@ namespace KopiLua
 		** Create registry table and its predefined values
 		*/
 		private static void init_registry (lua_State L, global_State g) {
-		  TValue mt = new TValue();
+		  TValue temp = new TValue();
 		  /* create registry */
 		  Table registry = luaH_new(L);
 		  sethvalue(L, g.l_registry, registry);
 		  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
 		  /* registry[LUA_RIDX_MAINTHREAD] = L */
-		  setthvalue(L, mt, L);
-		  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, mt);
+		  setthvalue(L, temp, L);  /* temp = L */
+		  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, temp);
 		  /* registry[LUA_RIDX_GLOBALS] = table of globals */
-  		  sethvalue(L, mt, luaH_new(L));
-		  luaH_setint(L, registry, LUA_RIDX_GLOBALS, mt);
+  		  sethvalue(L, temp, luaH_new(L));  /* temp = new table (global table) */
+		  luaH_setint(L, registry, LUA_RIDX_GLOBALS, temp);
 		}
 
 
 		/*
-		** open parts of the state that may cause memory-allocation errors
+		** open parts of the state that may cause memory-allocation errors.
+		** ('g->version' != NULL flags that the state was completely build)
 		*/
 		private static void f_luaopen (lua_State L, object ud) {
 		  global_State g = G(L);
@@ -196,20 +213,23 @@ namespace KopiLua
 		  luaX_init(L);
 		  /* pre-create memory-error message */
 		  g.memerrmsg = luaS_newliteral(L, MEMERRMSG);
-		  luaS_fix(g.memerrmsg);  /* it should never be collected */
+		  luaC_fix(L, obj2gco(g.memerrmsg));  /* it should never be collected */
 		  g.gcrunning = 1;  /* allow gc */	  
+		  g.version = lua_version(null);
+		  luai_userstateopen(L);		  
 		}
 
 
 		/*
-		** preinitialize a state with consistent values without allocating
+		** preinitialize a thread with consistent values without allocating
 		** any memory (to avoid errors)
 		*/
-		private static void preinit_state (lua_State L, global_State g) {
+		private static void preinit_thread (lua_State L, global_State g) {
 		  G_set(L, g);
 		  L.stack = null;
           L.ci = null;
 		  L.stacksize = 0;
+		  L.twups = L;  /* thread has no upvalues */
 		  L.errorJmp = null;
           L.nCcalls = 0;
 		  L.hook = null;
@@ -227,7 +247,9 @@ namespace KopiLua
 		private static void close_state (lua_State L) {
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
-		  luaC_freeallobjects(L);  /* collect all objects */	  
+		  luaC_freeallobjects(L);  /* collect all objects */
+		  if (g.version)  /* closing a fully built state? */
+		    luai_userstateclose(L);		  	  
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
 		  freestack(L);
@@ -237,13 +259,20 @@ namespace KopiLua
 
 
 		private static lua_State lua_newthread (lua_State L) {
+		    global_State g = G(L);
 		  lua_State L1;
 		  lua_lock(L);
 		  luaC_checkGC(L);
-		  L1 = luaC_newobj<lua_State>(L, LUA_TTHREAD, (uint)GetUnmanagedSize(typeof(LX)), null, /*offsetof(LX, l)*/0).th; //FIXME:???
+		  /* create new thread */
+		  L1 = &cast(LX *, luaM_newobject(L, LUA_TTHREAD, sizeof(LX)))->l;
+		  L1->marked = luaC_white(g);
+		  L1->tt = LUA_TTHREAD;
+		  /* link it on list 'allgc' */
+		  L1->next = g->allgc;
+		  g->allgc = obj2gco(L1);
 		  setthvalue(L, L.top, L1);
 		  api_incr_top(L);
-		  preinit_state(L1, G(L));
+		  preinit_thread(L1, g);
 		  L1.hookmask = L.hookmask;
 		  L1.basehookcount = L.basehookcount;
 		  L1.hook = L.hook;
@@ -275,38 +304,34 @@ namespace KopiLua
 		  g = l.g;
 		  L.next = null;
 		  L.tt = LUA_TTHREAD;
-		  g.currentwhite = (lu_byte)bit2mask(WHITE0BIT, FIXEDBIT);
+		  g.currentwhite = (lu_byte)bitmask(WHITE0BIT);
 		  L.marked = luaC_white(g);
-		  g.gckind = KGC_NORMAL;
 		  lu_byte marked = L.marked;	// can't pass properties in as ref ???//FIXME:??? //FIXME:added
 		  L.marked = marked; //remove this //FIXME:??? //FIXME:added
-		  preinit_state(L, g);
+		  preinit_thread(L, g);
 		  g.frealloc = f;
 		  g.ud = ud;
 		  g.mainthread = L;
 		  g.seed = makeseed(L);
-		  g.uvhead.u.l.prev = g.uvhead;
-		  g.uvhead.u.l.next = g.uvhead;
 		  g.gcrunning = 0;  /* no GC while building state */
   		  g.GCestimate = 0;
-		  g.strt.size = 0;
-		  g.strt.nuse = 0;
+		  g.strt.size = g.strt.nuse = 0;
 		  g.strt.hash = null;
 		  setnilvalue(g.l_registry);
 		  luaZ_initbuffer(L, g.buff);
 		  g.panic = null;
-          g.version = lua_version(null);
+          g.version = null;
 		  g.gcstate = GCSpause;
-		  g.allgc = null;
-  		  g.finobj = null;
-		  g.tobefnz = null;
-		  g.sweepgc = g.sweepfin = null;
+		  g.gckind = KGC_NORMAL;
+		  g.allgc = g.finobj = g.tobefnz = g.fixedgc = null;
+		  g.sweepgc = null;
 		  g.gray = g.grayagain = null;
 		  g.weak = g.ephemeron = g.allweak = null;
+		  g.twups = NULL;
 		  g.totalbytes = (uint)GetUnmanagedSize(typeof(LG));
           g.GCdebt = 0;
+		  g.gcfinnum = 0;
 		  g.gcpause = LUAI_GCPAUSE;
-          g.gcmajorinc = LUAI_GCMAJOR;
 		  g.gcstepmul = LUAI_GCMUL;
 		  for (i=0; i < LUA_NUMTAGS; i++) g.mt[i] = null;
 		  if (luaD_rawrunprotected(L, f_luaopen, null) != LUA_OK) {
@@ -314,8 +339,6 @@ namespace KopiLua
 			close_state(L);
 			L = null;
 		  }
-		  else
-    	  	luai_userstateopen(L);
 		  return L;
 		}
 
@@ -323,7 +346,6 @@ namespace KopiLua
 		public static void lua_close (lua_State L) {
 		  L = G(L).mainthread;  /* only the main thread can be closed */
 		  lua_lock(L);
-		  luai_userstateclose(L);
 		  close_state(L);
 		}
 

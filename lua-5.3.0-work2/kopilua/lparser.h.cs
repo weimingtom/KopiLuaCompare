@@ -1,5 +1,5 @@
 /*
-** $Id: lparser.h,v 1.71 2013/04/16 18:46:28 roberto Exp $
+** $Id: lparser.h,v 1.72 2013/08/30 16:01:37 roberto Exp $
 ** Lua Parser
 ** See Copyright Notice in lua.h
 */
@@ -160,7 +160,6 @@ namespace KopiLua
 		/* state needed to generate code for a given function */
 		public class FuncState {
 		  public Proto f;  /* current function header */
-		  public Table h;  /* table to find (and reuse) elements in `k' */
 		  public FuncState prev;  /* enclosing function */
 		  public LexState ls;  /* lexical state */
 		  public BlockCnt bl;  /* chain of current blocks */

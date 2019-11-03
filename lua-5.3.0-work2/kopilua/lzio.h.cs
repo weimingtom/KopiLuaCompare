@@ -1,5 +1,5 @@
 /*
-** $Id: lzio.h,v 1.27 2013/06/07 14:51:10 roberto Exp $
+** $Id: lzio.h,v 1.28 2014/01/31 15:14:22 roberto Exp $
 ** Buffered streams
 ** See Copyright Notice in lua.h
 */
@@ -28,6 +28,7 @@ namespace KopiLua
 		public static uint luaZ_sizebuffer(Mbuffer buff) { return buff.buffsize; }
 		public static uint luaZ_bufflen(Mbuffer buff)	{return buff.n;}
 
+		public static void luaZ_buffremove(Mbuffer buff,i)	{ ((buff)->n -= (i)); }
 		public static void luaZ_resetbuffer(Mbuffer buff) {buff.n = 0;}
 
 

@@ -1,5 +1,5 @@
 /*
-** $Id: loadlib.c,v 1.111 2012/05/30 12:33:44 roberto Exp $
+** $Id: loadlib.c,v 1.113 2014/03/12 20:57:40 roberto Exp $
 ** Dynamic library loader for Lua
 ** See Copyright Notice in lua.h
 **
@@ -46,21 +46,21 @@ namespace KopiLua
 
 
 		/*
-		** LUA_PATH and LUA_CPATH are the names of the environment
+		** LUA_PATH_VAR and LUA_CPATH_VAR are the names of the environment
 		** variables that Lua check to set its paths.
 		*/
-		//#if !defined(LUA_PATH)
-		private const string LUA_PATH = "LUA_PATH";
+		//#if !defined(LUA_PATH_VAR)
+		private const string LUA_PATH_VAR = "LUA_PATH";
 		//#endif
 
-		//#if !defined(LUA_CPATH)
-		private const string LUA_CPATH = "LUA_CPATH";
+		//#if !defined(LUA_CPATH_VAR)
+		private const string LUA_CPATH_VAR = "LUA_CPATH";
 		//#endif
 
 		private const string LUA_PATHSUFFIX	 = "_" + LUA_VERSION_MAJOR + "_" + LUA_VERSION_MINOR;
 
-		private const string LUA_PATHVERSION = LUA_PATH + LUA_PATHSUFFIX;
-		private const string LUA_CPATHVERSION = LUA_CPATH + LUA_PATHSUFFIX;
+		private const string LUA_PATHVARVERSION = LUA_PATH_VAR + LUA_PATHSUFFIX;
+		private const string LUA_CPATHVARVERSION = LUA_CPATH_VAR + LUA_PATHSUFFIX;
 
 		/*
 		** LUA_PATH_SEP is the character that separates templates in a path.
@@ -486,8 +486,7 @@ namespace KopiLua
 		private static int searcher_preload (lua_State L) {
 		  CharPtr name = luaL_checkstring(L, 1);
 		  lua_getfield(L, LUA_REGISTRYINDEX, "_PRELOAD");
-		  lua_getfield(L, -1, name);
-		  if (lua_isnil(L, -1))  /* not found? */
+		  if (lua_getfield(L, -1, name) == LUA_TNIL)  /* not found? */
 			lua_pushfstring(L, "\n\tno field package.preload['%s']", name);
 		  return 1;
 		}
@@ -502,8 +501,7 @@ namespace KopiLua
 		    luaL_error(L, LUA_QL("package.searchers") + " must be a table");
 		  /*  iterate over available searchers to find a loader */
 		  for (i = 1; ; i++) {
-		    lua_rawgeti(L, 3, i);  /* get a searcher */
-		    if (lua_isnil(L, -1)) {  /* no more searchers? */
+		    if (lua_rawgeti(L, 3, i) == LUA_TNIL) {  /* no more searchers? */
 		      lua_pop(L, 1);  /* remove nil */
 		      luaL_pushresult(msg);  /* create error message */
 		      luaL_error(L, "module " + LUA_QS + " not found:%s",
@@ -538,8 +536,7 @@ namespace KopiLua
 		  lua_call(L, 2, 1);  /* run loader to load module */
 		  if (!lua_isnil(L, -1))  /* non-nil return? */
 		    lua_setfield(L, 2, name);  /* _LOADED[name] = returned value */
-		  lua_getfield(L, 2, name);
-		  if (lua_isnil(L, -1)) {   /* module did not set a value? */
+		  if (lua_getfield(L, 2, name) == LUA_TNIL) {   /* module set no value? */
 		    lua_pushboolean(L, 1);  /* use true as result */
 		    lua_pushvalue(L, -1);  /* extra copy to be returned */
 		    lua_setfield(L, 2, name);  /* _LOADED[name] = true */
@@ -605,9 +602,8 @@ namespace KopiLua
 		  int lastarg = lua_gettop(L);  /* last parameter */
   		  luaL_pushmodule(L, modname, 1);  /* get/create module table */
 		  /* check whether table already has a _NAME field */
-		  lua_getfield(L, -1, "_NAME");
-		  if (!lua_isnil(L, -1))  /* is table an initialized module? */
-			lua_pop(L, 1);
+		  if (lua_getfield(L, -1, "_NAME") != LUA_TNIL)
+    		lua_pop(L, 1);  /* table is an initialized module */
 		  else {  /* no; initialize it */
 			lua_pop(L, 1);
 			modinit(L, modname);
@@ -721,9 +717,9 @@ namespace KopiLua
 //#endif
 		  lua_setfield(L, -2, "searchers");  /* put it in field 'searchers' */
 		  /* set field 'path' */
-		  setpath(L, "path", LUA_PATHVERSION, LUA_PATH, LUA_PATH_DEFAULT);
+		  setpath(L, "path", LUA_PATHVARVERSION, LUA_PATH_VAR, LUA_PATH_DEFAULT);
 		  /* set field 'cpath' */
-		  setpath(L, "cpath", LUA_CPATHVERSION, LUA_CPATH, LUA_CPATH_DEFAULT);
+		  setpath(L, "cpath", LUA_CPATHVARVERSION, LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
 		  /* store config information */
 		  lua_pushliteral(L, LUA_DIRSEP + "\n" + LUA_PATH_SEP + "\n" + LUA_PATH_MARK + "\n" +
 							 LUA_EXEC_DIR + "\n" + LUA_IGMARK + "\n");

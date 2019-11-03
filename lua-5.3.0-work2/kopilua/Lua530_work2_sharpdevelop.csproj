@@ -114,6 +114,7 @@
     <Compile Include="lualib.h.cs" />
     <Compile Include="lundump.c.cs" />
     <Compile Include="lundump.h.cs" />
+    <Compile Include="lutf8lib.c.cs" />
     <Compile Include="lvm.c.cs" />
     <Compile Include="lvm.h.cs" />
     <Compile Include="lzio.c.cs" />

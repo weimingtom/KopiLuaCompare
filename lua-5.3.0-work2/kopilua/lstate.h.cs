@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.82 2012/07/02 13:37:04 roberto Exp $
+** $Id: lstate.h,v 2.102 2014/02/18 13:46:26 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -18,25 +18,16 @@ namespace KopiLua
 	
 	/*
 
-	** Some notes about garbage-collected objects:  All objects in Lua must
-	** be kept somehow accessible until being freed.
+	** Some notes about garbage-collected objects: All objects in Lua must
+	** be kept somehow accessible until being freed, so all objects always
+	** belong to one (and only one) of these lists, using field 'next' of
+	** the 'CommonHeader' for the link:
 	**
-	** Lua keeps most objects linked in list g->allgc. The link uses field
-	** 'next' of the CommonHeader.
-	**
-	** Strings are kept in several lists headed by the array g->strt.hash.
-	**
-	** Open upvalues are not subject to independent garbage collection. They
-	** are collected together with their respective threads. Lua keeps a
-	** double-linked list with all open upvalues (g->uvhead) so that it can
-	** mark objects referred by them. (They are always gray, so they must
-	** be remarked in the atomic step. Usually their contents would be marked
-	** when traversing the respective threads, but the thread may already be
-	** dead, while the upvalue is still accessible through closures.)
-	**
-	** Objects with finalizers are kept in the list g->finobj.
-	**
-	** The list g->tobefnz links all objects being finalized.
+	** allgc: all objects not marked for finalization;
+	** finobj: all objects marked for finalization;
+	** tobefnz: all objects ready to be finalized; 
+	** fixedgc: all objects that are not to be collected (currently
+	** only small strings, such as reserved words).
 
 	*/
 	public partial class Lua
@@ -53,12 +44,11 @@ namespace KopiLua
 		/* kinds of Garbage Collection */
 		public const int KGC_NORMAL	= 0;
 		public const int KGC_EMERGENCY	= 1;	/* gc was forced by an allocation failure */
-		public const int KGC_GEN = 2;	/* generational collection */
 
 
 		public class stringtable {
-			public GCObject[] hash;
-			public lu_int32 nuse;  /* number of elements */
+			public TString[] hash;
+			public int nuse;  /* number of elements */
 			public int size;
 		};
 
@@ -204,21 +194,20 @@ namespace KopiLua
 		  public lu_byte gcstate;  /* state of garbage collector */
           public lu_byte gckind;  /* kind of GC running */
           public lu_byte gcrunning;  /* true if GC is running */
-		  public int sweepstrgc;  /* position of sweep in `strt' */
 		  public GCObject allgc;  /* list of all collectable objects */
-		  public GCObject finobj;  /* list of collectable objects with finalizers */
-		  public GCObjectRef sweepgc;  /* current position of sweep in list 'allgc' */
-  		  public GCObjectRef sweepfin;  /* current position of sweep in list 'finobj' */
+		  public GCObjectRef sweepgc;  /* current position of sweep in list */
+  		  public GCObject finobj;  /* list of collectable objects with finalizers */
 		  public GCObject gray;  /* list of gray objects */
 		  public GCObject grayagain;  /* list of objects to be traversed atomically */
 		  public GCObject weak;  /* list of tables with weak values */
 		  public GCObject ephemeron;  /* list of ephemeron tables (weak keys) */
 		  public GCObject allweak;  /* list of all-weak tables */
 		  public GCObject tobefnz;  /* list of userdata to be GC */
-          public UpVal uvhead = new UpVal();  /* head of double-linked list of all open upvalues */
+		  public GCObject fixedgc;  /* list of objects not to be collected */
+		  public lua_State twups;  /* list of threads with open upvalues */
 		  public Mbuffer buff = new Mbuffer();  /* temporary buffer for string concatenation */
+		  public uint gcfinnum;  /* number of finalizers to call in each GC step */
 		  public int gcpause;  /* size of pause between successive GCs */
-          public int gcmajorinc;  /* pause between major collections (only in gen. mode) */
 		  public int gcstepmul;  /* GC `granularity' */
 		  public lua_CFunction panic;  /* to be called in unprotected errors */
 		  public lua_State mainthread;
@@ -253,8 +242,9 @@ namespace KopiLua
 		  public int basehookcount;
 		  public int hookcount;
 		  public lua_Hook hook;
-		  public GCObject openupval;  /* list of open upvalues in this stack */
+		  public UpVal openupval;  /* list of open upvalues in this stack */
 		  public GCObject gclist;
+		  public lua_State twups;  /* list of threads with open upvalues */
 		  public lua_longjmp errorJmp;  /* current error recover point */
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
 		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
@@ -291,7 +281,6 @@ namespace KopiLua
 			public Closure cl {get{return (Closure)this;}}
 			public Table h {get{return (Table)this;}}
 			public Proto p {get{return (Proto)this;}}
-			public UpVal uv {get{return (UpVal)this;}}
 			public lua_State th {get{return (lua_State)this;}}  /* thread */
 		};
 
@@ -445,7 +434,6 @@ namespace KopiLua
 			return (Closure)check_exp(novariant(o.gch.tt) == LUA_TFUNCTION, o.cl); }
 		public static Table gco2t(GCObject o) { return (Table)check_exp(o.gch.tt == LUA_TTABLE, o.h); }
 		public static Proto gco2p(GCObject o) { return (Proto)check_exp(o.gch.tt == LUA_TPROTO, o.p); }
-		public static UpVal gco2uv(GCObject o) { return (UpVal)check_exp(o.gch.tt == LUA_TUPVAL, o.uv); }
 		public static lua_State gco2th(GCObject o) { return (lua_State)check_exp(o.gch.tt == LUA_TTHREAD, o.th); }
 
 		/* macro to convert any Lua object into a GCObject */

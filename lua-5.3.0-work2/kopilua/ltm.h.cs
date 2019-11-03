@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.h,v 2.16 2013/04/29 16:56:50 roberto Exp $
+** $Id: ltm.h,v 2.19 2013/12/30 20:47:58 roberto Exp $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -12,7 +12,7 @@ namespace KopiLua
 	{
 		/*
 		* WARNING: if you change the order of this enumeration,
-		* grep "ORDER TM"
+		* grep "ORDER TM" and "ORDER OP"
 		*/
 		public enum TMS {
 		  TM_INDEX,
@@ -24,11 +24,17 @@ namespace KopiLua
 		  TM_ADD,
 		  TM_SUB,
 		  TM_MUL,
+		  TM_MOD,
+		  TM_POW,		  
 		  TM_DIV,
 		  TM_IDIV,
-		  TM_MOD,
-		  TM_POW,
+		  TM_BAND,
+		  TM_BOR,
+		  TM_BXOR,
+		  TM_SHL,
+		  TM_SHR,
 		  TM_UNM,
+		  TM_BNOT,
 		  TM_LT,
 		  TM_LE,
 		  TM_CONCAT,
