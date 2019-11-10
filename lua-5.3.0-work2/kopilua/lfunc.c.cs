@@ -48,52 +48,52 @@ namespace KopiLua
 		*/
 		public static void luaF_initupvals (lua_State L, LClosure cl) {
 		  int i;
-		  for (i = 0; i < cl->nupvalues; i++) {
-		    UpVal *uv = luaM_new(L, UpVal);
-		    uv->refcount = 1;
-		    uv->v = &uv->u.value;  /* make it closed */
-		    setnilvalue(uv->v);
-		    cl->upvals[i] = uv;
+		  for (i = 0; i < cl.nupvalues; i++) {
+		    UpVal uv = luaM_new<UpVal>(L);
+		    uv.refcount = 1;
+		    uv.v = uv.u.value_;  /* make it closed */
+		    setnilvalue(uv.v);
+		    cl.upvals[i] = uv;
 		  }
 		}
 
 
 		public static UpVal luaF_findupval (lua_State L, StkId level) {
-		  UpVal **pp = &L->openupval;
-		  UpVal *p;
-		  UpVal *uv;
-		  lua_assert(isintwups(L) || L->openupval == NULL);
-		  while (*pp != NULL && (p = *pp)->v >= level) {
+		  UpValPtrRef pp = new OpenupvalRef(L);
+		  UpVal p;
+		  UpVal uv;
+		  lua_assert(isintwups(L) || L.openupval == null);
+		  while (pp.get() != null && (p = pp.get()).v >= level) {
 		    lua_assert(upisopen(p));
-		    if (p->v == level)  /* found a corresponding upvalue? */
+		    if (p.v == level)  /* found a corresponding upvalue? */
 		      return p;  /* return it */
-		    pp = &p->u.open.next;
+		    pp = new UpValUOpenRef(p.u.open);
 		  }
 		  /* not found: create a new upvalue */
-		  uv = luaM_new(L, UpVal);
-		  uv->refcount = 0;
-		  uv->u.open.next = *pp;  /* link it to list of open upvalues */
-		  uv->u.open.touched = 1;
-		  *pp = uv;
-		  uv->v = level;  /* current value lives in the stack */
+		  uv = luaM_new<UpVal>(L);
+		  uv.refcount = 0;
+		  uv.u.open.next = pp.get();  /* link it to list of open upvalues */
+		  uv.u.open.touched = 1;
+		  pp.set(uv);
+		  uv.v = level;  /* current value lives in the stack */
 		  if (!isintwups(L)) {  /* thread not in list of threads with upvalues? */
-		    L->twups = G(L)->twups;  /* link it to the list */
-		    G(L)->twups = L;
+		    L.twups = G(L).twups;  /* link it to the list */
+		    G(L).twups = L;
 		  }
 		  return uv;
 		}
 
 
 		public static void luaF_close (lua_State L, StkId level) {
-		  UpVal *uv;
-		  while (L->openupval != NULL && (uv = L->openupval)->v >= level) {
+		  UpVal uv;
+		  while (L.openupval != null && (uv = L.openupval).v >= level) {
 		    lua_assert(upisopen(uv));
-		    L->openupval = uv->u.open.next;  /* remove from `open' list */
-		    if (uv->refcount == 0)  /* no references? */
+		    L.openupval = uv.u.open.next;  /* remove from `open' list */
+		    if (uv.refcount == 0)  /* no references? */
 		      luaM_free(L, uv);  /* free upvalue */
 		    else {
-		      setobj(L, &uv->u.value, uv->v);  /* move value to upvalue slot */
-		      uv->v = &uv->u.value;  /* now current value lives here */
+		      setobj(L, uv.u.value_, uv.v);  /* move value to upvalue slot */
+		      uv.v = uv.u.value_;  /* now current value lives here */
 		      luaC_upvalbarrier(L, uv);
 		    }
 		  }

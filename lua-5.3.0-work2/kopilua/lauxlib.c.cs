@@ -166,9 +166,9 @@ namespace KopiLua
 
 
 		private static int typeerror (lua_State L, int arg, CharPtr tname) {
-		  const char *msg;
-		  const char *typearg = luaL_typename(L, arg);
-		  if (lua_getmetatable(L, arg)) {
+		  CharPtr msg;
+		  CharPtr typearg = luaL_typename(L, arg);
+		  if (0!=lua_getmetatable(L, arg)) {
 		    if (lua_getfield(L, -1, "__name") == LUA_TSTRING)
 		      typearg = lua_tostring(L, -1);
 		  }
@@ -769,15 +769,16 @@ namespace KopiLua
 		  if (luaL_callmeta(L, idx, "__tostring") == 0) {  /* no metafield? */
 		    switch (lua_type(L, idx)) {
 		      case LUA_TNUMBER: {
-		        if (lua_isinteger(L, idx))
+		        if (0!=lua_isinteger(L, idx))
 		          lua_pushfstring(L, "%I", lua_tointeger(L, idx));
 		        else {
-		          const char *s = lua_pushfstring(L, "%f", lua_tonumber(L, idx));
+		          CharPtr s = lua_pushfstring(L, "%f", lua_tonumber(L, idx));
 		          if (s[strspn(s, "-0123456789")] == '\0') {  /* looks like an int? */
 		            lua_pushliteral(L, ".0");  /* add a '.0' to result */
 		            lua_concat(L, 2);
 		          }
 		        }
+		        break;
 			  }
 		      case LUA_TSTRING:
 		        lua_pushvalue(L, idx);

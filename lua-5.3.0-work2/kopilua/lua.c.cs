@@ -291,7 +291,7 @@ namespace KopiLua
 			int readstatus = lua_readline(L, b, prmt);
 			if (readstatus == 0)
 				return 0;  /* no input */
-			lua_pop(L, 1);  /* remove prompt */
+			Lua.lua_pop(L, 1);  /* remove prompt */
 			l = Lua.strlen(b);
 			if (l > 0 && b[l - 1] == '\n')  /* line ends with newline? */
 				b[l - 1] = '\0';  /* remove it */
@@ -306,46 +306,46 @@ namespace KopiLua
 
 		/* try to compile line on the stack as 'return <line>'; on return, stack
 		   has either compiled chunk or original line (if compilation failed) */
-		private static int addreturn (lua_State *L) {
+		private static int addreturn (Lua.lua_State L) {
 		  int status;
-		  size_t len; const char *line;
-		  lua_pushliteral(L, "return ");
-		  lua_pushvalue(L, -2);  /* duplicate line */
-		  lua_concat(L, 2);  /* new line is "return ..." */
-		  line = lua_tolstring(L, -1, &len);
-		  if ((status = luaL_loadbuffer(L, line, len, "=stdin")) == LUA_OK)
-		    lua_remove(L, -3);  /* remove original line */
+		  uint len; Lua.CharPtr line;
+		  Lua.lua_pushliteral(L, "return ");
+		  Lua.lua_pushvalue(L, -2);  /* duplicate line */
+		  Lua.lua_concat(L, 2);  /* new line is "return ..." */
+		  line = Lua.lua_tolstring(L, -1, out len);
+		  if ((status = Lua.luaL_loadbuffer(L, line, len, "=stdin")) == Lua.LUA_OK)
+		    Lua.lua_remove(L, -3);  /* remove original line */
 		  else
-		    lua_pop(L, 2);  /* remove result from 'luaL_loadbuffer' and new line */
+		    Lua.lua_pop(L, 2);  /* remove result from 'luaL_loadbuffer' and new line */
 		  return status;
 		}
 
 
 		/* read multiple lines until a complete line */
-		private static int multiline (lua_State *L) {
+		private static int multiline (Lua.lua_State L) {
 		  for (;;) {  /* repeat until gets a complete line */
-		    size_t len;
-		    const char *line = lua_tolstring(L, 1, &len);  /* get what it has */
-		    int status = luaL_loadbuffer(L, line, len, "=stdin");  /* try it */
-		    if (!incomplete(L, status) || !pushline(L, 0))
+		    uint len;
+		    Lua.CharPtr line = Lua.lua_tolstring(L, 1, out len);  /* get what it has */
+		    int status = Lua.luaL_loadbuffer(L, line, len, "=stdin");  /* try it */
+		    if (0==incomplete(L, status) || 0==pushline(L, 0))
 		      return status;  /* cannot/should not try to add continuation line */
-		    lua_pushliteral(L, "\n");  /* add newline... */
-		    lua_insert(L, -2);  /* ...between the two lines */
-		    lua_concat(L, 3);  /* join them */
+		    Lua.lua_pushliteral(L, "\n");  /* add newline... */
+		    Lua.lua_insert(L, -2);  /* ...between the two lines */
+		    Lua.lua_concat(L, 3);  /* join them */
 		  }
 		}
 
 
-		private static int loadline (lua_State *L) {
+		private static int loadline (Lua.lua_State L) {
 		  int status;
-		  lua_settop(L, 0);
-		  if (!pushline(L, 1))
+		  Lua.lua_settop(L, 0);
+		  if (0==pushline(L, 1))
 		    return -1;  /* no input */
-		  if ((status = addreturn(L)) != LUA_OK)  /* 'return ...' did not work? */
+		  if ((status = addreturn(L)) != Lua.LUA_OK)  /* 'return ...' did not work? */
 		    status = multiline(L);  /* try as command, maybe with continuation lines */
 		  lua_saveline(L, 1);
-		  lua_remove(L, 1);  /* remove line */
-		  lua_assert(lua_gettop(L) == 1);
+		  Lua.lua_remove(L, 1);  /* remove line */
+		  Lua.lua_assert(Lua.lua_gettop(L) == 1);
 		  return status;
 		}
 

@@ -249,6 +249,28 @@ namespace KopiLua
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
 		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
 		};
+		public interface lua_StateRef {
+			lua_State get();
+			void set(lua_State s);			
+		}
+		public class TwupsRef : lua_StateRef {
+			private global_State g;
+			public TwupsRef(global_State g)
+			{
+				this.g = g;
+			}
+			public lua_State get() {return this.g.twups; }
+			public void set(lua_State s) {this.g.twups = s;}
+		}
+		public class TwupsStateRef : lua_StateRef {
+			private lua_State s;
+			public TwupsStateRef(lua_State s)
+			{
+				this.s = s;
+			}
+			public lua_State get() {return this.s.twups; }
+			public void set(lua_State s) {this.s.twups = s;}
+		}
 
 
 		public static global_State G(lua_State L)	{return L.l_G;}
@@ -350,13 +372,14 @@ namespace KopiLua
 			int index;
 		}
 
-		public class OpenValRef : GCObjectRef
-		{
-			public OpenValRef(lua_State L) { this.L = L; }
-			public void set(GCObject value) { this.L.openupval = value; }
-			public GCObject get() { return this.L.openupval; }
-			lua_State L;
-		}
+		//removed
+		//public class OpenValRef : GCObjectRef
+		//{
+		//	public OpenValRef(lua_State L) { this.L = L; }
+		//	public void set(UpVal value) { this.L.openupval = value; }
+		//	public UpVal get() { return this.L.openupval; }
+		//	lua_State L;
+		//}
 		//FIXME:removed, no rootgc
 	
 		public class AllGCRef : GCObjectRef
@@ -403,6 +426,14 @@ namespace KopiLua
 			public TobefnzRef(global_State g) { this.g = g; }
 			public void set(GCObject value) { this.g.tobefnz = value; }
 			public GCObject get() { return this.g.tobefnz; }
+			global_State g;
+		}
+		
+		public class FixedgcRef : GCObjectRef
+		{
+			public FixedgcRef(global_State g) { this.g = g; }
+			public void set(GCObject value) { this.g.fixedgc = value; }
+			public GCObject get() { return this.g.fixedgc; }
 			global_State g;
 		}
 		

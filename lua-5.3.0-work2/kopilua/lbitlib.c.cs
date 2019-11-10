@@ -8,7 +8,7 @@ namespace KopiLua
 {
 	using lua_Number = System.Double;
 	using b_int = System.Int32;
-	//using b_uint = System.UInt32;
+	using b_uint = System.UInt32;
 	using lua_Integer = System.Int32;
 	using lua_Unsigned = System.UInt32;
 	

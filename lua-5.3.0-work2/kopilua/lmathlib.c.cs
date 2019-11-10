@@ -255,7 +255,7 @@ namespace KopiLua
 		private static int math_type (lua_State L) {
 		  luaL_checkany(L, 1);
 		  if (lua_type(L, 1) == LUA_TNUMBER) {
-		      if (lua_isinteger(L, 1))
+		      if (0!=lua_isinteger(L, 1))
 		        lua_pushliteral(L, "integer"); 
 		      else
 		        lua_pushliteral(L, "float"); 

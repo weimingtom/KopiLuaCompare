@@ -68,7 +68,7 @@ namespace KopiLua
 		    tb.hash[i] = null;
 		    while (p != null) {  /* for each node in the list */
 		      TString hnext = p.tsv.hnext;  /* save next */
-		      unsigned int h = lmod(p.tsv.hash, newsize);  /* new position */
+		      uint h = (uint)lmod(p.tsv.hash, newsize);  /* new position */
 		      p.tsv.hnext = tb.hash[h];  /* chain it */
 		      tb.hash[h] = p;
 		      p = hnext;
@@ -100,13 +100,13 @@ namespace KopiLua
 		}
 
 
-		LUAI_FUNC void luaS_remove (lua_State *L, TString *ts) {
-		  stringtable *tb = &G(L)->strt;
-		  TString **p = &tb->hash[lmod(ts->tsv.hash, tb->size)];
-		  while (*p != ts)  /* find previous element */
-		    p = &(*p)->tsv.hnext;
-		  *p = (*p)->tsv.hnext;  /* remove element from its list */
-		  tb->nuse--;
+		public static void luaS_remove (lua_State L, TString ts) {
+		  stringtable tb = G(L).strt;
+		  TStringRef p = new TStringArrayRef(tb.hash, (int)lmod(ts.tsv.hash, tb.size));
+		  while (p.get() != ts)  /* find previous element */
+		  	p = new TStringTsvRef(p.get().tsv);
+		  p.set(p.get().tsv.hnext);  /* remove element from its list */
+		  tb.nuse--;
 		}
 
 
@@ -117,9 +117,9 @@ namespace KopiLua
 		  TString ts;
 		  global_State g = G(L);
 		  uint h = luaS_hash(str, l, g.seed);
-		  TString **list = &g->strt.hash[lmod(h, g->strt.size)];
-		  for (ts = *list; ts != NULL; ts = ts->tsv.hnext) {
-		    if (l == ts->tsv.len &&
+		  TStringRef list = new TStringArrayRef(g.strt.hash, (int)lmod(h, g.strt.size));
+		  for (ts = list.get(); ts != null; ts = ts.tsv.hnext) {
+		    if (l == ts.tsv.len &&
 		        (memcmp(str, getstr(ts), l * sizeof(char)) == 0)) {
 		      /* found! */
 		      if (isdead(g, obj2gco(ts)))  /* dead (but not collected yet)? */
@@ -127,14 +127,14 @@ namespace KopiLua
 		      return ts;
 		    }
 		  }
-		  if (g->strt.nuse >= g->strt.size && g->strt.size <= MAX_INT/2) {
-		    luaS_resize(L, g->strt.size * 2);
-		    list = &g->strt.hash[lmod(h, g->strt.size)];  /* recompute with new size */
+		  if (g.strt.nuse >= g.strt.size && g.strt.size <= MAX_INT/2) {
+		    luaS_resize(L, g.strt.size * 2);
+		    list = new TStringArrayRef(g.strt.hash, (int)lmod(h, g.strt.size));  /* recompute with new size */
 		  }
 		  ts = createstrobj(L, str, l, LUA_TSHRSTR, h);
-		  ts->tsv.hnext = *list;
-		  *list = ts;
-		  g->strt.nuse++;
+		  ts.tsv.hnext = list.get();
+		  list.set(ts);
+		  g.strt.nuse++;
 		  return ts;
 		}
 

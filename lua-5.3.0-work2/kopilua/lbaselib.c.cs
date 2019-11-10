@@ -60,7 +60,7 @@ namespace KopiLua
 		  s += strspn(s, SPACECHARS);  /* skip trailing spaces */
 		  if (s != e)  /* invalid trailing characters? */
 		    return 0;
-		  pn = (lua_Integer)((neg) ? (0u - n) : n);
+		  pn = (lua_Integer)((neg!=0) ? (0u - n) : n);
 		  return 1;
 		}
 

@@ -234,7 +234,7 @@ namespace KopiLua
 		  int inuse = stackinuse(L);
 		  int goodsize = inuse + (inuse / 8) + 2*EXTRA_STACK;
 		  if (goodsize > LUAI_MAXSTACK) goodsize = LUAI_MAXSTACK;
-		  if (L->stacksize > LUAI_MAXSTACK)  /* was handling stack overflow? */
+		  if (L.stacksize > LUAI_MAXSTACK)  /* was handling stack overflow? */
 		    luaE_freeCI(L);  /* free all CIs (list grew because of an error) */
 		  else
 		    luaE_shrinkCI(L);  /* shrink list */	  
@@ -614,7 +614,7 @@ namespace KopiLua
 			  }
 			  lua_assert(status == L.status);
 		  }
-		  L.nny = oldnny;  /* restore 'nny' */
+		  L.nny = (ushort)oldnny;  /* restore 'nny' */
 		  L.nCcalls--;
           lua_assert(L.nCcalls == ((from != null) ? from.nCcalls : (uint)0));
 		  lua_unlock(L);
@@ -708,7 +708,7 @@ namespace KopiLua
 		    cl = luaY_parser(L, p.z, p.buff, p.dyd, p.name, c);
 		  }
 		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
-		  luaF_initupvals(L, &cl->l);
+		  luaF_initupvals(L, cl.l);
 		}
 
 

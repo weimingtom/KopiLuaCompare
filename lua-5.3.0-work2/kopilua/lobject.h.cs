@@ -488,6 +488,44 @@ namespace KopiLua
 			public CharPtr str; //FIXME:added = new CharPtr()???;
 			public override string ToString() { return str.ToString(); } // for debugging
 		};
+		public interface TStringRef {
+			TString get();
+			void set(TString v);		
+		}
+		public class TStringArrayRef : TStringRef {
+			private TString[] arr;
+			private int index;
+			
+			public TStringArrayRef(TString[] arr, int index)
+			{
+				this.arr = arr;
+				this.index = index;
+			}
+			public TString get()
+			{
+				return this.arr[this.index];
+			}
+			public void set(TString v)
+			{
+				this.arr[this.index] = v;
+			}
+		}
+		public class TStringTsvRef : TStringRef {
+			private TString_tsv tsv;
+			
+			public TStringTsvRef(TString_tsv tsv)
+			{
+				this.tsv = tsv;
+			}
+			public TString get()
+			{
+				return this.tsv.hnext;
+			}
+			public void set(TString v)
+			{
+				this.tsv.hnext = v;
+			}			
+		}
 
         /* get the actual string (array of bytes) from a TString */
 		public static CharPtr getstr(TString ts) { return ts.str; }
@@ -515,22 +553,22 @@ namespace KopiLua
 			//    struct Table *env;
 			//    size_t len;  /* number of bytes */
 			//} uv;
-			public new Udata_uv uv;
+			public Udata_uv uv = new Udata_uv();
 			// in the original C code this was allocated alongside the structure memory. it would probably
 			// be possible to still do that by allocating memory and pinning it down, but we can do the
 			// same thing just as easily by allocating a seperate byte array for it instead.
 			public object user_data;
 		};
 
-		#define setuservalue(L,u,o) \
-			{ const TValue *io=(o); Udata *iu = (u); \
-			  iu->uv.user_ = io->value_; iu->uv.ttuv_ = io->tt_; \
+		public static void setuservalue(lua_State L, Udata u, TValue o)
+			{ TValue io=(o); Udata iu = (u);
+			  iu.uv.user_ = io.value_; iu.uv.ttuv_ = (byte)io.tt_;
 			  checkliveness(G(L),io); }
 
 
-		#define getuservalue(L,u,o) \
-			{ TValue *io=(o); const Udata *iu = (u); \
-			  io->value_ = iu->uv.user_; io->tt_ = iu->uv.ttuv_; \
+		public static void getuservalue(lua_State L, Udata u, TValue o)
+			{ TValue io=(o); Udata iu = (u);
+			  io.value_ = iu.uv.user_; io.tt_ = iu.uv.ttuv_;
 			  checkliveness(G(L),io); }
 
 		/*
@@ -630,7 +668,47 @@ namespace KopiLua
 			}
 		}
 
-
+		public interface UpValPtrRef {
+			UpVal get();
+			void set(UpVal val);
+		}
+		public class OpenupvalRef : UpValPtrRef {
+			private lua_State L;
+			public OpenupvalRef(lua_State L)
+			{
+				this.L = L;
+			}
+			
+			public UpVal get()
+			{
+				return this.L.openupval;
+			}
+			
+			public void set(UpVal val)
+			{
+				this.L.openupval = val;
+			}
+		}
+		public class UpValUOpenRef : UpValPtrRef {
+			private UpVal_u_open u;
+			public UpValUOpenRef(UpVal_u_open u)
+			{
+				this.u = u;
+			}
+			
+			public UpVal get()
+			{
+				return this.u.next;
+			}
+			
+			public void set(UpVal val)
+			{
+				this.u.next = val;
+			}
+		}
+				
+		
+		
 		/*
 		** Closures
 		*/
@@ -705,7 +783,7 @@ namespace KopiLua
 			{
 				this.nk = new TKey_nk(copy.nk.value_, copy.nk.tt_, copy.nk.next);
 			}
-			public TKey(Value value, int tt, Node next)
+			public TKey(Value value, int tt, int next)
 			{
 				this.nk = new TKey_nk(value, tt, next);
 			}
@@ -747,6 +825,15 @@ namespace KopiLua
 				this.i_val = new TValue(copy.i_val);
 				this.i_key = new TKey(copy.i_key);
 			}
+			
+			public void Assign(Node copy)
+			{
+				//FIXME:
+				this.values = copy.values;
+				this.index = copy.index;
+				this.i_val = new TValue(copy.i_val);
+				this.i_key = new TKey(copy.i_key);				
+			}
 
 			public Node(TValue i_val, TKey i_key)
 			{
@@ -786,6 +873,23 @@ namespace KopiLua
 				node = node[-1];
 				return node[1];
 			}
+			
+			public static Node plus(Node node, int n)
+			{
+				return node[n];
+			}
+			
+			public static Node inc(ref Node node, int n)
+			{
+				node = node[n];
+				return node[-n];
+			}
+
+			public static Node dec(ref Node node, int n)
+			{
+				node = node[-n];
+				return node[n];
+			}		
 
 			public static bool operator >(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index > n2.index; }
 			public static bool operator >=(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index >= n2.index; }

@@ -48,9 +48,9 @@ namespace KopiLua
 		    return 0;
 		  else {
 		  	CharPtr buff = new CharPtr(new char[MAXNUMBER2STR]);
-	        size_t len = (ttisinteger(obj))
-             ? lua_integer2str(buff, ivalue(obj))
-             : lua_number2str(buff, fltvalue(obj));
+	        uint len = (ttisinteger(obj))
+	         ? (uint)lua_integer2str(buff, ivalue(obj))
+             : (uint)lua_number2str(buff, fltvalue(obj));
 		    setsvalue2s(L, obj, luaS_newlstr(L, buff, len));
 		    return 1;
 		  }
@@ -327,7 +327,7 @@ namespace KopiLua
 		  if (cast_unsigned(y) + 1 <= 1U) {  /* special cases: -1 or 0 */
 		    if (y == 0)
 		      luaG_runerror(L, "attempt to divide by zero");
-		    return intop(-, 0, x);   /* y==-1; avoid overflow with 0x80000...//-1 */
+		    return intop_minus(0, x);   /* y==-1; avoid overflow with 0x80000...//-1 */
 		  }
 		  else {
 		    lua_Integer d = x / y;  /* perform division */
@@ -357,7 +357,7 @@ namespace KopiLua
 		}
 
 
-		public static lua_Integer luaV_pow (lua_State *L, lua_Integer x, lua_Integer y) {
+		public static lua_Integer luaV_pow (lua_State L, lua_Integer x, lua_Integer y) {
 		  if (y <= 0) {  /* special cases: 0 or negative exponent */
 		    if (y < 0)
 		      luaG_runerror(L, "integer exponentiation with negative exponent");
@@ -366,17 +366,17 @@ namespace KopiLua
 		  else {
 		    lua_Integer r = 1;
 		    for (; y > 1; y >>= 1) {
-		      if (y & 1) r = intop(*, r, x);
-		      x = intop(*, x, x);
+		      if ((y & 1)!=0) r = intop_mul(r, x);
+		      x = intop_mul(x, x);
 		    }
-		    r = intop(*, r, x);
+		    r = intop_mul(r, x);
 		    return r;
 		  }
 		}
 
 
 		/* number of bits in an integer */
-		#define NBITS	cast_int(sizeof(lua_Integer) * CHAR_BIT)
+		public static int NBITS = cast_int(sizeof(lua_Integer) * CHAR_BIT);
 
 		public static lua_Integer luaV_shiftl (lua_Integer x, lua_Integer y) {
 		  if (y < 0) {  /* shift right? */
@@ -430,11 +430,11 @@ namespace KopiLua
 		      ncl.l.upvals[i] = luaF_findupval(L, base_ + uv[i].idx);
 		    else  /* get upvalue from enclosing function */
 		      ncl.l.upvals[i] = encup[uv[i].idx];
-		    ncl->l.upvals[i]->refcount++;
+		    ncl.l.upvals[i].refcount++;
 		    /* new closure is white, so we do not need a barrier here */			  
 		  }
 		  if (!isblack(obj2gco(p)))  /* cache will not break GC invariant? */
-		    p->cache = ncl;  /* save it on cache for reuse */
+		    p.cache = ncl;  /* save it on cache for reuse */
 		}
 
 
@@ -726,7 +726,7 @@ namespace KopiLua
 			  case OpCode.OP_SETUPVAL: {
 				UpVal uv = cl.upvals[GETARG_B(i)];
 				setobj(L, uv.v, ra);
-				luaC_upvalbarrier(L, uv, ra);
+				luaC_upvalbarrier(L, uv);
 				break;
 			  }
 			  case OpCode.OP_SETTABLE: {
@@ -850,51 +850,81 @@ namespace KopiLua
 		        }
 			  	break;
 			  }
-		      vmcase(OP_BAND,
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
-		          setivalue(ra, intop(&, ib, ic));
+			  case OpCode.OP_BAND: {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (0!=tointeger(ref rb, ref ib) && 0!=tointeger(ref rc, ref ic)) {
+		          setivalue(ra, intop_and(ib, ic));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BAND)); }
-		      )
-		      vmcase(OP_BOR,
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
-		          setivalue(ra, intop(|, ib, ic));
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_BAND); 
+		        	base_ = ci.u.l.base_;
+		        	//);
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BOR)); }
-		      )
-		      vmcase(OP_BXOR,
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
-		          setivalue(ra, intop(^, ib, ic));
+			  	break;
+			  }
+			  case OpCode.OP_BOR: {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (0!=tointeger(ref rb, ref ib) && 0!=tointeger(ref rc, ref ic)) {
+		          setivalue(ra, intop_or(ib, ic));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_BXOR)); }
-		      )
-		      vmcase(OP_SHL,
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_BOR); 
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
+		      	break;
+			  }
+			  case OpCode.OP_BXOR: {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (0!=tointeger(ref rb, ref ib) && 0!=tointeger(ref rc, ref ic)) {
+		          setivalue(ra, intop_xor(ib, ic));
+		        }
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_BXOR); 
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
+			  	break;
+			  }
+			  case OpCode.OP_SHL: {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (0!=tointeger(ref rb, ref ib) && 0!=tointeger(ref rc, ref ic)) {
 		          setivalue(ra, luaV_shiftl(ib, ic));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SHL)); }
-		      )
-		      vmcase(OP_SHR,
-		        TValue *rb = RKB(i);
-		        TValue *rc = RKC(i);
-		        lua_Integer ib; lua_Integer ic;
-		        if (tointeger(rb, &ib) && tointeger(rc, &ic)) {
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_SHL); 
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
+			  	break;
+			  }
+			  case OpCode.OP_SHR: {
+		        TValue rb = RKB(L, base_, i, k);
+		        TValue rc = RKC(L, base_, i, k);
+		        lua_Integer ib = 0; lua_Integer ic = 0;
+		        if (0!=tointeger(ref rb, ref ib) && 0!=tointeger(ref rc, ref ic)) {
 		          setivalue(ra, luaV_shiftl(ib, -ic));
 		        }
-		        else { Protect(luaT_trybinTM(L, rb, rc, ra, TM_SHR)); }
-		      )			  
+		        else { 
+		        	//Protect(
+		        		luaT_trybinTM(L, rb, rc, ra, TMS.TM_SHR); 
+		        	base_ = ci.u.l.base_;
+		        	//);
+		        }
+			  	break;
+			  }
 			  case OpCode.OP_MOD: {
 		        TValue rb = RKB(L, base_, i, k);
 		        TValue rc = RKC(L, base_, i, k);
@@ -938,7 +968,7 @@ namespace KopiLua
 		        lua_Number nb = 0;
 		        if (ttisinteger(rb)) {
 		          lua_Integer ib = ivalue(rb);
-		          setivalue(ra, intop(-, 0, ib));
+		          setivalue(ra, intop_minus(0, ib));
 		        }
 		        else if (tonumber(ref rb, ref nb)!=0) {
 		          setnvalue(ra, luai_numunm(L, nb));
@@ -951,16 +981,20 @@ namespace KopiLua
 		        }
 				break;
 			  }
-		      vmcase(OP_BNOT,
-		        TValue *rb = RB(i);
-		        lua_Integer ib;
-		        if (tointeger(rb, &ib)) {
-		          setivalue(ra, intop(^, cast_integer(-1), ib));
+			  case OpCode.OP_BNOT: {
+		        TValue rb = RB(L, base_, i);
+		        lua_Integer ib = 0;
+		        if (0!=tointeger(ref rb, ref ib)) {
+		          setivalue(ra, intop_xor(cast_integer(-1), ib));
 		        }
 		        else {
-		          Protect(luaT_trybinTM(L, rb, rb, ra, TM_BNOT));
+		          	//Protect(
+		        		luaT_trybinTM(L, rb, rb, ra, TMS.TM_BNOT);
+		        	base_ = ci.u.l.base_;
+		        	//);
 		        }
-		      )			  
+		      	break;
+			  }
 			  case OpCode.OP_NOT: {
                 TValue rb = RB(L, base_, i);
 				int res = l_isfalse(rb) == 0 ? 0 : 1;  /* next assignment may change this value */

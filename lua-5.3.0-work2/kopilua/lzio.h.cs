@@ -28,7 +28,7 @@ namespace KopiLua
 		public static uint luaZ_sizebuffer(Mbuffer buff) { return buff.buffsize; }
 		public static uint luaZ_bufflen(Mbuffer buff)	{return buff.n;}
 
-		public static void luaZ_buffremove(Mbuffer buff,i)	{ ((buff)->n -= (i)); }
+		public static void luaZ_buffremove(Mbuffer buff, int i)	{ /*buff.n -= i;*/buff.n = (uint)(buff.n - i); }
 		public static void luaZ_resetbuffer(Mbuffer buff) {buff.n = 0;}
 
 

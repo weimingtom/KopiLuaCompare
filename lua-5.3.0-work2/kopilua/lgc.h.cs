@@ -116,7 +116,7 @@ namespace KopiLua
 			if (isblack(obj2gco(p)) && iswhite(obj2gco(o)))
 				luaC_barrier_(L,obj2gco(p),obj2gco(o)); }
 
-		public static void luaC_upvalbarrier(lua_State L, GCObject uv { 
+		public static void luaC_upvalbarrier(lua_State L, UpVal uv) {
 			if (iscollectable(uv.v) && !upisopen(uv)) 
 				luaC_upvalbarrier_(L,uv); }
 			

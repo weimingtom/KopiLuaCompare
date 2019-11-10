@@ -11,12 +11,12 @@ namespace KopiLua
 		/* data to catch conversion errors */
 		public const string LUAC_DATA = "\x19\x93\r\n\x1a\n";
 
-		#define LUAC_INT	cast_integer(0xABCD)
-		#define LUAC_NUM	cast_num(370.5)
+		public static int LUAC_INT = cast_integer(0xABCD);
+		public static double LUAC_NUM = cast_num(370.5);
 
-		#define MYINT(s)	(s[0]-'0')
-		#define LUAC_VERSION	(MYINT(LUA_VERSION_MAJOR)*16+MYINT(LUA_VERSION_MINOR))
-		#define LUAC_FORMAT	0	/* this is the official format */	
+		public static int MYINT(CharPtr s)	{ return (s[0]-'0');}
+		public static int LUAC_VERSION = (MYINT(LUA_VERSION_MAJOR)*16+MYINT(LUA_VERSION_MINOR));
+		public const int LUAC_FORMAT = 0;	/* this is the official format */	
 	
 		/* load one chunk; from lundump.c */
 		//LUAI_FUNC Closure* luaU_undump (lua_State* L, ZIO* Z, Mbuffer* buff,

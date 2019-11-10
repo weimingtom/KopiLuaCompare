@@ -20,6 +20,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using lu_byte = System.Byte;
 	using lua_Integer = System.Int32;
+	using Instruction = System.UInt32;
 
 	public partial class Lua
 	{
@@ -37,9 +38,12 @@ namespace KopiLua
 		** All high-level dumps go through DumpVector; you can change it to
 		** change the endianess of the result
 		*/
-#define DumpVector(v,n,D)	DumpBlock(v,(n)*sizeof((v)[0]),D)
-
-#define DumpLiteral(s,D)	DumpBlock(s, sizeof(s) - sizeof(char), D)
+		public static void DumpVector(object[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+		public static void DumpVector(uint[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+		public static void DumpVector(CharPtr v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+		public static void DumpVector(int[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+		
+		public static void DumpLiteral(string s, DumpState D)	{ throw new Exception(); DumpBlock(new CharPtr(s), (uint)((s.Length + 1) - 1/*sizeof(char)*/), D); }
 /*		
 		public static void DumpMem(object b, DumpState D)
 		{
@@ -77,7 +81,7 @@ namespace KopiLua
 		}
 
 
-#define DumpVar(x,D)		DumpVector(&x,1,D)
+		public static void DumpVar(double x, DumpState D)	{ throw new Exception(); /*DumpVector(&x,1,D);*/ }
 
 
 		private static void DumpByte (int y, DumpState D) {
@@ -102,31 +106,31 @@ namespace KopiLua
 
 
 		private static void DumpString(TString s, DumpState D) {
-		  if (s == NULL)
+		  if (s == null)
 		    DumpByte(0, D);
 		  else {
-		    size_t size = s->tsv.len + 1;  /* include trailing '\0' */
+		    uint size = s.tsv.len + 1;  /* include trailing '\0' */
 		    if (size < 0xFF)
-		      DumpByte(size, D);
+		      DumpByte((int)size, D);
 		    else {
 		      DumpByte(0xFF, D);
 		      DumpVar(size, D);
 		    }
-		    DumpVector(getstr(s), size - 1, D);  /* no need to save '\0' */
+		    DumpVector(getstr(s), (int)(size - 1), D);  /* no need to save '\0' */
 		  }
 		}
 
 
-		private static void DumpCode (const Proto *f, DumpState *D) {
-		  DumpInt(f->sizecode, D);
-		  DumpVector(f->code, f->sizecode, D);
+		private static void DumpCode (Proto f, DumpState D) {
+		  DumpInt(f.sizecode, D);
+		  DumpVector(f.code, f.sizecode, D);
 		}
 		
 		
         //static void DumpFunction(const Proto* f, DumpState* D);
 
 		private static void DumpConstants (Proto f, DumpState D) {
-		  int i£»
+		  int i;
 		  int n = f.sizek;
 		  DumpInt(n,D);
 		  for (i=0; i<n; i++) {
@@ -206,7 +210,7 @@ namespace KopiLua
 		  DumpByte(LUAC_FORMAT, D);
 		  DumpLiteral(LUAC_DATA, D);
 		  DumpByte(sizeof(int), D);
-		  DumpByte(sizeof(size_t), D);
+		  DumpByte(sizeof(/*size_t*/uint), D);
 		  DumpByte(sizeof(Instruction), D);
 		  DumpByte(sizeof(lua_Integer), D);
 		  DumpByte(sizeof(lua_Number), D);

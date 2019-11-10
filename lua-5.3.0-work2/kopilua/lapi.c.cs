@@ -18,6 +18,7 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using ptrdiff_t = System.Int32;
 	using lua_Unsigned = System.UInt32;
+	using l_mem = System.Int32; 
 
 	public partial class Lua
 	{
@@ -880,8 +881,8 @@ namespace KopiLua
 		  api_checknelems(L, 1);
 		  o = index2addr(L, idx);
 		  api_check(L, ttisfulluserdata(o), "full userdata expected");
-		  setuservalue(L, rawuvalue(o), L->top - 1);
-		  luaC_barrier(L, gcvalue(o), L->top - 1);
+		  setuservalue(L, rawuvalue(o), L.top - 1);
+		  luaC_barrier(L, gcvalue(o), L.top - 1);
 		  lua_TValue.dec(ref L.top);
 		  lua_unlock(L);
 		}
@@ -1072,19 +1073,19 @@ namespace KopiLua
 			}
 			case LUA_GCSTEP: {
 		      l_mem debt = 1;  /* =1 to signal that it did an actual step */
-		      int oldrunning = g->gcrunning;
-		      g->gcrunning = 1;  /* force GC to run */
+		      /*int*/byte oldrunning = g.gcrunning; //FIXME: int->byte
+		      g.gcrunning = 1;  /* force GC to run */
 		      if (data == 0) {
 		        luaE_setdebt(g, -GCSTEPSIZE);  /* to do a "small" step */
 		        luaC_step(L);
 		      }
 		      else {  /* add 'data' to total debt */
-		        debt = cast(l_mem, data) * 1024 + g->GCdebt;
+		      	debt = ((l_mem)data) * 1024 + g.GCdebt;
 		        luaE_setdebt(g, debt);
 		        luaC_checkGC(L);
 		      }
-		      g->gcrunning = oldrunning;  /* restore previous state */
-		      if (debt > 0 && g->gcstate == GCSpause)  /* end of cycle? */
+		      g.gcrunning = oldrunning;  /* restore previous state */
+		      if (debt > 0 && g.gcstate == GCSpause)  /* end of cycle? */
 		        res = 1;  /* signal it */
 		      break;
 			}

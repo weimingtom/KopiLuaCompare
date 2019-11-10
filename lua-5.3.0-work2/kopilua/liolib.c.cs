@@ -93,7 +93,7 @@ namespace KopiLua
 		//#define l_lockfile(f)		flockfile(f)
 		//#define l_unlockfile(f)		funlockfile(f)
 		//#else
-		private static void l_getc(StreamProxy f)		{ return getc(f); }
+		private static int l_getc(StreamProxy f)		{ return getc(f); }
 		private static void l_lockfile(StreamProxy f)		{ /*((void)0);*/ }
 		private static void l_unlockfile(StreamProxy f)		{ /*((void)0);*/ }
 		//#endif
@@ -409,25 +409,25 @@ namespace KopiLua
 		private static int read_line (lua_State L, StreamProxy f, int chop) {
 		  luaL_Buffer b = new luaL_Buffer();
 		  int c;
-		  luaL_buffinit(L, &b);
+		  luaL_buffinit(L, b);
 		  l_lockfile(f);
 		  while ((c = l_getc(f)) != EOF && c != '\n')
-		    luaL_addchar(&b, c);
+		  	luaL_addchar(b, (char)c);
 		  l_unlockfile(f);
-		  if (!chop && c == '\n') luaL_addchar(&b, c);
-		  luaL_pushresult(&b);  /* close buffer */
-		  return (c == '\n' || lua_rawlen(L, -1) > 0);
+		  if (0==chop && c == '\n') luaL_addchar(b, (char)c);
+		  luaL_pushresult(b);  /* close buffer */
+		  return (c == '\n' || lua_rawlen(L, -1) > 0)?1:0;
 		}
 
 
 		private static void read_all (lua_State L, StreamProxy f) {
 		  uint nr;
-		  luaL_Buffer b;
-		  luaL_buffinit(L, &b);
+		  luaL_Buffer b = new luaL_Buffer();
+		  luaL_buffinit(L, b);
 		  do {  /* read file in chunks of LUAL_BUFFERSIZE bytes */
-		    char *p = luaL_prepbuffsize(&b, LUAL_BUFFERSIZE);
-		    nr = fread(p, sizeof(char), LUAL_BUFFERSIZE, f);
-		    luaL_addsize(&b, nr);
+		    CharPtr p = luaL_prepbuffsize(b, LUAL_BUFFERSIZE);
+		    nr = (uint)fread(p, 1/*sizeof(char)*/, LUAL_BUFFERSIZE, f); //FIXME: sizeof(char)
+		    luaL_addsize(b, nr);
 		  } while (nr == LUAL_BUFFERSIZE);
 		  luaL_pushresult(b);  /* close buffer */
 		}

@@ -1,3 +1,8 @@
+TODO: sizeof->GetUnmangedSize(typeof(xxx))
+
+
+--------------------------
+
 10:44 2019/10/20
 ltablib.c
 10:45 2019/10/20
@@ -380,4 +385,175 @@ n->node, not need ---->			  Node node = mainposition(t, key); //FIXME: n->node
   x = (int)LoadVar(S, typeof(int)); //FIXME: changed
   return x;
   
-   
+----------------------------------------------------
+
+18. 
+
+/*int*/byte oldrunning = g.gcrunning; //FIXME: int->byte
+
+--------------------------------------------------------
+
+
+19. 
+
+		/*
+		** All high-level dumps go through DumpVector; you can change it to
+		** change the endianess of the result
+		*/
+not implemented --->		public static void DumpVector(object[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+
+not implemented --->		public static void DumpLiteral(string s, DumpState D)	{ throw new Exception(); DumpBlock(new CharPtr(s), (uint)((s.Length + 1) - 1/*sizeof(char)*/), D); }
+		
+		
+----------------------------------------------------------
+
+20.
+
+not implemented----->		public static void DumpVar(double x, DumpState D)	{ throw new Exception(); /*DumpVector(&x,1,D);*/ }
+
+
+-----------------------------------------------------------
+
+21. 
+
+		//FIXME:
+		private class nativeendian_union {
+		  public int dummy;
+		  public char little;  /* true iff machine is little endian */
+		  
+		  public nativeendian_union(int dummy)
+		  {
+		  	this.dummy = dummy;
+		  }
+		};
+used to get endian, not implemented---------->		private static nativeendian_union nativeendian = new nativeendian_union(1);
+
+
+------------------------------------
+
+22. 
+
+		/*
+		** All high-level loads go through LoadVector; you can change it to
+		** adapt to the endianess of the input
+		*/
+		private static void LoadVector(LoadState S, object[] b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
+
+		
+------------------------------------
+23.
+
+		private static void LoadVar(LoadState S, object x)		{ throw new Exception(); /*LoadVector(S,&x,1);*/ }
+		->
+		private static object LoadVar(LoadState S, object x)		{ throw new Exception(); return 0;/*LoadVector(S,&x,1);*/ }
+		
+--------------------------------------
+
+24. 
+
+		/* returns the key, given the value of a table entry */
+		public static TValue keyfromval(object v) {
+------>			throw new Exception(); return null; } //(gkey((Node)(object)(v)) - offsetof(Node, i_val)))); }
+				
+
+--------------------------------------
+
+25.
+
+		private static int unpackfloat_l (lua_State L) {
+		  lua_Number res = 0;
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
+		  lua_Integer pos = posrelat(luaL_optinteger(L, 2, 1), len);
+		  int size = getfloatsize(L, 3);
+		  luaL_argcheck(L, 1 <= pos && (uint)pos + size - 1 <= len, 1,
+		                   "string too short");
+		  if (size == sizeof(lua_Number)) {
+-->		  	throw new Exception();
+		  	memcpy(CharPtr.FromNumber(res), s + pos - 1, size);
+		  	correctendianess(L, CharPtr.FromNumber(res), size, 4);
+		  }
+		  else if (size == sizeof(float)) {
+		    float f = 0;
+-->		    throw new Exception();
+		    memcpy(CharPtr.FromNumber(f), s + pos - 1, size);
+		    correctendianess(L, CharPtr.FromNumber(f), size, 4);
+		    res = (lua_Number)f;
+		  }  
+		  else {  /* native lua_Number may be neither float nor double */
+		    double d = 0;
+		    lua_assert(size == sizeof(double));
+-->		    throw new Exception();
+		    memcpy(CharPtr.FromNumber(d), s + pos - 1, size);
+		    correctendianess(L, CharPtr.FromNumber(d), size, 4);
+		    res = (lua_Number)d;
+		  }
+		  lua_pushnumber(L, res);
+		  return 1;
+		}
+		
+-------------------------------------
+
+
+private static int packfloat_l (lua_State L) {
+		  float f;  double d;
+		  CharPtr pn;  /* pointer to number */
+		  lua_Number n = luaL_checknumber(L, 1);
+		  int size = getfloatsize(L, 2);
+		  if (size == sizeof(lua_Number))
+--->		  	pn = CharPtr.FromNumber(n);
+		  else if (size == sizeof(float)) {
+		    f = (float)n;
+--->		    pn = CharPtr.FromNumber(f);
+		  }  
+		  else {  /* native lua_Number may be neither float nor double */
+		    lua_assert(size == sizeof(double));
+		    d = (double)n;
+--->		    pn = CharPtr.FromNumber(d);
+		  }
+--->		  throw new Exception();
+		  correctendianess(L, pn, size, 3);
+		  lua_pushlstring(L, pn, (uint)size);
+		  return 1;
+		}
+		
+		
+-------------------------------------
+
+		  L1 = ((LX)luaM_newobject<LX>(L/*, LUA_TTHREAD)*/)).l; //FIXME:
+		  
+		 
+-------------------------------------
+
+???not copy value???
+ 
+public void Assign(Node copy)
+			{
+				//FIXME:
+				this.values = copy.values;
+				this.index = copy.index;
+				this.i_val = new TValue(copy.i_val);
+				this.i_key = new TKey(copy.i_key);				
+			}
+			
+--------------------------------------
+
+public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz) {
+		  global_State g = G(L);
+		  //FIXME:???
+		  throw new Exception();
+------>		  GCObject o = (GCObject)luaM_newobject<GCObject>(L/*, novariant(tt), sz*/);
+		  if (o is TString) //FIXME:added
+		  {
+		  	int len_plus_1 = (int)sz - GetUnmanagedSize(typeof(TString));
+		  	((TString) o).str = new CharPtr(new char[len_plus_1]);
+		  }
+		  gch(o).marked = luaC_white(g);
+		  gch(o).tt = (byte)tt; //FIXME:(byte)
+		  gch(o).next = g.allgc;
+		  g.allgc = o;
+		  return o;
+		}
+		
+----------------------------------------
+

@@ -60,7 +60,7 @@ namespace KopiLua
 		
 		public static void luaX_init (lua_State L) {
 		  int i;
-		  TString *e = luaS_new(L, LUA_ENV);  /* create env name */
+		  TString e = luaS_new(L, LUA_ENV);  /* create env name */
 		  luaC_fix(L, obj2gco(e));  /* never collect this name */		  
 		  for (i=0; i<NUM_RESERVED; i++) {
 			TString ts = luaS_new(L, luaX_tokens[i]);
@@ -318,49 +318,49 @@ namespace KopiLua
 		  }
 		}
 
-		private static void esccheck (LexState *ls, int c, const char *msg) {
-		  if (!c) {
-		    if (ls->current != EOZ)
+		private static void esccheck (LexState ls, int c, CharPtr msg) {
+		  if (c==0) {
+		    if (ls.current != EOZ)
 		      save_and_next(ls);  /* add current to buffer for error message */
-		    lexerror(ls, msg, TK_STRING);
+		    lexerror(ls, msg, (int)RESERVED.TK_STRING);
 		  }
 		}
 
 
-		private static int gethexa (LexState *ls) {
+		private static int gethexa (LexState ls) {
 		  save_and_next(ls);
-		  esccheck (ls, lisxdigit(ls->current), "hexadecimal digit expected");
-		  return luaO_hexavalue(ls->current);
+		  esccheck (ls, lisxdigit(ls.current), "hexadecimal digit expected");
+		  return luaO_hexavalue(ls.current);
 		}
 
 
 		private static int readhexaesc (LexState ls) {
 		  int r = gethexa(ls);
 		  r = (r << 4) + gethexa(ls);
-		  luaZ_buffremove(ls->buff, 2);  /* remove saved chars from buffer */
+		  luaZ_buffremove(ls.buff, 2);  /* remove saved chars from buffer */
 		  return r;
 		}
 		
-		private static unsigned int readutf8esc (LexState *ls) {
-		  unsigned int r;
+		private static uint readutf8esc (LexState ls) {
+		  uint r;
 		  int i = 4;  /* chars to be removed: '\', 'u', '{', and first digit */
 		  save_and_next(ls);  /* skip 'u' */
-		  esccheck(ls, ls->current == '{', "missing '{'");
-		  r = gethexa(ls);  /* must have at least one digit */
-		  while ((save_and_next(ls), lisxdigit(ls->current))) {
+		  esccheck(ls, (ls.current == '{')?1:0, "missing '{'");
+		  r = (uint)gethexa(ls);  /* must have at least one digit */
+		  while (true) {save_and_next(ls); if (0==lisxdigit(ls.current)) {break;}
 		    i++;
-		    r = (r << 4) + luaO_hexavalue(ls->current);
-		    esccheck(ls, r <= 0x10FFFF, "UTF-8 value too large");
+		    r = (uint)((r << 4) + luaO_hexavalue(ls.current));
+		    esccheck(ls, (r <= 0x10FFFF)?1:0, "UTF-8 value too large");
 		  }
-		  esccheck(ls, ls->current == '}', "missing '}'");
+		  esccheck(ls, (ls.current == '}')?1:0, "missing '}'");
 		  next(ls);  /* skip '}' */
-		  luaZ_buffremove(ls->buff, i);  /* remove saved chars from buffer */
+		  luaZ_buffremove(ls.buff, i);  /* remove saved chars from buffer */
 		  return r;
 		}
 
 
-		private static void utf8esc (LexState *ls) {
-		  char buff[UTF8BUFFSZ];
+		private static void utf8esc (LexState ls) {
+		  CharPtr buff = new CharPtr(new char[UTF8BUFFSZ]);
 		  int n = luaO_utf8esc(buff, readutf8esc(ls));
 		  for (; n > 0; n--)  /* add 'buff' to string */
 		    save(ls, buff[UTF8BUFFSZ - n]);
@@ -370,12 +370,12 @@ namespace KopiLua
 		private static int readdecesc (LexState ls) {
 		  int i;
 		  int r = 0;  /* result accumulator */
-		  for (i = 0; i < 3 && lisdigit(ls->current); i++) {  /* read up to 3 digits */
-		    r = 10*r + ls->current - '0';
+		  for (i = 0; i < 3 && lisdigit(ls.current)!=0; i++) {  /* read up to 3 digits */
+		    r = 10*r + ls.current - '0';
 		    save_and_next(ls);
 		  }
-		  esccheck(ls, r <= UCHAR_MAX, "decimal escape too large");
-		  luaZ_buffremove(ls->buff, i);  /* remove read digits from buffer */
+		  esccheck(ls, (r <= UCHAR_MAX)?1:0, "decimal escape too large");
+		  luaZ_buffremove(ls.buff, i);  /* remove read digits from buffer */
 		  return r;
 		}
 
@@ -419,7 +419,7 @@ namespace KopiLua
 		            goto no_save;
 		          }
 				  default: {
-		            esccheck(ls, lisdigit(ls->current), "invalid escape sequence");
+		            esccheck(ls, lisdigit(ls.current), "invalid escape sequence");
 		            c = readdecesc(ls);  /* digital escape \ddd */
 					goto only_save;
 				  }
@@ -428,7 +428,7 @@ namespace KopiLua
 			     next(ls);
 				 /* go through */
 		       only_save:
-		         luaZ_buffremove(ls->buff, 1);  /* remove '\\' */
+		         luaZ_buffremove(ls.buff, 1);  /* remove '\\' */
 		         save(ls, c);
 		         /* go through */
 		       no_save: break;
@@ -492,14 +492,14 @@ namespace KopiLua
 			  }
 			  case '<': {
 				next(ls);
-		        if (ls->current == '=') { next(ls); return TK_LE; }
-		        if (ls->current == '<') { next(ls); return TK_SHL; }
+		        if (ls.current == '=') { next(ls); return (int)RESERVED.TK_LE; }
+		        if (ls.current == '<') { next(ls); return (int)RESERVED.TK_SHL; }
 		        return '<';
 			  }
 			  case '>': {
 				next(ls);
-		        if (ls->current == '=') { next(ls); return TK_GE; }
-		        if (ls->current == '>') { next(ls); return TK_SHR; }
+		        if (ls.current == '=') { next(ls); return (int)RESERVED.TK_GE; }
+		        if (ls.current == '>') { next(ls); return (int)RESERVED.TK_SHR; }
 		        return '>';
 			  }
 			  case '/': {

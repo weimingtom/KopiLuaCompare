@@ -139,14 +139,14 @@ namespace KopiLua
 		/*
 		** free half of the CallInfo structures not in use by a thread
 		*/
-		public static void luaE_shrinkCI (lua_State *L) {
-		  CallInfo *ci = L->ci;
-		  while (ci->next != NULL) {  /* while there is 'next' */
-		    CallInfo *next2 = ci->next->next;  /* next's next */
-		    if (next2 == NULL) break;
-		    luaM_free(L, ci->next);  /* remove next */
-		    ci->next = next2;  /* remove 'next' from the list */
-		    next2->previous = ci;
+		public static void luaE_shrinkCI (lua_State L) {
+		  CallInfo ci = L.ci;
+		  while (ci.next != null) {  /* while there is 'next' */
+		    CallInfo next2 = ci.next.next;  /* next's next */
+		    if (next2 == null) break;
+		    luaM_free(L, ci.next);  /* remove next */
+		    ci.next = next2;  /* remove 'next' from the list */
+		    next2.previous = ci;
 		    ci = next2;
 		  }
 		}
@@ -248,7 +248,7 @@ namespace KopiLua
 		  global_State g = G(L);
 		  luaF_close(L, L.stack[0]);  /* close all upvalues for this thread */
 		  luaC_freeallobjects(L);  /* collect all objects */
-		  if (g.version)  /* closing a fully built state? */
+		  if (g.version!=null)  /* closing a fully built state? */
 		    luai_userstateclose(L);		  	  
 		  luaM_freearray(L, G(L).strt.hash);
 		  luaZ_freebuffer(L, g.buff);
@@ -264,12 +264,12 @@ namespace KopiLua
 		  lua_lock(L);
 		  luaC_checkGC(L);
 		  /* create new thread */
-		  L1 = &cast(LX *, luaM_newobject(L, LUA_TTHREAD, sizeof(LX)))->l;
-		  L1->marked = luaC_white(g);
-		  L1->tt = LUA_TTHREAD;
+		  L1 = ((LX)luaM_newobject<LX>(L/*, LUA_TTHREAD)*/)).l; //FIXME:
+		  L1.marked = luaC_white(g);
+		  L1.tt = LUA_TTHREAD;
 		  /* link it on list 'allgc' */
-		  L1->next = g->allgc;
-		  g->allgc = obj2gco(L1);
+		  L1.next = g.allgc;
+		  g.allgc = obj2gco(L1);
 		  setthvalue(L, L.top, L1);
 		  api_incr_top(L);
 		  preinit_thread(L1, g);
@@ -327,7 +327,7 @@ namespace KopiLua
 		  g.sweepgc = null;
 		  g.gray = g.grayagain = null;
 		  g.weak = g.ephemeron = g.allweak = null;
-		  g.twups = NULL;
+		  g.twups = null;
 		  g.totalbytes = (uint)GetUnmanagedSize(typeof(LG));
           g.GCdebt = 0;
 		  g.gcfinnum = 0;

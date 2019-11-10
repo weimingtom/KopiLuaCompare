@@ -29,7 +29,13 @@ namespace KopiLua
 			{ return (int)((uint)(v1) - (uint)(v2));}
 		public static int intop_mul(lua_Integer v1, lua_Integer v2) 
 			{ return (int)((uint)(v1) * (uint)(v2));}
-
+		public static int intop_xor(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) ^ (uint)(v2));}
+		public static int intop_or(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) | (uint)(v2));}
+		public static int intop_and(lua_Integer v1, lua_Integer v2) 
+			{ return (int)((uint)(v1) & (uint)(v2));}
+		
 		public static int luaV_rawequalobj(TValue t1,TValue t2) { return luaV_equalobj(null,t1,t2); }
 	}
 }

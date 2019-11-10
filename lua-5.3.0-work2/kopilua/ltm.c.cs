@@ -109,15 +109,18 @@ namespace KopiLua
 		                    StkId res, TMS event_) {
 		  if (0==luaT_callbinTM(L, p1, p2, res, event_)) {
 		    switch (event_) {
-		      case TM_CONCAT:
+		      case TMS.TM_CONCAT:
 		        luaG_concaterror(L, p1, p2);
-		      case TM_IDIV: case TM_BAND: case TM_BOR: case TM_BXOR:
-		      case TM_SHL: case TM_SHR: case TM_BNOT:
+		        goto case TMS.TM_IDIV;//FIXME:added
+		      case TMS.TM_IDIV: case TMS.TM_BAND: case TMS.TM_BOR: case TMS.TM_BXOR:
+		      case TMS.TM_SHL: case TMS.TM_SHR: case TMS.TM_BNOT:
 		        if (ttisnumber(p1) && ttisnumber(p2))
 		          luaG_tointerror(L, p1, p2);
 		        /* else go through */
+		        goto default; //FIXME:added
 		      default:
 		        luaG_aritherror(L, p1, p2);
+		        break; //FIXME:added
 		    }
 		  }
 		}

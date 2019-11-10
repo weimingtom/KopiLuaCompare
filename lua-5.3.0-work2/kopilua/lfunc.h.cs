@@ -6,6 +6,7 @@
 namespace KopiLua
 {
 	using TValue = Lua.lua_TValue;
+	using lu_mem = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -19,25 +20,27 @@ namespace KopiLua
 
 
 		/* test whether thread is in 'twups' list */
-		#define isintwups(L)	(L->twups != L)
+		public static bool isintwups(lua_State L)	{ return (L.twups != L); }
 
 
 		/*
 		** Upvalues for Lua closures
 		*/
-		struct UpVal {
-		  TValue *v;  /* points to stack or to its own value */
-		  lu_mem refcount;  /* reference counter */
-		  union {
-		    struct {  /* (when open) */
-		      UpVal *next;  /* linked list */
-		      int touched;  /* mark to avoid cycles with dead threads */
-		    } open;
-		    TValue value;  /* the value (when closed) */
-		  } u;
+		public class UpVal {
+		  public TValue v = null;  /* points to stack or to its own value */
+		  public lu_mem refcount;  /* reference counter */
+		  public UpVal_u u = new UpVal_u();
 		};
-
-		#define upisopen(up)	((up)->v != &(up)->u.value)
+	  	public class UpVal_u {  /* (when open) */
+		  public UpVal_u_open open = new UpVal_u_open();
+		  public TValue value_ = new TValue();  /* the value (when closed) */
+	  	};
+		public class UpVal_u_open {
+		  public UpVal next = null;  /* linked list */
+		  public int touched;  /* mark to avoid cycles with dead threads */
+		};
+		
+		public static bool upisopen(UpVal up)	{ return (up.v != up.u.value_); } 
 
 
 

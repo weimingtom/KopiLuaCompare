@@ -20,6 +20,7 @@ namespace KopiLua
 	using OpCode = Lua.OpCode;
 	using OpMode = Lua.OpMode;
 	using OpArgMask = Lua.OpArgMask;
+	using lua_Number = System.Double;
 	
 	public class Program_luac
 	{

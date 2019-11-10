@@ -27,11 +27,11 @@ namespace KopiLua
 
 
 		//#if !defined(luai_verifycode)
-		public static void luai_verifycode(lua_State L, Mbuffer b, Proto f) { /* empty */ }
+		private static void luai_verifycode(lua_State L, Mbuffer b, Proto f) { /* empty */ }
 		//#endif
 
 
-		public class LoadState{
+		private class LoadState{
 		  public lua_State L;
 		  public ZIO Z;
 		  public Mbuffer b;
@@ -39,7 +39,7 @@ namespace KopiLua
 		};
 
 
-		public static void/*l_noret*/ error(LoadState S, CharPtr why) {
+		private static void/*l_noret*/ error(LoadState S, CharPtr why) {
 		  luaO_pushfstring(S.L,"%s: %s precompiled chunk",S.name,why);
 		  luaD_throw(S.L,LUA_ERRSYNTAX);
 		}
@@ -48,65 +48,67 @@ namespace KopiLua
 		** All high-level loads go through LoadVector; you can change it to
 		** adapt to the endianess of the input
 		*/
-		#define LoadVector(S,b,n)	LoadBlock(S,b,(n)*sizeof((b)[0]))
+		private static void LoadVector(LoadState S, CharPtr b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
+		private static void LoadVector(LoadState S, Instruction[] b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
+		private static void LoadVector(LoadState S, int[] b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
 
 
-		private static void LoadBlock(LoadState S, CharPtr b, int size) {
+		private static void LoadBlock (LoadState S, CharPtr b, int size) {
 		  if (luaZ_read(S.Z, b, (uint)size) != 0) //FIXME:(uint) 
 		    error(S, "truncated");
 		}
 
 
-		#define LoadVar(S,x)		LoadVector(S,&x,1)
+		private static object LoadVar(LoadState S, object x)		{ throw new Exception(); return 0;/*LoadVector(S,&x,1);*/ }
 
 
-		private static lu_byte LoadByte(LoadState S) {
+		private static lu_byte LoadByte (LoadState S) {
 		  return (lu_byte)LoadVar(S, typeof(char)); //FIXME: changed
 		}
 
 
-		private static int LoadInt(LoadState S) {
+		private static int LoadInt (LoadState S) {
 		  int x;
 		  x = (int)LoadVar(S, typeof(int)); //FIXME: changed
 		  return x;
 		}
 
 
-		private static lua_Number LoadNumber(LoadState S) {
+		private static lua_Number LoadNumber (LoadState S) {
 		  return (lua_Number)LoadVar(S, typeof(lua_Number));
 		}
 
 
-		private static lua_Integer LoadInteger(LoadState S) {
+		private static lua_Integer LoadInteger (LoadState S) {
 		  return (lua_Integer)LoadVar(S, typeof(lua_Integer));
 		}
 
 
-		private static TString LoadString(LoadState S) {
-		  size_t size = LoadByte(S);
+		private static TString LoadString (LoadState S) {
+		  uint size = LoadByte(S);
 		  if (size == 0xFF)
 		    LoadVar(S, size);
 		  if (size == 0)
-		    return NULL;
+		    return null;
 		  else {
-		    char *s = luaZ_openspace(S->L, S->b, --size);
-		    LoadVector(S, s, size);
-		    return luaS_newlstr(S->L, s, size);
+		    CharPtr s = luaZ_openspace(S.L, S.b, --size);
+		    LoadVector(S, s, (int)size);
+		    return luaS_newlstr(S.L, s, size);
 		  }
 		}
 
-		private static void LoadCode(LoadState S, Proto f) {
-		  int n=LoadInt(S);
+		private static void LoadCode (LoadState S, Proto f) {
+		  int n = LoadInt(S);
 		  f.code = luaM_newvector<Instruction>(S.L, n);
 		  f.sizecode=n;
-		  f.code = (Instruction[])LoadVector(S, typeof(Instruction), n);
+		  LoadVector(S, f.code, n);
 		}
 
 
 		//static void LoadFunction(LoadState* S, Proto* f);
 
 
-		private static void LoadConstants(LoadState S, Proto f) {
+		private static void LoadConstants (LoadState S, Proto f) {
 		  int i, n;
 		  n = LoadInt(S);
 		  f.k = luaM_newvector<TValue>(S.L, n);
@@ -169,7 +171,7 @@ namespace KopiLua
 		  n = LoadInt(S);
 		  f.lineinfo=luaM_newvector<int>(S.L, n);
 		  f.sizelineinfo=n;
-		  f.lineinfo = (int[])LoadVector(S, typeof(int), n);
+		  LoadVector(S, f.lineinfo, n);
 		  n = LoadInt(S);
 		  f.locvars=luaM_newvector<LocVar>(S.L, n);
 		  f.sizelocvars=n;
@@ -197,8 +199,8 @@ namespace KopiLua
 		  LoadDebug(S,f);
 		}
 
-		private static void checkliteral (LoadState *S, const char *s, const char *msg) {
-		  char buff[sizeof(LUA_SIGNATURE) + sizeof(LUAC_DATA)]; /* larger than both */
+		private static void checkliteral (LoadState S, CharPtr s, CharPtr msg) {
+		  CharPtr buff = new CharPtr(new char[(LUA_SIGNATURE.Length + 1) + (LUAC_DATA.Length + 1)]); /* larger than both */
 		  int len = strlen(s);
 		  LoadVector(S, buff, len);
 		  if (memcmp(s, buff, len) != 0)
@@ -206,26 +208,26 @@ namespace KopiLua
 		}
 
 
-		private static void fchecksize (LoadState *S, size_t size, const char *tname) {
+		private static void fchecksize (LoadState S, uint size, CharPtr tname) {
 		  if (LoadByte(S) != size)
-		    error(S, luaO_pushfstring(S->L, "%s size mismatch in", tname));
+		    error(S, luaO_pushfstring(S.L, "%s size mismatch in", tname));
 		}
 
 
-		#define checksize(S,t)	fchecksize(S,sizeof(t),#t)
+		private static void checksize(LoadState S, Type t, string sharp_t) { fchecksize(S, (uint)GetUnmanagedSize(t), new CharPtr(sharp_t));}
 
-		private static void checkHeader (LoadState *S) {
+		private static void checkHeader (LoadState S) {
 		  checkliteral(S, LUA_SIGNATURE + 1, "not a");  /* 1st char already checked */
 		  if (LoadByte(S) != LUAC_VERSION)
 		    error(S, "version mismatch in");
 		  if (LoadByte(S) != LUAC_FORMAT)
 		    error(S, "format mismatch in");
 		  checkliteral(S, LUAC_DATA, "corrupted");
-		  checksize(S, int);
-		  checksize(S, size_t);
-		  checksize(S, Instruction);
-		  checksize(S, lua_Integer);
-		  checksize(S, lua_Number);
+		  checksize(S, typeof(int), "int");
+		  checksize(S, typeof(uint), "size_t");
+		  checksize(S, typeof(Instruction), "Instruction");
+		  checksize(S, typeof(lua_Integer), "lua_Integer");
+		  checksize(S, typeof(lua_Number), "lua_Number");
 		  if (LoadInteger(S) != LUAC_INT)
 		    error(S, "endianess mismatch in");
 		  if (LoadNumber(S) != LUAC_NUM)
@@ -248,13 +250,13 @@ namespace KopiLua
 		  S.L=L;
 		  S.Z=Z;
 		  S.b=buff;
-		  checkHeader(&S);
-		  cl = luaF_newLclosure(L, LoadByte(&S));
-		  setclLvalue(L, L->top, cl);
+		  checkHeader(S);
+		  cl = luaF_newLclosure(L, LoadByte(S));
+		  setclLvalue(L, L.top, cl);
 		  incr_top(L);
-		  cl->l.p = luaF_newproto(L);
-		  LoadFunction(&S, cl->l.p);
-		  lua_assert(cl->l.nupvalues == cl->l.p->sizeupvalues);
+		  cl.l.p = luaF_newproto(L);
+		  LoadFunction(S, cl.l.p);
+		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
 		  luai_verifycode(L,buff,cl.l.p);
 		  return cl;
 		}

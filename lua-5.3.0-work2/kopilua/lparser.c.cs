@@ -29,7 +29,7 @@ namespace KopiLua
 
 		/* because all strings are unified by the scanner, the parser
 		   can use pointer equality for string equality */
-		#define eqstr(a,b)	((a) == (b))
+		private static bool eqstr(TString a, TString b)	{ return ((a) == (b)); }
 
 
 		/*
@@ -209,7 +209,7 @@ namespace KopiLua
 		  int i;
 		  Upvaldesc[] up = fs.f.upvalues;
 		  for (i = 0; i < fs.nups; i++) {
-		    if (eqstr(up[i].name, name) != 0) return i;
+		    if (eqstr(up[i].name, name)) return i;
 		  }
 		  return -1;  /* not found */
 		}
@@ -233,7 +233,7 @@ namespace KopiLua
 		private static int searchvar (FuncState fs, TString n) {
 		  int i;
 		  for (i=(int)(fs.nactvar)-1; i >= 0; i--) {
-		  	if (eqstr(n, getlocvar(fs, i).varname) != 0)
+		  	if (eqstr(n, getlocvar(fs, i).varname))
 			  return i;
 		  }
 		  return -1;  /* not found */
@@ -356,7 +356,7 @@ namespace KopiLua
 		  /* check labels in current block for a match */
 		  for (i = bl.firstlabel; i < dyd.label.n; i++) {
 		    Labeldesc lb = dyd.label.arr[i];
-		    if (eqstr(lb.name, gt.name) != 0) {  /* correct label? */
+		    if (eqstr(lb.name, gt.name)) {  /* correct label? */
 		      if (gt.nactvar > lb.nactvar &&
 		          (bl.upval!=0 || dyd.label.n > bl.firstlabel))
 		        luaK_patchclose(ls.fs, gt.pc, lb.nactvar);
@@ -390,7 +390,7 @@ namespace KopiLua
 		  Labellist gl = ls.dyd.gt;
 		  int i = ls.fs.bl.firstgoto;
 		  while (i < gl.n) {
-		    if (eqstr(gl.arr[i].name, lb.name) != 0)
+		    if (eqstr(gl.arr[i].name, lb.name))
 		      closegoto(ls, i, lb);
 		    else
 		      i++;
@@ -1226,7 +1226,7 @@ namespace KopiLua
 		private static void checkrepeated (FuncState fs, Labellist ll, TString label) {
 		  int i;
 		  for (i = fs.bl.firstlabel; i < ll.n; i++) {
-		    if (eqstr(label, ll.arr[i].name)!=0) {
+		    if (eqstr(label, ll.arr[i].name)) {
 		      CharPtr msg = luaO_pushfstring(fs.ls.L,
 		                          "label " + LUA_QS + " already defined on line %d",
 		                          getstr(label), ll.arr[i].line);
@@ -1656,11 +1656,11 @@ namespace KopiLua
 		  setclLvalue(L, L.top, cl);  /* anchor it (to avoid being collected) */
 		  incr_top(L);
 		  lexstate.h = luaH_new(L);  /* create table for scanner */
-		  sethvalue(L, L->top, lexstate.h);  /* anchor it */
+		  sethvalue(L, L.top, lexstate.h);  /* anchor it */
 		  incr_top(L);		  
 		  funcstate.f = cl.l.p = luaF_newproto(L);
 		  funcstate.f.source = luaS_new(L, name);  /* create and anchor TString */
-		  luaC_objbarrier(L, funcstate.f, funcstate.f->source);
+		  luaC_objbarrier(L, funcstate.f, funcstate.f.source);
 		  lexstate.buff = buff;
 		  lexstate.dyd = dyd;
 		  dyd.actvar.n = dyd.gt.n = dyd.label.n = 0;
@@ -1669,7 +1669,7 @@ namespace KopiLua
 		  lua_assert(null == funcstate.prev && funcstate.nups == 1 && null == lexstate.fs);
 		  /* all scopes should be correctly finished */
 		  lua_assert(dyd.actvar.n == 0 && dyd.gt.n == 0 && dyd.label.n == 0);
-		  L->top--;  /* remove scanner's table */
+		  lua_TValue.dec(ref L.top);  /* remove scanner's table */
 		  return cl;  /* closure is on the stack, too */
 		}
 

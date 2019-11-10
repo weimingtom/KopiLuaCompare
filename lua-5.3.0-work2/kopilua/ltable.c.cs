@@ -177,7 +177,7 @@ namespace KopiLua
 		      nx = gnext(n);
 		      if (nx == 0)
 		        luaG_runerror(L, "invalid key to " + LUA_QL("next"));  /* key not found */
-		      else n += nx;
+		      else Node.inc(ref n, nx);
 			}
 		  }
 		}
@@ -447,22 +447,22 @@ namespace KopiLua
 			othern = mainposition(t, gkey(mp));
 			if (othern != mp) {  /* is colliding node out of its main position? */
 			  /* yes; move colliding node into free position */
-		      while (othern + gnext(othern) != mp)  /* find previous */
-		        othern += gnext(othern);
-		      gnext(othern) = f - othern;  /* re-chain with 'f' in place of 'mp' */
-		      *f = *mp;  /* copy colliding node into free pos. (mp->next also goes) */
+			  while (Node.plus(othern, gnext(othern)) != mp)  /* find previous */
+		        Node.inc(ref othern, gnext(othern));
+		      gnext_set(othern, f - othern);  /* re-chain with 'f' in place of 'mp' */
+		      f.Assign(mp);  /* copy colliding node into free pos. (mp->next also goes) */
 		      if (gnext(mp) != 0) {
-		        gnext(f) += mp - f;  /* correct 'next' */
-		        gnext(mp) = 0;  /* now 'mp' is free */
+		      	gnext_set(f, mp - f);  /* correct 'next' */
+		        gnext_set(mp, 0);  /* now 'mp' is free */
 		      }
 			  setnilvalue(gval(mp));
 			}
 			else {  /* colliding node is in its own main position */
 			  /* new node will go into free position */
 		      if (gnext(mp) != 0)
-		        gnext(f) = (mp + gnext(mp)) - f;  /* chain new position */
+		      	gnext_set(f, (Node.plus(mp, gnext(mp))) - f);  /* chain new position */
 		      else lua_assert(gnext(f) == 0);
-		      gnext(mp) = f - mp;
+		      gnext_set(mp, f - mp);
 		      mp = f;
 			}
 		  }
@@ -489,7 +489,7 @@ namespace KopiLua
 		      else {
 		        int nx = gnext(n);
 		        if (nx == 0) break;
-		        n += nx;
+		        Node.inc(ref n, nx);
 		      }
 			};
 			return luaO_nilobject;
@@ -509,7 +509,7 @@ namespace KopiLua
 		    else {
 		      int nx = gnext(n);
 		      if (nx == 0) break;
-		      n += nx;
+		      Node.inc(ref n, nx);
 		    }
 		  };
 		  return luaO_nilobject;
@@ -534,12 +534,12 @@ namespace KopiLua
 			default: {
 			  Node n = mainposition(t, key);
 			  for (;;) {  /* check whether `key' is somewhere in the chain */
-				if (luaV_rawequalobj(gkey(node), key) != 0)//FIXME: n->node
-				  return gval(node);  /* that's it *///FIXME: n->node
+				if (luaV_rawequalobj(gkey(n), key) != 0)
+				  return gval(n);  /* that's it */
 		        else {
 		          int nx = gnext(n);
 		          if (nx == 0) break;
-		          n += nx;
+		          Node.inc(ref n, nx);
 		        }
 			  };
 			  return luaO_nilobject;

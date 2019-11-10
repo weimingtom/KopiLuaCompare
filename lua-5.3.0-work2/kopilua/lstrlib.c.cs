@@ -984,40 +984,46 @@ namespace KopiLua
 		*/
 
 		/* maximum size for the binary representation of an integer */
-		#define MAXINTSIZE	8
+		private const int MAXINTSIZE = 8;
 
 
 		/* number of bits in a character */
-		#define NB	CHAR_BIT
+		private const int NB = CHAR_BIT;
 
 		/* mask for one character (NB ones) */
-		#define MC	(((lua_Integer)1 << NB) - 1)
+		private const lua_Integer MC = (((lua_Integer)1 << NB) - 1);
 
 		/* mask for one character without sign ((NB - 1) ones) */
-		#define SM	(((lua_Integer)1 << (NB - 1)) - 1)
+		private const lua_Integer SM = (((lua_Integer)1 << (NB - 1)) - 1);
 
 
-		#define SZINT	((int)sizeof(lua_Integer))
+		private const int SZINT = ((int)sizeof(lua_Integer));
+
+		//FIXME:x86 always little endian
+		private class nativeendian_union {
+		  public int dummy;
+		  public char little = (char)1;  /* true iff machine is little endian */
+		  
+		  public nativeendian_union(int dummy)
+		  {
+		  	this.dummy = dummy;
+		  }
+		};
+		private static nativeendian_union nativeendian = new nativeendian_union(1);
 
 
-		static union {
-		  int dummy;
-		  char little;  /* true iff machine is little endian */
-		} const nativeendian = {1};
-
-
-		private static int getendian (lua_State *L, int arg) {
-		  const char *endian = luaL_optstring(L, arg,
-		                             (nativeendian.little ? "l" : "b"));
-		  if (*endian == 'n')  /* native? */
+		private static int getendian (lua_State L, int arg) {
+		  CharPtr endian = luaL_optstring(L, arg,
+		                             (nativeendian.little!=0 ? "l" : "b"));
+		  if (endian[0] == 'n')  /* native? */
 		    return nativeendian.little;
-		  luaL_argcheck(L, *endian == 'l' || *endian == 'b', arg,
+		  luaL_argcheck(L, endian[0] == 'l' || endian[0] == 'b', arg,
 		                   "endianess must be 'l'/'b'/'n'");
-		  return (*endian == 'l');
+		    return (endian[0] == 'l')?1:0;
 		}
 
 
-		private static int getintsize (lua_State *L, int arg) {
+		private static int getintsize (lua_State L, int arg) {
 		  int size = luaL_optint(L, arg, 0);
 		  if (size == 0) size = SZINT;
 		  luaL_argcheck(L, 1 <= size && size <= MAXINTSIZE, arg,
@@ -1026,35 +1032,35 @@ namespace KopiLua
 		}
 
 
-		private static int packint (char *buff, lua_Integer n, int littleendian, int size) {
+		private static int packint (CharPtr buff, lua_Integer n, int littleendian, int size) {
 		  int i;
-		  if (littleendian) {
+		  if (littleendian!=0) {
 		    for (i = 0; i < size - 1; i++) {
-		      buff[i] = (n & MC);
+		  	  buff[i] = (char)(n & MC);
 		      n >>= NB;
 		    }
 		  }
 		  else {
 		    for (i = size - 1; i > 0; i--) {
-		      buff[i] = (n & MC);
+		      buff[i] = (char)(n & MC);
 		      n >>= NB;
 		    }
 		  }
-		  buff[i] = (n & MC);  /* last byte */
+		  buff[i] = (char)(n & MC);  /* last byte */
 		  /* test for overflow: OK if there are only zeros left in higher bytes,
 		     or if there are only ones left and packed number is negative (signal
 		     bit, the higher bit in last byte, is one) */
-		  return ((n & ~MC) == 0 || (n | SM) == ~(lua_Integer)0);
+		  return ((n & ~MC) == 0 || (n | SM) == ~(lua_Integer)0)?1:0;
 		}
 
 
-		private static int packint_l (lua_State *L) {
-		  char buff[MAXINTSIZE];
+		private static int packint_l (lua_State L) {
+		  CharPtr buff = new CharPtr(new char[MAXINTSIZE]);
 		  lua_Integer n = luaL_checkinteger(L, 1);
 		  int size = getintsize(L, 2);
 		  int endian = getendian(L, 3);
-		  if (packint(buff, n, endian, size))
-		    lua_pushlstring(L, buff, size);
+		  if (packint(buff, n, endian, size)!=0)
+		  	lua_pushlstring(L, buff, (uint)size);
 		  else
 		    luaL_error(L, "integer does not fit into given size (%d)", size);
 		  return 1;
@@ -1062,12 +1068,12 @@ namespace KopiLua
 
 
 		/* mask to check higher-order byte in a Lua integer */
-		#define HIGHERBYTE	(MC << (NB * (SZINT - 1)))
+		private const int HIGHERBYTE = (MC << (NB * (SZINT - 1)));
 
 		/* mask to check higher-order byte + signal bit of next (lower) byte */
-		#define HIGHERBYTE1	(HIGHERBYTE | (HIGHERBYTE >> 1))
+		private const int HIGHERBYTE1 = (HIGHERBYTE | (HIGHERBYTE >> 1));
 
-		private static int unpackint (const char *buff, lua_Integer *res,
+		private static int unpackint (CharPtr buff, ref lua_Integer res,
 		                      int littleendian, int size) {
 		  lua_Integer n = 0;
 		  int i;
@@ -1083,28 +1089,28 @@ namespace KopiLua
 		        return 0;  /* overflow */
 		    }
 		    n <<= NB;
-		    n |= (lua_Integer)(unsigned char)buff[littleendian ? size - 1 - i : i];
+		    n |= (lua_Integer)(byte)buff[littleendian!=0 ? size - 1 - i : i];
 		  }
 		  if (size < SZINT) {  /* need sign extension? */
 		    lua_Integer mask = (~(lua_Integer)0) << (size*NB - 1);
-		    if (n & mask)  /* negative value? */
+		    if ((n & mask)!=0)  /* negative value? */
 		      n |= mask;  /* signal extension */
 		  }
-		  *res = n;
+		  res = n;
 		  return 1;
 		}
 
 
-		private static int unpackint_l (lua_State *L) {
-		  lua_Integer res;
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		private static int unpackint_l (lua_State L) {
+		  lua_Integer res = 0;
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  lua_Integer pos = posrelat(luaL_optinteger(L, 2, 1), len);
 		  int size = getintsize(L, 3);
 		  int endian = getendian(L, 4);
-		  luaL_argcheck(L, 1 <= pos && (size_t)pos + size - 1 <= len, 1,
+		  luaL_argcheck(L, 1 <= pos && (uint)pos + size - 1 <= len, 1,
 		                   "string too short");
-		  if(unpackint(s + pos - 1, &res, endian, size))
+		  if(0!=unpackint(s + pos - 1, ref res, endian, size))
 		    lua_pushinteger(L, res);
 		  else
 		    luaL_error(L, "result does not fit into a Lua integer");
@@ -1112,7 +1118,7 @@ namespace KopiLua
 		}
 
 
-		private static void correctendianess (lua_State *L, char *b, int size, int endianarg) {
+		private static void correctendianess (lua_State L, CharPtr b, int size, int endianarg) {
 		  int endian = getendian(L, endianarg);
 		  if (endian != nativeendian.little) {  /* not native endianess? */
 		    int i = 0;
@@ -1125,60 +1131,64 @@ namespace KopiLua
 		}
 
 
-		private static int getfloatsize (lua_State *L, int arg) {
-		  const char *size = luaL_optstring(L, arg, "n");
-		  if (*size == 'n') return sizeof(lua_Number);
-		  luaL_argcheck(L, *size == 'd' || *size == 'f', arg,
+		private static int getfloatsize (lua_State L, int arg) {
+		  CharPtr size = luaL_optstring(L, arg, "n");
+		  if (size[0] == 'n') return sizeof(lua_Number);
+		  luaL_argcheck(L, size[0] == 'd' || size[0] == 'f', arg,
 		                   "size must be 'f'/'d'/'n'");
-		  return (*size == 'd' ? sizeof(double) : sizeof(float));
+		  return (size[0] == 'd' ? sizeof(double) : sizeof(float));
 		}
 
 
-		private static int packfloat_l (lua_State *L) {
+		private static int packfloat_l (lua_State L) {
 		  float f;  double d;
-		  char *pn;  /* pointer to number */
+		  CharPtr pn;  /* pointer to number */
 		  lua_Number n = luaL_checknumber(L, 1);
 		  int size = getfloatsize(L, 2);
 		  if (size == sizeof(lua_Number))
-		    pn = (char*)&n;
+		  	pn = CharPtr.FromNumber(n);
 		  else if (size == sizeof(float)) {
 		    f = (float)n;
-		    pn = (char*)&f;
+		    pn = CharPtr.FromNumber(f);
 		  }  
 		  else {  /* native lua_Number may be neither float nor double */
 		    lua_assert(size == sizeof(double));
 		    d = (double)n;
-		    pn = (char*)&d;
+		    pn = CharPtr.FromNumber(d);
 		  }
+		  throw new Exception();
 		  correctendianess(L, pn, size, 3);
-		  lua_pushlstring(L, pn, size);
+		  lua_pushlstring(L, pn, (uint)size);
 		  return 1;
 		}
 
 
-		private static int unpackfloat_l (lua_State *L) {
-		  lua_Number res;
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		private static int unpackfloat_l (lua_State L) {
+		  lua_Number res = 0;
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  lua_Integer pos = posrelat(luaL_optinteger(L, 2, 1), len);
 		  int size = getfloatsize(L, 3);
-		  luaL_argcheck(L, 1 <= pos && (size_t)pos + size - 1 <= len, 1,
+		  luaL_argcheck(L, 1 <= pos && (uint)pos + size - 1 <= len, 1,
 		                   "string too short");
 		  if (size == sizeof(lua_Number)) {
-		    memcpy(&res, s + pos - 1, size); 
-		    correctendianess(L, (char*)&res, size, 4);
+		  	throw new Exception();
+		  	memcpy(CharPtr.FromNumber(res), s + pos - 1, size);
+		  	correctendianess(L, CharPtr.FromNumber(res), size, 4);
 		  }
 		  else if (size == sizeof(float)) {
-		    float f;
-		    memcpy(&f, s + pos - 1, size); 
-		    correctendianess(L, (char*)&f, size, 4);
+		    float f = 0;
+		    throw new Exception();
+		    memcpy(CharPtr.FromNumber(f), s + pos - 1, size);
+		    correctendianess(L, CharPtr.FromNumber(f), size, 4);
 		    res = (lua_Number)f;
 		  }  
 		  else {  /* native lua_Number may be neither float nor double */
-		    double d;
+		    double d = 0;
 		    lua_assert(size == sizeof(double));
-		    memcpy(&d, s + pos - 1, size); 
-		    correctendianess(L, (char*)&d, size, 4);
+		    throw new Exception();
+		    memcpy(CharPtr.FromNumber(d), s + pos - 1, size);
+		    correctendianess(L, CharPtr.FromNumber(d), size, 4);
 		    res = (lua_Number)d;
 		  }
 		  lua_pushnumber(L, res);

@@ -538,7 +538,7 @@ namespace KopiLua
 		** performed by the constant folder. It should result in zero only if
 		** the operation is safe.
 		*/
-		#define luai_numinvalidop(op,a,b)	0		
+		public static int luai_numinvalidop(int op, lua_Number a, lua_Number b)	{ return 0;}
 		
 		
 		/*

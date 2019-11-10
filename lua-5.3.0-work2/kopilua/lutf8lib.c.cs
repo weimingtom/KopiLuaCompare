@@ -22,16 +22,16 @@ namespace KopiLua
 	public partial class Lua
 	{
 		
-		#define MAXUNICODE	0x10FFFF
+		private const int MAXUNICODE = 0x10FFFF;
 		
-		#define iscont(p)	((*(p) & 0xC0) == 0x80)
+		private static bool iscont(CharPtr p)	{ return ((p[0] & 0xC0) == 0x80); }
 		
 		
 		/* from strlib */
 		/* translate a relative string position: negative means back from end */
-		private static lua_Integer u_posrelat (lua_Integer pos, size_t len) {
+		private static lua_Integer u_posrelat (lua_Integer pos, uint len) {
 		  if (pos >= 0) return pos;
-		  else if (0u - (size_t)pos > len) return 0;
+		  else if (0u - (uint)pos > len) return 0;
 		  else return (lua_Integer)len + pos + 1;
 		}
 		
@@ -39,29 +39,29 @@ namespace KopiLua
 		/*
 		** Decode an UTF-8 sequence, returning NULL if byte sequence is invalid.
 		*/
-		private static const char *utf8_decode (const char *o, int *val) {
-		  static unsigned int limits[] = {0xFF, 0x7F, 0x7FF, 0xFFFF};
-		  const unsigned char *s = (const unsigned char *)o;
-		  unsigned int c = s[0];
-		  unsigned int res = 0;  /* final result */
+		private static uint[] utf8_decode_limits = {0xFF, 0x7F, 0x7FF, 0xFFFF};
+		private static CharPtr utf8_decode (CharPtr o, ref int val) {
+		  CharPtr s = (CharPtr)o;
+		  uint c = (uint)((sbyte)s[0]);
+		  uint res = 0;  /* final result */
 		  if (c < 0x80)  /* ascii? */
 		    res = c;
 		  else {
 		    int count = 0;  /* to count number of continuation bytes */
-		    while (c & 0x40) {  /* still have continuation bytes? */
+		    while ((c & 0x40)!=0) {  /* still have continuation bytes? */
 		      int cc = s[++count];  /* read next byte */
 		      if ((cc & 0xC0) != 0x80)  /* not a continuation byte? */
-		        return NULL;  /* invalid byte sequence */
-		      res = (res << 6) | (cc & 0x3F);  /* add lower 6 bits from cont. byte */
+		        return null;  /* invalid byte sequence */
+		      res = (uint)(((int)res << 6) | (cc & 0x3F));  /* add lower 6 bits from cont. byte */
 		      c <<= 1;  /* to test next bit */
 		    }
 		    res |= ((c & 0x7F) << (count * 5));  /* add first byte */
-		    if (count > 3 || res > MAXUNICODE || res <= limits[count])
-		      return NULL;  /* invalid byte sequence */
+		    if (count > 3 || res > MAXUNICODE || res <= utf8_decode_limits[count])
+		      return null;  /* invalid byte sequence */
 		    s += count;  /* skip continuation bytes read */
 		  }
-		  if (val) *val = res;
-		  return (const char *)s + 1;  /* +1 to include first byte */
+		  /*if (val)*/ val = (int)res;
+		  return (CharPtr)s + 1;  /* +1 to include first byte */
 		}
 		
 		
@@ -69,17 +69,18 @@ namespace KopiLua
 		** utf8len(s, [i])   --> number of codepoints in 's' after 'i';
 		** nil if 's' not well formed
 		*/
-		private static int utflen (lua_State *L) {
+		private static int utflen (lua_State L) {
 		  int n = 0;
-		  const char *ends;
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		  CharPtr ends;
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  lua_Integer posi = u_posrelat(luaL_optinteger(L, 2, 1), 1);
 		  luaL_argcheck(L, 1 <= posi && posi <= (lua_Integer)len, 1,
 		                   "initial position out of string");
 		  ends = s + len;
 		  s += posi - 1;
-		  while (s < ends && (s = utf8_decode(s, NULL)) != NULL)
+		  int null_=0;
+		  while (s < ends && (s = utf8_decode(s, ref null_)) != null)
 		    n++;
 		  if (s == ends)
 		    lua_pushinteger(L, n);
@@ -93,13 +94,13 @@ namespace KopiLua
 		** codepoint(s, [i, [j]])  -> returns codepoints for all characters
 		** between i and j
 		*/
-		private static int codepoint (lua_State *L) {
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		private static int codepoint (lua_State L) {
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  lua_Integer posi = u_posrelat(luaL_optinteger(L, 2, 1), len);
 		  lua_Integer pose = u_posrelat(luaL_optinteger(L, 3, posi), len);
 		  int n;
-		  const char *se;
+		  CharPtr se;
 		  luaL_argcheck(L, posi >= 1, 2, "out of range");
 		  luaL_argcheck(L, pose <= (lua_Integer)len, 3, "out of range");
 		  if (posi > pose) return 0;  /* empty interval; return no values */
@@ -110,9 +111,9 @@ namespace KopiLua
 		  n = 0;
 		  se = s + pose;
 		  for (s += posi - 1; s < se;) {
-		    int code;
-		    s = utf8_decode(s, &code);
-		    if (s == NULL)
+		    int code=0;
+		    s = utf8_decode(s, ref code);
+		    if (s == null)
 		      return luaL_error(L, "invalid UTF-8 code");
 		    lua_pushinteger(L, code);
 		    n++;
@@ -121,7 +122,7 @@ namespace KopiLua
 		}
 		
 		
-		private static void pushutfchar (lua_State *L, int arg) {
+		private static void pushutfchar (lua_State L, int arg) {
 		  int code = luaL_checkint(L, arg);
 		  luaL_argcheck(L, 0 <= code && code <= MAXUNICODE, arg, "value out of range");
 		  lua_pushfstring(L, "%U", code);
@@ -131,19 +132,19 @@ namespace KopiLua
 		/*
 		** utfchar(n1, n2, ...)  -> char(n1)..char(n2)...
 		*/
-		private static int utfchar (lua_State *L) {
+		private static int utfchar (lua_State L) {
 		  int n = lua_gettop(L);  /* number of arguments */
 		  if (n == 1)  /* optimize common case of single char */
 		    pushutfchar(L, 1);
 		  else {
 		    int i;
-		    luaL_Buffer b;
-		    luaL_buffinit(L, &b);
+		    luaL_Buffer b = new luaL_Buffer();
+		    luaL_buffinit(L, b);
 		    for (i = 1; i <= n; i++) {
 		      pushutfchar(L, i);
-		      luaL_addvalue(&b);
+		      luaL_addvalue(b);
 		    }
-		    luaL_pushresult(&b);
+		    luaL_pushresult(b);
 		  }
 		  return 1;
 		}
@@ -153,9 +154,9 @@ namespace KopiLua
 		** offset(s, n, [i])  -> index where n-th character *after*
 		**   position 'i' starts; 0 means character at 'i'.
 		*/
-		private static int byteoffset (lua_State *L) {
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		private static int byteoffset (lua_State L) {
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  int n  = luaL_checkint(L, 2);
 		  lua_Integer posi = u_posrelat(luaL_optinteger(L, 3, 1), len) - 1;
 		  luaL_argcheck(L, 0 <= posi && posi <= (lua_Integer)len, 3,
@@ -189,9 +190,9 @@ namespace KopiLua
 		}
 		
 		
-		private static int iter_aux (lua_State *L) {
-		  size_t len;
-		  const char *s = luaL_checklstring(L, 1, &len);
+		private static int iter_aux (lua_State L) {
+		  uint len;
+		  CharPtr s = luaL_checklstring(L, 1, out len);
 		  int n = lua_tointeger(L, 2) - 1;
 		  if (n < 0)  /* first iteration? */
 		    n = 0;  /* start from here */
@@ -202,9 +203,9 @@ namespace KopiLua
 		  if (n >= (lua_Integer)len)
 		    return 0;  /* no more codepoints */
 		  else {
-		    int code;
-		    const char *next = utf8_decode(s + n, &code);
-		    if (next == NULL || iscont(next))
+		    int code=0;
+		    CharPtr next = utf8_decode(s + n, ref code);
+		    if (next == null || iscont(next))
 		      return luaL_error(L, "invalid UTF-8 code");
 		    lua_pushinteger(L, n + 1);
 		    lua_pushinteger(L, code);
@@ -213,7 +214,7 @@ namespace KopiLua
 		}
 		
 		
-		private static int iter_codes (lua_State *L) {
+		private static int iter_codes (lua_State L) {
 		  luaL_checkstring(L, 1);
 		  lua_pushcfunction(L, iter_aux);
 		  lua_pushvalue(L, 1);
@@ -223,7 +224,7 @@ namespace KopiLua
 		
 		
 		/* pattern to match a single UTF-8 character */
-		#define UTF8PATT	"[\0-\x7F\xC2-\xF4][\x80-\xBF]*"
+		private const string UTF8PATT = "[\0-\x7F\xC2-\xF4][\x80-\xBF]*";
 		
 		
 		private readonly static luaL_Reg[] funcs = {
@@ -236,7 +237,7 @@ namespace KopiLua
 		};
 		
 		
-		public static int luaopen_utf8 (lua_State *L) {
+		public static int luaopen_utf8 (lua_State L) {
 		  luaL_newlib(L, funcs);
 		  lua_pushliteral(L, UTF8PATT);
 		  lua_setfield(L, -2, "charpatt");

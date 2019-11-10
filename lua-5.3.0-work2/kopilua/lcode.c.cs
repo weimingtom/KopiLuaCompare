@@ -312,8 +312,8 @@ namespace KopiLua
 		  if (ttisinteger(idx)) {  /* is there an index there? */
 		    k = ivalue(idx);
 			/* correct value? (warning: must distinguish floats from integers!) */
-		    if (k < fs->nk && ttype(&f->k[k]) == ttype(v) &&
-		                      luaV_rawequalobj(&f->k[k], v))
+		    if (k < fs.nk && ttype(f.k[k]) == ttype(v) &&
+		                      0!=luaV_rawequalobj(f.k[k], v))
 		      return k;  /* reuse index */
 		  }
 		  /* constant not found; create a new entry */
@@ -746,23 +746,25 @@ namespace KopiLua
 		/*
 		** return false if folding can raise an error
 		*/
-		private static int validop (int op, TValue *v1, TValue *v2) {
-		  lua_Number a, b;
-		  lua_Integer i;
+		private static int validop (int op, TValue v1, TValue v2) {
+		  lua_Number a = 0, b = 0;
+		  lua_Integer i = 0;
 		  cast_void(a); cast_void(b);  /* macro may not use its arguments */
-		  if (luai_numinvalidop(op, (cast_void(tonumber(v1, &a)), a),
-		                            (cast_void(tonumber(v2, &b)), b)))
+		  cast_void(tonumber(ref v1, ref a));
+		  cast_void(tonumber(ref v2, ref b));
+		  if (0!=luai_numinvalidop(op, a,
+		                            b))
 		    return 0;
 		  switch (op) {
 		    case LUA_OPIDIV:  /* division by 0 and conversion errors */
-		      return (tointeger(v1, &i) && tointeger(v2, &i) && i != 0);
+		      return (0!=tointeger(ref v1, ref i) && 0!=tointeger(ref v2, ref i) && i != 0)?1:0;
 		    case LUA_OPBAND: case LUA_OPBOR: case LUA_OPBXOR:
 		    case LUA_OPSHL: case LUA_OPSHR: case LUA_OPBNOT:  /* conversion errors */
-		      return (tointeger(v1, &i) && tointeger(v2, &i));
+		      return (0!=tointeger(ref v1, ref i) && 0!=tointeger(ref v2, ref i))?1:0;
 		    case LUA_OPMOD:  /* integer module by 0 */
-		      return !(ttisinteger(v1) && ttisinteger(v2) && ivalue(v2) == 0);
+		      return (ttisinteger(v1) && ttisinteger(v2) && ivalue(v2) == 0)?0:1;
 		    case LUA_OPPOW:  /* negative integer exponentiation */
-		      return !(ttisinteger(v1) && ttisinteger(v2) && ivalue(v2) < 0);
+		      return (ttisinteger(v1) && ttisinteger(v2) && ivalue(v2) < 0)?0:1;
 		    default: return 1;  /* everything else is valid */
 		  }
 		}
@@ -772,10 +774,10 @@ namespace KopiLua
 		** Try to "constant-fold" an operation; return 1 iff successful
 		*/
 		private static int constfolding (FuncState fs, int op, expdesc e1, expdesc e2) {
-		  TValue v1, v2, res;
-		  if (!tonumeral(e1, &v1) || !tonumeral(e2, &v2) || !validop(op, &v1, &v2))
+		  TValue v1 = new TValue(), v2 = new TValue(), res = new TValue();
+		  if (0==tonumeral(e1, v1) || 0==tonumeral(e2, v2) || 0==validop(op, v1, v2))
 		    return 0;  /* non-numeric operands or not safe to fold */
-		  luaO_arith(fs->ls->L, op, &v1, &v2, &res);
+		  luaO_arith(fs.ls.L, op, v1, v2, res);
 		  if (ttisinteger(res)) {
 		    e1.k = expkind.VKINT;
 		    e1.u.ival = ivalue(res);
@@ -793,9 +795,9 @@ namespace KopiLua
 
 		private static void codearith (FuncState fs, OpCode op, 
 		                               expdesc e1, expdesc e2, int line) {
-		  if (0==constfolding(fs, op - OP_ADD + LUA_OPADD, e1, e2)) {
+		  if (0==constfolding(fs, op - OpCode.OP_ADD + LUA_OPADD, e1, e2)) {
 		    int o1, o2;
-		    if (op == OP_UNM || op == OP_BNOT || op == OP_LEN) {
+		    if (op == OpCode.OP_UNM || op == OpCode.OP_BNOT || op == OpCode.OP_LEN) {
 		      o2 = 0;
 		      o1 = luaK_exp2anyreg(fs, e1);  /* cannot operate on constants */
 		    }
@@ -839,7 +841,7 @@ namespace KopiLua
 		  e2.t = e2.f = NO_JUMP; e2.k = expkind.VKINT; e2.u.ival = 0;
 		  switch (op) {
 		    case UnOpr.OPR_MINUS: case UnOpr.OPR_BNOT: case UnOpr.OPR_LEN: {
-		      codearith(fs, cast(OpCode, (op - OPR_MINUS) + OP_UNM), e, &e2, line);
+		  	  codearith(fs, (OpCode)((op - UnOpr.OPR_MINUS) + OpCode.OP_UNM), e, e2, line);
 		      break;
 		    }
 			case UnOpr.OPR_NOT: codenot(fs, e); break;
@@ -913,7 +915,7 @@ namespace KopiLua
 		    case BinOpr.OPR_IDIV: case BinOpr.OPR_MOD: case BinOpr.OPR_POW:
 		    case BinOpr.OPR_BAND: case BinOpr.OPR_BOR: case BinOpr.OPR_BXOR:
 		    case BinOpr.OPR_SHL: case BinOpr.OPR_SHR: {
-		      codearith(fs, (OpCode)((op - BinOpr.OPR_ADD) + OpCode.OP_ADD)), e1, e2, line);
+		      codearith(fs, (OpCode)((op - BinOpr.OPR_ADD) + OpCode.OP_ADD), e1, e2, line);
 		      break;
 		    }
 		    case BinOpr.OPR_EQ: case BinOpr.OPR_LT: case BinOpr.OPR_LE: {

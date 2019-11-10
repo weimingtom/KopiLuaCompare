@@ -80,13 +80,13 @@ namespace KopiLua
 		    case LUA_OPMOD: return luaV_mod(L, v1, v2);
 		    case LUA_OPPOW: return luaV_pow(L, v1, v2);
 		    case LUA_OPIDIV: return luaV_div(L, v1, v2);
-		    case LUA_OPBAND: return intop(&, v1, v2);
-		    case LUA_OPBOR: return intop(|, v1, v2);
-		    case LUA_OPBXOR: return intop(^, v1, v2);
+		    case LUA_OPBAND: return intop_and(v1, v2);
+		    case LUA_OPBOR: return intop_or(v1, v2);
+		    case LUA_OPBXOR: return intop_xor(v1, v2);
 		    case LUA_OPSHL: return luaV_shiftl(v1, v2);
 		    case LUA_OPSHR: return luaV_shiftl(v1, -v2);
-		    case LUA_OPUNM: return intop(-, 0, v1);
-		    case LUA_OPBNOT: return intop(^, cast_integer(-1), v1);
+		    case LUA_OPUNM: return intop_minus(0, v1);
+		    case LUA_OPBNOT: return intop_xor(cast_integer(-1), v1);
 		    default: lua_assert(0); return 0;
 		  }
 		}
@@ -111,28 +111,28 @@ namespace KopiLua
 		    case LUA_OPIDIV: case LUA_OPBAND: case LUA_OPBOR:
 		    case LUA_OPBXOR: case LUA_OPSHL: case LUA_OPSHR:
 		    case LUA_OPBNOT: {  /* operates only on integers */
-		      lua_Integer i1; lua_Integer i2;
-		      if (tointeger(p1, &i1) && tointeger(p2, &i2)) {
+		      lua_Integer i1 = 0; lua_Integer i2 = 0;
+		      if (0!=tointeger(ref p1, ref i1) && 0!=tointeger(ref p2, ref i2)) {
 		        setivalue(res, intarith(L, op, i1, i2));
 		        return;
 		      }
 		      else break;  /* go to the end */
 		    }
 		    case LUA_OPDIV: {  /* operates only on floats */
-		      lua_Number n1; lua_Number n2;
-		      if (tonumber(p1, &n1) && tonumber(p2, &n2)) {
+		      lua_Number n1 = 0; lua_Number n2 = 0;
+		      if (0!=tonumber(ref p1, ref n1) && 0!=tonumber(ref p2, ref n2)) {
 		        setnvalue(res, numarith(L, op, n1, n2));
 		        return;
 		      }
 		      else break;  /* go to the end */
 		    }
 		    default: {  /* other operations */
-		      lua_Number n1; lua_Number n2;
+		      lua_Number n1 = 0; lua_Number n2 = 0;
 		      if (ttisinteger(p1) && ttisinteger(p2)) {
 		        setivalue(res, intarith(L, op, ivalue(p1), ivalue(p2)));
 		        return;
 		      }
-		      else if (tonumber(p1, &n1) && tonumber(p2, &n2)) {
+		      else if (0!=tonumber(ref p1, ref n1) && 0!=tonumber(ref p2, ref n2)) {
 		        setnvalue(res, numarith(L, op, n1, n2));
 		        return;
 		      }
@@ -140,8 +140,8 @@ namespace KopiLua
 		    }
 		  }
 		  /* could not perform raw operation; try metamethod */
-		  lua_assert(L != NULL);  /* should not fail when folding (compile time) */
-		  luaT_trybinTM(L, p1, p2, res, cast(TMS, op - LUA_OPADD + TM_ADD));
+		  lua_assert(L != null);  /* should not fail when folding (compile time) */
+		  luaT_trybinTM(L, p1, p2, res, (TMS)(op - LUA_OPADD + TMS.TM_ADD));
 		}
 
 
@@ -295,24 +295,24 @@ namespace KopiLua
 		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip trailing spaces */
 		  if (empty!=0 || s != ends) return 0;  /* something wrong in the numeral */
 		  else {
-		    result = cast_integer((neg) ? 0u - a : a);
+		    result = cast_integer((neg!=0) ? 0u - a : a);
 		    return 1;
 		  }
 		}
 
 
-		public static int luaO_utf8esc (char *buff, unsigned int x) {
+		public static int luaO_utf8esc (CharPtr buff, uint x) {
 		  int n = 1;  /* number of bytes put in buffer (backwards) */
 		  if (x < 0x80)  /* ascii? */
-		    buff[UTF8BUFFSZ - 1] = x;
+		    buff[UTF8BUFFSZ - 1] = (char)x;
 		  else {  /* need continuation bytes */
-		    unsigned int mfb = 0x3f;  /* maximum that fits in first byte */
+		    uint mfb = 0x3f;  /* maximum that fits in first byte */
 		    do {
-		      buff[UTF8BUFFSZ - (n++)] = 0x80 | (x & 0x3f);  /* add continuation byte */
+		      buff[UTF8BUFFSZ - (n++)] = (char)(0x80 | (x & 0x3f));  /* add continuation byte */
 		      x >>= 6;  /* remove added bits */
 		      mfb >>= 1;  /* now there is one less bit available in first byte */
 		    } while (x > mfb);  /* still needs continuation byte? */
-		    buff[UTF8BUFFSZ - n] = (~mfb << 1) | x;  /* add first byte */
+		    buff[UTF8BUFFSZ - n] = (char)((~mfb << 1) | x);  /* add first byte */
 		  }
 		  return n;
 		}
@@ -368,9 +368,9 @@ namespace KopiLua
 		        break;
 		      }
 		      case 'U': {
-		        char buff[UTF8BUFFSZ];
-		        int l = luaO_utf8esc(buff, va_arg(argp, int));
-		        pushstr(L, buff + UTF8BUFFSZ - l, l);
+		  	    CharPtr buff = new CharPtr(new char[UTF8BUFFSZ]);
+		  	    int l = luaO_utf8esc(buff, (uint)(int)argp[parm_index++]);
+		        pushstr(L, buff + UTF8BUFFSZ - l, (uint)l);
 		        break;
 		      }			  
 		      case '%': {
