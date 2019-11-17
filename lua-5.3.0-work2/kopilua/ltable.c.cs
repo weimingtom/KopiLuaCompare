@@ -110,6 +110,7 @@ namespace KopiLua
 		** of its hash value)
 		*/
 		private static Node mainposition (Table t, TValue key) {
+			//Debug.WriteLine("ttype == " + ttype(key));
 		  switch (ttype(key)) {
 		    case LUA_TNUMINT:
 		      return hashint(t, ivalue(key));
@@ -446,13 +447,18 @@ namespace KopiLua
 			lua_assert(!isdummy(f));
 			othern = mainposition(t, gkey(mp));
 			if (othern != mp) {  /* is colliding node out of its main position? */
+				//Debug.WriteLine("othern != mp, " + gnext(othern));
 			  /* yes; move colliding node into free position */
 			  while (Node.plus(othern, gnext(othern)) != mp)  /* find previous */
 		        Node.inc(ref othern, gnext(othern));
 		      gnext_set(othern, f - othern);  /* re-chain with 'f' in place of 'mp' */
 		      f.Assign(mp);  /* copy colliding node into free pos. (mp->next also goes) */
 		      if (gnext(mp) != 0) {
-		      	gnext_set(f, mp - f);  /* correct 'next' */
+		      	//if (mp - f == 0)
+		      	//{
+		      	//	Debug.WriteLine("???");
+		      	//}
+		      	gnext_inc(f, mp - f);  /* correct 'next' */
 		        gnext_set(mp, 0);  /* now 'mp' is free */
 		      }
 			  setnilvalue(gval(mp));

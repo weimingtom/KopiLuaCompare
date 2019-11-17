@@ -26,10 +26,10 @@ namespace KopiLua
 		/*
 		** Upvalues for Lua closures
 		*/
-		public class UpVal {
+		public class UpVal : GCObject {
 		  public TValue v = null;  /* points to stack or to its own value */
 		  public lu_mem refcount;  /* reference counter */
-		  public UpVal_u u = new UpVal_u();
+		  public new UpVal_u u = new UpVal_u();
 		};
 	  	public class UpVal_u {  /* (when open) */
 		  public UpVal_u_open open = new UpVal_u_open();

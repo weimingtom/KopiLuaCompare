@@ -557,3 +557,157 @@ public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz) {
 		
 ----------------------------------------
 
+
+			public static void inc(ref Node node, int n)
+			{
+				node = node[n];
+--->				//return node[-n];
+				//FIXME:???array overflow???
+			}
+
+			public static void dec(ref Node node, int n)
+			{
+				node = node[-n];
+--->				//return node[n];
+				//FIXME:???array overflow???
+			}	
+			
+----------------------------------------
+FIXME:这个bug在work1中也存在，需要改回去
+
+public static void luaC_barrier(lua_State L, object p, TValue v) { 
+->
+public static void luaC_barrier(lua_State L, GCObject p, TValue v) { 
+
+
+---------------------------
+
+FIXME: while死循环
+
+		private static TValue luaH_newkey (lua_State L, Table t, TValue key) {
+		  Node mp;
+		  TValue aux = new TValue();
+		  if (ttisnil(key)) luaG_runerror(L, "table index is nil");
+		  else if (ttisfloat(key)) {
+		    lua_Number n = fltvalue(key);
+		    lua_Integer k = 0;
+		    if (luai_numisnan(n))
+		      luaG_runerror(L, "table index is NaN");
+		    if (numisinteger(n, ref k)) {  /* index is int? */
+		      setivalue(aux, k); 
+		      key = aux;  /* insert it as an integer */
+		    }
+		  }
+		  mp = mainposition(t, key);
+		  if (!ttisnil(gval(mp)) || isdummy(mp)) {  /* main position is taken? */
+			Node othern;
+			Node f = getfreepos(t);  /* get a free place */
+			if (f == null) {  /* cannot find a free place? */
+			  rehash(L, t, key);  /* grow table */
+		      /* whatever called 'newkey' take care of TM cache and GC barrier */
+		      return luaH_set(L, t, key);  /* insert key into grown table */
+			}
+			lua_assert(!isdummy(f));
+			othern = mainposition(t, gkey(mp));
+			if (othern != mp) {  /* is colliding node out of its main position? */
+			  /* yes; move colliding node into free position */
+---->			  while (Node.plus(othern, gnext(othern)) != mp)  /* find previous */
+		        Node.inc(ref othern, gnext(othern));
+		        
+
+
+			public static bool operator ==(Node n1, Node n2)
+			{
+				object o1 = n1 as Node;
+				object o2 = n2 as Node;
+				if ((o1 == null) && (o2 == null)) return true;
+				if (o1 == null) return false;
+				if (o2 == null) return false;
+				if (n1.values != n2.values) return false;
+				return n1.index == n2.index;
+			}
+---->			public static bool operator !=(Node n1, Node n2) { return !(n1==n2); }
+			
+			
+
+			public static Node plus(Node node, int n)
+			{
+				if (n == 0)
+				{
+死循环时触发这里，n==0----->					Debug.WriteLine("zero");
+				}
+				return node[n];
+			}
+		
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+	
+这个bug已经改好了，因为gnext是+=不是=：because of 
+gnext_inc(f, mp - f);
+not 
+gnext_set(f, mp - f);
+
+
+以下注释代码是Debug.WriteLine是调试这个bug时加的，已经全部注释掉
+
+
+xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+		public class TKey_nk : TValue
+		{
+			public TKey_nk() { }
+			public TKey_nk(Value value, int tt, int next) : base(value, tt)
+			{
+				this.next = next;
+			}
+			private int _next;  /* for chaining (offset for next node) */
+			public int next {
+				set
+				{
+					//if (this._next != 0 && value == 0)
+					//{
+					//	Debug.WriteLine("???");
+					//}
+					this._next = value;
+--->					//_changed_time++;
+--->					//_changed_v[_changed_time] = value;
+				}
+				get
+				{
+					return this._next;
+				}
+			}
+			
+			public static Node plus(Node node, int n)
+			{
+				//if (n == 0)
+				//{
+--->				//	Debug.WriteLine("zero");
+				//}
+				return node[n];
+			}
+			
+
+		private static Node mainposition (Table t, TValue key) {
+--->			//Debug.WriteLine("ttype == " + ttype(key));
+		  switch (ttype(key)) {
+		    case LUA_TNUMINT:
+		      return hashint(t, ivalue(key));
+		      
+		      
+
+			if (othern != mp) {  /* is colliding node out of its main position? */
+--->				//Debug.WriteLine("othern != mp, " + gnext(othern));
+			  /* yes; move colliding node into free position */
+			  while (Node.plus(othern, gnext(othern)) != mp)  /* find previous */
+		        Node.inc(ref othern, gnext(othern));
+		      gnext_set(othern, f - othern);  /* re-chain with 'f' in place of 'mp' */
+		      f.Assign(mp);  /* copy colliding node into free pos. (mp->next also goes) */
+		      if (gnext(mp) != 0) {
+		      	//if (mp - f == 0)
+		      	//{
+--->		      	//	Debug.WriteLine("???");
+		      	//}
+		      	
+		      	
+-------------------------------

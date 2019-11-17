@@ -120,7 +120,7 @@ namespace KopiLua
 		  TStringRef list = new TStringArrayRef(g.strt.hash, (int)lmod(h, g.strt.size));
 		  for (ts = list.get(); ts != null; ts = ts.tsv.hnext) {
 		    if (l == ts.tsv.len &&
-		        (memcmp(str, getstr(ts), l * sizeof(char)) == 0)) {
+		        (memcmp(str, getstr(ts), l * 1/*sizeof(char)*/) == 0)) { //FIXME:sizeof(char)
 		      /* found! */
 		      if (isdead(g, obj2gco(ts)))  /* dead (but not collected yet)? */
 		        changewhite(obj2gco(ts));  /* resurrect it */

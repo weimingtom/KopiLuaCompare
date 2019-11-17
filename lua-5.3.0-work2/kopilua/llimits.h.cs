@@ -171,8 +171,12 @@ namespace KopiLua
 				return (byte)((int)i & 0xff);
 			}
 		} //FIXME:???remove?
-		public static lua_Integer cast_integer(object i) { return (lua_Integer)(i); }
-		public static lua_Unsigned cast_unsigned(object i) { return (lua_Unsigned)(i); }
+		public static lua_Integer cast_integer(int i) { return (lua_Integer)(i); }
+		public static lua_Integer cast_integer(uint i) { return (lua_Integer)(i); }
+		public static lua_Integer cast_integer(double i) { return (lua_Integer)(i); }
+		public static lua_Unsigned cast_unsigned(int i) { return (lua_Unsigned)(i); }
+		public static lua_Unsigned cast_unsigned(uint i) { return (lua_Unsigned)(i); }
+		public static lua_Unsigned cast_unsigned(double i) { return (lua_Unsigned)(i); }
 
 		/*
 		** non-return type

@@ -251,6 +251,8 @@ namespace KopiLua
 
 		  public Value value_ = new Value(); //FIXME:see TValuefields
 		  public int tt_;
+		  
+		  public Node _parent; //see offsetof
 		};
 
 
@@ -771,7 +773,25 @@ namespace KopiLua
 			{
 				this.next = next;
 			}
-			public int next;  /* for chaining (offset for next node) */
+			private int _next;  /* for chaining (offset for next node) */
+			public int next {
+				set
+				{
+					//if (this._next != 0 && value == 0)
+					//{
+					//	Debug.WriteLine("???");
+					//}
+					this._next = value;
+					//_changed_time++;
+					//_changed_v[_changed_time] = value;
+				}
+				get
+				{
+					return this._next;
+				}
+			}
+			//private int _changed_time = 0;
+			//private int[] _changed_v = new int[20];
 		};
 
 		public class TKey {
@@ -814,7 +834,7 @@ namespace KopiLua
 
 			public Node()
 			{
-				this.i_val = new TValue();
+				this.i_val = new TValue();this.i_val._parent = this;
 				this.i_key = new TKey();
 			}
 
@@ -822,7 +842,7 @@ namespace KopiLua
 			{
 				this.values = copy.values;
 				this.index = copy.index;
-				this.i_val = new TValue(copy.i_val);
+				this.i_val = new TValue(copy.i_val);this.i_val._parent = this;
 				this.i_key = new TKey(copy.i_key);
 			}
 			
@@ -831,7 +851,7 @@ namespace KopiLua
 				//FIXME:
 				this.values = copy.values;
 				this.index = copy.index;
-				this.i_val = new TValue(copy.i_val);
+				this.i_val = new TValue(copy.i_val);this.i_val._parent = this;
 				this.i_key = new TKey(copy.i_key);				
 			}
 
@@ -876,19 +896,25 @@ namespace KopiLua
 			
 			public static Node plus(Node node, int n)
 			{
+				//if (n == 0)
+				//{
+				//	Debug.WriteLine("zero");
+				//}
 				return node[n];
 			}
 			
-			public static Node inc(ref Node node, int n)
+			public static void inc(ref Node node, int n)
 			{
 				node = node[n];
-				return node[-n];
+				//return node[-n];
+				//FIXME:???array overflow???
 			}
 
-			public static Node dec(ref Node node, int n)
+			public static void dec(ref Node node, int n)
 			{
 				node = node[-n];
-				return node[n];
+				//return node[n];
+				//FIXME:???array overflow???
 			}		
 
 			public static bool operator >(Node n1, Node n2) { Debug.Assert(n1.values == n2.values); return n1.index > n2.index; }

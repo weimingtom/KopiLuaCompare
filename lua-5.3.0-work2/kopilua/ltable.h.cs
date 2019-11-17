@@ -18,15 +18,25 @@ namespace KopiLua
 		public static TValue gval(Node n)			{return n.i_val;}
 		public static int gnext(Node n)			{return n.i_key.nk.next;}
 		
-		public static void gnext_set(Node n, int v) { n.i_key.nk.next = v; }
-
+		public static void gnext_set(Node n, int v) { 
+			n.i_key.nk.next = v; 
+		}
+		public static void gnext_inc(Node n, int v) { 
+			n.i_key.nk.next += v; 
+		}
+		
 		public static void invalidateTMcache(Table t)	{ t.flags = 0; }
 
 
 		/* returns the key, given the value of a table entry */
-		public static TValue keyfromval(object v) {
-			throw new Exception(); return null; } //(gkey((Node)(object)(v)) - offsetof(Node, i_val)))); }
-  
+		public static TValue keyfromval(TValue v) {
+			//throw new Exception(); return null; } //(gkey((Node)(object)(v)) - offsetof(Node, i_val)))); }
+			if (v._parent == null) 
+			{
+				throw new Exception();
+			}
+			return gkey(v._parent);
+		}
   
 		//LUAI_FUNC const TValue *luaH_getint (Table *t, lua_Integer key);
 		//LUAI_FUNC void luaH_setint (lua_State *L, Table *t, lua_Integer key,

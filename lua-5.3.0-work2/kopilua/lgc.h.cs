@@ -104,7 +104,7 @@ namespace KopiLua
 		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, delegate() {luaC_step(L);}); } //FIXME: macro in {}
 
 
-		public static void luaC_barrier(lua_State L, object p, TValue v) { 
+		public static void luaC_barrier(lua_State L, GCObject p, TValue v) { 
 			if (iscollectable(v) && isblack(obj2gco(p)) && iswhite(gcvalue(v)))
 			luaC_barrier_(L,obj2gco(p),gcvalue(v)); }
 

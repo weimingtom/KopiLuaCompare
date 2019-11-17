@@ -204,8 +204,8 @@ namespace KopiLua
 		public static GCObject luaC_newobj<T> (lua_State L, int tt, uint sz) {
 		  global_State g = G(L);
 		  //FIXME:???
-		  throw new Exception();
-		  GCObject o = (GCObject)luaM_newobject<GCObject>(L/*, novariant(tt), sz*/);
+		  //throw new Exception();
+		  GCObject o = (GCObject)(object)luaM_newobject<T>(L/*, novariant(tt), sz*/);
 		  if (o is TString) //FIXME:added
 		  {
 		  	int len_plus_1 = (int)sz - GetUnmanagedSize(typeof(TString));
