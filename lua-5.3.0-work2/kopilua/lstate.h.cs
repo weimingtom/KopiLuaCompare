@@ -248,6 +248,8 @@ namespace KopiLua
 		  public lua_longjmp errorJmp;  /* current error recover point */
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
 		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
+		  
+		  public LX _parent; //FIXME:added, see offsetof
 		};
 		public interface lua_StateRef {
 			lua_State get();

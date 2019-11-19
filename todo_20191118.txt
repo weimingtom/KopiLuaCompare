@@ -1,2 +1,11 @@
-﻿在5.3.0-work2开始，return 1会抛出语法异常，但不会打印出来（为什么？？？）
-测试以前的版本ret 1会不会抛出异常？？？
+﻿(1) 在5.3.0-work2开始，return 1会抛出语法异常，但不会打印出来（为什么？？？）
+(2) 测试以前的版本ret 1会不会抛出异常？？？
+
+8:32 2019/11/19
+(3) 5.3.0-work1 检查intop是否真正执行
+(4) 5.3.0-work1的DumpBlock实现与work2同步（为同步到work1）,ldump.c
+(5) work1和work2的DumpBlock实现未验证
+(6) 5.3.0-work1的LoadVector实现与work2同步（为同步到work1）,lundump.c
+(7) work1和work2的LoadVector实现未验证
+
+

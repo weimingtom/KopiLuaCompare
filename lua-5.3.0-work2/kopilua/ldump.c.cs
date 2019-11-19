@@ -38,50 +38,69 @@ namespace KopiLua
 		** All high-level dumps go through DumpVector; you can change it to
 		** change the endianess of the result
 		*/
-		public static void DumpVector(object[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
-		public static void DumpVector(uint[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
-		public static void DumpVector(CharPtr v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
-		public static void DumpVector(int[] v, int n, DumpState D)	{ throw new Exception(); /*DumpBlock(v,(n)*sizeof(v[0]),D);*/ }
+		public static void DumpVector(object v, uint n, DumpState D)	{ DumpBlock(v, n/* *sizeof((v)[0])*/, D); } //FIXME: here no need to use *sizeof(v[0])
+		public static void DumpVector(object v, DumpState D)	{ DumpBlock(v, D); } //FIXME: NOTE!!!if n == 1, use this version
 		
-		public static void DumpLiteral(string s, DumpState D)	{ throw new Exception(); DumpBlock(new CharPtr(s), (uint)((s.Length + 1) - 1/*sizeof(char)*/), D); }
-/*		
-		public static void DumpMem(object b, DumpState D)
-		{
-			int size = Marshal.SizeOf(b);
-			IntPtr ptr = Marshal.AllocHGlobal(size);
-			Marshal.StructureToPtr(b, ptr, false);
-			byte[] bytes = new byte[size];
-			Marshal.Copy(ptr, bytes, 0, size);
+		public static void DumpLiteral(string s, DumpState D)	{ DumpBlock(new CharPtr(s), (uint)((s.Length + 1) - 1/*sizeof(char)*/), D); }
+		
+		
+		private static void DumpBlock(object b, uint size, DumpState D) { //FIXME:b as array
+		  Array array = b as Array;
+		  Debug.Assert(array.Length == size);
+		  List<char[]> arrB = new List<char[]>();
+		  int arrBLen = 0;
+		  for (int i = 0; i < size; i++)
+		  {
+		    object b_ = array.GetValue(i);
+			int size_ = Marshal.SizeOf(b_);
+			IntPtr ptr = Marshal.AllocHGlobal(size_);
+			Marshal.StructureToPtr(b_, ptr, false);
+			byte[] bytes = new byte[size_];
+			Marshal.Copy(ptr, bytes, 0, size_);
 			char[] ch = new char[bytes.Length];
-			for (int i = 0; i < bytes.Length; i++)
-				ch[i] = (char)bytes[i];
-			CharPtr str = ch;
-			DumpBlock(str, (uint)str.chars.Length, D);
-		}
-
-		public static void DumpMem(object b, int n, DumpState D)
-		{
-			Array array = b as Array;
-			Debug.Assert(array.Length == n);
-			for (int i = 0; i < n; i++)
-				DumpMem(array.GetValue(i), D);
-		}
-
-		public static void DumpVar(object x, DumpState D)
-		{
-			DumpMem(x, D);
-		}
-*/
-		private static void DumpBlock(CharPtr b, uint size, DumpState D) {
+			for (int i_ = 0; i_ < bytes.Length; i_++)
+				ch[i_] = (char)bytes[i_];
+			arrB.Add(ch);
+			arrBLen += ch.Length;
+		  }
+		  char[] strB = new char[arrBLen];
+		  int pos = 0;
+		  for (int i = 0; i < arrB.Count; ++i)
+		  {
+		  	for (int i_ = 0; i_ < arrB[i].Length; i_++)
+		  		strB[pos + i_] = (char)arrB[i][i_];
+		  	pos += arrB[i].Length;
+		  }
+		  CharPtr b__ = strB;
+		  uint size__ = (uint)strB.Length;
+		  
 		  if (D.status==0) {
 		    lua_unlock(D.L);
-		    D.status=D.writer(D.L,b,size,D.data);
+		    D.status=D.writer(D.L,b__,size__,D.data);
 		    lua_lock(D.L);
 		  }
 		}
+		private static void DumpBlock(object b, DumpState D) { //FIXME:b as not array
+		  object b_ = b;
+		  int size_ = Marshal.SizeOf(b_);
+		  IntPtr ptr = Marshal.AllocHGlobal(size_);
+		  Marshal.StructureToPtr(b_, ptr, false);
+		  byte[] bytes = new byte[size_];
+		  Marshal.Copy(ptr, bytes, 0, size_);
+		  char[] ch = new char[bytes.Length];
+		  for (int i_ = 0; i_ < bytes.Length; i_++)
+		    ch[i_] = (char)bytes[i_];
+		  CharPtr b__ = ch;
+		  uint size__ = (uint)ch.Length;
+		  
+		  if (D.status==0) {
+		    lua_unlock(D.L);
+		    D.status=D.writer(D.L,b__,size__,D.data);
+		    lua_lock(D.L);
+		  }
+		}		
 
-
-		public static void DumpVar(double x, DumpState D)	{ throw new Exception(); /*DumpVector(&x,1,D);*/ }
+		public static void DumpVar(object x, DumpState D)	{ DumpVector(x/*,1*/,D); }
 
 
 		private static void DumpByte (int y, DumpState D) {
@@ -116,14 +135,14 @@ namespace KopiLua
 		      DumpByte(0xFF, D);
 		      DumpVar(size, D);
 		    }
-		    DumpVector(getstr(s), (int)(size - 1), D);  /* no need to save '\0' */
+		    DumpVector(getstr(s), size - 1, D);  /* no need to save '\0' */
 		  }
 		}
 
 
 		private static void DumpCode (Proto f, DumpState D) {
 		  DumpInt(f.sizecode, D);
-		  DumpVector(f.code, f.sizecode, D);
+		  DumpVector(f.code, (uint)f.sizecode, D);
 		}
 		
 		
@@ -178,7 +197,7 @@ namespace KopiLua
           DumpString((D.strip!=0) ? null : f.source, D);
 		  n = (D.strip != 0) ? 0 : f.sizelineinfo;
 		  DumpInt(n, D);
-		  DumpVector(f.lineinfo, n, D);
+		  DumpVector(f.lineinfo, (uint)n, D);
 		  n= (D.strip != 0) ? 0 : f.sizelocvars;
 		  DumpInt(n,D);
 		  for (i=0; i<n; i++) {

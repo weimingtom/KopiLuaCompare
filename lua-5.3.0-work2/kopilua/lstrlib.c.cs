@@ -1156,7 +1156,7 @@ namespace KopiLua
 		    d = (double)n;
 		    pn = CharPtr.FromNumber(d);
 		  }
-		  throw new Exception();
+		  //throw new Exception();
 		  correctendianess(L, pn, size, 3);
 		  lua_pushlstring(L, pn, (uint)size);
 		  return 1;
@@ -1172,13 +1172,13 @@ namespace KopiLua
 		  luaL_argcheck(L, 1 <= pos && (uint)pos + size - 1 <= len, 1,
 		                   "string too short");
 		  if (size == sizeof(lua_Number)) {
-		  	throw new Exception();
+		  	//throw new Exception();
 		  	memcpy(CharPtr.FromNumber(res), s + pos - 1, size);
 		  	correctendianess(L, CharPtr.FromNumber(res), size, 4);
 		  }
 		  else if (size == sizeof(float)) {
 		    float f = 0;
-		    throw new Exception();
+		    //throw new Exception();
 		    memcpy(CharPtr.FromNumber(f), s + pos - 1, size);
 		    correctendianess(L, CharPtr.FromNumber(f), size, 4);
 		    res = (lua_Number)f;
@@ -1186,7 +1186,7 @@ namespace KopiLua
 		  else {  /* native lua_Number may be neither float nor double */
 		    double d = 0;
 		    lua_assert(size == sizeof(double));
-		    throw new Exception();
+		    //throw new Exception();
 		    memcpy(CharPtr.FromNumber(d), s + pos - 1, size);
 		    correctendianess(L, CharPtr.FromNumber(d), size, 4);
 		    res = (lua_Number)d;

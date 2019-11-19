@@ -147,6 +147,8 @@ namespace KopiLua
 				return false;
 			if (t == typeof(LocVar))
 				return false;
+			if (t == typeof(LClosure)) //FIXME:
+				return false;
 			return true;
 		}
 

@@ -336,7 +336,6 @@ namespace KopiLua
 		    else
 		      return d - 1;  /* correct 'div' for negative case */
 		  }
-		  return 0; //FIXME:
 		}
 
 
@@ -353,7 +352,6 @@ namespace KopiLua
 		    else
 		      return r + y;  /* correct 'mod' for negative case */
 		  }
-		  return 0; //FIXME:
 		}
 
 

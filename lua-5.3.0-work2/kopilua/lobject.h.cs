@@ -252,7 +252,7 @@ namespace KopiLua
 		  public Value value_ = new Value(); //FIXME:see TValuefields
 		  public int tt_;
 		  
-		  public Node _parent; //see offsetof
+		  public Node _parent; //FIXME:added, see offsetof
 		};
 
 

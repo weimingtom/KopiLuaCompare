@@ -55,6 +55,8 @@ namespace KopiLua
 		  public char[] buff = new char[LUAI_EXTRASPACE];
 		#endif
 		  public lua_State l = new lua_State();
+		  
+		  public LX() { l._parent = this; }
 		};
 
 
@@ -69,8 +71,13 @@ namespace KopiLua
 
         //FIXME:???not implemented
         private static LX fromstate(lua_State L) { 
-		 throw new Exception("not implemented"); //FIXME:???
-		 return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+		 //throw new Exception("not implemented"); //FIXME:???
+		 //return /*((LX)((lu_byte[])(L) - offsetof(LX, l)))*/ null; 
+		 if (L._parent == null)
+		 {
+		 	throw new Exception();
+		 }
+		 return L._parent;
         } 
 
 

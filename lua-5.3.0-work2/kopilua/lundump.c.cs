@@ -48,46 +48,200 @@ namespace KopiLua
 		** All high-level loads go through LoadVector; you can change it to
 		** adapt to the endianess of the input
 		*/
-		private static void LoadVector(LoadState S, CharPtr b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
-		private static void LoadVector(LoadState S, Instruction[] b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
-		private static void LoadVector(LoadState S, int[] b, int n)	{ throw new Exception(); /*LoadBlock(S,b,(n)*sizeof((b)[0]));*/ }
-
-
-		private static void LoadBlock (LoadState S, CharPtr b, int size) {
-		  if (luaZ_read(S.Z, b, (uint)size) != 0) //FIXME:(uint) 
+		private static void LoadVector(LoadState S, CharPtr b, int n) { LoadBlock(S,b,n /* *sizeof((b)[0])*/ ); }
+		private static void LoadVector(LoadState S, Instruction[] b, int n)	{ LoadBlock(S,b,n /* *sizeof((b)[0])*/ ); }
+		private static void LoadVector(LoadState S, int[] b, int n)	{ LoadBlock(S,b,n/**sizeof((b)[0])*/ ); }
+		private static void LoadVector(LoadState S, ref lu_byte b) { LoadBlock(S,ref b); }
+		private static void LoadVector(LoadState S, ref lua_Number b) { LoadBlock(S,ref b); }
+		private static void LoadVector(LoadState S, ref lua_Integer b) { LoadBlock(S,ref b); }
+		private static void LoadVector(LoadState S, ref uint b) { LoadBlock(S,ref b); }
+		
+		private static void LoadBlock (LoadState S, int[] b, int size) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b[0]);
+		  CharPtr b__ = new char[size * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(size * s_)) != 0) { //FIXME:(uint)
 		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			for (int k = 0; k < size; ++k)
+			{
+				byte[] bytes = new byte[s_];
+				for (int i = 0; i < s_; i++)
+					bytes[i] = (byte)b__.chars[k * s_ + i];
+				GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+				int b2 = (int)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b[k].GetType());
+				pinnedPacket.Free();
+				b[k] = (int)b2;
+			}
+		  }
 		}
-
-
-		private static object LoadVar(LoadState S, object x)		{ throw new Exception(); return 0;/*LoadVector(S,&x,1);*/ }
-
+		private static void LoadBlock (LoadState S, Instruction[] b, int size) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b[0]);
+		  CharPtr b__ = new char[size * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(size * s_)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			for (int k = 0; k < size; ++k)
+			{
+				byte[] bytes = new byte[s_];
+				for (int i = 0; i < s_; i++)
+					bytes[i] = (byte)b__.chars[k * s_ + i];
+				GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+				Instruction b2 = (Instruction)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b[k].GetType());
+				pinnedPacket.Free();
+				b[k] = (Instruction)b2;
+			}
+		  }
+		}
+		private static void LoadBlock (LoadState S, CharPtr b, int size) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b[0]);
+		  CharPtr b__ = new char[size * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(size * s_)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+		  	for (int k = 0; k < size; ++k)
+		  	{
+		  		b[k] = b__[k];
+		  	}
+		  }
+		}
+		private static void LoadBlock (LoadState S, ref lu_byte b) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b);
+		  CharPtr b__ = new char[1 * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(s_ * 1)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			byte[] bytes = new byte[s_];
+			for (int i = 0; i < s_; i++)
+				bytes[i] = (byte)b__.chars[i];
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			lu_byte b2 = (lu_byte)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b.GetType());
+			pinnedPacket.Free();
+			b = (lu_byte)b2;
+		  }
+		}
+		private static void LoadBlock (LoadState S, ref lua_Number b) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b);
+		  CharPtr b__ = new char[1 * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(s_ * 1)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			byte[] bytes = new byte[s_];
+			for (int i = 0; i < s_; i++)
+				bytes[i] = (byte)b__.chars[i];
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			lua_Number b2 = (lua_Number)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b.GetType());
+			pinnedPacket.Free();
+			b = (lua_Number)b2;
+		  }
+		}
+		private static void LoadBlock (LoadState S, ref lua_Integer b) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b);
+		  CharPtr b__ = new char[1 * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(s_ * 1)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			byte[] bytes = new byte[s_];
+			for (int i = 0; i < s_; i++)
+				bytes[i] = (byte)b__.chars[i];
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			lua_Integer b2 = (lua_Integer)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b.GetType());
+			pinnedPacket.Free();
+			b = (lua_Integer)b2;
+		  }
+		}		
+		private static void LoadBlock (LoadState S, ref uint b) {
+		  //-----------------
+		  //not implemented, use ref???
+		  int s_ = Marshal.SizeOf(b);
+		  CharPtr b__ = new char[1 * s_];			
+		  //-----------------
+		  
+		  if (luaZ_read(S.Z, b__, (uint)(s_ * 1)) != 0) { //FIXME:(uint)
+		    error(S, "truncated");
+		  } else {
+			//FIXME:added, from byte[] to object[]
+			//FIXME:not check
+			byte[] bytes = new byte[s_];
+			for (int i = 0; i < s_; i++)
+				bytes[i] = (byte)b__.chars[i];
+			GCHandle pinnedPacket = GCHandle.Alloc(bytes, GCHandleType.Pinned);
+			uint b2 = (uint)Marshal.PtrToStructure(pinnedPacket.AddrOfPinnedObject(), b.GetType());
+			pinnedPacket.Free();
+			b = (uint)b2;
+		  }
+		}
+		
+		private static void LoadVar(LoadState S, ref lu_byte x)		{ LoadVector(S,ref x/*,1*/); }
+		private static void LoadVar(LoadState S, ref lua_Number x)		{ LoadVector(S,ref x/*,1*/); }
+		private static void LoadVar(LoadState S, ref lua_Integer x)		{ LoadVector(S,ref x/*,1*/); }
+		private static void LoadVar(LoadState S, ref uint x)		{ LoadVector(S,ref x/*,1*/); }
 
 		private static lu_byte LoadByte (LoadState S) {
-		  return (lu_byte)LoadVar(S, typeof(char)); //FIXME: changed
+		  lu_byte x = 0;
+		  LoadVar(S, ref x);
+		  return x;
 		}
 
 
 		private static int LoadInt (LoadState S) {
-		  int x;
-		  x = (int)LoadVar(S, typeof(int)); //FIXME: changed
+		  int x = 0;
+		  LoadVar(S, ref x);
 		  return x;
 		}
 
 
 		private static lua_Number LoadNumber (LoadState S) {
-		  return (lua_Number)LoadVar(S, typeof(lua_Number));
+		  lua_Number x = 0;
+		  LoadVar(S, ref x);
+		  return x;
 		}
 
 
 		private static lua_Integer LoadInteger (LoadState S) {
-		  return (lua_Integer)LoadVar(S, typeof(lua_Integer));
+		  lua_Integer x = 0;
+		  LoadVar(S, ref x);
+		  return x;
 		}
 
 
 		private static TString LoadString (LoadState S) {
 		  uint size = LoadByte(S);
 		  if (size == 0xFF)
-		    LoadVar(S, size);
+		    LoadVar(S, ref size);
 		  if (size == 0)
 		    return null;
 		  else {
