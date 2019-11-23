@@ -1,5 +1,5 @@
 /*
-** $Id: ldump.c,v 2.27 2014/03/11 18:56:27 roberto Exp $
+** $Id: ldump.c,v 2.32 2014/06/18 18:35:43 roberto Exp $
 ** save precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -36,7 +36,7 @@ namespace KopiLua
 
 		/*
 		** All high-level dumps go through DumpVector; you can change it to
-		** change the endianess of the result
+		** change the endianness of the result
 		*/
 		public static void DumpVector(object v, uint n, DumpState D)	{ DumpBlock(v, n/* *sizeof((v)[0])*/, D); } //FIXME: here no need to use *sizeof(v[0])
 		public static void DumpVector(object v, DumpState D)	{ DumpBlock(v, D); } //FIXME: NOTE!!!if n == 1, use this version
@@ -146,7 +146,7 @@ namespace KopiLua
 		}
 		
 		
-        //static void DumpFunction(const Proto* f, DumpState* D);
+        //static void DumpFunction(const Proto* f, TString *psource, DumpState* D);
 
 		private static void DumpConstants (Proto f, DumpState D) {
 		  int i;
@@ -176,10 +176,15 @@ namespace KopiLua
 			  break;
 		    }  
 		  }
-		  n = f.sizep;
+		}
+
+
+		private static void DumpProtos (Proto f, DumpState D) {
+		  int i;
+		  int n = f.sizep;
 		  DumpInt(n, D);
-		  for (i = 0; i < n; i++) 
-		    DumpFunction(f.p[i], D);
+		  for (i = 0; i < n; i++)
+		    DumpFunction(f.p[i], f.source, D);
 		}
 
 
@@ -194,7 +199,6 @@ namespace KopiLua
 
 		private static void DumpDebug (Proto f, DumpState D) {
 		  int i, n;
-          DumpString((D.strip!=0) ? null : f.source, D);
 		  n = (D.strip != 0) ? 0 : f.sizelineinfo;
 		  DumpInt(n, D);
 		  DumpVector(f.lineinfo, (uint)n, D);
@@ -211,7 +215,11 @@ namespace KopiLua
 		    DumpString(f.upvalues[i].name, D);
 		}
 
-		private static void DumpFunction (Proto f, DumpState D) {
+		private static void DumpFunction (Proto f, TString psource, DumpState D) {
+		  if (D->strip || f->source == psource)
+		    DumpString(NULL, D);  /* no debug info or same source as its parent */
+		  else
+		    DumpString(f->source, D);		
 		  DumpInt(f.linedefined, D);
 		  DumpInt(f.lastlinedefined, D);
 		  DumpByte(f.numparams, D);
@@ -220,6 +228,7 @@ namespace KopiLua
 		  DumpCode(f, D);
 		  DumpConstants(f, D);
           DumpUpvalues(f, D);
+		  DumpProtos(f, D);
 		  DumpDebug(f, D);
 		}
 
@@ -250,7 +259,7 @@ namespace KopiLua
 		  D.status = 0;
 		  DumpHeader(D);
 		  DumpByte(f.sizeupvalues, D);
-		  DumpFunction(f, D);
+		  DumpFunction(f, null, D);
 		  return D.status;
 		}
 	}
