@@ -1,5 +1,5 @@
 /*
-** $Id: llimits.h,v 1.111 2014/03/07 16:19:00 roberto Exp $
+** $Id: llimits.h,v 1.116 2014/04/15 16:32:49 roberto Exp $
 ** Limits, basic types, and some other `installation-dependent' definitions
 ** See Copyright Notice in lua.h
 */
@@ -42,8 +42,8 @@ namespace KopiLua
 		public const uint MAX_SIZET	= uint.MaxValue - 2; //FIXME:changed
 
 		/* maximum size visible for Lua (must be representable in a lua_Integer */
-		public const uint MAX_SIZE = (sizeof(uint) <= sizeof(lua_Integer) ? MAX_SIZET 
-                          : (uint)(~(lua_Unsigned)0)-2);
+		public const uint MAX_SIZE = (sizeof(uint) < sizeof(lua_Integer) ? MAX_SIZET 
+                          : (uint)(LUA_MAXINTEGER)-2);
 
 
 		public const lu_mem MAX_LUMEM	= lu_mem.MaxValue - 2; //FIXME:changed
@@ -53,13 +53,6 @@ namespace KopiLua
 
 		public const int MAX_INT = (Int32.MaxValue - 2);  /* maximum value of an int (-2 for safety) */
 
-
-		/* maximum value for a lua_Unsigned */
-		public const lua_Unsigned MAX_UINTEGER = (~(lua_Unsigned)0);
-
-		/* minimum and maximum values for lua_Integer */
-		public const int MAX_INTEGER = ((lua_Integer)(MAX_UINTEGER >> 1));
-		public const int MIN_INTEGER = (~MAX_INTEGER);
 
 		/*
 		** conversion of pointer to integer
@@ -78,8 +71,9 @@ namespace KopiLua
 		//typedef LUAI_USER_ALIGNMENT_T L_Umaxalign;
 
 
-		/* result of a `usual argument conversion' over lua_Number */
+		/* types of 'usual argument conversions' for lua_Number and lua_Integer */
 		//typedef LUAI_UACNUMBER l_uacNumber;
+		//typedef LUAI_UACINT l_uacInt;
 
 
 		/* internal assertions for in-house debugging */
@@ -171,12 +165,27 @@ namespace KopiLua
 				return (byte)((int)i & 0xff);
 			}
 		} //FIXME:???remove?
-		public static lua_Integer cast_integer(int i) { return (lua_Integer)(i); }
-		public static lua_Integer cast_integer(uint i) { return (lua_Integer)(i); }
-		public static lua_Integer cast_integer(double i) { return (lua_Integer)(i); }
-		public static lua_Unsigned cast_unsigned(int i) { return (lua_Unsigned)(i); }
-		public static lua_Unsigned cast_unsigned(uint i) { return (lua_Unsigned)(i); }
-		public static lua_Unsigned cast_unsigned(double i) { return (lua_Unsigned)(i); }
+
+
+
+
+		/* cast a signed lua_Integer to lua_Unsigned */
+		//#if !defined(l_castS2U)
+		public static lua_Unsigned l_castS2U(int i)	{ return ((lua_Unsigned)(i)); }
+		public static lua_Unsigned l_castS2U(uint i)	{ return ((lua_Unsigned)(i)); }
+		//#endif
+
+		/*
+		** cast a lua_Unsigned to a signed lua_Integer; this cast is
+		** not strict ANSI C, but two-complement architectures should
+		** work fine.
+		*/
+		//#if !defined(l_castU2S)
+		public static lua_Integer l_castU2S(int i)	{ return ((lua_Integer)(i)); }
+		public static lua_Integer l_castU2S(uint i)	{ return ((lua_Integer)(i)); }
+		//#endif
+
+
 
 		/*
 		** non-return type

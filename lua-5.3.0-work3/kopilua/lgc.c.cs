@@ -556,7 +556,7 @@ namespace KopiLua
 		      g.twups = th;
 		    }			
 		  }
-		  else if (g->gckind != KGC_EMERGENCY)
+		  else if (g.gckind != KGC_EMERGENCY)
 		    luaD_shrinkstack(th); /* do not change stack in emergency cycle */
 		  return (uint)(GetUnmanagedSize(typeof(lua_State)) + GetUnmanagedSize(typeof(TValue)) * th.stacksize);
 		}
@@ -831,7 +831,7 @@ namespace KopiLua
 			luaZ_freebuffer(L, g.buff);  /* free concatenation buffer */
 		    if (g.strt.nuse < g.strt.size / 4)  /* string table too big? */
 		      luaS_resize(L, g.strt.size / 2);  /* shrink it a little */
-			g.GCestimate += g.GCdebt - olddebt;  /* update estimate */			
+		    g.GCestimate = (uint)(g.GCestimate + (g.GCdebt - olddebt)); //FIXME: g.GCestimate += g.GCdebt - olddebt;  /* update estimate */
 		  }
 		}
 
@@ -892,13 +892,13 @@ namespace KopiLua
 		*/
 		private static int runafewfinalizers (lua_State L) {
 		  global_State g = G(L);
-		  unsigned int i;
-		  lua_assert(!g.tobefnz || g.gcfinnum > 0);
-		  for (i = 0; g.tobefnz && i < g.gcfinnum; i++)
+		  uint i;
+		  lua_assert(null==g.tobefnz || g.gcfinnum > 0);
+		  for (i = 0; g.tobefnz!=null && i < g.gcfinnum; i++)
 		    GCTM(L, 1);  /* call one finalizer */
-		  g.gcfinnum = (!g.tobefnz) ? 0  /* nothing more to finalize? */
+		  g.gcfinnum = (null==g.tobefnz) ? 0  /* nothing more to finalize? */
 		                    : g.gcfinnum * 2;  /* else call a few more next time */
-		  return i;
+		  return (int)i;
 		}
 
 		/*
@@ -985,7 +985,7 @@ namespace KopiLua
 		*/
 		static void setpause (global_State g) {
 		  l_mem threshold, debt;
-		  l_mem estimate = g.GCestimate / PAUSEADJ;  /* adjust 'estimate' */
+		  l_mem estimate = (int)(g.GCestimate / PAUSEADJ);  /* adjust 'estimate' */
 		  threshold = (g.gcpause < MAX_LMEM / estimate)  /* overflow? */
 		            ? estimate * g.gcpause  /* no overflow */
 		            : MAX_LMEM;  /* overflow; truncate to maximum */
@@ -1041,7 +1041,7 @@ namespace KopiLua
 		  /* remark occasional upvalues of (maybe) dead threads */
 		  remarkupvals(g);
 		  propagateall(g);  /* propagate changes */
-		  work = g.GCmemtrav;  /* stop counting (do not (re)count grays) */
+		  work = (int)g.GCmemtrav;  /* stop counting (do not (re)count grays) */
 		  /* traverse objects caught by write barrier and by 'remarkupvals' */
 		  retraversegrays(g);
 		  g.GCmemtrav = 0;  /* restart counting */
@@ -1076,7 +1076,7 @@ namespace KopiLua
 		  if (g.sweepgc != null) {
 		    l_mem olddebt = g.GCdebt;
 		    g.sweepgc = sweeplist(L, g.sweepgc, GCSWEEPMAX);
-			g.GCestimate += g.GCdebt - olddebt;  /* update estimate */
+		    g.GCestimate = (uint)(g.GCestimate + g.GCdebt - olddebt);//g.GCestimate += g.GCdebt - olddebt;  /* update estimate */
 		    if (g.sweepgc != null)  /* is there still something to sweep? */
 		      return (GCSWEEPMAX * GCSWEEPCOST);
 		  }
@@ -1129,9 +1129,9 @@ namespace KopiLua
 		      return 0;
 		    }
 		    case GCScallfin: {  /* call remaining finalizers */
-		      if (g.tobefnz && g.gckind != KGC_EMERGENCY) {
+		      if (g.tobefnz!=null && g.gckind != KGC_EMERGENCY) {
 		        int n = runafewfinalizers(L);
-		        return (n * GCFINALIZECOST);
+		        return (uint)(n * GCFINALIZECOST);
 		      }
 		      else {  /* emergency mode or no more finalizers */
 		        g.gcstate = GCSpause;  /* finish collection */
@@ -1202,7 +1202,7 @@ namespace KopiLua
 		public static void luaC_fullgc (lua_State L, int isemergency) {
 		  global_State g = G(L);
 		  lua_assert(g.gckind == KGC_NORMAL);
-		  if (isemergency) g.gckind = KGC_EMERGENCY;  /* set flag */
+		  if (isemergency!=0) g.gckind = KGC_EMERGENCY;  /* set flag */
 		  if (keepinvariant(g)) {  /* black objects? */
 		    entersweep(L); /* sweep everything to turn them back to white */
 		  }

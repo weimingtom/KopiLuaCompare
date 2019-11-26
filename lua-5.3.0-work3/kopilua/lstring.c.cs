@@ -1,5 +1,5 @@
 /*
-** $Id: lstring.c,v 2.38 2014/03/19 18:51:42 roberto Exp $
+** $Id: lstring.c,v 2.40 2014/06/18 22:59:29 roberto Exp $
 ** String table (keeps all strings handled by Lua)
 ** See Copyright Notice in lua.h
 */
@@ -88,9 +88,11 @@ namespace KopiLua
 		private static TString createstrobj (lua_State L, CharPtr str, uint l,
 		                              int tag, uint h) {
 		  TString ts;
+		  GCObject o;
 		  uint totalsize;  /* total size of TString object */
 		  totalsize = (uint)(GetUnmanagedSize(typeof(TString)) + ((l + 1) * GetUnmanagedSize(typeof(char))));
-		  ts = luaC_newobj<TString>(L, tag, totalsize).ts;
+		  o = luaC_newobj<TString>(L, tag, totalsize);
+		  ts = rawgco2ts(o);
 		  ts.tsv.len = l;
 		  ts.tsv.hash = h;
 		  ts.tsv.extra = 0;
@@ -164,9 +166,11 @@ namespace KopiLua
 		public static Udata luaS_newudata(lua_State L, uint s)
 		{
 		    Udata u;
+			GCObject o;
 		    if (s > MAX_SIZE - GetUnmanagedSize(typeof(Udata)))
 			  luaM_toobig(L);
-		    u = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s)).u; //FIXME:(uint)
+		    o = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s)); //FIXME:(uint)
+			u = rawgco2u(o);
 			u.uv.len = s;
 			u.uv.metatable = null;
 			setuservalue(L, u, luaO_nilobject);
@@ -177,10 +181,12 @@ namespace KopiLua
 		public static Udata luaS_newudata(lua_State L, Type t)
 		{
 		    Udata u;
-		    uint s = (uint)GetUnmanagedSize(t);
+		    GCObject o;
+			uint s = (uint)GetUnmanagedSize(t);
 		    if (s > MAX_SIZE - GetUnmanagedSize(typeof(Udata)))
 			  luaM_toobig(L);
-		    u = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s)).u; //FIXME:(uint)
+		    o = luaC_newobj<Udata>(L, LUA_TUSERDATA, (uint)(GetUnmanagedSize(typeof(Udata)) + s)); //FIXME:(uint)
+			u = rawgco2u(o);
 			u.uv.len = 0;//FIXME:s;
 			u.uv.metatable = null;
 			setuservalue(L, u, luaO_nilobject);

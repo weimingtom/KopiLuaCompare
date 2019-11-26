@@ -23,7 +23,7 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		private static boolean errorstatus(s)	{ return ((s) > LUA_YIELD); }
+		private static bool errorstatus(int s)	{ return ((s) > LUA_YIELD); }
 
 
 		/*
@@ -468,27 +468,27 @@ namespace KopiLua
 		** Completes the execution of an interrupted C function, calling its
 		** continuation function.
 		*/
-		private static void finishCcall (lua_State *L, int status) {
-		  CallInfo *ci = L->ci;
+		private static void finishCcall (lua_State L, int status) {
+		  CallInfo ci = L.ci;
 		  int n;
 		  /* must have a continuation and must be able to call it */
-		  lua_assert(ci->u.c.k != NULL && L->nny == 0);
+		  lua_assert(ci.u.c.k != null && L.nny == 0);
 		  /* error status can only happen in a protected call */
-		  lua_assert((ci->callstatus & CIST_YPCALL) || status == LUA_YIELD);
-		  if (ci->callstatus & CIST_YPCALL) {  /* was inside a pcall? */
-		    ci->callstatus &= ~CIST_YPCALL;  /* finish 'lua_pcall' */
-		    L->errfunc = ci->u.c.old_errfunc;
+		  lua_assert(0!=(ci.callstatus & CIST_YPCALL) || status == LUA_YIELD);
+		  if (0!=(ci.callstatus & CIST_YPCALL)) {  /* was inside a pcall? */
+		  	ci.callstatus &= (byte)((~CIST_YPCALL) & 0xff);  /* finish 'lua_pcall' */
+		    L.errfunc = ci.u.c.old_errfunc;
 		  }
 		  /* finish 'lua_callk'/'lua_pcall'; CIST_YPCALL and 'errfunc' already
 		     handled */
-		  adjustresults(L, ci->nresults);
+		  adjustresults(L, ci.nresults);
 		  /* call continuation function */
 		  lua_unlock(L);
-		  n = (*ci->u.c.k)(L, status, ci->u.c.ctx);
+		  n = ci.u.c.k(L, status, ci.u.c.ctx);
 		  lua_lock(L);
 		  api_checknelems(L, n);
 		  /* finish 'luaD_precall' */
-		  luaD_poscall(L, L->top - n);
+		  luaD_poscall(L, L.top - n);
 		}
 
 
@@ -501,10 +501,10 @@ namespace KopiLua
 		** status is LUA_YIELD).
 		*/
 		private static void unroll (lua_State L, object ud) {
-          if (ud != NULL)  /* error status? */
-		    finishCcall(L, *(int *)ud);  /* finish 'lua_pcallk' callee */
-		  while (L->ci != &L->base_ci) {  /* something in the stack */
-		    if (!isLua(L->ci))  /* C function? */
+          if (ud != null)  /* error status? */
+		    finishCcall(L, (int)ud);  /* finish 'lua_pcallk' callee */
+		  while (L.ci != L.base_ci) {  /* something in the stack */
+		    if (0==isLua(L.ci))  /* C function? */
 		      finishCcall(L, LUA_YIELD);  /* complete its execution */
 		    else {  /* Lua function */
 		      luaV_finishOp(L);  /* finish interrupted instruction */
@@ -619,16 +619,16 @@ namespace KopiLua
 		  if (status == -1)  /* error calling 'lua_resume'? */
 		    status = LUA_ERRRUN;
 		  else {  /* continue running after recoverable errors */
-		    while (errorstatus(status) && recover(L, status)) {
+		    while (errorstatus(status) && 0!=recover(L, status)) {
 		      /* unroll continuation */
-		      status = luaD_rawrunprotected(L, unroll, &status);
+		      status = luaD_rawrunprotected(L, unroll, status);
 		    }
 		    if (errorstatus(status)) {  /* unrecoverable error? */
-		      L->status = cast_byte(status);  /* mark thread as `dead' */
-		      seterrorobj(L, status, L->top);  /* push error message */
-		      L->ci->top = L->top;
+		      L.status = cast_byte(status);  /* mark thread as `dead' */
+		      seterrorobj(L, status, L.top);  /* push error message */
+		      L.ci.top = L.top;
 		    }
-		    else lua_assert(status == L->status);  /* normal end or yield */
+		    else lua_assert(status == L.status);  /* normal end or yield */
 		  }
 		  L.nny = (ushort)oldnny;  /* restore 'nny' */
 		  L.nCcalls--;

@@ -1,5 +1,5 @@
 /*
-** $Id: luaconf.h,v 1.193 2014/03/21 14:27:16 roberto Exp $
+** $Id: luaconf.h,v 1.207 2014/06/10 19:21:20 roberto Exp $
 ** Configuration file for Lua
 ** See Copyright Notice in lua.h
 */
@@ -35,16 +35,15 @@ namespace KopiLua
 
 		/*
 		** ===================================================================
-		@@ LUA_INT_INT / LUA_INT_LONG / LUA_INT_LONGLONG defines size for
-		@* Lua integers;
-		@@ LUA_REAL_FLOAT / LUA_REAL_DOUBLE / LUA_REAL_LONGDOUBLE defines size for
-		@* Lua floats.
+		@@ LUA_INT_INT / LUA_INT_LONG / LUA_INT_LONGLONG defines type for
+		@@ Lua integers;
+		@@ LUA_REAL_FLOAT / LUA_REAL_DOUBLE / LUA_REAL_LONGDOUBLE defines
+		@@ type for Lua floats.
 		**
 		** These definitions set the numeric types for Lua. Lua should work
-		** fine with 32-bit or 64-bit integers mixed with 32-bit or 64-bit
-		** floats. The usual configurations are 64-bit integers and floats (the
-		** default) and 32-bit integers and floats (Small Lua, for restricted
-		** hardware).
+		** fine with any mix of these previous options.
+		** The usual configurations are 64-bit integers and floats (the default)
+		** and 32-bit integers and floats (Small Lua, for restricted hardware).
 		** =====================================================================
 		*/
 		//#define LUA_INT_LONGLONG
@@ -88,7 +87,7 @@ namespace KopiLua
 		
 		
 		/*
-		@@ LUA_USE_C99 includes all functionality from C 99.
+		@@ LUA_USE_C99 includes all functionality that depends on C 99.
 		** CHANGE it (define it) if your system is compatible.
 		*/
 		//#if defined(LUA_USE_C99)
@@ -98,7 +97,7 @@ namespace KopiLua
 
 		/*
 		@@ LUA_USE_POSIX includes all functionallity listed as X/Open System
-		@* Interfaces Extension (XSI).
+		@@ Interfaces Extension (XSI).
 		** CHANGE it (define it) if your system is XSI compatible.
 		*/
 		//#if defined(LUA_USE_POSIX)
@@ -108,13 +107,14 @@ namespace KopiLua
 
 		/*
 		@@ LUA_PATH_DEFAULT is the default path that Lua uses to look for
-		@* Lua libraries.
+		@@ Lua libraries.
 		@@ LUA_CPATH_DEFAULT is the default path that Lua uses to look for
-		@* C libraries.
+		@@ C libraries.
 		** CHANGE them if your machine has a non-conventional directory
 		** hierarchy or if you want to install your libraries in
 		** non-conventional directories.
 		*/
+		public const string LUA_VDIR = LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR;
 		#if _WIN32 ///* { */
 		/*
 		** In Windows, any exclamation mark ('!') in the path is replaced by the
@@ -122,19 +122,22 @@ namespace KopiLua
 		*/
 		public const string LUA_LDIR = "!\\lua\\";
 		public const string LUA_CDIR = "!\\";
+		public const string LUA_SHRDIR = "!\\..\\share\\lua\\" + LUA_VDIR + "\\";
 		public const string LUA_PATH_DEFAULT =
 							LUA_LDIR + "?.lua;"  + LUA_LDIR + "?\\init.lua;"
 							 + LUA_CDIR + "?.lua;"  + LUA_CDIR + "?\\init.lua;" 
+							 + LUA_SHRDIR + "?.lua;" + LUA_SHRDIR + "?\\init.lua;"
 							 + ".\\?.lua;" + ".\\?\\init.lua";
 		public const string LUA_CPATH_DEFAULT =
-							LUA_CDIR + "?.dll;" + LUA_CDIR + "loadall.dll;" + ".\\?.dll";
+							LUA_CDIR + "?.dll;"
+							+ LUA_CDIR + "..\\lib\\lua\\" + LUA_VDIR + "\\?.dll;"
+							+ LUA_CDIR + "loadall.dll;" + ".\\?.dll";
 
 		#else			///* }{ */
 
-		public const string LUA_VDIR    = LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR + "/";
 		public const string LUA_ROOT	= "/usr/local/";
-		public const string LUA_LDIR	= LUA_ROOT + "share/lua/" + LUA_VDIR;
-		public const string LUA_CDIR	= LUA_ROOT + "lib/lua/" + LUA_VDIR;
+		public const string LUA_LDIR	= LUA_ROOT + "share/lua/" + LUA_VDIR + "/";
+		public const string LUA_CDIR	= LUA_ROOT + "lib/lua/" + LUA_VDIR + "/";
 		public const string LUA_PATH_DEFAULT  =
 							LUA_LDIR + "?.lua;"  + LUA_LDIR + "?/init.lua;" +
 							LUA_CDIR + "?.lua;"  + LUA_CDIR + "?/init.lua;" 
@@ -195,10 +198,10 @@ namespace KopiLua
 
 		/*
 		@@ LUAI_FUNC is a mark for all extern functions that are not to be
-		@* exported to outside modules.
+		@@ exported to outside modules.
 		@@ LUAI_DDEF and LUAI_DDEC are marks for all extern (const) variables
-		@* that are not to be exported to outside modules (LUAI_DDEF for
-		@* definitions and LUAI_DDEC for declarations).
+		@@ that are not to be exported to outside modules (LUAI_DDEF for
+		@@ definitions and LUAI_DDEC for declarations).
 		** CHANGE them if you need to mark them in some special way. Elf/gcc
 		** (versions 3.2 and later) mark them as "hidden" to optimize access
 		** when Lua is compiled as a shared library. Not all elf targets support
@@ -231,7 +234,7 @@ namespace KopiLua
 
 		/*
 		@@ LUA_IDSIZE gives the maximum size for the description of the source
-		@* of a function in debug information.
+		@@ of a function in debug information.
 		** CHANGE it if you want a different size.
 		*/
 		public const int LUA_IDSIZE	= 60;
@@ -272,16 +275,36 @@ namespace KopiLua
 		*/
         //FIXME:TODO:LUA_COMPAT_ALL is defined, but all defines removed here
 		/*
-		@@ LUA_COMPAT_ALL controls all compatibility options.
+		@@ LUA_COMPAT_5_2 controls other macros for compatibility with Lua 5.2.
+		@@ LUA_COMPAT_5_1 controls other macros for compatibility with Lua 5.1.
 		** You can define it to get all options, or change specific options
 		** to fit your specific needs.
 		*/
-		#if LUA_COMPAT_ALL	///* { */
+		#if LUA_COMPAT_5_2	///* { */
+
+		/*
+		@@ LUA_COMPAT_MATHLIB controls the presence of several deprecated
+		** functions in the mathematical library.
+		*/
+		//#define LUA_COMPAT_MATHLIB
 
 		/*
 		@@ LUA_COMPAT_BITLIB controls the presence of library 'bit32'.
 		*/
 		//#define LUA_COMPAT_BITLIB
+
+		/*
+		@@ LUA_COMPAT_FLOATSTRING makes Lua format integral floats without a
+		@@ a float mark ('.0').
+		** This macro is not on by default even in compatibility mode,
+		** because this is not really an incompatibility.
+		*/
+		/* #define LUA_COMPAT_FLOATSTRING */
+
+		//#endif				/* } */
+
+
+		//#if LUA_COMPAT_5_1	/* { */
 
 		/*
 		@@ LUA_COMPAT_UNPACK controls the presence of global 'unpack'.
@@ -365,9 +388,9 @@ namespace KopiLua
 		/*
 		@@ LUA_INT32 is an signed integer with exactly 32 bits.
 		@@ LUAI_UMEM is an unsigned integer big enough to count the total
-		@* memory used by Lua.
+		@@ memory used by Lua.
 		@@ LUAI_MEM is a signed integer big enough to count the total memory
-		@* used by Lua.
+		@@ used by Lua.
 		** CHANGE here if for some weird reason the default definitions are not
 		** good enough for your machine. Probably you do not need to change
 		** this.
@@ -427,10 +450,9 @@ namespace KopiLua
 		@@ LUA_NUMBER is the floating-point type used by Lua.
 		**
 		@@ LUAI_UACNUMBER is the result of an 'usual argument conversion'
-		@* over a floating number.
+		@@ over a floating number.
 		**
 		@@ LUA_NUMBER_FRMLEN is the length modifier for writing floats.
-		@@ LUA_NUMBER_SCAN is the format for reading floats.
 		@@ LUA_NUMBER_FMT is the format for writing floats.
 		@@ lua_number2str converts a float to a string.
 		**
@@ -446,7 +468,6 @@ namespace KopiLua
 		//#define LUAI_UACNUMBER	double
 		
 		//#define LUA_NUMBER_FRMLEN	""
-		//#define LUA_NUMBER_SCAN		"%f"
 		//#define LUA_NUMBER_FMT		"%.7g"
 		
 		//#define l_mathop(op)		op##f
@@ -461,7 +482,6 @@ namespace KopiLua
 		//#define LUAI_UACNUMBER	long double
 		
 		//#define LUA_NUMBER_FRMLEN	"L"
-		//#define LUA_NUMBER_SCAN		"%Lf"
 		//#define LUA_NUMBER_FMT		"%.19Lg"
 		
 		//#define l_mathop(op)		op##l
@@ -475,7 +495,6 @@ namespace KopiLua
 		//#define LUAI_UACNUMBER	double
 		
 		public const string LUA_NUMBER_FRMLEN = "";
-		public const string LUA_NUMBER_SCAN = "%lf";
 		public const string LUA_NUMBER_FMT = "%.14g";
 		
 		//#define l_mathop(op)		op
@@ -503,20 +522,35 @@ namespace KopiLua
 		//#endif
 		
 		
-		//#define l_floor(x)		(l_mathop(floor)(x))
+		public static lua_Number l_floor(lua_Number x)		{ return (floor(x)); }
 		
 		public static int lua_number2str(CharPtr s, lua_Number n) { return sprintf(s, LUA_NUMBER_FMT, n); }
 		
 		
 		/*
+		@@ lua_numtointeger converts a float number to an integer, or
+		** returns 0 if float is not within the range of a lua_Integer.
+		** (The range comparisons are tricky because of rounding. The tests
+		** here assume a two-complement representation, where MININTEGER always
+		** has an exact representation as a float; MAXINTEGER may not have one,
+		** and therefore its conversion to float may have an ill-defined value.)
+		*/
+		public static int lua_numtointeger(double n, ref lua_Integer p) {
+		  if ((n) >= (LUA_NUMBER)(LUA_MININTEGER) &&
+			    (n) < -(LUA_NUMBER)(LUA_MININTEGER)) {
+				p = (LUA_INTEGER)(n); return 1;} return 0; }
+
+
+		/*
 		@@ The luai_num* macros define the primitive operations over numbers.
-		@* They should work for any size of floating numbers.
+		** They should work for any size of floating numbers.
 		*/
 		
 		/* the following operations need the math library */
 		//#if defined(lobject_c) || defined(lvm_c)
 		//#include <math.h>
-		public static lua_Number luai_nummod(lua_State L, lua_Number a, lua_Number b)	{ /*(void)L, */return ((a) - floor((a)/(b))*(b));}
+		public static void luai_nummod(lua_State L, lua_Number a, ref lua_Number b, lua_Number m)	
+			{ (m) = fmod(a,b); if ((m) != 0 && (a)*(b) < 0) (m) += (b); }
 		public static lua_Number luai_numpow(lua_State L, lua_Number a, lua_Number b)	{ /*(void)L, */return (pow(a,b));}
 		//#endif
 		
@@ -546,44 +580,100 @@ namespace KopiLua
 		**
 		@@ LUA_UNSIGNED is the unsigned version of LUA_INTEGER.
 		**
+		@@ LUAI_UACINT is the result of an 'usual argument conversion'
+		@@ over a lUA_INTEGER.
 		@@ LUA_INTEGER_FRMLEN is the length modifier for reading/writing integers.
-		@@ LUA_INTEGER_SCAN is the format for reading integers.
 		@@ LUA_INTEGER_FMT is the format for writing integers.
+		@@ LUA_MAXINTEGER is the maximum value for a LUA_INTEGER.
+		@@ LUA_MININTEGER is the minimum value for a LUA_INTEGER.
+		@@ LUA_MAXUNSIGNED is the maximum value for a LUA_UNSIGNED.
 		@@ lua_integer2str converts an integer to a string.
 		*/
 		
+		
+		/* The following definitions are good for most cases here */
+
+		public const string LUA_INTEGER_FMT	= "%" + LUA_INTEGER_FRMLEN + "d";
+		public static int lua_integer2str(CharPtr s, lua_Integer n)	{ return sprintf(s, LUA_INTEGER_FMT, n); }
+	
+		//#define LUAI_UACINT		LUA_INTEGER
+
+		/*
+		** use LUAI_UACINT here to avoid problems with promotions (which
+		** can turn a comparison between unsigneds into a signed comparison)
+		*/
+		//#define LUA_UNSIGNED		unsigned LUAI_UACINT
+
+
+		/* now the variable definitions */
+
 		//#if defined(LUA_INT_INT)		/* { int */
 		
 		//#define LUA_INTEGER		int
 		public const string LUA_INTEGER_FRMLEN = "";
+
+		public const uint LUA_MAXUNSIGNED = uint.MaxValue; //#define LUA_MAXUNSIGNED		UINT_MAX
+		public const int LUA_MAXINTEGER = int.MaxValue; //#define LUA_MAXINTEGER		INT_MAX
+		public const int LUA_MININTEGER = int.MinValue; //#define LUA_MININTEGER		INT_MIN
 		
 		//#elif defined(LUA_INT_LONG)	/* }{ long */
 		
 		//#define LUA_INTEGER		long
 		//#define LUA_INTEGER_FRMLEN	"l"
+
+		//#define LUA_MAXUNSIGNED		ULONG_MAX
+		//#define LUA_MAXINTEGER		LONG_MAX
+		//#define LUA_MININTEGER		LONG_MIN
 		
 		//#elif defined(LUA_INT_LONGLONG)	/* }{ long long */
 
 		//#if defined(_WIN32)
+		
 		//#define LUA_INTEGER		__int64
 		//#define LUA_INTEGER_FRMLEN	"I64"
+		
+		//#define LUA_MAXUNSIGNED		_UI64_MAX
+		//#define LUA_MAXINTEGER		_I64_MAX
+		//#define LUA_MININTEGER		_I64_MIN
+		
 		//#else		
+		
 		//#define LUA_INTEGER		long long
 		//#define LUA_INTEGER_FRMLEN	"ll"
+
+		//#define LUA_MAXUNSIGNED		ULLONG_MAX
+		//#define LUA_MAXINTEGER		LLONG_MAX
+		//#define LUA_MININTEGER		LLONG_MIN
+		
 		//#endif
+
+		//#elif defined(LUA_INT_SHORT)	/* }{ short int */
+		/*
+		** this option is for tests only; it is not particularly useful and
+		** it does not pass the test suit.
+		*/
+
+		//#define LUA_INTEGER		short int
+		//#define LUA_INTEGER_FRMLEN	""
+
+		//#define LUA_MAXUNSIGNED		((LUA_UNSIGNED)USHRT_MAX)
+		//#define LUA_MAXINTEGER		SHRT_MAX
+		//#define LUA_MININTEGER		SHRT_MIN
+
+		//#undef  LUAI_UACINT
+		//#define LUAI_UACINT		int
+
+		//#undef  LUAI_MAXSTACK
+		//#define LUAI_MAXSTACK           15000
+
+		//#define l_castS2U(x)		((LUA_UNSIGNED)(unsigned short)(x))
 
 		//#else				/* }{ */
 
 		//#error "numeric integer type not defined"
 
 		//#endif				/* } */
-		
-		
-		public const string LUA_INTEGER_SCAN = "%" + LUA_INTEGER_FRMLEN + "d";
-		public const string LUA_INTEGER_FMT = "%" + LUA_INTEGER_FRMLEN + "d";
-		public static int lua_integer2str(CharPtr s, lua_Integer n)	{ return sprintf(s, LUA_INTEGER_FMT, n); }
-		
-		//#define LUA_UNSIGNED		unsigned LUA_INTEGER
+	
 		
 		/* }================================================================== */
 		

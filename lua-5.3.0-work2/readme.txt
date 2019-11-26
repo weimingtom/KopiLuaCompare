@@ -776,4 +776,20 @@ add this code ---->			if (t == typeof(LClosure)) //FIXME:
 			return true;
 		}
 		
-		
+------------------------------------
+
+
+		private static int read_number (lua_State L, StreamProxy f) {
+---->		  //lua_Number d; //FIXME:???
+		  object[] parms = { (object)(double)0.0 }; //FIXME:???
+		  if (fscanf(f, LUA_NUMBER_SCAN, parms) == 1) {
+			lua_pushnumber(L, (double)parms[0]); //FIXME:d???
+			return 1;
+		  }
+		  else {
+		   lua_pushnil(L);  /* "result" to be removed */
+		   return 0;  /* read fails */
+		  }
+        }
+        
+      

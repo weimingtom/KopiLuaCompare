@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.c,v 2.25 2013/12/30 20:47:58 roberto Exp $
+** $Id: ltm.c,v 2.27 2014/06/10 18:53:18 roberto Exp $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */
@@ -13,6 +13,7 @@ namespace KopiLua
 	using TValue = Lua.lua_TValue;
 	using StkId = Lua.lua_TValue;
 	using ptrdiff_t = System.Int32;
+	using lua_Number = System.Double;
 	
 	public partial class Lua
 	{
@@ -113,29 +114,18 @@ namespace KopiLua
 		        luaG_concaterror(L, p1, p2);
 		        goto case TMS.TM_IDIV;//FIXME:added
 		      case TMS.TM_IDIV: case TMS.TM_BAND: case TMS.TM_BOR: case TMS.TM_BXOR:
-		      case TMS.TM_SHL: case TMS.TM_SHR: case TMS.TM_BNOT:
-		        if (ttisnumber(p1) && ttisnumber(p2))
+		      case TMS.TM_SHL: case TMS.TM_SHR: case TMS.TM_BNOT: {
+		        lua_Number dummy = 0;
+		        if (0!=tonumber(ref p1, ref dummy) && 0!=tonumber(ref p2, ref dummy))
 		          luaG_tointerror(L, p1, p2);
 		        /* else go through */
-		        goto default; //FIXME:added
+				goto default; //FIXME:added
+		      }
 		      default:
 		        luaG_aritherror(L, p1, p2);
 		        break; //FIXME:added
 		    }
 		  }
-		}
-
-
-		public static TValue luaT_getequalTM (lua_State L, Table mt1, Table mt2) {
-		  TValue tm1 = fasttm(L, mt1, TMS.TM_EQ);
-		  TValue tm2;
-		  if (tm1 == null) return null;  /* no metamethod */
-		  if (mt1 == mt2) return tm1;  /* same metatables => same metamethods */
-		  tm2 = fasttm(L, mt2, TMS.TM_EQ);
-		  if (tm2 == null) return null;  /* no metamethod */
-		  if (luaV_rawequalobj(tm1, tm2)!=0)  /* same metamethods? */
-		    return tm1;
-		  return null;
 		}
 
 

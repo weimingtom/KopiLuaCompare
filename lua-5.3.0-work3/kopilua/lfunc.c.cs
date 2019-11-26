@@ -23,19 +23,19 @@ namespace KopiLua
 		  GCObject o = luaC_newobj<Closure>(L, LUA_TCCL, sizeCclosure(n));
 		  CClosure c = gco2ccl(o);
 		  c.nupvalues = cast_byte(n);
-		  c.c.upvalue = new TValue[n]; //FIXME:added???
+		  c.upvalue = new TValue[n]; //FIXME:added???
 		  for (int i = 0; i < n; i++)  //FIXME:added???
-			  c.c.upvalue[i] = new lua_TValue(); //FIXME:??? //FIXME:added???
+			  c.upvalue[i] = new lua_TValue(); //FIXME:??? //FIXME:added???
 		  return c;
 		}
 
 
-		public static Closure luaF_newLclosure (lua_State L, int n) {
+		public static LClosure luaF_newLclosure (lua_State L, int n) {
 		  GCObject o = luaC_newobj<Closure>(L, LUA_TLCL, sizeLclosure(n));
 		  LClosure c = gco2lcl(o);
 		  c.p = null;
 		  c.nupvalues = cast_byte(n);
-		  c.l.upvals = new UpVal[n]; //FIXME:added???
+		  c.upvals = new UpVal[n]; //FIXME:added???
 		  /*
 		  for (int i = 0; i < n; i++) //FIXME:added???
 			  c.l.upvals[i] = new UpVal(); //FIXME:??? //FIXME:added???

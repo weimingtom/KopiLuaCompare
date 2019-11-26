@@ -1,5 +1,5 @@
 /*
-** $Id: lua.c,v 1.210 2014/02/26 15:27:56 roberto Exp $
+** $Id: lua.c,v 1.211 2014/06/05 20:42:06 roberto Exp $
 ** Lua stand-alone interpreter
 ** See Copyright Notice in lua.h
 */
@@ -114,17 +114,24 @@ namespace KopiLua
 		static Lua.CharPtr progname = LUA_PROGNAME;
 
 
-
+		/*
+		** Hook set by signal function to stop the interpreter.
+		*/
 		static void lstop(Lua.lua_State L, Lua.lua_Debug ar) {
             //(void)ar;  /* unused arg. */
-			Lua.lua_sethook(L, null, 0, 0);
+			Lua.lua_sethook(L, null, 0, 0);  /* reset hook */
 			Lua.luaL_error(L, "interrupted!");
 		}
 
 
+		/*
+		** Function to be called at a C signal. Because a C signal cannot
+		** just change a Lua state (as there is no proper syncronization),
+		** this function only sets a hook that, when called, will stop the
+		** interpreter.
+		*/
 		static void laction(int i) {
-			//signal(i, SIG_DFL); /* if another SIGINT happens before lstop,
-			//						  terminate process (default action) */
+			//signal(i, SIG_DFL); /* if another SIGINT happens, terminate process */
 			Lua.lua_sethook(globalL, lstop, Lua.LUA_MASKCALL | Lua.LUA_MASKRET | Lua.LUA_MASKCOUNT, 1);
 		}
 
@@ -150,27 +157,23 @@ namespace KopiLua
 		}
 
 
+		/*
+		** Prints an error message, adding the program name in front of it
+		** (if present)
+		*/
 		static void l_message(Lua.CharPtr pname, Lua.CharPtr msg) {
 			if (pname != null) Lua.luai_writestringerror("%s: ", pname);
   			Lua.luai_writestringerror("%s\n", msg);
 		}
 
 
+		/*
+		** Check whether 'status' is not OK and, if so, prints the error
+		** message on the top of the stack. Because this function can be called
+		** unprotected, it only accepts actual strings as error messages. (A
+		** coercion could raise a memory error.)
+		*/
 		static int report(Lua.lua_State L, int status) {
-			if ((status != Lua.LUA_OK) && !Lua.lua_isnil(L, -1)) {
-				Lua.CharPtr msg = Lua.lua_tostring(L, -1);
-				if (msg == null) msg = "(error object is not a string)";
-				l_message(progname, msg);
-				Lua.lua_pop(L, 1);
-			    /* force a complete garbage collection in case of errors */
-			    Lua.lua_gc(L, Lua.LUA_GCCOLLECT, 0);
-			}
-			return status;
-		}
-
-
-		/* the next function is called unprotected, so it must avoid errors */
-		private static void finalreport (Lua.lua_State L, int status) {
 		  if (status != Lua.LUA_OK) {
 		    Lua.CharPtr msg = (Lua.lua_type(L, -1) == Lua.LUA_TSTRING) ? Lua.lua_tostring(L, -1)
 		                                                       : null;
@@ -178,31 +181,39 @@ namespace KopiLua
 		    l_message(progname, msg);
 		    Lua.lua_pop(L, 1);
 		  }
+		  return status;
 		}
 
 
-		static int traceback(Lua.lua_State L) {
+		/*
+		** Message handler to be used to run all chunks
+		*/
+		static int msghandler (Lua.lua_State L) {
 		  Lua.CharPtr msg = Lua.lua_tostring(L, 1);
-		  if (msg != null)
-		    Lua.luaL_traceback(L, L, msg, 1);
-		  else if (!Lua.lua_isnoneornil(L, 1)) {  /* is there an error object? */
+		  if (msg != null)  /* is error object a string? */
+		    Lua.luaL_traceback(L, L, msg, 1);  /* use standard traceback */
+		  else if (!Lua.lua_isnoneornil(L, 1)) {  /* non-string error object? */
 		    if (Lua.luaL_callmeta(L, 1, "__tostring") == 0)  /* try its 'tostring' metamethod */
 		      Lua.lua_pushliteral(L, "(no error message)");
-		  }
+		  }  /* else no error object, does nothing */
 		  return 1;
 		}
 
 
+		/*
+		** Interface to 'lua_pcall', which sets appropriate message function
+		** and C-signal handler. Used to run all chunks.
+		*/
 		static int docall(Lua.lua_State L, int narg, int nres) {
 			int status;
 			int base_ = Lua.lua_gettop(L) - narg;  /* function index */
-			Lua.lua_pushcfunction(L, traceback);  /* push traceback function */
-			Lua.lua_insert(L, base_);  /* put it under chunk and args */
+			Lua.lua_pushcfunction(L, msghandler);  /* push message handler */
+			Lua.lua_insert(L, base_);  /* put it under function and args */
             globalL = L;  /* to be available to 'laction' */
-			//signal(SIGINT, laction); //FIXME:removed
+			//signal(SIGINT, laction);  /* set C-signal handler */ //FIXME:removed
 			status = Lua.lua_pcall(L, narg, nres, base_);
-			//signal(SIGINT, SIG_DFL); //FIXME:removed
-			Lua.lua_remove(L, base_);  /* remove traceback function */
+			//signal(SIGINT, SIG_DFL); /* reset C-signal handler */ //FIXME:removed
+			Lua.lua_remove(L, base_);  /* remove message handler from the stack */
 			return status;
 		}
 
@@ -214,38 +225,47 @@ namespace KopiLua
 		}
 
 
-		static int getargs(Lua.lua_State L, string[] argv, int n) {
-			int narg;
-			int i;
-			int argc = 0;	/* count total number of arguments */ //FIXME:changed here
-            argc = argv.Length;  /* count total number of arguments */ //FIXME: changed here
-			narg = argc - (n + 1);  /* number of arguments to the script */
-			Lua.luaL_checkstack(L, narg + 3, "too many arguments to script");
-			for (i = n + 1; i < argc; i++)
-			Lua.lua_pushstring(L, argv[i]);
-			Lua.lua_createtable(L, narg, n + 1);
-			for (i = 0; i < argc; i++) {
-				Lua.lua_pushstring(L, argv[i]);
-				Lua.lua_rawseti(L, -2, i - n);
-			}
-			return narg;
+		/*
+		** Create the 'arg' table, which stores all arguments from the
+		** command line ('argv'). It should be aligned so that, at index 0,
+		** it has 'argv[script]', which is the script name. The arguments
+		** to the script (everything after 'script') go to positive indices;
+		** other arguments (before the script name) go to negative indices.
+		** If there is no script name, assume interpreter's name as base.
+		*/
+		static void createargtable (Lua.lua_State L, string[] argv, int argc, int script) {
+		  int i, narg;
+		  if (script == argc) script = 0;  /* no script name? */
+		  narg = argc - (script + 1);  /* number of positive indices */
+		  Lua.lua_createtable(L, narg, script + 1);
+		  for (i = 0; i < argc; i++) {
+		    Lua.lua_pushstring(L, argv[i]);
+		    Lua.lua_rawseti(L, -2, i - script);
+		  }
+		  Lua.lua_setglobal(L, "arg");
+		}
+
+
+		static int dochunk (Lua.lua_State L, int status) {
+		  if (status == Lua.LUA_OK) status = docall(L, 0, 0);
+		  return report(L, status);
 		}
 
 
 		static int dofile(Lua.lua_State L, Lua.CharPtr name) {
-			int status = Lua.luaL_loadfile(L, name);
-            if (status == Lua.LUA_OK) status = docall(L, 0, 0);
-			return report(L, status);
+			return dochunk(L, Lua.luaL_loadfile(L, name));
 		}
 
 
 		static int dostring(Lua.lua_State L, Lua.CharPtr s, Lua.CharPtr name) {
-			int status = Lua.luaL_loadbuffer(L, s, (uint)Lua.strlen(s), name);
-			if (status == Lua.LUA_OK) status = docall(L, 0, 0);
-			return report(L, status);
+			return dochunk(L, Lua.luaL_loadbuffer(L, s, (uint)Lua.strlen(s), name));
 		}
 
 
+		/*
+		** Calls 'require(name)' and stores the result in a global variable
+		** with the given name.
+		*/
 		static int dolibrary(Lua.lua_State L, Lua.CharPtr name) {
 		  int status;
 		  Lua.lua_getglobal(L, "require");
@@ -257,6 +277,9 @@ namespace KopiLua
 		}
 
 
+		/*
+		** Returns the string to be used as a prompt by the interpreter.
+		*/
 		static Lua.CharPtr get_prompt(Lua.lua_State L, int firstline) {
 			Lua.CharPtr p;
 			Lua.lua_getglobal(L, (firstline!=0) ? "_PROMPT" : "_PROMPT2");
@@ -269,7 +292,13 @@ namespace KopiLua
 		private static Lua.CharPtr EOFMARK	= "<eof>";
 		private static int marklen = EOFMARK.chars.Length - 1; //FIXME:changed, (sizeof(EOFMARK)/sizeof(char) - 1), ???
 
-		static int incomplete(Lua.lua_State L, int status) {
+
+		/*
+		** Check whether 'status' signals a syntax error and the error
+		** message at the top of the stack ends with the above mark for
+		** incoplete statements.
+		*/
+		static int incomplete (Lua.lua_State L, int status) {
 			if (status == Lua.LUA_ERRSYNTAX) {
 				uint lmsg;
 				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
@@ -282,7 +311,9 @@ namespace KopiLua
 		}
 
 
-		/* prompt the user, read a line, and push it into the Lua stack */
+		/*
+		** Prompt the user, read a line, and push it into the Lua stack.
+		*/
 		static int pushline(Lua.lua_State L, int firstline) {
 			Lua.CharPtr buffer = new char[LUA_MAXINPUT];
 			Lua.CharPtr b = new Lua.CharPtr(buffer);
@@ -304,8 +335,10 @@ namespace KopiLua
 		}
 
 
-		/* try to compile line on the stack as 'return <line>'; on return, stack
-		   has either compiled chunk or original line (if compilation failed) */
+		/*
+		** Try to compile line on the stack as 'return <line>'; on return, stack
+		** has either compiled chunk or original line (if compilation failed).
+		*/
 		private static int addreturn (Lua.lua_State L) {
 		  int status;
 		  uint len; Lua.CharPtr line;
@@ -321,14 +354,16 @@ namespace KopiLua
 		}
 
 
-		/* read multiple lines until a complete line */
+		/*
+		** Read multiple lines until a complete Lua statement
+		*/
 		private static int multiline (Lua.lua_State L) {
-		  for (;;) {  /* repeat until gets a complete line */
+		  for (;;) {  /* repeat until gets a complete statement */
 		    uint len;
 		    Lua.CharPtr line = Lua.lua_tolstring(L, 1, out len);  /* get what it has */
 		    int status = Lua.luaL_loadbuffer(L, line, len, "=stdin");  /* try it */
 		    if (0==incomplete(L, status) || 0==pushline(L, 0))
-		      return status;  /* cannot/should not try to add continuation line */
+		      return status;  /* cannot or should not try to add continuation line */
 		    Lua.lua_pushliteral(L, "\n");  /* add newline... */
 		    Lua.lua_insert(L, -2);  /* ...between the two lines */
 		    Lua.lua_concat(L, 3);  /* join them */
@@ -336,6 +371,12 @@ namespace KopiLua
 		}
 
 
+		/*
+		** Read a line and try to load (compile) it first as an expression (by
+		** adding "return " in front of it) and second as a statement. Return
+		** the final status of load/call with the resulting function (if any)
+		** in the top of the stack.
+		*/
 		private static int loadline (Lua.lua_State L) {
 		  int status;
 		  Lua.lua_settop(L, 0);
@@ -343,29 +384,43 @@ namespace KopiLua
 		    return -1;  /* no input */
 		  if ((status = addreturn(L)) != Lua.LUA_OK)  /* 'return ...' did not work? */
 		    status = multiline(L);  /* try as command, maybe with continuation lines */
-		  lua_saveline(L, 1);
-		  Lua.lua_remove(L, 1);  /* remove line */
+		  lua_saveline(L, 1);  /* keep history */
+		  Lua.lua_remove(L, 1);  /* remove line from the stack */
 		  Lua.lua_assert(Lua.lua_gettop(L) == 1);
 		  return status;
 		}
 
 
-		static void dotty(Lua.lua_State L) {
+		/*
+		** Prints (calling the Lua 'print' function) any values on the stack
+		*/
+		static void l_print (Lua.lua_State L) {
+		  int n = Lua.lua_gettop(L);
+		  if (n > 0) {  /* any result to be printed? */
+		    Lua.luaL_checkstack(L, Lua.LUA_MINSTACK, "too many results to print");
+		    Lua.lua_getglobal(L, "print");
+		    Lua.lua_insert(L, 1);
+		    if (Lua.lua_pcall(L, n, 0, 0) != Lua.LUA_OK)
+		      l_message(progname, Lua.lua_pushfstring(L,
+		                             "error calling " + Lua.LUA_QL("print") + " (%s)",
+		                             Lua.lua_tostring(L, -1)));
+		  }
+		}
+
+
+		/*
+		** Do the REPL: repeatedly read (load) a line, evaluate (call) it, and
+		** print any results.
+		*/
+		static void doREPL (Lua.lua_State L) {
 			int status;
 			Lua.CharPtr oldprogname = progname;
-			progname = null;
+			progname = null;  /* no 'progname' on errors in interactive mode */
 			while ((status = loadline(L)) != -1) {
-				if (status == Lua.LUA_OK) status = docall(L, 0, Lua.LUA_MULTRET);
-				report(L, status);
-				if (status == Lua.LUA_OK && Lua.lua_gettop(L) > 0) {  /* any result to print? */
-				    Lua.luaL_checkstack(L, Lua.LUA_MINSTACK, "too many results to print");
-				    Lua.lua_getglobal(L, "print");
-					Lua.lua_insert(L, 1);
-					if (Lua.lua_pcall(L, Lua.lua_gettop(L) - 1, 0, 0) != Lua.LUA_OK)
-						l_message(progname, Lua.lua_pushfstring(L,
-											   "error calling " + Lua.LUA_QL("print").ToString() + " (%s)",
-											   Lua.lua_tostring(L, -1)));
-				}
+			  if (status == Lua.LUA_OK)
+			    status = docall(L, 0, Lua.LUA_MULTRET);
+			  if (status == Lua.LUA_OK) l_print(L);
+			  else report(L, status);
 			}
 			Lua.lua_settop(L, 0);  /* clear stack */
 			Lua.luai_writeline();
@@ -373,100 +428,112 @@ namespace KopiLua
 		}
 
 
-		static int handle_script(Lua.lua_State L, string[] argv, int n) {
+		/*
+		** Push on the stack 'n' strings from 'argv'
+		*/
+		static void pushargs (Lua.lua_State L, Lua.StringPtr argv, int n) {
+		  int i;
+		  Lua.luaL_checkstack(L, n + 3, "too many arguments to script");
+		  for (i = 1; i < n; i++)  /* skip 0 (the script name) */
+		    Lua.lua_pushstring(L, argv.at(i));
+		}
+
+
+		static int handle_script(Lua.lua_State L, Lua.StringPtr argv, int n) {
 			int status;
-			Lua.CharPtr fname;
-			int narg = getargs(L, argv, n);  /* collect arguments */
-			Lua.lua_setglobal(L, "arg");
-			fname = argv[n];
-			if (Lua.strcmp(fname, "-") == 0 && Lua.strcmp(argv[n - 1], "--") != 0)
-				fname = null;  /* stdin */
-			status = Lua.luaL_loadfile(L, fname);
-			Lua.lua_insert(L, -(narg + 1));
-			if (status == Lua.LUA_OK)
-				status = docall(L, narg, Lua.LUA_MULTRET);
-			else
-				Lua.lua_pop(L, narg);
-			return report(L, status);
+		  Lua.CharPtr fname = new Lua.CharPtr(argv.at(0));
+		  if (Lua.strcmp(fname, "-") == 0 && Lua.strcmp(argv.at(-1), "--") != 0)
+		    fname = null;  /* stdin */
+		  status = Lua.luaL_loadfile(L, fname);
+		  if (status == Lua.LUA_OK) {
+		    pushargs(L, argv, n);  /* push arguments to script */
+		    status = docall(L, n - 1, Lua.LUA_MULTRET);
+		  }
+		  return report(L, status);
 		}
 
 
-		/* check that argument has no extra characters at the end */
-		//#define noextrachars(x)	{if ((x)[2] != '\0') return -1;} //FIXME:???
 
+		/* bits of various argument indicators in 'args' */
+		private const int has_error	= 1;	/* bad option */
+		private const int has_i = 2;	/* -i */
+		private const int has_v = 4;	/* -v */
+		private const int has_e = 8;	/* -e */
+		private const int has_E = 16;	/* -E */
 
-		/* indices of various argument indicators in array args */
-		private const int has_i = 0;	/* -i */
-		private const int has_v = 1;	/* -v */
-		private const int has_e = 2;	/* -e */
-		private const int has_E = 3;	/* -E */
-
-		private const int num_has = 4;	/* number of 'has_*' */
-
-
-		private static int collectargs(string[] argv, int[] args) {
-			int i;
-			for (i = 1; i < argv.Length; i++) {
-				if (argv[i][0] != '-')  /* not an option? */
-					return i;
-				switch (argv[i][1]) {  /* option */
-				  case '-':
-					if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
-			        return (argv[i+1] != null ? i+1 : 0);
-			  	  case '\0':
-					return i;
-				  case 'E':
-			        args[has_E] = 1;
-			        break;
-	   		      case 'i':
-				    if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
-				    args[has_i] = 1;  /* go through */
-				    goto case 'v';//FIXME:added
-				  case 'v':
-				    if(argv[i].Length>1) return -1; //FIXME:changed, noextrachars(argv[i]);
-				    args[has_v] = 1;
-				    break;
-				  case 'e':
-				    args[has_e] = 1;  /* go through */
-				    goto case 'l';//FIXME:added
-				  case 'l':  /* both options need an argument */
-				    if (argv[i].Length == 2) {  /* no concatenated argument? */ //FIXME:changed
-					  i++;  /* try next 'argv' */
-				    if (i >= argv.Length || argv[i][0] == '-')  //FIXME: changed
-					  return -(i - 1);  /* no next argument or it is another option */
-				    }
-				    break;
-				  default:  /* invalid option; return its index... */
-				    return -i;  /* ...as a negative value */
-				}
-			}
-			return 0;
+		/*
+		** Traverses all arguments from 'argv', returning a mask with those
+		** needed before running any Lua code (or an error code if it finds
+		** any invalid argument). 'first' returns the first not-handled argument 
+		** (either the script name or a bad argument in case of error).
+		*/
+		private static int collectargs(string[] argv, ref int first) {
+		  int args = 0;
+		  int i;
+		  for (i = 1; i < argv.Length && argv[i] != null; i++) { //FIXME:mod, original argv[i] != null 
+		    first = i;
+		    if (argv[i][0] != '-')  /* not an option? */
+		        return args;  /* stop handling options */
+		    switch (argv[i][1]) {  /* else check option */
+		      case '-':  /* '--' */
+		        if (argv[i][2] != '\0')  /* extra characters after '--'? */
+		          return has_error;  /* invalid option */
+		        first = i + 1;
+		        return args;
+		      case '\0':  /* '-' */
+		        return args;  /* script "name" is '-' */
+		      case 'E':
+		        if (argv[i][2] != '\0')  /* extra characters after 1st? */
+		          return has_error;  /* invalid option */
+		        args |= has_E;
+		        break;
+		      case 'i':
+		        args |= has_i;  /* goes through  (-i implies -v) */
+		        goto case 'v'; //FIXME:added
+		      case 'v':
+		        if (argv[i][2] != '\0')  /* extra characters after 1st? */
+		          return has_error;  /* invalid option */
+		        args |= has_v;
+		        break;
+		      case 'e':
+		        args |= has_e;  /* go through */
+		        goto case 'l'; //FIXME:added
+		      case 'l':  /* both options need an argument */
+		        if (argv[i][2] == '\0') {  /* no concatenated argument? */
+		          i++;  /* try next 'argv' */
+		          if (argv[i] == null || argv[i][0] == '-')
+		            return has_error;  /* no next argument or it is another option */
+		        }
+		        break;
+		      default:  /* invalid option */
+		        return has_error;
+		    }
+		  }
+		  first = i;  /* no script name */
+		  return args;
 		}
 
 
+		/*
+		** Processes options 'e' and 'l', which involve running Lua code.
+		** Returns 0 if some code raises an error.
+		*/
 		static int runargs(Lua.lua_State L, string[] argv, int n) {
-			int i;
-			for (i = 1; i < n; i++) {
-				Lua.lua_assert(argv[i][0] == '-');
-				switch (argv[i][1]) {  /* option */
-					case 'e': {
-						string chunk = argv[i].Substring(2);
-						if (chunk == "") chunk = argv[++i];
-						Lua.lua_assert(chunk != null);
-						if (dostring(L, chunk, "=(command line)") != Lua.LUA_OK)
-							return 0;
-						break;
-					}
-					case 'l': {
-						string filename = argv[i].Substring(2);
-						if (filename == "") filename = argv[++i];
-						Lua.lua_assert(filename != null);
-						if (dolibrary(L, filename) != Lua.LUA_OK)
-							return 0;  /* stop if file fails */
-						break;
-					}
-					default: break;
-				}
+		  int i;
+		  for (i = 1; i < n; i++) {
+		      int status;
+			  int option = argv[i][1];
+			  Lua.lua_assert(argv[i][0] == '-');  /* already checked */
+			  if (option == 'e' || option == 'l') {
+			  	Lua.CharPtr extra = new Lua.CharPtr(argv[i]) + 2;  /* both options need an argument */
+			    if (extra[0] == '\0') extra = argv[++i];
+			    Lua.lua_assert(extra != null);
+			    if (option == 'e')
+			      status = dostring(L, extra, "=(command line)");
+			    else
+			      status = dolibrary(L, extra);
+			    if (status != Lua.LUA_OK) return 0;
+		      }
 			}
 			return 1;
 		}
@@ -487,40 +554,44 @@ namespace KopiLua
 		}
 
 
+		/*
+		** Main body of stand-alone interpreter (to be called in protected mode).
+		** Reads the options and handles them all.
+		*/
 		static int pmain(Lua.lua_State L) {
 		  int argc = (int)Lua.lua_tointeger(L, 1);
 		  string[] argv = (string[])Lua.lua_touserdata(L, 2);
-		  int script;
-		  int[] args = new int[num_has];
-		  args[has_i] = args[has_v] = args[has_e] = args[has_E] = 0;
-		  if (argv.Length > 0 && argv[0].Length > 0) progname = argv[0];
-		  script = collectargs(argv, args);
-		  if (script < 0) {  /* invalid arg? */
-		    print_usage(argv[-script]);
+		  int script = 0;
+		  int args = collectargs(argv, ref script);
+		  Lua.luaL_checkversion(L);  /* check that interpreter has correct version */
+		  if (argv[0]!=null && argv[0][0]!='\0') progname = argv[0];
+		  if (args == has_error) {  /* bad arg? */
+		    print_usage(argv[script]);  /* 'script' has index of bad arg. */
 		    return 0;
 		  }
-		  if (args[has_v]!=0) print_version();
-		  if (args[has_E]!=0) {  /* option '-E'? */
+		  if (0!=(args & has_v))  /* option '-v'? */
+		    print_version();
+		  if (0!=(args & has_E)) {  /* option '-E'? */
 		    Lua.lua_pushboolean(L, 1);  /* signal for libraries to ignore env. vars. */
 		    Lua.lua_setfield(L, Lua.LUA_REGISTRYINDEX, "LUA_NOENV");
 		  }
-		  /* open standard libraries */
-		  Lua.luaL_checkversion(L);
-		  Lua.lua_gc(L, Lua.LUA_GCSTOP, 0);  /* stop collector during initialization */
-		  Lua.luaL_openlibs(L);  /* open libraries */
-		  Lua.lua_gc(L, Lua.LUA_GCRESTART, 0);
-		  if (args[has_E]==0 && handle_luainit(L) != Lua.LUA_OK)
-		    return 0;  /* error running LUA_INIT */
-		  /* execute arguments -e and -l */
-		  if (runargs(L, argv, (script > 0) ? script : argc)==0) return 0;
-		  /* execute main script (if there is one) */
-		  if (script!=0 && handle_script(L, argv, script) != Lua.LUA_OK) return 0;
-		  if (args[has_i]!=0)  /* -i option? */
-		    dotty(L);
-		  else if (script == 0 && args[has_e]==0 && args[has_v]==0) {  /* no arguments? */
-			if (lua_stdin_is_tty()!=0) {
-				print_version();
-				dotty(L);
+		  Lua.luaL_openlibs(L);  /* open standard libraries */
+		  createargtable(L, argv, argc, script);  /* create table 'arg' */
+		  if (0==(args & has_E)) {  /* no option '-E'? */
+		    if (handle_luainit(L) != Lua.LUA_OK)  /* run LUA_INIT */
+		      return 0;  /* error running LUA_INIT */
+		  }
+		  if (0==runargs(L, argv, script))  /* execute arguments -e and -l */
+		    return 0;  /* something failed */
+		  if (script < argc &&  /* execute main script (if there is one) */
+		    handle_script(L, new Lua.StringPtr(argv, script), argc - script) != Lua.LUA_OK)
+		    return 0;
+		  if (0!=(args & has_i))  /* -i option? */
+		    doREPL(L);  /* do read-eval-print loop */
+		  else if (script == argc && 0==(args & (has_e | has_v))) {  /* no arguments? */
+		    if (0!=lua_stdin_is_tty()) {  /* running in interactive mode? */
+		      print_version();
+		      doREPL(L);  /* do read-eval-print loop */
 			}	
 			else dofile(L, null);  /* executes stdin as a file */
 		  }
@@ -530,33 +601,32 @@ namespace KopiLua
 
 
 		public static int Main(string[] args) {
-			//Main_(args);
+		  //Main_(args);
 			
-			//FIXME: added
-			// prepend the exe name to the arg list as it's done in C
-			// so that we don't have to change any of the args indexing
-			// code above
-			List<string> newargs = new List<string>(args);
-			newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
-			args = (string[])newargs.ToArray();
-			int argc = args.Length; //FIXME:???
-			string[] argv = args;//FIXME:???
+		  //FIXME: added
+		  // prepend the exe name to the arg list as it's done in C
+		  // so that we don't have to change any of the args indexing
+		  // code above
+		  List<string> newargs = new List<string>(args);
+		  newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
+		  args = (string[])newargs.ToArray();
+		  int argc = args.Length; //FIXME:???
+		  string[] argv = args;//FIXME:???
 
-			int status, result;
-			Lua.lua_State L = Lua.luaL_newstate();  /* create state */
-			if (L == null) {
-				l_message(args[0], "cannot create state: not enough memory");
-				return Lua.EXIT_FAILURE;
-			}
-			/* call 'pmain' in protected mode */
-            Lua.lua_pushcfunction(L, pmain);
-			Lua.lua_pushinteger(L, argc);  /* 1st argument */
-			Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
-			status = Lua.lua_pcall(L, 2, 1, 0);
-			result = Lua.lua_toboolean(L, -1);  /* get result */
-			finalreport(L, status);
-			Lua.lua_close(L);
-			return (result != 0 && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
+		  int status, result;
+		  Lua.lua_State L = Lua.luaL_newstate();  /* create state */
+		  if (L == null) {
+			l_message(args[0], "cannot create state: not enough memory");
+			return Lua.EXIT_FAILURE;
+		  }
+		  Lua.lua_pushcfunction(L, pmain);  /* to call 'pmain' in protected mode */
+		  Lua.lua_pushinteger(L, argc);  /* 1st argument */
+		  Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
+		  status = Lua.lua_pcall(L, 2, 1, 0);  /* do the call */
+		  result = Lua.lua_toboolean(L, -1);  /* get result */
+		  report(L, status);
+		  Lua.lua_close(L);
+		  return (result != 0 && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
 		}
 
 		//----------------------------------------

@@ -18,31 +18,36 @@ namespace KopiLua
 
 		private const string HOOKKEY = "_HKEY";
 
-
-		private static int db_Csize (lua_State L) {
-		  static struct {
-		    char c;
-		    unsigned char sz;
-		  } sizes[] = {
-		    {'I', sizeof(lua_Integer)},
-		    {'F', sizeof(lua_Number)},
-		    {'b', CHAR_BIT},  /* here is number of bits (not bytes) */
-		    {'h', sizeof(short)},
-		    {'i', sizeof(int)},
-		    {'l', sizeof(long)},
-		    {'z', sizeof(size_t)},
-		    {'f', sizeof(float)},
-		    {'d', sizeof(double)}
+		private class sizes_cls {
+		  public char c;
+		  public byte sz;
+		  
+		  public sizes_cls(char c, byte sz)
+		  { 
+		  	this.c = c; this.sz = sz; 
+		  }
+		};
+		private static sizes_cls[] sizes = {
+			new sizes_cls('I', (byte)GetUnmanagedSize(typeof(lua_Integer))),
+		    new sizes_cls('F', (byte)GetUnmanagedSize(typeof(lua_Number))),
+		    new sizes_cls('b', CHAR_BIT),  /* here is number of bits (not bytes) */
+		    new sizes_cls('h', (byte)GetUnmanagedSize(typeof(short))),
+		    new sizes_cls('i', (byte)GetUnmanagedSize(typeof(int))),
+		    new sizes_cls('l', (byte)GetUnmanagedSize(typeof(long))),
+		    new sizes_cls('z', (byte)GetUnmanagedSize(typeof(uint))),
+		    new sizes_cls('f', (byte)GetUnmanagedSize(typeof(float))),
+		    new sizes_cls('d', (byte)GetUnmanagedSize(typeof(double)))
 		  };
-		  const char *s = luaL_checkstring(L, 1);
+		private static int db_Csize (lua_State L) {
+		  CharPtr s = luaL_checkstring(L, 1);
 		  int i;
-		  for (i = 0; i < (int)(sizeof(sizes)/sizeof(sizes[0])); i++) {
-		    if (*s == sizes[i].c) {
+		  for (i = 0; i < (int)sizes.Length/*(int)(sizeof(sizes)/sizeof(sizes[0]))*/; i++) {
+		  	if (s[0] == sizes[i].c) {
 		      lua_pushinteger(L, sizes[i].sz);
 		      return 1;
 		    }
 		  }
-		  return luaL_argerror(L, 1, lua_pushfstring(L, "invalid option '%c'", *s));
+		  return luaL_argerror(L, 1, lua_pushfstring(L, "invalid option '%c'", s[0]));
 		}
 
 
@@ -159,7 +164,7 @@ namespace KopiLua
 		    lua_xmove(L, L1, 1);
 		  }
 		  else {  /* stack level */
-		    if (!lua_getstack(L1, luaL_checkint(L, arg + 1), &ar)) {
+		    if (0==lua_getstack(L1, luaL_checkint(L, arg + 1), ar)) {
 		      lua_pushnil(L);  /* level out of range */
 		      return 1;
 		    }
@@ -272,7 +277,7 @@ namespace KopiLua
 		private static int checkupval (lua_State L, int argf, int argnup) {
 		  int nup = luaL_checkint(L, argnup);
 		  luaL_checktype(L, argf, LUA_TFUNCTION);
-		  luaL_argcheck(L, (lua_getupvalue(L, argf, nup) != NULL), argnup,
+		  luaL_argcheck(L, (lua_getupvalue(L, argf, nup) != null), argnup,
                    "invalid upvalue index");
 		  return nup;
 		}

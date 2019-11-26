@@ -1,5 +1,5 @@
 /*
-** $Id: lua.h,v 1.302 2014/03/20 19:42:35 roberto Exp $
+** $Id: lua.h,v 1.307 2014/06/10 17:41:38 roberto Exp $
 ** Lua - A Scripting Language
 ** Lua.org, PUC-Rio, Brazil (http://www.lua.org)
 ** See Copyright Notice at the end of this file
@@ -22,7 +22,7 @@ namespace KopiLua
 		public const string LUA_VERSION_MAJOR = "5";
 		public const string LUA_VERSION_MINOR = "3";
         public const int LUA_VERSION_NUM = 503;
-		public const string LUA_VERSION_RELEASE = "0 (work2)";
+		public const string LUA_VERSION_RELEASE = "0 (work3)";
 
 		public const string LUA_VERSION = "Lua " + LUA_VERSION_MAJOR + "." + LUA_VERSION_MINOR;
 		public const string LUA_RELEASE	= LUA_VERSION + "." + LUA_VERSION_RELEASE;
@@ -54,7 +54,15 @@ namespace KopiLua
 		public const int LUA_ERRERR = 6;
 
 
+		/*
+		** Type for C functions registered with Lua
+		*/
 		public delegate int lua_CFunction(lua_State L);
+
+		/*
+		** Type for continuation functions
+		*/
+		public delegate int lua_KFunction(lua_State L, int status, int ctx);
 
 
 		/*
@@ -255,9 +263,9 @@ namespace KopiLua
 		** ===============================================================
 		*/
 
-		public static lua_Number lua_tonumber(lua_State L, int i) { int null_=0; return lua_tonumberx(L,i,ref null_);} //FIXME: changed
-		public static lua_Integer lua_tointeger(lua_State L, int i) { int null_=0; return lua_tointegerx(L,i,ref null_);} //FIXME: changed
-		public static lua_Unsigned lua_tounsigned(lua_State L, int i) { int null_=0; return lua_tounsignedx(L,i,ref null_);} //FIXME: changed
+		public static lua_Number lua_tonumber(lua_State L, int i) { int null_=0; return lua_tonumberx(L,(i),ref null_);} //FIXME: changed
+		public static lua_Integer lua_tointeger(lua_State L, int i) { int null_=0; return lua_tointegerx(L,(i),ref null_);} //FIXME: changed
+		public static lua_Unsigned lua_tounsigned(lua_State L, int i) { int null_=0; return lua_tounsignedx(L,(i),ref null_);} //FIXME: changed
 
         public static void lua_pop(lua_State L, int n) { lua_settop(L, -(n)-1); }
 
@@ -284,6 +292,10 @@ namespace KopiLua
 
         public static CharPtr lua_tostring(lua_State L, int i) { uint blah; return lua_tolstring(L, i, out blah); } //FIXME: changed, null
 
+
+        public static void lua_insert(lua_State L, int idx)	{ lua_rotate(L, (idx), 1); }
+
+        public static void lua_remove(lua_State L, int idx)	{ lua_rotate(L, (idx), -1); lua_pop(L, 1); } 
 
 
 		/*

@@ -472,7 +472,6 @@ namespace KopiLua
 		public class TString_tsv : GCObject { //FIXME:added
             //CommonHeader;
 			public lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
-
 			public uint len;  /* number of characters in string */
 			public TString hnext;  /* linked list for hash table */
 			public uint hash;

@@ -404,7 +404,6 @@ namespace KopiLua
 		    tag_error(L, arg, LUA_TNUMBER);
 		}
 
-
 		public static lua_Integer luaL_checkinteger (lua_State L, int arg) {
           int isnum = 0; //FIXME: changed, =0
 		  lua_Integer d = lua_tointegerx(L, arg, ref isnum);

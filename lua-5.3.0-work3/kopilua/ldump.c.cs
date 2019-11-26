@@ -216,10 +216,10 @@ namespace KopiLua
 		}
 
 		private static void DumpFunction (Proto f, TString psource, DumpState D) {
-		  if (D->strip || f->source == psource)
-		    DumpString(NULL, D);  /* no debug info or same source as its parent */
+		  if (0!=D.strip || f.source == psource)
+		    DumpString(null, D);  /* no debug info or same source as its parent */
 		  else
-		    DumpString(f->source, D);		
+		    DumpString(f.source, D);		
 		  DumpInt(f.linedefined, D);
 		  DumpInt(f.lastlinedefined, D);
 		  DumpByte(f.numparams, D);

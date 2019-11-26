@@ -1,5 +1,5 @@
 /*
-** $Id: liolib.c,v 2.120 2014/03/19 18:57:42 roberto Exp $
+** $Id: liolib.c,v 2.126 2014/06/02 03:00:51 roberto Exp $
 ** Standard I/O (and system) library
 ** See Copyright Notice in lua.h
 */
@@ -109,6 +109,8 @@ namespace KopiLua
 		*/
 
 		//#if !defined(l_fseek)		/* { */
+		
+		//#include <sys/types.h>
 
 		//#if defined(LUA_USE_POSIX)	/* { */
 
@@ -325,14 +327,10 @@ namespace KopiLua
 
 
 		private static void aux_lines (lua_State L, int toclose) {
-		  int i;
 		  int n = lua_gettop(L) - 1;  /* number of arguments to read */
-		  /* ensure that arguments will fit here and into 'io_readline' stack */
-		  luaL_argcheck(L, n <= LUA_MINSTACK - 3, LUA_MINSTACK - 3, "too many options");
-		  lua_pushvalue(L, 1);  /* file handle */
 		  lua_pushinteger(L, n);  /* number of arguments to read */
 		  lua_pushboolean(L, toclose);  /* close/not close file when finished */
-		  for (i = 1; i <= n; i++) lua_pushvalue(L, i + 1);  /* copy arguments */
+		  lua_rotate(L, 2, 2);  /* move 'n' and 'toclose' to their positions */
 		  lua_pushcclosure(L, io_readline, 3 + n);
 		}
 
@@ -371,27 +369,93 @@ namespace KopiLua
 		*/
 
 
-		private static int read_integer (lua_State L, StreamProxy f) {
-		  lua_Integer[] d = new lua_Integer[] {0};
-		  if (fscanf(f, LUA_INTEGER_SCAN, d) == 1) {
-		  	lua_pushinteger(L, d[0]);
-		    return 1;
+		/* maximum length of a numeral */
+		private const int MAXRN = 200;
+
+		/* auxiliary structure used by 'read_number' */
+		private class RN {
+		  public StreamProxy f;  /* file being read */
+		  public int c;  /* current character (look ahead) */
+		  public int n;  /* number of elements in buffer 'buff' */
+		  public CharPtr buff = new CharPtr(new char[MAXRN + 1]);  /* +1 for ending '\0' */
+		};
+
+
+		/*
+		** Add current char to buffer (if not out of space) and read next one
+		*/
+		private static int nextc (RN rn) {
+		  if (rn.n >= MAXRN) {  /* buffer overflow? */
+		    rn.buff[0] = '\0';  /* invalidate result */
+		    return 0;  /* fail */
 		  }
 		  else {
-		   lua_pushnil(L);  /* "result" to be removed */
-		   return 0;  /* read fails */
+			rn.buff[rn.n++] = (char)rn.c;  /* save current char */
+		    rn.c = l_getc(rn.f);  /* read next one */
+		    return 1;
 		  }
 		}
 
 
+		/*
+		** Accept current char if it is in 'set' (of size 1 or 2)
+		*/
+		private static int test2 (RN rn, CharPtr set) {
+		  if (rn.c == set[0] || (rn.c == set[1] && rn.c != '\0'))
+		    return nextc(rn);
+		  else return 0;
+		}
+
+
+		/*
+		** Read a sequence of (hexa)digits
+		*/
+		private static int readdigits (RN rn, int hexa) {
+		  int count = 0;
+		  while ((hexa!=0 ? isxdigit(rn.c) : isdigit(rn.c)) && 0!=nextc(rn))
+		    count++;
+		  return count;
+		}
+
+
+		/* access to locale "radix character" (decimal point) */
+		//#if !defined(getlocaledecpoint)
+		private static char getlocaledecpoint()     { return (localeconv().decimal_point[0]); }
+		//#endif
+
+
+		/*
+		** Read a number: first reads a valid prefix of a numeral into a buffer.
+		** Then it calls 'lua_strtonum' to check whether the format is correct
+		** and to convert it to a Lua number
+		*/
 		private static int read_number (lua_State L, StreamProxy f) {
-		  //lua_Number d; //FIXME:???
-		  object[] parms = { (object)(double)0.0 }; //FIXME:???
-		  if (fscanf(f, LUA_NUMBER_SCAN, parms) == 1) {
-			lua_pushnumber(L, (double)parms[0]); //FIXME:d???
-			return 1;
+		  RN rn = new RN();
+		  int count = 0;
+		  int hexa = 0;
+		  CharPtr decp = ".";
+		  rn.f = f; rn.n = 0;
+		  decp[0] = getlocaledecpoint();  /* get decimal point from locale */
+		  l_lockfile(rn.f);
+		  do { rn.c = l_getc(rn.f); } while (isspace(rn.c));  /* skip spaces */
+		  test2(rn, "-+");  /* optional signal */
+		  if (0!=test2(rn, "0")) {
+		    if (0!=test2(rn, "xX")) hexa = 1;  /* numeral is hexadecimal */
+		    else count = 1;  /* count initial '0' as a valid digit */
 		  }
-		  else {
+		  count += readdigits(rn, hexa);  /* integral part */
+		  if (0!=test2(rn, decp))  /* decimal point? */
+		    count += readdigits(rn, hexa);  /* fractionary part */
+		  if (count > 0 && 0!=test2(rn, (0!=hexa ? "pP" : "eE"))) {  /* exponent mark? */
+		    test2(rn, "-+");  /* exponent signal */
+		    readdigits(rn, 0);  /* exponent digits */
+		  }
+		  ungetc(rn.c, rn.f);  /* unread look-ahead char */
+		  l_unlockfile(rn.f);
+		  rn.buff[rn.n] = '\0';  /* finish string */
+		  if (0!=lua_strtonum(L, rn.buff))  /* is this a valid number? */
+		    return 1;  /* ok */
+		  else {  /* invalid format */
 		   lua_pushnil(L);  /* "result" to be removed */
 		   return 0;  /* read fails */
 		  }
@@ -464,12 +528,9 @@ namespace KopiLua
 				success = (l == 0) ? test_eof(L, f) : read_chars(L, f, l);
 			  }
 			  else {
-				CharPtr p = lua_tostring(L, n);
-				luaL_argcheck(L, (p!=null) && (p[0] == '*'), n, "invalid option");
-				switch (p[1]) {
-		          case 'i':  /* integer */
-		            success = read_integer(L, f);
-		            break;				
+				CharPtr p = luaL_checkstring(L, n);
+				if (p[0] == '*') p.inc();  /* skip optional '*' (for compatibility) */
+				switch (p[0]) {			
 				  case 'n':  /* number */
 					success = read_number(L, f);
 					break;
@@ -516,6 +577,7 @@ namespace KopiLua
 		  if (isclosed(p))  /* file is already closed? */
 		    return luaL_error(L, "file is already closed");
 		  lua_settop(L , 1);
+		  luaL_checkstack(L, n, "too many arguments");
 		  for (i = 1; i <= n; i++)  /* push arguments to 'g_read' */
 		    lua_pushvalue(L, lua_upvalueindex(3 + i));
 		  n = g_read(L, p.f, 2);  /* 'n' is number of results */

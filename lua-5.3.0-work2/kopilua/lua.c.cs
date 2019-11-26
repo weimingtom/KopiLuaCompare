@@ -181,7 +181,7 @@ namespace KopiLua
 		}
 
 
-		static int traceback(Lua.lua_State L) {
+		static int traceback (Lua.lua_State L) {
 		  Lua.CharPtr msg = Lua.lua_tostring(L, 1);
 		  if (msg != null)
 		    Lua.luaL_traceback(L, L, msg, 1);
@@ -269,7 +269,7 @@ namespace KopiLua
 		private static Lua.CharPtr EOFMARK	= "<eof>";
 		private static int marklen = EOFMARK.chars.Length - 1; //FIXME:changed, (sizeof(EOFMARK)/sizeof(char) - 1), ???
 
-		static int incomplete(Lua.lua_State L, int status) {
+		static int incomplete (Lua.lua_State L, int status) {
 			if (status == Lua.LUA_ERRSYNTAX) {
 				uint lmsg;
 				Lua.CharPtr msg = Lua.lua_tolstring(L, -1, out lmsg);
@@ -530,33 +530,33 @@ namespace KopiLua
 
 
 		public static int Main(string[] args) {
-			//Main_(args);
+		  //Main_(args);
 			
-			//FIXME: added
-			// prepend the exe name to the arg list as it's done in C
-			// so that we don't have to change any of the args indexing
-			// code above
-			List<string> newargs = new List<string>(args);
-			newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
-			args = (string[])newargs.ToArray();
-			int argc = args.Length; //FIXME:???
-			string[] argv = args;//FIXME:???
+		  //FIXME: added
+		  // prepend the exe name to the arg list as it's done in C
+		  // so that we don't have to change any of the args indexing
+		  // code above
+		  List<string> newargs = new List<string>(args);
+		  newargs.Insert(0, Assembly.GetExecutingAssembly().Location);
+		  args = (string[])newargs.ToArray();
+		  int argc = args.Length; //FIXME:???
+		  string[] argv = args;//FIXME:???
 
-			int status, result;
-			Lua.lua_State L = Lua.luaL_newstate();  /* create state */
-			if (L == null) {
-				l_message(args[0], "cannot create state: not enough memory");
-				return Lua.EXIT_FAILURE;
-			}
-			/* call 'pmain' in protected mode */
-            Lua.lua_pushcfunction(L, pmain);
-			Lua.lua_pushinteger(L, argc);  /* 1st argument */
-			Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
-			status = Lua.lua_pcall(L, 2, 1, 0);
-			result = Lua.lua_toboolean(L, -1);  /* get result */
-			finalreport(L, status);
-			Lua.lua_close(L);
-			return (result != 0 && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
+		  int status, result;
+		  Lua.lua_State L = Lua.luaL_newstate();  /* create state */
+		  if (L == null) {
+			l_message(args[0], "cannot create state: not enough memory");
+			return Lua.EXIT_FAILURE;
+		  }
+		  /* call 'pmain' in protected mode */
+          Lua.lua_pushcfunction(L, pmain);
+		  Lua.lua_pushinteger(L, argc);  /* 1st argument */
+		  Lua.lua_pushlightuserdata(L, argv); /* 2nd argument */
+		  status = Lua.lua_pcall(L, 2, 1, 0);
+		  result = Lua.lua_toboolean(L, -1);  /* get result */
+		  finalreport(L, status);
+		  Lua.lua_close(L);
+		  return (result != 0 && status == Lua.LUA_OK) ? Lua.EXIT_SUCCESS : Lua.EXIT_FAILURE;
 		}
 
 		//----------------------------------------

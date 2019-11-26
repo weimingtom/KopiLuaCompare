@@ -11,7 +11,7 @@ namespace KopiLua
 	{
 		private static lua_State getco (lua_State L) {
 		  lua_State co = lua_tothread(L, 1);
-		  luaL_argcheck(L, co, 1, "coroutine expected");
+		  luaL_argcheck(L, co!=null, 1, "coroutine expected");
 		  return co;
 		}
 		

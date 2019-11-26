@@ -320,37 +320,37 @@ namespace KopiLua
 		}
 
 		private static void LoadDebug(LoadState S, Proto f) {
-		  int i,n;
+		  int i, n;
           f.source = LoadString(S);
 		  n = LoadInt(S);
-		  f.lineinfo=luaM_newvector<int>(S.L, n);
-		  f.sizelineinfo=n;
+		  f.lineinfo = luaM_newvector<int>(S.L, n);
+		  f.sizelineinfo = n;
 		  LoadVector(S, f.lineinfo, n);
 		  n = LoadInt(S);
-		  f.locvars=luaM_newvector<LocVar>(S.L, n);
-		  f.sizelocvars=n;
-		  for (i=0; i<n; i++) 
+		  f.locvars = luaM_newvector<LocVar>(S.L, n);
+		  f.sizelocvars = n;
+		  for (i = 0; i < n; i++) 
 		    f.locvars[i].varname = null;
-		  for (i=0; i<n; i++) {
-		    f.locvars[i].varname=LoadString(S);
-		    f.locvars[i].startpc=LoadInt(S);
-		    f.locvars[i].endpc=LoadInt(S);
+		  for (i = 0; i < n; i++) {
+		    f.locvars[i].varname = LoadString(S);
+		    f.locvars[i].startpc = LoadInt(S);
+		    f.locvars[i].endpc = LoadInt(S);
 		  }
-		  n=LoadInt(S);
+		  n = LoadInt(S);
 		  for (i = 0; i < n; i++) 
 		    f.upvalues[i].name = LoadString(S);
 		}
 
 		private static void LoadFunction(LoadState S, Proto f) {
-		  f.linedefined=LoadInt(S);
-		  f.lastlinedefined=LoadInt(S);
-		  f.numparams=LoadByte(S);
-		  f.is_vararg=LoadByte(S);
-		  f.maxstacksize=LoadByte(S);
-		  LoadCode(S,f);
-		  LoadConstants(S,f);
-          LoadUpvalues(S,f);
-		  LoadDebug(S,f);
+		  f.linedefined = LoadInt(S);
+		  f.lastlinedefined = LoadInt(S);
+		  f.numparams = LoadByte(S);
+		  f.is_vararg = LoadByte(S);
+		  f.maxstacksize = LoadByte(S);
+		  LoadCode(S, f);
+		  LoadConstants(S, f);
+          LoadUpvalues(S, f);
+		  LoadDebug(S, f);
 		}
 
 		private static void checkliteral (LoadState S, CharPtr s, CharPtr msg) {
@@ -396,14 +396,14 @@ namespace KopiLua
 		  LoadState S = new LoadState();
 		  Closure cl;
 		  if (name[0] == '@' || name[0] == '=')
-		    S.name = name+1;
-		  else if (name[0]==LUA_SIGNATURE[0])
-		    S.name="binary string";
+		    S.name = name + 1;
+		  else if (name[0] == LUA_SIGNATURE[0])
+		    S.name = "binary string";
 		  else
-		    S.name=name;
-		  S.L=L;
-		  S.Z=Z;
-		  S.b=buff;
+		    S.name = name;
+		  S.L = L;
+		  S.Z = Z;
+		  S.b = buff;
 		  checkHeader(S);
 		  cl = luaF_newLclosure(L, LoadByte(S));
 		  setclLvalue(L, L.top, cl);
@@ -411,7 +411,7 @@ namespace KopiLua
 		  cl.l.p = luaF_newproto(L);
 		  LoadFunction(S, cl.l.p);
 		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
-		  luai_verifycode(L,buff,cl.l.p);
+		  luai_verifycode(L, buff, cl.l.p);
 		  return cl;
 		}
 

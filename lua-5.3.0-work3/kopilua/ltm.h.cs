@@ -1,5 +1,5 @@
 /*
-** $Id: ltm.h,v 2.19 2013/12/30 20:47:58 roberto Exp $
+** $Id: ltm.h,v 2.20 2014/06/10 18:53:18 roberto Exp $
 ** Tag methods
 ** See Copyright Notice in lua.h
 */

@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.c,v 2.76 2014/03/21 13:52:33 roberto Exp $
+** $Id: lobject.c,v 2.86 2014/05/12 21:44:17 roberto Exp $
 ** Some generic functions over Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -21,6 +21,7 @@ namespace KopiLua
 	using lu_int32 = System.UInt32;
 	using lua_Integer = System.Int32;
 	using lua_Unsigned = System.UInt32;
+	using l_uacInt = System.Int32;
 	
 	public partial class Lua
 	{
@@ -78,7 +79,6 @@ namespace KopiLua
 		    case LUA_OPSUB:return intop_minus(v1, v2);
 		    case LUA_OPMUL:return intop_mul(v1, v2);
 		    case LUA_OPMOD: return luaV_mod(L, v1, v2);
-		    case LUA_OPPOW: return luaV_pow(L, v1, v2);
 		    case LUA_OPIDIV: return luaV_div(L, v1, v2);
 		    case LUA_OPBAND: return intop_and(v1, v2);
 		    case LUA_OPBOR: return intop_or(v1, v2);
@@ -86,7 +86,7 @@ namespace KopiLua
 		    case LUA_OPSHL: return luaV_shiftl(v1, v2);
 		    case LUA_OPSHR: return luaV_shiftl(v1, -v2);
 		    case LUA_OPUNM: return intop_minus(0, v1);
-		    case LUA_OPBNOT: return intop_xor(cast_integer(-1), v1);
+		    case LUA_OPBNOT: return intop_xor((int)(~l_castS2U(0)), v1);
 		    default: lua_assert(0); return 0;
 		  }
 		}
@@ -98,9 +98,13 @@ namespace KopiLua
 		    case LUA_OPSUB: return luai_numsub(L, v1, v2);
 		    case LUA_OPMUL: return luai_nummul(L, v1, v2);
 		    case LUA_OPDIV: return luai_numdiv(L, v1, v2);
-		    case LUA_OPMOD: return luai_nummod(L, v1, v2);
 		    case LUA_OPPOW: return luai_numpow(L, v1, v2);
 		    case LUA_OPUNM: return luai_numunm(L, v1);
+			case LUA_OPMOD: {
+		      lua_Number m = 0;
+		      luai_nummod(L, v1, ref v2, m);
+		      return m;
+		    }
 		    default: lua_assert(0); return 0;
 		  }
 		}
@@ -118,10 +122,10 @@ namespace KopiLua
 		      }
 		      else break;  /* go to the end */
 		    }
-		    case LUA_OPDIV: {  /* operates only on floats */
+		    case LUA_OPDIV: case LUA_OPPOW:  {  /* operates only on floats */
 		      lua_Number n1 = 0; lua_Number n2 = 0;
 		      if (0!=tonumber(ref p1, ref n1) && 0!=tonumber(ref p2, ref n2)) {
-		        setnvalue(res, numarith(L, op, n1, n2));
+		        setfltvalue(res, numarith(L, op, n1, n2));
 		        return;
 		      }
 		      else break;  /* go to the end */
@@ -133,7 +137,7 @@ namespace KopiLua
 		        return;
 		      }
 		      else if (0!=tonumber(ref p1, ref n1) && 0!=tonumber(ref p2, ref n2)) {
-		        setnvalue(res, numarith(L, op, n1, n2));
+		        setfltvalue(res, numarith(L, op, n1, n2));
 		        return;
 		      }
 		      else break;  /* go to the end */
@@ -254,25 +258,24 @@ namespace KopiLua
 		/* }====================================================== */
 
 
-		public static int luaO_str2d (CharPtr s, uint len, out lua_Number result) {
+		private static CharPtr l_str2d (CharPtr s, out lua_Number result) {
 		  CharPtr endptr;
 		  if (strpbrk(s, "nN")!=null) {  /* reject 'inf' and 'nan' */
 		    result = 0; //FIXME:added???
-		  	return 0;
+		  	return null;
 		  }
 		  else if (strpbrk(s, "xX")!=null)  /* hexa? */
 		    result = lua_strx2number(s, out endptr);
 		  else
 		    result = lua_str2number(s, out endptr);
-		  if (endptr == s) return 0;  /* nothing recognized */
+		  if (endptr == s) return null;  /* nothing recognized */
 		  while (lisspace((byte)(endptr[0]))!=0) endptr.inc(); //FIXME:changed, ++
-		  return (endptr == s + len)?1:0;  /* OK if no trailing characters */
+		  return (endptr[0] == '\0' ? endptr : null);  /* OK if no trailing characters */
 		}
 
 
-		public static int luaO_str2int (CharPtr s, uint len, ref lua_Integer result) {
+		private static CharPtr l_str2int (CharPtr s, ref lua_Integer result) {
 		  s = new CharPtr(s); //FIXME:added			
-		  CharPtr ends = s + len;
 		  lua_Unsigned a = 0;
 		  int empty = 1;
 		  int neg;
@@ -293,11 +296,26 @@ namespace KopiLua
 		    }
 		  }
 		  while (lisspace((byte)(s[0]))!=0) s.inc();  /* skip trailing spaces */
-		  if (empty!=0 || s != ends) return 0;  /* something wrong in the numeral */
+		  if (empty!=0 || s[0] != '\0') return null;  /* something wrong in the numeral */
 		  else {
-		    result = cast_integer((neg!=0) ? 0u - a : a);
-		    return 1;
+		    result = l_castU2S((neg!=0) ? 0u - a : a);
+		    return s;
 		  }
+		}
+
+
+		public static uint luaO_str2num (CharPtr s, TValue o) {
+		  lua_Integer i = 0; lua_Number n = 0;
+		  CharPtr e;
+		  if ((e = l_str2int(s, ref i)) != null) {  /* try as an integer */
+		    setivalue(o, i);
+		  }
+		  else if ((e = l_str2d(s, out n)) != null) {  /* else try as a float */
+		    setfltvalue(o, n);
+		  }
+		  else
+		    return 0;  /* conversion failed */
+		  return (uint)(e - s + 1);  /* success; return string size */
 		}
 
 
@@ -351,14 +369,17 @@ namespace KopiLua
 		      }
 		      case 'd': {
 		        setivalue(L.top, (int)argp[parm_index++]); StkId.inc(ref L.top);
+				luaV_tostring(L, L.top - 1);
 		        break;
 		      }
 		      case 'I': {
-		        setivalue(L.top, cast_integer((lua_Integer)argp[parm_index++])); StkId.inc(ref L.top);
+		        setivalue(L.top, (lua_Integer)((l_uacInt)argp[parm_index++])); StkId.inc(ref L.top);
+				luaV_tostring(L, L.top - 1);
 		        break;
 		      }
 		      case 'f': {
-		        setnvalue(L.top, (l_uacNumber)argp[parm_index++]); StkId.inc(ref L.top);
+		        setfltvalue(L.top, cast_num((l_uacNumber)argp[parm_index++])); StkId.inc(ref L.top);
+				luaV_tostring(L, L.top - 1);
 		        break;
 		      }
 		      case 'p': {

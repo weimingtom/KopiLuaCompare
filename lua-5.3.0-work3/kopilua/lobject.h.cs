@@ -1,5 +1,5 @@
 /*
-** $Id: lobject.h,v 2.86 2014/02/19 13:52:42 roberto Exp $
+** $Id: lobject.h,v 2.94 2014/06/19 18:39:36 roberto Exp $
 ** Type definitions for Lua objects
 ** See Copyright Notice in lua.h
 */
@@ -304,17 +304,17 @@ namespace KopiLua
 		public static lua_Number fltvalue(TValue o) { return (lua_Number)check_exp(ttisfloat(o), val_(o).n); }
 		public static GCObject gcvalue(TValue o) { return (GCObject)check_exp(iscollectable(o), val_(o).gc); }
 		public static object pvalue(TValue o) { return (object)check_exp(ttislightuserdata(o), val_(o).p); }
-		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), val_(o).gc.ts); }
+		public static TString rawtsvalue(TValue o) { return (TString)check_exp(ttisstring(o), rawgco2ts(val_(o).gc)); }
 		public static TString_tsv tsvalue(TValue o) { return rawtsvalue(o).tsv; }
-		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisfulluserdata(o), val_(o).gc.u); }
+		public static Udata rawuvalue(TValue o) { return (Udata)check_exp(ttisfulluserdata(o), rawgco2u(val_(o).gc)); }
 		public static Udata_uv uvalue(TValue o) { return rawuvalue(o).uv; }
-		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), val_(o).gc.cl);}
-		public static LClosure clLvalue(TValue o) {return (LClosure)check_exp(ttisLclosure(o), val_(o).gc.cl.l);}
-		public static CClosure clCvalue(TValue o) {return (CClosure)check_exp(ttisCclosure(o), val_(o).gc.cl.c);}
+		public static Closure clvalue(TValue o)	{return (Closure)check_exp(ttisclosure(o), gco2cl(val_(o).gc));}
+		public static LClosure clLvalue(TValue o) {return (LClosure)check_exp(ttisLclosure(o), gco2lcl(val_(o).gc));}
+		public static CClosure clCvalue(TValue o) {return (CClosure)check_exp(ttisCclosure(o), gco2ccl(val_(o).gc));}
 		public static lua_CFunction fvalue(TValue o)	{ return (lua_CFunction)check_exp(ttislcf(o), val_(o).f); }
-		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), val_(o).gc.h);}
+		public static Table hvalue(TValue o)	{return (Table)check_exp(ttistable(o), gco2t(val_(o).gc));}
 		public static int bvalue(TValue o)	{return (int)check_exp(ttisboolean(o), val_(o).b);}
-		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), val_(o).gc.th);}
+		public static lua_State thvalue(TValue o)	{return (lua_State)check_exp(ttisthread(o), gco2th(val_(o).gc));}
 		/* a dead value may get the 'gc' field, but cannot access its contents */
 		public static object deadvalue(TValue o) { return (object)check_exp(ttisdeadkey(o), (object)(val_(o).gc)); }
 
@@ -335,7 +335,7 @@ namespace KopiLua
 		/* Macros to set values */
 		public static void settt_(TValue o, int t) {o.tt_=t;}
 
-		public static void setnvalue(TValue obj, lua_Number x)
+		public static void setfltvalue(TValue obj, lua_Number x)
 		  { TValue io=obj; io.value_.n=x; settt_(io, LUA_TNUMFLT);}
 
 		public static void setivalue(TValue obj, lua_Integer x)
@@ -353,38 +353,37 @@ namespace KopiLua
 		  { TValue io=obj; io.value_.b=x; settt_(io, LUA_TBOOLEAN); } //FIXME:chagned, val_(io)
 
 		public static void setgcovalue(lua_State L, TValue obj, GCObject x)
-		  { TValue io=obj; GCObject i_g=x;
+		  { TValue io = obj; GCObject i_g = x;
 		    io.value_.gc=i_g; settt_(io, ctb(gch(i_g).tt)); } //FIXME:chagned, val_(io)
 	
 		public static void setsvalue(lua_State L, TValue obj, GCObject x) 
-		  {  TValue io=obj; 
-			 TString x_ = (TString)x;
-		     io.value_.gc=(GCObject)x_; settt_(io, ctb(x_.tsv.tt)); //FIXME:chagned, val_(io)
+		  {  TValue io = obj; TString x_ = (TString)x;
+		     io.value_.gc = obj2gco(x_); settt_(io, ctb(x_.tsv.tt)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setuvalue(lua_State L, TValue obj, GCObject x) 
-		  { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TUSERDATA)); //FIXME:chagned, val_(io)
+		  { TValue io = obj; Udata x_ = (Udata)x;
+		     io.value_.gc = obj2gco(x_); settt_(io, ctb(LUA_TUSERDATA)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void setthvalue(lua_State L, TValue obj, GCObject x) 
-		  { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TTHREAD)); //FIXME:chagned, val_(io)
+		  { TValue io = obj; lua_State x_ = (lua_State)x; 
+		     io.value_.gc = obj2gco(x_); settt_(io, ctb(LUA_TTHREAD)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
-		public static void setclLvalue(lua_State L, TValue obj, GCObject x)
-	      { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TLCL)); //FIXME:chagned, val_(io)
+		public static void setclLvalue(lua_State L, TValue obj, LClosure x)
+	      { TValue io = obj; LClosure x_ = (LClosure)x;
+		     io.value_.gc = obj2gco((ClosureHeader)x_); settt_(io, ctb(LUA_TLCL)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
-		public static void setclCvalue(lua_State L, TValue obj, GCObject x)
-		  { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TCCL)); //FIXME:chagned, val_(io)
+		public static void setclCvalue(lua_State L, TValue obj, CClosure x)
+		  { TValue io = obj; CClosure x_ = (CClosure)x;
+			 io.value_.gc = obj2gco((ClosureHeader)x_); settt_(io, ctb(LUA_TCCL)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 
 		public static void sethvalue(lua_State L, TValue obj, Table x)
-		  { TValue io=obj; 
-		     io.value_.gc=(GCObject)x; settt_(io, ctb(LUA_TTABLE)); //FIXME:chagned, val_(io)
+		  { TValue io = obj; Table x_ = (Table)x; 
+		     io.value_.gc = obj2gco(x_); settt_(io, ctb(LUA_TTABLE)); //FIXME:chagned, val_(io)
 			 checkliveness(G(L),io); }
 		
 		public static void setdeadvalue(TValue obj) { settt_(obj, LUA_TDEADKEY); }
@@ -394,7 +393,7 @@ namespace KopiLua
 		public static void setobj(lua_State L, TValue obj1, TValue obj2) 
 		    { TValue io2=(obj2); TValue io1=(obj1);
 			  io1.value_ = io2.value_; io1.tt_ = io2.tt_;
-			  checkliveness(G(L), io1);}
+			  /*(void)L;*/ checkliveness(G(L), io1);}
 
 
 		/*
@@ -434,9 +433,6 @@ namespace KopiLua
 		public static void setsvalue2n(lua_State L, TValue obj, TString x) { setsvalue(L, obj, x); }
 
 
-		/* check whether a number is valid (useful only for NaN trick) */
-		public static void luai_checknum(lua_State L, TValue o, luai_checknum_func c)	{ /* empty */ }
-		public delegate void luai_checknum_func();
 
 
 		/*
@@ -472,10 +468,9 @@ namespace KopiLua
 		public class TString_tsv : GCObject { //FIXME:added
             //CommonHeader;
 			public lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
-
+			public uint hash;
 			public uint len;  /* number of characters in string */
 			public TString hnext;  /* linked list for hash table */
-			public uint hash;
 		};	
 		public class TString : TString_tsv {
 			//public L_Umaxalign dummy;  /* ensures maximum alignment for strings */
@@ -621,14 +616,9 @@ namespace KopiLua
 		  public int index = 0; //FIXME:added, CommonHeader
 		  public Proto this[int offset] {get { return this.protos[this.index + offset]; }} //FIXME:added, CommonHeader
 
-		  public TValue[] k;  /* constants used by the function */
-		  public Instruction[] code;
-		  public new Proto[] p;  /* functions defined inside the function */ //FIXME:added, new
-		  public int[] lineinfo;  /* map from opcodes to source lines (debug information) */
-		  public LocVar[] locvars;  /* information about local variables (debug information) */
-		  public Upvaldesc[] upvalues;  /* upvalue information */
-          public Closure cache;  /* last created closure with this prototype */
-		  public TString  source;  /* used for debug information */
+		  public lu_byte numparams;  /* number of fixed parameters */
+		  public lu_byte is_vararg;
+		  public lu_byte maxstacksize; /* maximum stack used by this function */
 		  public int sizeupvalues;  /* size of 'upvalues' */
 		  public int sizek;  /* size of `k' */
 		  public int sizecode;
@@ -637,10 +627,15 @@ namespace KopiLua
 		  public int sizelocvars;
 		  public int linedefined;
 		  public int lastlinedefined;
+		  public TValue[] k;  /* constants used by the function */
+		  public Instruction[] code;
+		  public new Proto[] p;  /* functions defined inside the function */ //FIXME:added, new
+		  public int[] lineinfo;  /* map from opcodes to source lines (debug information) */
+		  public LocVar[] locvars;  /* information about local variables (debug information) */
+		  public Upvaldesc[] upvalues;  /* upvalue information */
+          public LClosure cache;  /* last created closure with this prototype */
+		  public TString  source;  /* used for debug information */		  
 		  public GCObject gclist;
-		  public lu_byte numparams;  /* number of fixed parameters */
-		  public lu_byte is_vararg;
-		  public lu_byte maxstacksize; /* maximum stack used by this function */
 		};
 
 
@@ -941,12 +936,12 @@ namespace KopiLua
 		public class Table : GCObject {
 		  public lu_byte flags;  /* 1<<p means tagmethod(p) is not present */
 		  public lu_byte lsizenode;  /* log2 of size of `node' array */
-		  public Table metatable;
+		  public int sizearray;  /* size of `array' array */
 		  public TValue[] array;  /* array part */
 		  public Node[] node;
 		  public int lastfree;  /* any free position is before this position */ //FIXME: this is differente from original code, use t.node[t.lastfree] to get Node value
+		  public Table metatable;
 		  public GCObject gclist;
-		  public int sizearray;  /* size of `array' array */
 		};
 
 

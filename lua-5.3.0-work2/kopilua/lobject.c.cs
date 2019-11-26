@@ -358,7 +358,7 @@ namespace KopiLua
 		        break;
 		      }
 		      case 'f': {
-		        setnvalue(L.top, (l_uacNumber)argp[parm_index++]); StkId.inc(ref L.top);
+		        setnvalue(L.top, cast_num((l_uacNumber)argp[parm_index++])); StkId.inc(ref L.top);
 		        break;
 		      }
 		      case 'p': {

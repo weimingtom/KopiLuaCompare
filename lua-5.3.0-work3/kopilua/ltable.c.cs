@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.84 2014/01/27 13:34:32 roberto Exp $
+** $Id: ltable.c,v 2.90 2014/06/18 22:59:29 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -19,6 +19,7 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using lu_byte = System.Byte;
 	using lua_Integer = System.Int32;
+	using LUA_INTEGER = System.Int32;
 	
 	public partial class Lua
 	{
@@ -38,15 +39,15 @@ namespace KopiLua
 
 
 		/*
-		** max size of array part is 2^MAXBITS
+		** Maximum size of array part (MAXASIZE) is 2^MAXBITS. (SIZEINT is the
+		** minimum between size of int and size of LUA_INTEGER; array indices
+		** are limited by both types.)
 		*/
-		//#if LUAI_BITSINT > 32
-		public const int MAXBITS = 30;	/* in the dotnet port LUAI_BITSINT is 32 */
-		//#else
-		//public const int MAXBITS		= (LUAI_BITSINT-2);
-		//#endif
+		public static int SIZEINT = 
+		  (GetUnmanagedSize(typeof(int)) < GetUnmanagedSize(typeof(LUA_INTEGER)) ? GetUnmanagedSize(typeof(int)) : GetUnmanagedSize(typeof(LUA_INTEGER)));
+		public static int MAXBITS = cast_int(SIZEINT * CHAR_BIT - 2);
 
-		public const int MAXASIZE	= (1 << MAXBITS);
+		public static int MAXASIZE	= (1 << MAXBITS);
 
 
 		//public static Node gnode(Table t, int i)	{return t.node[i];}
@@ -67,12 +68,6 @@ namespace KopiLua
 		public static Node hashpointer(Table t, object p) { return hashmod(t, p.GetHashCode()); }
 
 
-		/* checks whether a float has a value representable as a lua_Integer
-		   (and does the conversion if so) */
-		public static bool numisinteger(lua_Number x, ref lua_Integer i) 
-			{ return (((x) == floor(x)) && luaV_numtointeger(x, ref i)!=0); }
-
-
         //FIXME:see below
 
 		//#define dummynode		(&dummynode_)
@@ -88,6 +83,18 @@ namespace KopiLua
 		public static Node dummynode_ = new Node(new TValue(new Value(), LUA_TNIL), new TKey(new Value(), LUA_TNIL, 0)); //FIXME:???
 		public static Node dummynode = dummynode_;
 
+		
+		/*
+		** Checks whether a float has a value representable as a lua_Integer
+		** (and does the conversion if so)
+		*/
+		private static int numisinteger(lua_Number x, ref lua_Integer p) { 
+		  if ((x) == l_floor(x))  /* integral value? */
+		    return lua_numtointeger(x, ref p);  /* try as an integer */
+		  else return 0;
+		}
+			
+		
 		/*
 		** hash for lua_Numbers
 		*/
@@ -385,7 +392,8 @@ namespace KopiLua
 
 
 		public static Table luaH_new (lua_State L) {
-		  Table t = luaC_newobj<Table>(L, LUA_TTABLE, (uint)GetUnmanagedSize(typeof(Table))).h;
+		  GCObject o = luaC_newobj<Table>(L, LUA_TTABLE, (uint)GetUnmanagedSize(typeof(Table)));
+		  Table t = gco2t(o);
 		  t.metatable = null;
 		  t.flags = cast_byte(~0);
 		  t.array = null;
@@ -430,8 +438,8 @@ namespace KopiLua
 		    lua_Integer k = 0;
 		    if (luai_numisnan(n))
 		      luaG_runerror(L, "table index is NaN");
-		    if (numisinteger(n, ref k)) {  /* index is int? */
-		      setivalue(aux, k); 
+		    if (0!=numisinteger(n, ref k)) {  /* index is int? */
+		      setivalue(aux, k);
 		      key = aux;  /* insert it as an integer */
 		    }
 		  }
@@ -451,14 +459,14 @@ namespace KopiLua
 			  /* yes; move colliding node into free position */
 			  while (Node.plus(othern, gnext(othern)) != mp)  /* find previous */
 		        Node.inc(ref othern, gnext(othern));
-		      gnext_set(othern, f - othern);  /* re-chain with 'f' in place of 'mp' */
+		      gnext_set(othern, cast_int(f - othern));  /* re-chain with 'f' in place of 'mp' */
 		      f.Assign(mp);  /* copy colliding node into free pos. (mp->next also goes) */
 		      if (gnext(mp) != 0) {
 		      	//if (mp - f == 0)
 		      	//{
 		      	//	Debug.WriteLine("???");
 		      	//}
-		      	gnext_inc(f, mp - f);  /* correct 'next' */
+		      	gnext_inc(f, cast_int(mp - f));  /* correct 'next' */
 		        gnext_set(mp, 0);  /* now 'mp' is free */
 		      }
 			  setnilvalue(gval(mp));
@@ -466,9 +474,9 @@ namespace KopiLua
 			else {  /* colliding node is in its own main position */
 			  /* new node will go into free position */
 		      if (gnext(mp) != 0)
-		      	gnext_set(f, (Node.plus(mp, gnext(mp))) - f);  /* chain new position */
+		      	gnext_set(f, cast_int(Node.plus(mp, gnext(mp)) - f));  /* chain new position */
 		      else lua_assert(gnext(f) == 0);
-		      gnext_set(mp, f - mp);
+		      gnext_set(mp, cast_int(f - mp));
 		      mp = f;
 			}
 		  }
@@ -485,7 +493,7 @@ namespace KopiLua
 		public static TValue luaH_getint(Table t, int key)
 		{
 		  /* (1 <= key && key <= t.sizearray) */
-		  if ((uint)(key - 1) < (uint)t.sizearray)
+		  if (l_castS2U(key - 1) < (uint)t.sizearray)
 			return t.array[key-1];
 		  else {
 			Node n = hashint(t, key);
@@ -532,7 +540,7 @@ namespace KopiLua
 			case LUA_TNIL: return luaO_nilobject;
 			case LUA_TNUMFLT: {
 			  lua_Integer k = 0;
-      		  if (numisinteger(fltvalue(key), ref k)) /* index is int? */
+      		  if (0!=numisinteger(fltvalue(key), ref k)) /* index is int? */
 				return luaH_getint(t, k);  /* use specialized version */
 			  /* else go through */
 			  goto default;

@@ -112,6 +112,7 @@ namespace KopiLua
 		  luaG_runerror(L, "gettable chain too long; possible loop");
 		}
 
+
 		public static bool luaV_settable_sub(lua_State L, Table h, TValue key, ref TValue oldval) //FIXME:added
 		{
 			oldval = luaH_newkey(L, h, key);
@@ -154,8 +155,6 @@ namespace KopiLua
 		  }
 		  luaG_runerror(L, "settable chain too long; possible loop");
 		}
-
-
 
 
 		private static int l_strcmp (TString ls, TString rs) {

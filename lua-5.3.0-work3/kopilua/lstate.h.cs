@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.102 2014/02/18 13:46:26 roberto Exp $
+** $Id: lstate.h,v 2.107 2014/06/12 19:07:30 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -139,9 +139,9 @@ namespace KopiLua
 			public StkId func;  /* function index in the stack */
 			public StkId top;  /* top for this function */
 			public CallInfo previous, next;  /* dynamic call link */
+			public ptrdiff_t extra;
 			public short nresults;  /* expected number of results from this function */
 			public lu_byte callstatus;
-			public ptrdiff_t extra;
 			public class _u {
 			    public class _l {  /* only for Lua functions */
 			      public StkId base_;  /* base for this function */
@@ -149,11 +149,9 @@ namespace KopiLua
 			    };
 				public _l l = new _l();
 			    public class _c {  /* only for C functions */
-			      public int ctx;  /* context info. in case of yields */
-			      public lua_CFunction k;  /* continuation in case of yields */
+			      public lua_KFunction k;  /* continuation in case of yields */
 			      public ptrdiff_t old_errfunc;
-			      public lu_byte old_allowhook;
-			      public lu_byte status;
+			      public int ctx;  /* context info. in case of yields */
 			    };
 				public _c c = new _c();
 			};
@@ -163,19 +161,20 @@ namespace KopiLua
 		/*
 		** Bits in CallInfo status
 		*/
-		public const int CIST_LUA = (1<<0);	/* call is running a Lua function */
-		public const int CIST_HOOKED = (1<<1);	/* call is running a debug hook */
-		public const int CIST_REENTRY = (1<<2);	/* call is running on same invocation of
+		public const int CIST_OAH = (1<<0);	/* original value of 'allowhook' */
+		public const int CIST_LUA = (1<<1);	/* call is running a Lua function */
+		public const int CIST_HOOKED = (1<<2);	/* call is running a debug hook */
+		public const int CIST_REENTRY = (1<<3);	/* call is running on same invocation of
 		                                   luaV_execute of previous call */
-		public const int CIST_YIELDED =	(1<<3);	/* call reentered after suspension */
 		public const int CIST_YPCALL = 	(1<<4);	/* call is a yieldable protected call */
-		public const int CIST_STAT = 	(1<<5);	/* call has an error status (pcall) */
-		public const int CIST_TAIL = (1<<6); /* call was tail called */
-		public const int CIST_HOOKYIELD	= (1<<7);	/* last hook called yielded */
-
+		public const int CIST_TAIL = (1<<5); /* call was tail called */
+		public const int CIST_HOOKYIELD	= (1<<6);	/* last hook called yielded */
 
 		public static int isLua(CallInfo ci)	{return ((ci.callstatus & CIST_LUA) != 0) ? 1 : 0;}
 
+		/* assume that CIST_OAH has offset 0 and that 'v' is strictly 0/1 */
+		public static void setoah(byte st, byte v)	{ st = (byte)(((st & ~CIST_OAH) | v) & 0xff); }
+		public static byte getoah(byte st)	{ return (byte)((st & CIST_OAH) & 0xff); }
 
 		/*
 		** `global state', shared by all threads of this state

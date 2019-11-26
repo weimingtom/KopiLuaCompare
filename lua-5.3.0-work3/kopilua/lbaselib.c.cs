@@ -89,7 +89,7 @@ namespace KopiLua
 		    luaL_checktype(L, 1, LUA_TSTRING);  /* before 'luaL_checklstring'! */
 		    s = luaL_checklstring(L, 1, out l);
 		    luaL_argcheck(L, 2 <= base_ && base_ <= 36, 2, "base out of range");
-		    if (b_str2int(s, base, ref n) == s + l) {
+		    if (b_str2int(s, base_, ref n) == s + l) {
 		      lua_pushinteger(L, n);
 		      return 1;
 		    }  /* else not a number */
@@ -357,7 +357,7 @@ namespace KopiLua
 
 
 		private static int luaB_assert (lua_State L) {
-		  if (lua_toboolean(L, 1))  /* condition is true? */
+		  if (lua_toboolean(L, 1)!=0)  /* condition is true? */
 		    return lua_gettop(L);  /* return all arguments */
 		  else {  /* error */
 		    if (lua_isnone(L, 2))  /* no error message? */

@@ -242,11 +242,8 @@ namespace KopiLua
 		 return Lua.EXIT_SUCCESS;
 		}
 
-
-		private static lua_Number nvalue__(TValue x) { return ((lua_Number)0); }
-		private static int ttypenv__(TValue x) { return Lua.ttnov(x); }
 /*
-** $Id: print.c,v 1.69 2013/07/04 01:03:46 lhf Exp $
+** $Id: print.c,v 1.73 2014/06/12 02:41:25 lhf Exp $
 ** print bytecodes
 ** See Copyright Notice in lua.h
 */
@@ -286,7 +283,7 @@ namespace KopiLua
 		private static void PrintConstant(Lua.Proto f, int i)
 		{
 		 /*const*/ TValue o=f.k[i];
-		 switch (ttypenv__(o))
+		 switch (Lua.ttype(o))
 		 {
 		  case Lua.LUA_TNIL:
 			Lua.printf("nil");
@@ -294,10 +291,13 @@ namespace KopiLua
 		  case Lua.LUA_TBOOLEAN:
 			Lua.printf(Lua.bvalue(o) != 0 ? "true" : "false");
 			break;
-		  case Lua.LUA_TNUMBER:
-			Lua.printf(Lua.LUA_NUMBER_FMT,nvalue__(o));
+		  case Lua.LUA_TNUMFLT:
+			Lua.printf(Lua.LUA_NUMBER_FMT,Lua.fltvalue(o));
 			break;
-		  case Lua.LUA_TSTRING:
+		  case Lua.LUA_TNUMINT:
+			Lua.printf(Lua.LUA_INTEGER_FMT,Lua.ivalue(o));
+			break;
+		  case Lua.LUA_TSHRSTR: case Lua.LUA_TLNGSTR:
 			PrintString(Lua.rawtsvalue(o));
 			break;
 		  default:				/* cannot happen */
@@ -372,8 +372,14 @@ namespace KopiLua
 		   case OpCode.OP_ADD:
 		   case OpCode.OP_SUB:
 		   case OpCode.OP_MUL:
-		   case OpCode.OP_DIV:
 		   case OpCode.OP_POW:
+		   case OpCode.OP_DIV:
+		   case OpCode.OP_IDIV:
+		   case OpCode.OP_BAND:
+		   case OpCode.OP_BOR:
+		   case OpCode.OP_BXOR:
+		   case OpCode.OP_SHL:
+		   case OpCode.OP_SHR:
 		   case OpCode.OP_EQ:
 		   case OpCode.OP_LT:
 		   case OpCode.OP_LE:

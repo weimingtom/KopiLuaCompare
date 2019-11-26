@@ -69,7 +69,7 @@ namespace KopiLua
 
 		/* checks whether a float has a value representable as a lua_Integer
 		   (and does the conversion if so) */
-		public static bool numisinteger(lua_Number x, ref lua_Integer i) 
+		private static bool numisinteger(lua_Number x, ref lua_Integer i) 
 			{ return (((x) == floor(x)) && luaV_numtointeger(x, ref i)!=0); }
 
 

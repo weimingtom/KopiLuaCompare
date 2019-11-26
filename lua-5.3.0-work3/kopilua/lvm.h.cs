@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.h,v 2.25 2013/12/30 20:47:58 roberto Exp $
+** $Id: lvm.h,v 2.31 2014/05/26 17:10:22 roberto Exp $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -13,8 +13,6 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		public static int tostring(lua_State L, StkId o) { return (ttisstring(o) || (luaV_tostring(L, o) != 0)) ? 1 : 0; }
-
 		public static int tonumber(ref StkId o, ref lua_Number n) 
 			{ if (ttisfloat(o)) { n = fltvalue(o); return 1; } else { return luaV_tonumber_(o, ref n);} }
 
@@ -23,18 +21,14 @@ namespace KopiLua
 
 		//FIXME:changed, see intop
 		//FIXME:???Lua_Number
-		public static int intop_plus(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) + (uint)(v2));}
-		public static int intop_minus(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) - (uint)(v2));}
-		public static int intop_mul(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) * (uint)(v2));}
-		public static int intop_xor(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) ^ (uint)(v2));}
-		public static int intop_or(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) | (uint)(v2));}
-		public static int intop_and(lua_Integer v1, lua_Integer v2) 
-			{ return (int)((uint)(v1) & (uint)(v2));}
+		public static int intop_plus(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) + l_castS2U(v2));}
+		public static int intop_minus(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) - l_castS2U(v2));}
+		public static int intop_mul(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) * l_castS2U(v2));}
+		public static int intop_xor(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) ^ l_castS2U(v2));}
+		public static int intop_or(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) | l_castS2U(v2));}
+		public static int intop_and(lua_Integer v1, lua_Integer v2) { return l_castU2S(l_castS2U(v1) & l_castS2U(v2));}
+		public static int intop_shiftleft(lua_Integer v1, lua_Integer v2) { return l_castU2S((int)l_castS2U(v1) << (int)l_castS2U(v2));} //FIXME:???(int)
+		public static int intop_shiftright(lua_Integer v1, lua_Integer v2) { return l_castU2S((int)l_castS2U(v1) >> (int)l_castS2U(v2));} //FIXME:???(int)
 		
 		public static int luaV_rawequalobj(TValue t1,TValue t2) { return luaV_equalobj(null,t1,t2); }
 	}

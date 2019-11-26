@@ -76,14 +76,13 @@ namespace KopiLua
 
 		public static void luaL_getmetatable(lua_State L, CharPtr n) { lua_getfield(L, LUA_REGISTRYINDEX, n); }
 
-		public delegate lua_Number luaL_opt_delegate (lua_State L, int narg);		
+		public delegate lua_Number luaL_opt_delegate(lua_State L, int narg);		
 		public static lua_Number luaL_opt(lua_State L, luaL_opt_delegate f, int n, lua_Number d) {
-			return lua_isnoneornil(L, (n != 0) ? d : f(L, n)) ? 1 : 0;}
-
+			return lua_isnoneornil(L, n) ? d : f(L, n);}
+		
 		public delegate lua_Integer luaL_opt_delegate_integer(lua_State L, int narg);
-		public static lua_Integer luaL_opt_integer(lua_State L, luaL_opt_delegate_integer f, int n, lua_Number d) {
-			return (lua_Integer)(lua_isnoneornil(L, n) ? d : f(L, (n)));
-		}
+		public static lua_Integer luaL_opt_integer(lua_State L, luaL_opt_delegate_integer f, int n, lua_Integer d) {
+			return lua_isnoneornil(L, n) ? d : f(L, n);}
 		
 		//FIXME:added
 		public delegate lua_Unsigned luaL_opt_delegate_unsigned(lua_State L, int narg);

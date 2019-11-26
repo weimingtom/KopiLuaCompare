@@ -1330,6 +1330,8 @@ namespace KopiLua
 				return 8;
 			else if (t == typeof(lua_Number))
 				return 8;
+			else if (t == typeof(long)) //FIXME:???
+				return 8;
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}
@@ -1552,5 +1554,22 @@ namespace KopiLua
 		public const int CHAR_BIT = 8;
 		public const int DBL_MAX_EXP = 1024;
 		public const int INT_MAX = 0x7fffffff;
+		
+		public class StringPtr 
+		{
+			private string[] arr;
+			private int index;
+			
+			public StringPtr(string[] arr, int index)
+			{
+				this.arr = arr;
+				this.index = index;
+			}
+			
+			public string at(int n)
+			{
+				return this.arr[this.index + n];
+			}
+		}
 	}
 }

@@ -1,5 +1,5 @@
 /*
-** $Id: lundump.c,v 2.34 2014/03/11 18:56:27 roberto Exp $
+** $Id: lundump.c,v 2.40 2014/06/19 18:27:20 roberto Exp $
 ** load precompiled Lua chunks
 ** See Copyright Notice in lua.h
 */
@@ -46,7 +46,7 @@ namespace KopiLua
 
 		/*
 		** All high-level loads go through LoadVector; you can change it to
-		** adapt to the endianess of the input
+		** adapt to the endianness of the input
 		*/
 		private static void LoadVector(LoadState S, CharPtr b, int n) { LoadBlock(S,b,n /* *sizeof((b)[0])*/ ); }
 		private static void LoadVector(LoadState S, Instruction[] b, int n)	{ LoadBlock(S,b,n /* *sizeof((b)[0])*/ ); }
@@ -259,12 +259,12 @@ namespace KopiLua
 		}
 
 
-		//static void LoadFunction(LoadState* S, Proto* f);
+		//static void LoadFunction(LoadState* S, Proto* f, TString *psource);
 
 
 		private static void LoadConstants (LoadState S, Proto f) {
-		  int i, n;
-		  n = LoadInt(S);
+		  int i;
+		  int n = LoadInt(S);
 		  f.k = luaM_newvector<TValue>(S.L, n);
 		  f.sizek = n;
 		  for (i = 0; i < n; i++) 
@@ -280,7 +280,7 @@ namespace KopiLua
 			  setbvalue(o, LoadByte(S)!=0 ? 1 : 0); //FIXME:???!=0->(empty)
 			  break;
 		    case LUA_TNUMFLT:
-			  setnvalue(o, LoadNumber(S));
+			  setfltvalue(o, LoadNumber(S));
 			  break;
 		    case LUA_TNUMINT:
 			  setivalue(o, LoadInteger(S));
@@ -294,7 +294,12 @@ namespace KopiLua
 			  break;
 		    }
 		  }
-		  n = LoadInt(S);
+		}
+
+
+		private static void LoadProtos (LoadState S, Proto f) {
+		  int i;
+		  int n = LoadInt(S);
 		  f.p = luaM_newvector<Proto>(S.L, n);
 		  f.sizep = n;
 		  for (i = 0; i < n; i++) 
@@ -302,7 +307,7 @@ namespace KopiLua
 		  for (i = 0; i < n; i++) 
 		  {
 		    f.p[i] = luaF_newproto(S.L);
-		 	LoadFunction(S, f.p[i]);
+		 	LoadFunction(S, f.p[i], f.source);
 		  }
 		}
 
@@ -320,43 +325,46 @@ namespace KopiLua
 		}
 
 		private static void LoadDebug(LoadState S, Proto f) {
-		  int i,n;
-          f.source = LoadString(S);
+		  int i, n;
 		  n = LoadInt(S);
-		  f.lineinfo=luaM_newvector<int>(S.L, n);
-		  f.sizelineinfo=n;
+		  f.lineinfo = luaM_newvector<int>(S.L, n);
+		  f.sizelineinfo = n;
 		  LoadVector(S, f.lineinfo, n);
 		  n = LoadInt(S);
-		  f.locvars=luaM_newvector<LocVar>(S.L, n);
-		  f.sizelocvars=n;
-		  for (i=0; i<n; i++) 
+		  f.locvars = luaM_newvector<LocVar>(S.L, n);
+		  f.sizelocvars = n;
+		  for (i = 0; i < n; i++) 
 		    f.locvars[i].varname = null;
-		  for (i=0; i<n; i++) {
-		    f.locvars[i].varname=LoadString(S);
-		    f.locvars[i].startpc=LoadInt(S);
-		    f.locvars[i].endpc=LoadInt(S);
+		  for (i = 0; i < n; i++) {
+		    f.locvars[i].varname = LoadString(S);
+		    f.locvars[i].startpc = LoadInt(S);
+		    f.locvars[i].endpc = LoadInt(S);
 		  }
-		  n=LoadInt(S);
+		  n = LoadInt(S);
 		  for (i = 0; i < n; i++) 
 		    f.upvalues[i].name = LoadString(S);
 		}
 
-		private static void LoadFunction(LoadState S, Proto f) {
-		  f.linedefined=LoadInt(S);
-		  f.lastlinedefined=LoadInt(S);
-		  f.numparams=LoadByte(S);
-		  f.is_vararg=LoadByte(S);
-		  f.maxstacksize=LoadByte(S);
-		  LoadCode(S,f);
-		  LoadConstants(S,f);
-          LoadUpvalues(S,f);
-		  LoadDebug(S,f);
+		private static void LoadFunction(LoadState S, Proto f, TString psource) {
+		  f.source = LoadString(S);
+		  if (f.source == null)  /* no source in dump? */
+		    f.source = psource;  /* reuse parent's source */		
+		  f.linedefined = LoadInt(S);
+		  f.lastlinedefined = LoadInt(S);
+		  f.numparams = LoadByte(S);
+		  f.is_vararg = LoadByte(S);
+		  f.maxstacksize = LoadByte(S);
+		  LoadCode(S, f);
+		  LoadConstants(S, f);
+          LoadUpvalues(S, f);
+		  LoadProtos(S, f);
+		  LoadDebug(S, f);
 		}
 
 		private static void checkliteral (LoadState S, CharPtr s, CharPtr msg) {
 		  CharPtr buff = new CharPtr(new char[(LUA_SIGNATURE.Length + 1) + (LUAC_DATA.Length + 1)]); /* larger than both */
-		  int len = strlen(s);
-		  LoadVector(S, buff, len);
+		  uint len = (uint)strlen(s);
+		  LoadVector(S, buff, (int)len);
 		  if (memcmp(s, buff, len) != 0)
 		    error(S, msg);
 		}
@@ -383,7 +391,7 @@ namespace KopiLua
 		  checksize(S, typeof(lua_Integer), "lua_Integer");
 		  checksize(S, typeof(lua_Number), "lua_Number");
 		  if (LoadInteger(S) != LUAC_INT)
-		    error(S, "endianess mismatch in");
+		    error(S, "endianness mismatch in");
 		  if (LoadNumber(S) != LUAC_NUM)
 		    error(S, "float format mismatch in");
 		}
@@ -391,27 +399,27 @@ namespace KopiLua
 		/*
 		** load precompiled chunk
 		*/
-		public static Closure luaU_undump (lua_State L, ZIO Z, Mbuffer buff, 
+		public static LClosure luaU_undump (lua_State L, ZIO Z, Mbuffer buff, 
 		                                   CharPtr name) {
 		  LoadState S = new LoadState();
-		  Closure cl;
+		  LClosure cl;
 		  if (name[0] == '@' || name[0] == '=')
-		    S.name = name+1;
-		  else if (name[0]==LUA_SIGNATURE[0])
-		    S.name="binary string";
+		    S.name = name + 1;
+		  else if (name[0] == LUA_SIGNATURE[0])
+		    S.name = "binary string";
 		  else
-		    S.name=name;
-		  S.L=L;
-		  S.Z=Z;
-		  S.b=buff;
+		    S.name = name;
+		  S.L = L;
+		  S.Z = Z;
+		  S.b = buff;
 		  checkHeader(S);
 		  cl = luaF_newLclosure(L, LoadByte(S));
 		  setclLvalue(L, L.top, cl);
 		  incr_top(L);
-		  cl.l.p = luaF_newproto(L);
-		  LoadFunction(S, cl.l.p);
-		  lua_assert(cl.l.nupvalues == cl.l.p.sizeupvalues);
-		  luai_verifycode(L,buff,cl.l.p);
+		  cl.p = luaF_newproto(L);
+		  LoadFunction(S, cl.p, null);
+		  lua_assert(cl.nupvalues == cl.p.sizeupvalues);
+		  luai_verifycode(L, buff, cl.p);
 		  return cl;
 		}
 

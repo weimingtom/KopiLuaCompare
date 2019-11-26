@@ -1,5 +1,5 @@
 /*
-** $Id: llex.c,v 2.74 2014/02/14 15:23:51 roberto Exp $
+** $Id: llex.c,v 2.78 2014/05/21 15:22:02 roberto Exp $
 ** Lexical Analyzer
 ** See Copyright Notice in lua.h
 */
@@ -178,11 +178,26 @@ namespace KopiLua
 
 
 
-		private static int check_next (LexState ls, CharPtr set) {
-		  if ((char)ls.current == '\0' || strchr(set, (char)ls.current) == null)
-			return 0;
-		  save_and_next(ls);
-		  return 1;
+		private static int check_next1 (LexState ls, int c) {
+		  if (ls.current == c) {
+		    next(ls);
+		    return 1;
+		  }
+		  else return 0;
+		}
+
+
+		/*
+		** Check whether current char is in set 'set' (with two chars) and
+		** saves it
+		*/
+		private static int check_next2 (LexState ls, CharPtr set) {
+		  lua_assert(set[2] == '\0');
+		  if (ls.current == set[0] || ls.current == set[1]) {
+		    save_and_next(ls);
+		    return 1;
+		  }
+		  else return 0;
 		}
 
 
@@ -190,31 +205,33 @@ namespace KopiLua
 		** change all characters 'from' in buffer to 'to'
 		*/
 		private static void buffreplace (LexState ls, char from, char to) {
-		  uint n = luaZ_bufflen(ls.buff);
-		  CharPtr p = luaZ_buffer(ls.buff);
-		  while ((n--) != 0)
-			  if (p[n] == from) p[n] = to;
+		  if (from != to) {
+		    uint n = luaZ_bufflen(ls.buff);
+		    CharPtr p = luaZ_buffer(ls.buff);
+		    while ((n--) != 0)
+			    if (p[n] == from) p[n] = to;
+		  }
 		}
 
 
 		//#if !defined(getlocaledecpoint)
-		private static char getlocaledecpoint() { return localeconv().decimal_point[0];}
+		//private static char getlocaledecpoint() { return localeconv().decimal_point[0];}
 		//#endif
 
 
-		private static int buff2d(Mbuffer b, out lua_Number e) { return luaO_str2d(luaZ_buffer(b), luaZ_bufflen(b) - 1, out e);}
+		private static int buff2num(Mbuffer b, TValue o) { return (luaO_str2num(luaZ_buffer(b), o) != 0)?1:0;}
 
 		/*
 		** in case of format error, try to change decimal point separator to
 		** the one defined in the current locale and check again
 		*/
-		private static void trydecpoint (LexState ls, SemInfo seminfo) {
+		private static void trydecpoint (LexState ls, TValue o) {
 			// todo: add proper support for localeconv - mjf
 			//lconv cv = localeconv(); //FIXME:???removed???
 			char old = ls.decpoint;
 			ls.decpoint = getlocaledecpoint();
 			buffreplace(ls, old, ls.decpoint);  /* try new decimal separator */
-			if (buff2d(ls.buff, out seminfo.r) == 0) {
+			if (buff2num(ls.buff, o) == 0) {
 				/* format error with correct decimal point: no more options */
 				buffreplace(ls, ls.decpoint, '.');  /* undo change (for error message) */
 				lexerror(ls, "malformed number", (int)RESERVED.TK_FLT);
@@ -224,42 +241,38 @@ namespace KopiLua
 
 		/* LUA_NUMBER */
 		/*
-		** this function is quite liberal in what it accepts, as 'luaO_str2d'
-		** will reject ill-formed numerals. 'isf' means the numeral is not
-		** an integer (it has a dot or an exponent).
+		** this function is quite liberal in what it accepts, as 'luaO_str2num'
+		** will reject ill-formed numerals.
 		*/		
-		private static int read_numeral (LexState ls, SemInfo seminfo, int isf) {
+		private static int read_numeral (LexState ls, SemInfo seminfo) {
+		  TValue obj = new TValue();
 		  CharPtr expo = new CharPtr("Ee");
 		  int first = ls.current;		
 		  lua_assert(lisdigit(ls.current));
 		  save_and_next(ls);
-		  if (first == '0' && check_next(ls, "Xx") != 0)  /* hexadecimal? */
+		  if (first == '0' && check_next2(ls, "xX") != 0)  /* hexadecimal? */
 		      expo = "Pp";
 		  for (;;) {
-		    if (check_next(ls, expo) != 0)  { /* exponent part? */
-		      check_next(ls, "+-");  /* optional exponent sign */
-		      isf = 1;
-    		}
+		    if (check_next2(ls, expo) != 0)  /* exponent part? */
+		      check_next2(ls, "-+");  /* optional exponent sign */
 			if (lisxdigit(ls.current) != 0)
 		      save_and_next(ls);
-			else if (ls.current == '.') {
+			else if (ls.current == '.')
 		      save_and_next(ls);
-		      isf = 1;			
-			}
 		    else  break;
 		  }
 		  save(ls, '\0');
-		  if (0==isf) {
-		    if (0==luaO_str2int(luaZ_buffer(ls.buff), luaZ_bufflen(ls.buff) - 1,
-		                      ref seminfo.i))
-		      lexerror(ls, "malformed number", (int)RESERVED.TK_INT);
+		  buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
+		  if (0==buff2num(ls.buff, obj))  /* format error? */
+		    trydecpoint(ls, obj); /* try to update decimal point separator */
+		  if (ttisinteger(obj)) {
+		    seminfo.i = ivalue(obj);
 		    return (int)RESERVED.TK_INT;
 		  }
-		  else {		  
-			buffreplace(ls, '.', ls.decpoint);  /* follow locale for decimal point */
-			if (buff2d(ls.buff, out seminfo.r) == 0)  /* format error? */
-			  trydecpoint(ls, seminfo); /* try to update decimal point separator */
-			return (int)RESERVED.TK_FLT;
+		  else {
+		    lua_assert(ttisfloat(obj));
+		    seminfo.r = fltvalue(obj);
+		    return (int)RESERVED.TK_FLT;
 		  }
 		}
 
@@ -282,15 +295,19 @@ namespace KopiLua
 
 
 		private static void read_long_string (LexState ls, SemInfo seminfo, int sep) {
+		  int line = ls.linenumber;  /* initial line (for error message) */
 		  save_and_next(ls);  /* skip 2nd `[' */
 		  if (currIsNewline(ls))  /* string starts with a newline? */
 			inclinenumber(ls);  /* skip it */
 		  for (;;) {
 			switch (ls.current) {
-			  case EOZ:
-				lexerror(ls, (seminfo != null) ? "unfinished long string" :
-										   "unfinished long comment", (int)RESERVED.TK_EOS);
-				break;  /* to avoid warnings */
+		      case EOZ: {  /* error */
+		        CharPtr what = (seminfo!=null ? "string" : "comment");
+		        CharPtr msg = luaO_pushfstring(ls.L,
+		                     "unfinished long %s (starting at line %d)", what, line);
+		        lexerror(ls, msg, (int)RESERVED.TK_EOS);
+		        break;  /* to avoid warnings */
+		      }
 			  case ']': {
 				if (skip_sep(ls) == sep) {
 				  save_and_next(ls);  /* skip 2nd `]' */
@@ -486,55 +503,55 @@ namespace KopiLua
 			  }
 			  break;
 			  case '=': {
-				next(ls);
-				if (ls.current != '=') return '=';
-				else { next(ls); return (int)RESERVED.TK_EQ; }
-			  }
-			  case '<': {
-				next(ls);
-		        if (ls.current == '=') { next(ls); return (int)RESERVED.TK_LE; }
-		        if (ls.current == '<') { next(ls); return (int)RESERVED.TK_SHL; }
-		        return '<';
-			  }
-			  case '>': {
-				next(ls);
-		        if (ls.current == '=') { next(ls); return (int)RESERVED.TK_GE; }
-		        if (ls.current == '>') { next(ls); return (int)RESERVED.TK_SHR; }
-		        return '>';
-			  }
-			  case '/': {
 		        next(ls);
-		        if (ls.current != '/') return '/';
-		        else { next(ls); return (int)RESERVED.TK_IDIV; }
+		        if (0!=check_next1(ls, '=')) return (int)RESERVED.TK_EQ;
+		        else return '=';
 		      }
-			  case '~': {
-				next(ls);
-				if (ls.current != '=') return '~';
-				else { next(ls); return (int)RESERVED.TK_NE; }
-			  }
-			  case ':': {
+		      case '<': {
 		        next(ls);
-		        if (ls.current != ':') return ':';
-		        else { next(ls); return (int)RESERVED.TK_DBCOLON; }
+		        if (0!=check_next1(ls, '=')) return (int)RESERVED.TK_LE;
+		        else if (0!=check_next1(ls, '<')) return (int)RESERVED.TK_SHL;
+		        else return '<';
 		      }
-			  case '"': case '\'': {  /* short literal strings */
-				read_string(ls, ls.current, seminfo);
-				return (int)RESERVED.TK_STRING;
-			  }
-			  case '.': {  /* '.', '..', '...', or number */
-				save_and_next(ls);
-				if (check_next(ls, ".") != 0) {
-				  if (check_next(ls, ".") != 0)
-					  return (int)RESERVED.TK_DOTS;   /* '...' */
-				  else return (int)RESERVED.TK_CONCAT;   /* '..' */
-				}
-				else if (lisdigit(ls.current)==0) return '.';
-                else return read_numeral(ls, seminfo, 1);
-			  }
+		      case '>': {
+		        next(ls);
+		        if (0!=check_next1(ls, '=')) return (int)RESERVED.TK_GE;
+		        else if (0!=check_next1(ls, '>')) return (int)RESERVED.TK_SHR;
+		        else return '>';
+		      }
+		      case '/': {
+		        next(ls);
+		        if (0!=check_next1(ls, '/')) return (int)RESERVED.TK_IDIV;
+		        else return '/';
+		      }
+		      case '~': {
+		        next(ls);
+		        if (0!=check_next1(ls, '=')) return (int)RESERVED.TK_NE;
+		        else return '~';
+		      }
+		      case ':': {
+		        next(ls);
+		        if (0!=check_next1(ls, ':')) return (int)RESERVED.TK_DBCOLON;
+		        else return ':';
+		      }
+		      case '"': case '\'': {  /* short literal strings */
+		        read_string(ls, ls.current, seminfo);
+		        return (int)RESERVED.TK_STRING;
+		      }
+		      case '.': {  /* '.', '..', '...', or number */
+		        save_and_next(ls);
+		        if (0!=check_next1(ls, '.')) {
+		          if (0!=check_next1(ls, '.'))
+		            return (int)RESERVED.TK_DOTS;   /* '...' */
+		          else return (int)RESERVED.TK_CONCAT;   /* '..' */
+		        }
+		        else if (0==lisdigit(ls.current)) return '.';
+		        else return read_numeral(ls, seminfo);
+		      }
 		      case '0': case '1': case '2': case '3': case '4':
 		      case '5': case '6': case '7': case '8': case '9': {
-		        return read_numeral(ls, seminfo, 0);
-              }
+		        return read_numeral(ls, seminfo);
+		      }
 			  case EOZ: {
 				  return (int)RESERVED.TK_EOS;
 			  }

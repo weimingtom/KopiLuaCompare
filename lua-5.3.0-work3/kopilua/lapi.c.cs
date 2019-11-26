@@ -179,12 +179,12 @@ namespace KopiLua
 		** Reverse the stack segment from 'from' to 'to'
 		** (auxiliar to 'lua_rotate')
 		*/
-		private static void reverse (lua_State *L, StkId from, StkId to) {
-		  for (; from < to; from++, to--) {
-		    TValue temp;
-		    setobj(L, &temp, from);
+		private static void reverse (lua_State L, StkId from, StkId to) {
+		  for (; from < to; TValue.inc(ref from), TValue.dec(ref to)) {
+			TValue temp = new TValue();
+		    setobj(L, temp, from);
 		    setobjs2s(L, from, to);
-		    setobj2s(L, to, &temp);
+		    setobj2s(L, to, temp);
 		  }
 		}
 
@@ -193,10 +193,10 @@ namespace KopiLua
 		** Let x = AB, where A is a prefix of length 'n'. Then,
 		** rotate x n == BA. But BA == (A^r . B^r)^r.
 		*/
-		public static void lua_rotate (lua_State *L, int idx, int n) {
+		public static void lua_rotate (lua_State L, int idx, int n) {
 		  StkId p, t, m;
 		  lua_lock(L);
-		  t = L->top - 1;  /* end of stack segment being rotated */
+		  t = L.top - 1;  /* end of stack segment being rotated */
 		  p = index2addr(L, idx);  /* start of segment */
 		  api_checkstackindex(L, idx, p);
 		  api_check(L, (n >= 0 ? n : -n) <= (t - p + 1), "invalid 'n'");
@@ -336,7 +336,7 @@ namespace KopiLua
 
 
 		public static uint lua_strtonum (lua_State L, CharPtr s) {
-		  size_t sz = luaO_str2num(s, L->top);
+		  uint sz = luaO_str2num(s, L.top);
 		  if (sz != 0)
 		    api_incr_top(L);
 		  return sz;
