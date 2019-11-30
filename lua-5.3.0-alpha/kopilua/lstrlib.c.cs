@@ -1,5 +1,5 @@
 /*
-** $Id: lstrlib.c,v 1.198 2014/04/27 14:42:26 roberto Exp $
+** $Id: lstrlib.c,v 1.200 2014/07/30 13:59:24 roberto Exp $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
 */
@@ -119,7 +119,7 @@ namespace KopiLua
 		  else if (l + lsep < l || l + lsep > MAXSIZE / n)  /* may overflow? */
 		    return luaL_error(L, "resulting string too large");
 		  else {
-		    uint totallen = (uint)(n * l + (n - 1) * lsep); //FIXME:changed, (uint)
+		    uint totallen = (uint)(n * l) + (uint)(n - 1) * lsep; //FIXME:changed, (uint)
 		    luaL_Buffer b = new luaL_Buffer();
 		    CharPtr p = luaL_buffinitsize(L, b, totallen);
 		    while (n-- > 1) {  /* first n-1 copies (followed by separator) */
@@ -624,7 +624,7 @@ namespace KopiLua
           /* explicit request or no special characters? */
 		  if ((find!=0) && ((lua_toboolean(L, 4)!=0) || nospecials(p, lp)!=0)) {
 			/* do a plain search */
-			CharPtr s2 = lmemfind(s + init - 1, (uint)(ls - init + 1), p, lp);
+			CharPtr s2 = lmemfind(s + init - 1, ls - (uint)init + 1, p, lp);
 			if (s2 != null) {
 			  lua_pushinteger(L, s2 - s + 1);
 			  lua_pushinteger(L, (int)(s2 - s + lp));
@@ -715,7 +715,8 @@ namespace KopiLua
 		private static void add_s (MatchState ms, luaL_Buffer b, CharPtr s,
 														         CharPtr e) {
 		  uint l, i;
-		  CharPtr news = lua_tolstring(ms.L, 3, out l);
+		  lua_State L = ms.L;
+		  CharPtr news = lua_tolstring(L, 3, out l);
 		  for (i = 0; i < l; i++) {
 			if (news[i] != L_ESC)
 			  luaL_addchar(b, news[i]);
@@ -723,14 +724,17 @@ namespace KopiLua
 			  i++;  /* skip ESC */
 			  if (!isdigit((byte)(news[i]))) {
 		        if (news[i] != L_ESC)
-		          luaL_error(ms.L, "invalid use of " + LUA_QL("%c") + 
+		          luaL_error(L, "invalid use of " + LUA_QL("%c") + 
 		                           " in replacement string", L_ESC);
 		        luaL_addchar(b, news[i]);
 		      }
 			  else if (news[i] == '0')
 				  luaL_addlstring(b, s, (uint)(e - s));
 			  else {
+			  	uint null_ = 0;
 				push_onecapture(ms, news[i] - '1', s, e);
+		        luaL_tolstring(L, -1, out null_);  /* if number, convert it to string */
+		        lua_remove(L, -2);  /* remove original value */			
 				luaL_addvalue(b);  /* add capture to accumulated result */
 			  }
 			}
@@ -774,9 +778,9 @@ namespace KopiLua
 		  CharPtr src = luaL_checklstring(L, 1, out srcl);
 		  CharPtr p = luaL_checklstring(L, 2, out lp);
           int tr = lua_type(L, 3);
-          uint max_s = (uint)luaL_optinteger(L, 4, (int)(srcl+1));
+          lua_Integer max_s = luaL_optinteger(L, 4, (int)(srcl+1));
 		  int anchor = (p[0] == '^') ? 1 : 0;
-		  uint n = 0;
+		  lua_Integer n = 0;
 		  MatchState ms = new MatchState();
 		  luaL_Buffer b = new luaL_Buffer();
 		  luaL_argcheck(L, tr == LUA_TNUMBER || tr == LUA_TSTRING ||

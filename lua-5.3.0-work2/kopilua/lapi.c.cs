@@ -1254,9 +1254,9 @@ namespace KopiLua
 
 		public static CharPtr lua_setupvalue (lua_State L, int funcindex, int n) {
 		  CharPtr name;
-		  TValue val = null;
-		  UpVal uv = null;
+		  TValue val = null;  /* to avoid warnings */
 		  GCObject owner = null;
+		  UpVal uv = null;
 		  StkId fi;
 		  lua_lock(L);
 		  fi = index2addr(L, funcindex);

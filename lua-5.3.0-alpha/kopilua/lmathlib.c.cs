@@ -1,5 +1,5 @@
 /*
-** $Id: lmathlib.c,v 1.92 2013/07/22 16:05:53 roberto Exp $
+** $Id: lmathlib.c,v 1.108 2014/07/28 17:35:47 roberto Exp $
 ** Standard mathematical library
 ** See Copyright Notice in lua.h
 */
@@ -75,36 +75,36 @@ namespace KopiLua
 		}
 
 
-		private static int math_ifloor (lua_State L) {
+		private static int math_toint (lua_State L) {
 		  int valid = 0;
 		  lua_Integer n = lua_tointegerx(L, 1, ref valid);
-		  if (valid!=0)
-		    lua_pushinteger(L, n);  /* floor computed by Lua */
+		  if (0!=valid)
+		    lua_pushinteger(L, n);
 		  else {
-		    luaL_checktype(L, 1, LUA_TNUMBER);  /* argument must be a number */
-		    lua_pushnil(L);  /* number is not convertible to integer */
+		    luaL_checkany(L, 1);
+		    lua_pushnil(L);  /* value is not convertible to integer */
 		  }
-		  return 1;
-		}
-
-		
-		private static int math_floor (lua_State L) {
-		  int valid = 0;
-		  lua_Integer n = lua_tointegerx(L, 1, ref valid);
-		  if (valid!=0)
-		    lua_pushinteger(L, n);  /* floor computed by Lua */
-		  else
-		    lua_pushnumber(L, floor(luaL_checknumber(L, 1)));
 		  return 1;
 		}
 
 
 		private static void pushnumint (lua_State L, lua_Number d) {
 		  lua_Integer n = 0;
-		  if (0!=lua_numtointeger(d, ref n))  /* fits in an integer? */
+		  if (0!=lua_numtointeger(d, ref n))  /* does 'd' fit in an integer? */
 		    lua_pushinteger(L, n);  /* result is integer */
 		  else
 		    lua_pushnumber(L, d);  /* result is float */
+		}
+
+
+		private static int math_floor (lua_State L) {
+		  if (0!=lua_isinteger(L, 1))
+		    lua_settop(L, 1);  /* integer is its own floor */
+		  else {
+		    lua_Number d = floor(luaL_checknumber(L, 1));
+		    pushnumint(L, d);
+		  }
+		  return 1;
 		}
 
 
@@ -144,14 +144,14 @@ namespace KopiLua
 		private static int math_modf (lua_State L) {
 		  if (0!=lua_isinteger(L ,1)) {
 		    lua_settop(L, 1);  /* number is its own integer part */
-		    lua_pushnumber(L, 0);  /* no fractionary part */
+		    lua_pushnumber(L, 0);  /* no fractional part */
 		  }
 		  else {		
 		    lua_Number n = luaL_checknumber(L, 1);
 		    /* integer part (rounds toward zero) */
 		    lua_Number ip = (n < 0) ? -ceil(-n) : floor(n);
 		    pushnumint(L, ip);
-		    /* fractionary part (test needed for inf/-inf) */
+		    /* fractional part (test needed for inf/-inf) */
 		    lua_pushnumber(L, (n == ip) ? 0.0 : (n - ip));
 		  }
 		  return 2;
@@ -160,6 +160,14 @@ namespace KopiLua
 
 		private static int math_sqrt (lua_State L) {
 		  lua_pushnumber(L, sqrt(luaL_checknumber(L, 1)));
+		  return 1;
+		}
+
+
+		private static int math_ult (lua_State L) {
+		  lua_Integer a = luaL_checkinteger(L, 1);
+		  lua_Integer b = luaL_checkinteger(L, 2);
+		  lua_pushboolean(L, ((lua_Unsigned)a < (lua_Unsigned)b)?1:0);
 		  return 1;
 		}
 
@@ -258,22 +266,23 @@ namespace KopiLua
 
 
 		private static int math_randomseed (lua_State L) {
-		  rng = new Random((int)luaL_checkunsigned(L, 1)); //FIXME:changed - l_srand((unsigned int)luaL_checkunsigned(L, 1)); //FIXME:added, (int)
+		  rng = new Random(/*(unsigned int)*/(lua_Integer)luaL_checknumber(L, 1)); //FIXME:changed - l_srand((unsigned int)luaL_checkunsigned(L, 1)); //FIXME:added, (int)
 		  rng.Next(); /* discard first value to avoid undesirable correlations */ //FIXME:changed - (void)rand();
 		  return 0;
 		}
 
 
 		private static int math_type (lua_State L) {
-		  luaL_checkany(L, 1);
 		  if (lua_type(L, 1) == LUA_TNUMBER) {
 		      if (0!=lua_isinteger(L, 1))
 		        lua_pushliteral(L, "integer"); 
 		      else
 		        lua_pushliteral(L, "float"); 
 		  }
-		  else
+		  else {
+		    luaL_checkany(L, 1);
 		    lua_pushnil(L);
+		  }
 		  return 1;
 		}
 
@@ -340,9 +349,10 @@ namespace KopiLua
 		  new luaL_Reg("cos",   math_cos),
 		  new luaL_Reg("deg",   math_deg),
 		  new luaL_Reg("exp",   math_exp),
-		  new luaL_Reg("ifloor", math_ifloor),
+		  new luaL_Reg("tointeger", math_toint),
 		  new luaL_Reg("floor", math_floor),
 		  new luaL_Reg("fmod",   math_fmod),
+		  new luaL_Reg("ult",   math_ult),
 		  new luaL_Reg("log",   math_log),
 		  new luaL_Reg("max",   math_max),
 		  new luaL_Reg("min",   math_min),
@@ -364,6 +374,11 @@ namespace KopiLua
 		  new luaL_Reg("ldexp", math_ldexp),
 		  new luaL_Reg("log10", math_log10),
 		//#endif
+		  /* placeholders */
+		  new luaL_Reg("pi", null),
+		  new luaL_Reg("huge", null),
+		  new luaL_Reg("maxinteger", null),
+		  new luaL_Reg("mininteger", null),		
 		  new luaL_Reg(null, null)
 		};
 
