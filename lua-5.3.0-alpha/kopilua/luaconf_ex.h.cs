@@ -1334,6 +1334,8 @@ namespace KopiLua
 				return 8;
 			else if (t == typeof(UTString))
 				return 64; //FIXME:???UTString
+			else if (t == typeof(UUdata))
+				return 64; //FIXME:??
 			Debug.Assert(false, "Trying to get unknown sized of unmanaged type " + t.ToString());
 			return 0;
 		}

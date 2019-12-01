@@ -193,14 +193,17 @@ namespace KopiLua
 		  TValue temp = new TValue();
 		  /* create registry */
 		  Table registry = luaH_new(L);
+//		  _registry = registry;
 		  sethvalue(L, g.l_registry, registry);
 		  luaH_resize(L, registry, LUA_RIDX_LAST, 0);
 		  /* registry[LUA_RIDX_MAINTHREAD] = L */
 		  setthvalue(L, temp, L);  /* temp = L */
-		  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, temp);
+		  luaH_setint(L, registry, LUA_RIDX_MAINTHREAD, temp);  //FIXME:这里没有设置成功
+//		  lua_xxx();
 		  /* registry[LUA_RIDX_GLOBALS] = table of globals */
   		  sethvalue(L, temp, luaH_new(L));  /* temp = new table (global table) */
 		  luaH_setint(L, registry, LUA_RIDX_GLOBALS, temp);
+//		  lua_xxx();
 		}
 
 

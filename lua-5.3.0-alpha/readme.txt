@@ -1,5 +1,10 @@
 ﻿TODO: class embeded, see class CallInfo
 
+			else if (t == typeof(UTString))
+				return 64; //FIXME:???UTString
+			else if (t == typeof(UUdata))
+				return 64；//FIXME:？？
+
 ----------------------
 
 9:22 2019/11/28
@@ -308,4 +313,72 @@ for debugging------>		  public int sizearray
 		  }
 		  
 -------------------------------
+registry array [0] and [1] not thread and table (this bug fixed, see below setobj())
 
+
+		//FIXME:added
+static Table _registry;
+static void lua_xxx()
+{
+	Table t = _registry; //_tt;
+  for (int i = 1; i < 3; ++i)
+  {
+    TValue temp = t.array[i-1];
+	if (ttisthread(temp)) //tt_ == 0x48 = 72; low 4bit: 8 is thread
+	{
+		Debug.WriteLine("lua_xxx 003: thread at array[" + (i-1) + "]");
+	}
+	if (ttistable(temp)) //tt_ == 0x45 = 69; low 4bit: 5 is table
+	{
+		Debug.WriteLine("lua_xxx 004: table at array[" + (i-1) + "]");
+	}
+  }
+}	
+
+---
+
+found bug is here
+
+		public static void setobj(lua_State L, TValue obj1, TValue obj2) 
+io1 = obj2, value copy, not ref copy ----->		    { TValue io1=(obj1); io1.copy(obj2);
+			  /*(void)L;*/ checkliveness(G(L), io1);}
+			  
+			  
+---
+method see this, not safe???
+
+			public static void copy(lua_TValue v1, lua_TValue v2)
+			{
+				v1.value_ = v2.value_; 
+				v1.tt_ = v2.tt_;
+				//FIXME:???see setobj()
+//				v1.index = v2.index;
+//				v1.value_ = v2.value_;
+//				v1._parent = v2._parent
+			}
+			
+---
+
+
+----------------------
+
+		public class Udata : GCUnion { //FIXME:added
+    		public lu_byte ttuv_;  /* user value's tag */
+			public Table metatable;
+			public uint len;  /* number of bytes */
+			public Value user_;  /* user value */
+			
+------->			public object user_data;
+		};
+
+---
+		
+			u.user_data = luaM_realloc_(L, t);  //FIXME:???
+			
+
+---
+
+		public static object getudatamem(Udata u)  {
+			return u.user_data; }
+			//throw new Exception(); return null; } //return check_exp(sizeof((u).ttuv_), (cast(char*, (u)) + sizeof(UUdata))); } //FIXME:???
+			

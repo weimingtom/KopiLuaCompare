@@ -266,6 +266,15 @@ namespace KopiLua
 			}
 			/* count elements in range (2^(lg-1), 2^lg] */
 			for (; i <= lim; i++) {
+//			  TValue temp = t.array[i-1];
+//			  if (ttisthread(temp))
+//			  {
+//				Debug.WriteLine("xxx003: thread at array[" + (i-1) + "]");
+//			  }
+//			  if (ttistable(temp))
+//			  {
+//			  	Debug.WriteLine("xxx004: table at array[" + (i-1) + "]");
+//			  }
 			  if (!ttisnil(t.array[i-1]))
 				lc++;
 			}
@@ -332,6 +341,7 @@ namespace KopiLua
 		  int oldasize = t.sizearray;
 		  int oldhsize = t.lsizenode;
 		  Node[] nold = t.node;  /* save old hash ... */
+//		  Debug.WriteLine("x001=" + nasize + ",x002=" + nhsize);
 		  if (nasize > oldasize)  /* array part must grow? */
 			setarrayvector(L, t, nasize);
 		  /* create new hash part with appropriate size */

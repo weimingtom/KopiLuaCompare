@@ -663,6 +663,24 @@ namespace KopiLua
 		  lua_unlock(L);
 		}
 
+		//FIXME:added
+//static Table _registry;
+//static void lua_xxx()
+//{
+//	Table t = _registry; //_tt;
+//  for (int i = 1; i < 3; ++i)
+//  {
+//    TValue temp = t.array[i-1];
+//	if (ttisthread(temp)) //tt_ == 0x48 = 72; low 4bit: 8 is thread
+//	{
+//		Debug.WriteLine("lua_xxx 003: thread at array[" + (i-1) + "]");
+//	}
+//	if (ttistable(temp)) //tt_ == 0x45 = 69; low 4bit: 5 is table
+//	{
+//		Debug.WriteLine("lua_xxx 004: table at array[" + (i-1) + "]");
+//	}
+//  }
+//}		
 
 		public static int lua_getmetatable (lua_State L, int objindex) {
 		  TValue obj;
@@ -739,7 +757,7 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  t = index2addr(L, idx);
-		  setsvalue2s(L, StkId.inc(ref L.top), luaS_new(L, k));
+		  setsvalue2s(L, L.top, luaS_new(L, k)); lua_TValue.inc(ref L.top, 1);
 		  luaV_settable(L, t, L.top - 1, L.top - 2);
 		  L.top -= 2;  /* pop value and key */
 		  lua_unlock(L);

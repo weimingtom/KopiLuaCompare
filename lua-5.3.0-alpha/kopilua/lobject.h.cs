@@ -204,6 +204,26 @@ namespace KopiLua
 				return value[1];
 			}
 
+			public static void dec(ref lua_TValue value, int n)
+			{
+				value = value[-n];
+			}
+			public static void inc(ref lua_TValue value, int n)
+			{
+				value = value[n];
+			}
+			
+			
+			public static void copy(lua_TValue v1, lua_TValue v2)
+			{
+				v1.value_ = v2.value_; 
+				v1.tt_ = v2.tt_;
+				//FIXME:???see setobj()
+//				v1.index = v2.index;
+//				v1.value_ = v2.value_;
+//				v1._parent = v2._parent;
+			}
+			
 			public static implicit operator int(lua_TValue value)
 			{
 				return value.index;
@@ -389,7 +409,7 @@ namespace KopiLua
 
 
 		public static void setobj(lua_State L, TValue obj1, TValue obj2) 
-		    { TValue io1=(obj1); TValue io2=(obj2);
+		    { TValue io1=(obj1); lua_TValue.copy(io1, obj2);
 			  /*(void)L;*/ checkliveness(G(L), io1);}
 
 
@@ -548,6 +568,8 @@ namespace KopiLua
 			public Table metatable;
 			public uint len;  /* number of bytes */
 			public Value user_;  /* user value */
+			
+			public object user_data;
 		};
 
 		/*
@@ -564,7 +586,8 @@ namespace KopiLua
 		** (Access to 'ttuv_' ensures that value is really a 'Udata'.)
 		*/
 		public static object getudatamem(Udata u)  {
-			throw new Exception(); return null; } //return check_exp(sizeof((u).ttuv_), (cast(char*, (u)) + sizeof(UUdata))); } //FIXME:???
+			return u.user_data; }
+			//throw new Exception(); return null; } //return check_exp(sizeof((u).ttuv_), (cast(char*, (u)) + sizeof(UUdata))); } //FIXME:???
 
 
 		public static void setuservalue(lua_State L, Udata u, TValue o)

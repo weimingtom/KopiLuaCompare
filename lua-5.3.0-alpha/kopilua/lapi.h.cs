@@ -10,7 +10,7 @@ namespace KopiLua
 	
 	public partial class Lua
 	{
-		private static void api_incr_top(lua_State L)  { StkId.inc(ref L.top); api_check(L.top <= L.ci.top, 
+		private static void api_incr_top(lua_State L)  { lua_TValue.inc(ref L.top, 1); api_check(L.top <= L.ci.top, 
 		      "stack overflow");}
 
 		private static void adjustresults(lua_State L, int nres) 

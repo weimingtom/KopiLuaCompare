@@ -190,8 +190,8 @@ namespace KopiLua
 			u.len = 0;//FIXME:s;
 			u.metatable = null;
 			setuservalue(L, u, luaO_nilobject);
-			throw new Exception();
-			//u.user_data = luaM_realloc_(L, t);  //FIXME:???
+//			throw new Exception();
+			u.user_data = luaM_realloc_(L, t);  //FIXME:???
 			AddTotalBytes(L, GetUnmanagedSize(typeof(Udata)));  //FIXME:???
 			return u;
 		}

@@ -890,6 +890,7 @@ namespace KopiLua
 		    idx = lua_absindex(L, idx);
 		    lua_newtable(L);
 		    lua_pushvalue(L, -1);  /* copy to be left at top */
+//		    lua_xxx();
 		    lua_setfield(L, idx, fname);  /* assign new table to field */
             return 0;  /* false, because did not find table there */
 		  }
@@ -917,6 +918,7 @@ namespace KopiLua
 		  lua_remove(L, -2);  /* remove _LOADED table */
 		  if (0!=glb) {
 		    lua_pushvalue(L, -1);  /* copy of module */
+//		    Debug.WriteLine("xxx100");
 		    lua_setglobal(L, modname);  /* _G[modname] = module */
 		  }
 		}
