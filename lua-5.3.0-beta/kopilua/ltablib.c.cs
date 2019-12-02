@@ -1,5 +1,5 @@
 /*
-** $Id: ltablib.c,v 1.73 2014/07/29 16:01:00 roberto Exp $
+** $Id: ltablib.c,v 1.77 2014/10/17 16:28:21 roberto Exp $
 ** Library for Table Manipulation
 ** See Copyright Notice in lua.h
 */
@@ -28,41 +28,26 @@ namespace KopiLua
 		};
 
 
-		/*
-		** equivalent to 'lua_rawgeti', but not raw
-		*/
-		private static int geti (lua_State L, int idx, lua_Integer n) {
-		  lua_pushinteger(L, n);
-		  return lua_gettable(L, idx);  /* assume 'idx' is not negative */
-		}
-
-
-		/*
-		** equivalent to 'lua_rawseti', but not raw
-		*/
-		private static void seti (lua_State L, int idx, lua_Integer n) {
-		  lua_pushinteger(L, n);
-		  lua_rotate(L, -2, 1);  /* exchange key and value */
-		  lua_settable(L, idx);  /* assume 'idx' is not negative */
-		}
-
 
 		/*
 		** Check that 'arg' has a table and set access functions in 'ta' to raw
 		** or non-raw according to the presence of corresponding metamethods.
 		*/
 		private static void checktab (lua_State L, int arg, TabA ta) {
-		  luaL_checktype(L, arg, LUA_TTABLE);
-		  if (0==lua_getmetatable(L, arg)) {  /* fast track */
-		    ta.geti = lua_rawgeti;  /* with no metatable, all is raw */
-		    ta.seti = lua_rawseti;
-		  }
-		  else {
+		  ta.geti = null; ta.seti = null;
+		  if (0!=lua_getmetatable(L, arg)) {
 		    lua_pushliteral(L, "__index");  /* 'index' metamethod */
-		    ta.geti = (lua_rawget(L, -2) == LUA_TNIL) ? (geti_delegate)lua_rawgeti : geti;
+		    if (lua_rawget(L, -2) != LUA_TNIL)
+		      ta.geti = lua_geti;
 		    lua_pushliteral(L, "__newindex");  /* 'newindex' metamethod */
-		    ta.seti = (lua_rawget(L, -3) == LUA_TNIL) ? (seti_delegate)lua_rawseti : seti;
+		    if (lua_rawget(L, -3) != LUA_TNIL)
+		      ta.seti = lua_seti;
 		    lua_pop(L, 3);  /* pop metatable plus both metamethods */
+		  }
+		  if (ta.geti == null || ta.seti == null) {
+		    luaL_checktype(L, arg, LUA_TTABLE);  /* must be table for raw methods */
+		    if (ta.geti == null) ta.geti = lua_rawgeti;
+		    if (ta.seti == null) ta.seti = lua_rawseti;
 		  }
 		}
 	
@@ -108,7 +93,7 @@ namespace KopiLua
 			  break;
 			}
 			default: {
-			  return luaL_error(L, "wrong number of arguments to " + LUA_QL("insert"));
+			  return luaL_error(L, "wrong number of arguments to 'insert'");
 			}
 		  }
 		  ta.seti(L, 1, pos);  /* t[pos] = v */
@@ -132,25 +117,33 @@ namespace KopiLua
 		  return 1;
 		}
 
-
-		private static int tcopy (lua_State L) {
+		
+		private static geti_delegate tmove_1(lua_State L) 
+		{
+			luaL_checktype(L, 1, LUA_TTABLE);
+			return lua_rawgeti;
+		}
+		private static seti_delegate tmove_2(lua_State L, int tt)
+		{
+			luaL_checktype(L, tt, LUA_TTABLE);
+			return lua_rawseti;
+		}
+		private static int tmove (lua_State L) {
 		  TabA ta = new TabA();
 		  lua_Integer f = luaL_checkinteger(L, 2);
 		  lua_Integer e = luaL_checkinteger(L, 3);
-		  lua_Integer t;
-		  int tt = 4;  /* destination table */
+		  lua_Integer t = luaL_checkinteger(L, 4);
+		  int tt = !lua_isnoneornil(L, 5) ? 5 : 1;  /* destination table */
 		  /* the following restriction avoids several problems with overflows */
 		  luaL_argcheck(L, f > 0, 2, "initial position must be positive");
-		  if (lua_istable(L, tt))
-		    t = luaL_checkinteger(L, 5);
-		  else {
-		    tt = 1;  /* destination table is equal to source */
-		    t = luaL_checkinteger(L, 4);
-		  }
 		  if (e >= f) {  /* otherwise, nothing to move */
 		    lua_Integer n, i;
-		    ta.geti = (0==luaL_getmetafield(L, 1, "__index")) ? (geti_delegate)lua_rawgeti : geti;
-		    ta.seti = (0==luaL_getmetafield(L, tt, "__newindex")) ? (seti_delegate)lua_rawseti : seti;
+		    ta.geti = (luaL_getmetafield(L, 1, "__index") == LUA_TNIL)
+		      ? tmove_1(L)
+		      : lua_geti;
+		    ta.seti = (luaL_getmetafield(L, tt, "__newindex") == LUA_TNIL)
+		      ? tmove_2(L, tt)
+		      : lua_seti;
 		    n = e - f + 1;  /* number of elements to move */
 		    if (t > f) {
 		      for (i = n - 1; i >= 0; i--) {
@@ -173,8 +166,8 @@ namespace KopiLua
 		private static void addfield (lua_State L, luaL_Buffer b, TabA ta, lua_Integer i) {
 		  ta.geti(L, 1, i);
 		  if (lua_isstring(L, -1) == 0)
-		    luaL_error(L, "invalid value (%s) at index %d in table for " + 
-		                  LUA_QL("concat"), luaL_typename(L, -1), i);
+		    luaL_error(L, "invalid value (%s) at index %d in table for 'concat'",
+		                  luaL_typename(L, -1), i);
 		  luaL_addvalue(b);
 		}
 
@@ -366,7 +359,7 @@ namespace KopiLua
 		  new luaL_Reg("pack", pack),
 		  new luaL_Reg("unpack", unpack),
 		  new luaL_Reg("remove", tremove),
-		  new luaL_Reg("copy", tcopy),
+		  new luaL_Reg("move", tmove),
 		  new luaL_Reg("sort", sort),
 		  new luaL_Reg(null, null)
 		};

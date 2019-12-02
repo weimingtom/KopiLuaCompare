@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.93 2014/07/29 16:22:24 roberto Exp $
+** $Id: ltable.c,v 2.96 2014/10/17 16:28:21 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -20,6 +20,7 @@ namespace KopiLua
 	using lu_byte = System.Byte;
 	using lua_Integer = System.Int32;
 	using LUA_INTEGER = System.Int32;
+	using lua_Unsigned = System.UInt32;
 	
 	public partial class Lua
 	{
@@ -43,10 +44,16 @@ namespace KopiLua
 		** minimum between size of int and size of LUA_INTEGER; array indices
 		** are limited by both types.)
 		*/
-		public static int SIZEINT = 
-		  (GetUnmanagedSize(typeof(int)) < GetUnmanagedSize(typeof(LUA_INTEGER)) ? GetUnmanagedSize(typeof(int)) : GetUnmanagedSize(typeof(LUA_INTEGER)));
-		public static int MAXBITS = cast_int(SIZEINT * CHAR_BIT - 2);
-		public static int MAXASIZE	= (1 << MAXBITS);
+		public static int MAXABITS = cast_int(GetUnmanagedSize(typeof(int)) * CHAR_BIT - 1);
+		public static int MAXASIZE	= (int)(1u << MAXABITS);
+
+		/*
+		** Maximum size of hash part is 2^MAXHBITS. MAXHBITS is the largest
+		** integer such that 2^MAXHBITS fits in a signed int. (Note that the
+		** maximum number of elements in a table, 2^MAXABITS + 2^MAXHBITS, still
+		** fits comfortably in an unsigned int.)
+		*/
+		public static int MAXHBITS = (MAXABITS - 1);
 
 
 		public static Node hashpow2(Table t, lua_Number n)		{return gnode(t, (int)lmod(n, sizenode(t)));}
@@ -145,29 +152,29 @@ namespace KopiLua
 
 		/*
 		** returns the index for `key' if `key' is an appropriate key to live in
-		** the array part of the table, -1 otherwise.
+		** the array part of the table, 0 otherwise.
 		*/
-		private static int arrayindex (TValue key) {
+		private static uint arrayindex (TValue key) {
 		  if (ttisinteger(key)) {
 		    lua_Integer k = ivalue(key);
-		    if (0 < k && k <= MAXASIZE)  /* is `key' an appropriate array index? */
-		      return cast_int(k);
+		    if (0 < k && (lua_Unsigned)k <= MAXASIZE)  /* is `key' an appropriate array index? */
+		      return (lua_Unsigned)(k);
 		  }
-		  return -1;  /* `key' did not match some condition */
+		  return 0;  /* `key' did not match some condition */
 		}
 
 
 		/*
 		** returns the index of a `key' for table traversals. First goes all
 		** elements in the array part, then elements in the hash part. The
-		** beginning of a traversal is signaled by -1.
+		** beginning of a traversal is signaled by 0.
 		*/
-		private static int findindex (lua_State L, Table t, StkId key) {
-		  int i;
-		  if (ttisnil(key)) return -1;  /* first iteration */
+		private static uint findindex (lua_State L, Table t, StkId key) {
+		  uint i;
+		  if (ttisnil(key)) return 0;  /* first iteration */
 		  i = arrayindex(key);
-		  if (0 < i && i <= t.sizearray)  /* is `key' inside array part? */
-			return i-1;  /* yes; that's the index (corrected to C) */
+		  if (i != 0 && i <= t.sizearray)  /* is `key' inside array part? */
+			return i;  /* yes; that's the index */
 		  else {
 		    int nx;
 			Node n = mainposition(t, key);
@@ -176,13 +183,13 @@ namespace KopiLua
 		      if (luaV_rawequalobj(gkey(n), key)!=0 ||
 		            (ttisdeadkey(gkey(n)) && iscollectable(key) &&
 		             deadvalue(gkey(n)) == gcvalue(key))) {
-		        i = cast_int(n - gnode(t, 0));  /* key index in hash table */
+		      	i = (uint)cast_int(n - gnode(t, 0));  /* key index in hash table */
 		        /* hash elements are numbered after array ones */
-		        return i + t.sizearray;
+		        return (i + 1) + t.sizearray;
 		      }
 		      nx = gnext(n);
 		      if (nx == 0)
-		        luaG_runerror(L, "invalid key to " + LUA_QL("next"));  /* key not found */
+		        luaG_runerror(L, "invalid key to 'next'");  /* key not found */
 		      else Node.inc(ref n, nx);
 			}
 		  }
@@ -190,18 +197,18 @@ namespace KopiLua
 
 
 		public static int luaH_next (lua_State L, Table t, StkId key) {
-		  int i = findindex(L, t, key);  /* find original element */
-		  for (i++; i < t.sizearray; i++) {  /* try first array part */
+		  uint i = findindex(L, t, key);  /* find original element */
+		  for (; i < t.sizearray; i++) {  /* try first array part */
 			if (!ttisnil(t.array[i])) {  /* a non-nil value? */
-			  setivalue(key, i + 1);
+		  	  setivalue(key, (int)(i + 1));
 			  setobj2s(L, key+1, t.array[i]);
 			  return 1;
 			}
 		  }
-		  for (i -= t.sizearray; i < sizenode(t); i++) {  /* then hash part */
-			if (!ttisnil(gval(gnode(t, i)))) {  /* a non-nil value? */
-			  setobj2s(L, key, gkey(gnode(t, i)));
-			  setobj2s(L, key+1, gval(gnode(t, i)));
+		  for (i -= t.sizearray; cast_int(i) < sizenode(t); i++) {  /* then hash part */
+		  	if (!ttisnil(gval(gnode(t, (int)i)))) {  /* a non-nil value? */
+			  setobj2s(L, key, gkey(gnode(t, (int)i)));
+			  setobj2s(L, key+1, gval(gnode(t, (int)i)));
 			  return 1;
 			}
 		  }
@@ -215,19 +222,24 @@ namespace KopiLua
 		** ==============================================================
 		*/
 
-
-		private static int computesizes (int[] nums, ref int narray) {
+		/*
+		** Compute the optimal size for the array part of table 't'. 'nums' is a
+		** "count array" where 'nums[i]' is the number of integers in the table
+		** between 2^(i - 1) + 1 and 2^i. Put in '*narray' the optimal size, and
+		** return the number of elements that will go to that part.
+		*/
+		private static uint computesizes (uint[] nums, ref uint narray) {
 		  int i;
-		  int twotoi;  /* 2^i */
-		  int a = 0;  /* number of elements smaller than 2^i */
-		  int na = 0;  /* number of elements to go to array part */
-		  int n = 0;  /* optimal size for array part */
+		  uint twotoi;  /* 2^i */
+		  uint a = 0;  /* number of elements smaller than 2^i */
+		  uint na = 0;  /* number of elements to go to array part */
+		  uint n = 0;  /* optimal size for array part */
 		  for (i = 0, twotoi = 1; twotoi/2 < narray; i++, twotoi *= 2) {
 			if (nums[i] > 0) {
 			  a += nums[i];
 			  if (a > twotoi/2) {  /* more than half elements present? */
 				n = twotoi;  /* optimal size (till now) */
-				na = a;  /* all elements smaller than n will go to array part */
+				na = a;  /* all elements up to 'n' will go to array part */
 			  }
 			}
 			if (a == narray) break;  /* all elements already counted */
@@ -238,9 +250,9 @@ namespace KopiLua
 		}
 
 
-		private static int countint (TValue key, int[] nums) {
-		  int k = arrayindex(key);
-		  if (k > 0) {  /* is `key' an appropriate array index? */
+		private static int countint (TValue key, uint[] nums) {
+		  uint k = arrayindex(key);
+		  if (k != 0) {  /* is `key' an appropriate array index? */
 		  	nums[luaO_ceillog2((uint)k)]++;  /* count as such */
 			return 1;
 		  }
@@ -249,20 +261,21 @@ namespace KopiLua
 		}
 
 
-		private static int numusearray (Table t, int[] nums) {
+		private static uint numusearray (Table t, uint[] nums) {
 		  int lg;
-		  int ttlg;  /* 2^lg */
-		  int ause = 0;  /* summation of `nums' */
-		  int i = 1;  /* count to traverse all array keys */
-		  for (lg=0, ttlg=1; lg<=MAXBITS; lg++, ttlg*=2) {  /* for each slice */
-			int lc = 0;  /* counter */
-			int lim = ttlg;
+		  uint ttlg;  /* 2^lg */
+		  uint ause = 0;  /* summation of `nums' */
+		  uint i = 1;  /* count to traverse all array keys */
+		  /* traverse each slice */
+		  for (lg=0, ttlg=1; lg<=MAXABITS; lg++, ttlg*=2) {  /* for each slice */
+			uint lc = 0;  /* counter */
+			uint lim = ttlg;
 			if (lim > t.sizearray) {
 			  lim = t.sizearray;  /* adjust upper limit */
 			  if (i > lim)
 				break;  /* no more elements to count */
 			}
-			/* count elements in range (2^(lg-1), 2^lg] */
+			/* count elements in range (2^(lg - 1), 2^lg] */
 			for (; i <= lim; i++) {
 //			  TValue temp = t.array[i-1];
 //			  if (ttisthread(temp))
@@ -283,9 +296,10 @@ namespace KopiLua
 		}
 
 
-		private static int numusehash (Table t, int[] nums, ref int pnasize) {
+		private static int numusehash (Table t, uint[] nums, 
+		                               ref uint pnasize) {
 		  int totaluse = 0;  /* total number of elements */
-		  int ause = 0;  /* summation of `nums' */
+		  int ause = 0;  /* elements added to 'nums' (can go to array part) */
 		  int i = sizenode(t);
 		  while ((i--) != 0) {
 			Node n = t.node[i];
@@ -294,21 +308,21 @@ namespace KopiLua
 			  totaluse++;
 			}
 		  }
-		  pnasize += ause;
+		  pnasize = (uint)(pnasize + ause); //pnasize += ause; //FIXME:
 		  return totaluse;
 		}
 
 
-		private static void setarrayvector (lua_State L, Table t, int size) {
-		  int i;
-		  luaM_reallocvector<TValue>(L, ref t.array, t.sizearray, size/*, TValue*/);
+		private static void setarrayvector (lua_State L, Table t, uint size) {
+		  uint i;
+		  luaM_reallocvector<TValue>(L, ref t.array, (int)t.sizearray, (int)size/*, TValue*/);
 		  for (i=t.sizearray; i<size; i++)
 			 setnilvalue(t.array[i]);
 		  t.sizearray = size;
 		}
 
 
-		private static void setnodevector (lua_State L, Table t, int size) {
+		private static void setnodevector (lua_State L, Table t, uint size) {
 		  int lsize;
 		  if (size == 0) {  /* no elements to hash part? */
 			  t.node = new Node[] { dummynode };  /* use common `dummynode' */
@@ -317,12 +331,12 @@ namespace KopiLua
 		  else {
 			int i;
 			lsize = luaO_ceillog2((uint)size);
-			if (lsize > MAXBITS)
+			if (lsize > MAXHBITS)
 			  luaG_runerror(L, "table overflow");
-			size = twoto(lsize);
-			Node[] nodes = luaM_newvector<Node>(L, size);
+			size = (uint)twoto(lsize);
+			Node[] nodes = luaM_newvector<Node>(L, (int)size);
 			t.node = nodes;
-			for (i=0; i<size; i++) {
+			for (i = 0; i < (int)size; i++) {
 			  Node n = gnode(t, i);
 			  gnext_set(n, 0);
 			  setnilvalue(wgkey(n));
@@ -330,13 +344,15 @@ namespace KopiLua
 			}
 		  }
 		  t.lsizenode = cast_byte(lsize);
-		  t.lastfree = size;  /* all positions are free */
+		  t.lastfree = (int)size;  /* all positions are free */
 		}
 
 
-		private static void luaH_resize (lua_State L, Table t, int nasize, int nhsize) {
-		  int i;
-		  int oldasize = t.sizearray;
+		private static void luaH_resize (lua_State L, Table t, uint nasize, 
+		                                                       uint nhsize) {
+		  uint i;
+		  int j;
+		  uint oldasize = t.sizearray;
 		  int oldhsize = t.lsizenode;
 		  Node[] nold = t.node;  /* save old hash ... */
 //		  Debug.WriteLine("x001=" + nasize + ",x002=" + nhsize);
@@ -349,14 +365,14 @@ namespace KopiLua
 			/* re-insert elements from vanishing slice */
 			for (i=nasize; i<oldasize; i++) {
 			  if (!ttisnil(t.array[i]))
-				luaH_setint(L, t, i+1, t.array[i]);
+			  	luaH_setint(L, t, (int)(i+1), t.array[i]);
 			}
 			/* shrink array */
-			luaM_reallocvector<TValue>(L, ref t.array, oldasize, nasize/*, TValue*/);
+			luaM_reallocvector<TValue>(L, ref t.array, (int)oldasize, (int)nasize/*, TValue*/);
 		  }
 		  /* re-insert elements from hash part */
-		  for (i = twoto(oldhsize) - 1; i >= 0; i--) {
-			Node old = nold[i];
+		  for (j = twoto(oldhsize) - 1; j >= 0; j--) {
+			Node old = nold[j];
 			if (!ttisnil(gval(old))) {
 		      /* doesn't need barrier/invalidate cache, as entry was
 		         already present in the table */
@@ -368,28 +384,30 @@ namespace KopiLua
 		}
 
 
-		public static void luaH_resizearray (lua_State L, Table t, int nasize) {
+		public static void luaH_resizearray (lua_State L, Table t, uint nasize) {
 		  int nsize = isdummy(t.node) ? 0 : sizenode(t);
-		  luaH_resize(L, t, nasize, nsize);
+		  luaH_resize(L, t, nasize, (uint)nsize);
 		}
 
-
+		/*
+		** nums[i] = number of keys 'k' where 2^(i - 1) < k <= 2^i
+		*/
 		private static void rehash (lua_State L, Table t, TValue ek) {
-		  int nasize, na;
-		  int[] nums = new int[MAXBITS+1];  /* nums[i] = number of keys with 2^(i-1) < k <= 2^i */
+		  uint nasize, na;
+		  uint[] nums = new uint[MAXABITS+1];  /* nums[i] = number of keys with 2^(i-1) < k <= 2^i */
 		  int i;
 		  int totaluse;
-		  for (i=0; i<=MAXBITS; i++) nums[i] = 0;  /* reset counts */
+		  for (i = 0; i <= MAXABITS; i++) nums[i] = 0;  /* reset counts */
 		  nasize = numusearray(t, nums);  /* count keys in array part */
-		  totaluse = nasize;  /* all those keys are integer keys */
+		  totaluse = (int)nasize;  /* all those keys are integer keys */
 		  totaluse += numusehash(t, nums, ref nasize);  /* count keys in hash part */
 		  /* count extra key */
-		  nasize += countint(ek, nums);
+		  nasize = (uint)(nasize + countint(ek, nums)); //nasize += countint(ek, nums); //FIXME:
 		  totaluse++;
 		  /* compute new size for array part */
 		  na = computesizes(nums, ref nasize);
 		  /* resize the table to new computed sizes */
-		  luaH_resize(L, t, nasize, totaluse - na);
+		  luaH_resize(L, t, nasize, (uint)(totaluse - na));
 		}
 
 
@@ -457,7 +475,7 @@ namespace KopiLua
 			Node f = getfreepos(t);  /* get a free place */
 			if (f == null) {  /* cannot find a free place? */
 			  rehash(L, t, key);  /* grow table */
-		      /* whatever called 'newkey' take care of TM cache and GC barrier */
+		      /* whatever called 'newkey' takes care of TM cache and GC barrier */
 		      return luaH_set(L, t, key);  /* insert key into grown table */
 			}
 			lua_assert(!isdummy(f));
@@ -501,7 +519,7 @@ namespace KopiLua
 		public static TValue luaH_getint(Table t, int key)
 		{
 		  /* (1 <= key && key <= t.sizearray) */
-		  if (l_castS2U(key - 1) < (uint)t.sizearray)
+		  if (l_castS2U(key - 1) < t.sizearray)
 			return t.array[key-1];
 		  else {
 			Node n = hashint(t, key);
