@@ -29,6 +29,11 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 * lua-5.3.0-work3 (done, since 2019-11-26, not tested)  
 * lua-5.3.0-alpha (done, since 2019-12-01, not tested)  
 * lua-5.3.0-beta (done, since 2019-12-02, not tested)  
+* lua-5.3.0-rc0 (done, since 2019-12-05, not tested)  
+* lua-5.3.0-rc1 (done, since 2019-12-05, not tested)  
+* lua-5.3.0-rc2 (done, since 2019-12-05, not tested)  
+* lua-5.3.0-rc3 (done, since 2019-12-05, not tested)  
+* lua-5.3.0 (done, since 2019-12-05, not tested)  
 * lua-5.3.4 (pending)  
 
 ## About status above    
@@ -40,6 +45,11 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 > return nil  
 > print("hello') -- test lua error  
 > os.exit() -- test lua exiting  
+* New tests (for 5.3.x):  
+> 1+1  
+> 1,2  
+> a = 10  
+> a  
 
 ## Compare Tool  
 * Beyond Compare Version 3.0.11  

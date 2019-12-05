@@ -261,9 +261,6 @@ namespace KopiLua
 		public static void lua_unlock(lua_State L) { }
 		#endif
 		
-
-
-
 		#if !luai_threadyield
 		public static void luai_threadyield(lua_State L)     {lua_unlock(L); lua_lock(L);}
 		#endif

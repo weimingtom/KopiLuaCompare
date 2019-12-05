@@ -33,8 +33,10 @@ namespace KopiLua
 		//#endif
 
 	
-	
+		/* macro to `unsign' a character */
 		private static char uchar(char c)	{return c;}
+
+
 		
 		private static int str_len (lua_State L) {
 		  uint l;

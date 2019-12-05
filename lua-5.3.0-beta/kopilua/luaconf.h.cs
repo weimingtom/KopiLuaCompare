@@ -182,7 +182,7 @@ namespace KopiLua
 		public const string LUA_DIRSEP = "\\";
 		#else
 		public const string LUA_DIRSEP = "/";
-#endif
+		#endif
 
 
 		/*

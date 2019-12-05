@@ -52,8 +52,6 @@ namespace KopiLua
 		//static void expr (LexState *ls, expdesc *v);
 
 
-
-
 		/* semantic error */
 		private static void/*l_noret*/ semerror (LexState ls, CharPtr msg) {
 		  ls.t.token = 0;  /* remove 'near to' from final message */
@@ -633,7 +631,7 @@ namespace KopiLua
 
 
 		private static void recfield (LexState ls, ConsControl cc) {
-		  /* recfield . (NAME | `['exp1`]') = exp1 */
+		  /* recfield -> (NAME | `['exp1`]') = exp1 */
 		  FuncState fs = ls.fs;
 		  int reg = ls.fs.freereg;
 		  expdesc key = new expdesc(), val = new expdesc();
@@ -753,7 +751,7 @@ namespace KopiLua
                   nparams++;
 				  break;
 				}
-				case (int)RESERVED.TK_DOTS: {  /* param . `...' */
+				case (int)RESERVED.TK_DOTS: {  /* param -> `...' */
 				  luaX_next(ls);
 				  f.is_vararg = 1;
 				  break;
@@ -1062,7 +1060,7 @@ namespace KopiLua
 
 
 		/*
-		** subexpr . (simpleexp | unop subexpr) { binop subexpr }
+		** subexpr -> (simpleexp | unop subexpr) { binop subexpr }
 		** where `binop' is any binary operator with a priority higher than `limit'
 		*/
 		private static BinOpr subexpr (LexState ls, expdesc v, int limit) {
