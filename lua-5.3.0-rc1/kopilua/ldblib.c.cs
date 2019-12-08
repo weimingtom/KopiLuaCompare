@@ -343,7 +343,7 @@ namespace KopiLua
 		    lua_pushvalue(L, -1);
 		    lua_setmetatable(L, -2);  /* setmetatable(hooktable) = hooktable */
 		  }
-		  lua_pushthread(L1); lua_xmove(L1, L, 1);  /* key */
+		  lua_pushthread(L1); lua_xmove(L1, L, 1);  /* key (thread) */
 		  lua_pushvalue(L, arg+1);  /* value */
 		  lua_rawset(L, -3);  /* hooktable[L1] = new Lua hook */
 		  lua_sethook(L1, func, mask, count);  /* set hooks */

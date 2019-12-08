@@ -386,7 +386,7 @@ namespace KopiLua
 		*/
 		//#define LUA_COMPAT_MODULE
 
-		#endif
+		#endif				///* } */
 
 		/* }================================================================== */
 

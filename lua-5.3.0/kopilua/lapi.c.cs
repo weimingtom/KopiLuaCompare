@@ -903,7 +903,6 @@ namespace KopiLua
 						lua_KContext ctx, lua_KFunction k) {
 		  StkId func;
 		  lua_lock(L);
-
 		  api_check(k == null || isLua(L.ci)==0, 
 		    "cannot use continuations inside hooks");
 		  api_checknelems(L, nargs+1);

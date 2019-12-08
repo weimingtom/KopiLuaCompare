@@ -255,13 +255,11 @@ namespace KopiLua
 
 
 		/* minimum size for the string table (must be power of 2) */
-
 		public const int MINSTRTABSIZE	= 64;	/* minimum size for "predefined" strings */
 
 
 
 		/* minimum size for string buffer */
-
 		public const int LUA_MINBUFFER	= 32;
 
 
