@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.111 2015/06/09 14:21:13 roberto Exp $
+** $Id: ltable.c,v 2.117 2015/11/19 19:16:22 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -92,7 +92,7 @@ namespace KopiLua
 		/*
 		** Hash for floating-point numbers.
 		** The main computation should be just
-		**     n = frepx(n, &i); return (n * INT_MAX) + i
+		**     n = frexp(n, &i); return (n * INT_MAX) + i
 		** but there are some numerical subtleties.
 		** In a two-complement representation, INT_MAX does not has an exact
 		** representation as a float, but INT_MIN does; because the absolute
@@ -108,7 +108,7 @@ namespace KopiLua
 		  lua_Integer ni = 0;
 		  n = frexp(n, out i) * -cast_num(INT_MIN);
 		  if (0==lua_numbertointeger(n, ref ni)) {  /* is 'n' inf/-inf/NaN? */
-		    lua_assert(luai_numisnan(n) || fabs(n) == HUGE_VAL);
+		    lua_assert(luai_numisnan(n) || fabs(n) == cast_num(HUGE_VAL));
 		    return 0;
 		  }
 		  else {  /* normal case */
@@ -133,14 +133,8 @@ namespace KopiLua
 		      return hashmod(t, l_hashfloat(fltvalue(key)));
 		    case LUA_TSHRSTR:
 		      return hashstr(t, tsvalue(key));
-			case LUA_TLNGSTR: {
-		      TString s = tsvalue(key);
-		      if (s.extra == 0) {  /* no hash? */
-		        s.hash = luaS_hash(getstr(s), s.u.lnglen, s.hash);
-		        s.extra = 1;  /* now it has its hash */
-		      }
-		      return hashstr(t, tsvalue(key));
-		    }
+			case LUA_TLNGSTR:
+		      return hashpow2(t, luaS_hashlongstr(tsvalue(key)));
 			case LUA_TBOOLEAN:
 			  return hashboolean(t, bvalue(key));
 			case LUA_TLIGHTUSERDATA:
@@ -148,6 +142,7 @@ namespace KopiLua
 		    case LUA_TLCF:
 		      return hashpointer(t, fvalue(key));
 			default:
+			  lua_assert(!ttisdeadkey(key));
 			  return hashpointer(t, gcvalue(key));
 		  }
 		}
@@ -483,7 +478,7 @@ namespace KopiLua
 			Node f = getfreepos(t);  /* get a free place */
 			if (f == null) {  /* cannot find a free place? */
 			  rehash(L, t, key);  /* grow table */
-		      /* whatever called 'newkey' takes care of TM cache and GC barrier */
+		      /* whatever called 'newkey' takes care of TM cache */
 		      return luaH_set(L, t, key);  /* insert key into grown table */
 			}
 			lua_assert(!isdummy(f));
@@ -526,7 +521,7 @@ namespace KopiLua
 		*/
 		public static TValue luaH_getint(Table t, int key) {
 		  /* (1 <= key && key <= t.sizearray) */
-		  if (l_castS2U(key - 1) < t.sizearray)
+		  if (l_castS2U(key) - 1 < t.sizearray)
 			return t.array[key-1];
 		  else {
 			Node n = hashint(t, key);
@@ -538,7 +533,7 @@ namespace KopiLua
 		        if (nx == 0) break;
 		        Node.inc(ref n, nx);
 		      }
-			};
+			}
 			return luaO_nilobject;
 		  }
 		}
@@ -547,20 +542,50 @@ namespace KopiLua
 		/*
 		** search function for short strings
 		*/
-		public static TValue luaH_getstr (Table t, TString key) {
+		public static TValue luaH_getshortstr (Table t, TString key) {
 		  Node n = hashstr(t, key);
 		  lua_assert(key.tt == LUA_TSHRSTR);
 		  for (;;) {  /* check whether 'key' is somewhere in the chain */
 		    TValue k = gkey(n);
-			if (ttisshrstring(k) && eqshrstr(tsvalue(k), key))
-			  return gval(n);  /* that's it */
+		    if (ttisshrstring(k) && eqshrstr(tsvalue(k), key))
+		      return gval(n);  /* that's it */
 		    else {
 		      int nx = gnext(n);
-		      if (nx == 0) break;
+		      if (nx == 0)
+		        return luaO_nilobject;  /* not found */
 		      Node.inc(ref n, nx);
 		    }
-		  };
-		  return luaO_nilobject;
+		  }
+		}
+
+
+		/*
+		** "Generic" get version. (Not that generic: not valid for integers,
+		** which may be in array part, nor for floats with integral values.)
+		*/
+		private static TValue getgeneric (Table t, TValue key) {
+		  Node n = mainposition(t, key);
+		  for (;;) {  /* check whether 'key' is somewhere in the chain */
+		    if (0!=luaV_rawequalobj(gkey(n), key))
+		      return gval(n);  /* that's it */
+		    else {
+		      int nx = gnext(n);
+		      if (nx == 0)
+		        return luaO_nilobject;  /* not found */
+		      Node.inc(ref n, nx);
+		    }
+		  }
+		}
+
+
+		public static TValue luaH_getstr (Table t, TString key) {
+		  if (key.tt == LUA_TSHRSTR)
+		    return luaH_getshortstr(t, key);
+		  else {  /* for long strings, use generic case */
+		  	TValue ko = new TValue();
+		    setsvalue((lua_State)null, ko, key);
+		    return getgeneric(t, ko);
+		  }
 		}
 
 
@@ -569,7 +594,7 @@ namespace KopiLua
 		*/
 		public static TValue luaH_get (Table t, TValue key) {
 		  switch (ttype(key)) {
-			case LUA_TSHRSTR: return luaH_getstr(t, tsvalue(key));
+			case LUA_TSHRSTR: return luaH_getshortstr(t, tsvalue(key));
 			case LUA_TNUMINT: return luaH_getint(t, ivalue(key));
 			case LUA_TNIL: return luaO_nilobject;
 			case LUA_TNUMFLT: {
@@ -579,19 +604,8 @@ namespace KopiLua
 			  /* else... */
 			  goto default;
 			}  /* FALLTHROUGH */
-			default: {
-			  Node n = mainposition(t, key);
-			  for (;;) {  /* check whether 'key' is somewhere in the chain */
-				if (luaV_rawequalobj(gkey(n), key) != 0)
-				  return gval(n);  /* that's it */
-		        else {
-		          int nx = gnext(n);
-		          if (nx == 0) break;
-		          Node.inc(ref n, nx);
-		        }
-			  };
-			  return luaO_nilobject;
-			}
+			default:
+			  return getgeneric(t, key);
 		  }
 		}
 

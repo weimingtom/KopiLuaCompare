@@ -1,5 +1,5 @@
 /*
-** $Id: lgc.h,v 2.86 2014/10/25 11:50:46 roberto Exp $
+** $Id: lgc.h,v 2.90 2015/10/21 18:15:15 roberto Exp $
 ** Garbage Collector
 ** See Copyright Notice in lua.h
 */
@@ -98,10 +98,20 @@ namespace KopiLua
 
 		public static byte luaC_white(global_State g) { return (byte)(g.currentwhite & WHITEBITS); }
 
-		public delegate void luaC_condGC_func(); //FIXME: added
-		public static void luaC_condGC(lua_State L, luaC_condGC_func c)
-			{if (G(L).GCdebt > 0) {c();}; condchangemem(L);} //FIXME:???macro
-		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, delegate() {luaC_step(L);}); } //FIXME: macro in {}
+		/*
+		** Does one step of collection when debt becomes positive. 'pre'/'pos'
+		** allows some adjustments to be done only when needed. macro
+		** 'condchangemem' is used only for heavy tests (forcing a full
+		** 
+		*/
+		public delegate void luaC_condGC_pre(); //FIXME: added
+		public delegate void luaC_condGC_pos(); //FIXME: added
+		public static void luaC_condGC(lua_State L, luaC_condGC_pre pre, luaC_condGC_pos pos)
+			{  if (G(L).GCdebt > 0) {pre(); luaC_step(L); pos();}; //FIXME:???macro
+			   condchangemem(L,pre,pos); }
+		
+		/* more often than not, 'pre'/'pos' are empty */	
+		public static void luaC_checkGC(lua_State L) {luaC_condGC(L, delegate() {;}, delegate() {;}); } //FIXME: macro in {}
 
 
 		public static void luaC_barrier(lua_State L, GCObject p, TValue v) { 
