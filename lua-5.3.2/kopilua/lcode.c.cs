@@ -695,7 +695,7 @@ namespace KopiLua
 		  luaK_dischargevars(fs, e);
 		  switch (e.k) {
 			case expkind.VNIL: case expkind.VFALSE: {
-				e.k = expkind.VTRUE;
+			  e.k = expkind.VTRUE;
 			  break;
 			}
 			case expkind.VK: case expkind.VKFLT: case expkind.VKINT: case expkind.VTRUE: {

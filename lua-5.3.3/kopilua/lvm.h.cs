@@ -1,5 +1,5 @@
 /*
-** $Id: lvm.h,v 2.39 2015/09/09 13:44:07 roberto Exp $
+** $Id: lvm.h,v 2.40 2016/01/05 16:07:21 roberto Exp $
 ** Lua virtual machine
 ** See Copyright Notice in lua.h
 */
@@ -58,83 +58,51 @@ namespace KopiLua
 
 
 		/*
-		** fast track for 'gettable': 1 means 'aux' points to resulted value;
-		** 0 means 'aux' is metamethod (if 't' is a table) or NULL. 'f' is
-		** the raw get function to use.
+		** fast track for 'gettable': if 't' is a table and 't[k]' is not nil,
+		** return 1 with 'slot' pointing to 't[k]' (final result).  Otherwise,
+		** return 0 (meaning it will have to check metamethod) with 'slot'
+		** pointing to a nil 't[k]' (if 't' is a table) or NULL (otherwise).
+		** 'f' is the raw get function to use.
 		*/
-		//#define luaV_fastget(L,t,k,aux,f) \
+		//#define luaV_fastget(L,t,k,slot,f) \
 		//  (!ttistable(t)  \
-		//   ? (aux = NULL, 0)  /* not a table; 'aux' is NULL and result is 0 */  \
-		//   : (aux = f(hvalue(t), k),  /* else, do raw access */  \
-		//      !ttisnil(aux) ? 1  /* result not nil? 'aux' has it */  \
-		//      : (aux = fasttm(L, hvalue(t)->metatable, TM_INDEX),  /* get metamethod */\
-		//         aux != NULL  ? 0  /* has metamethod? must call it */  \
-		//         : (aux = luaO_nilobject, 1))))  /* else, final result is nil */
-		public static int luaV_fastget_luaH_getstr(lua_State L, TValue t, TString k, ref TValue aux) {
+		//   ? (slot = NULL, 0)  /* not a table; 'slot' is NULL and result is 0 */  \
+		//   : (slot = f(hvalue(t), k),  /* else, do raw access */  \
+		//      !ttisnil(slot)))  /* result not nil? */
+		public static int luaV_fastget_luaH_getstr(lua_State L, TValue t, TString k, ref TValue slot) {
 		  if (!ttistable(t)) {
-		    aux = null;
-		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+		    slot = null;
+		    return 0;  /* not a table; 'slot' is NULL and result is 0 */
 		  } else {
-			aux = luaH_getstr(hvalue(t), k);  /* else, do raw access */
-			if (!ttisnil(aux)) {
-			  return 1;  /* result not nil? 'aux' has it */
-			} else {
-		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
-		      if (aux != null) {
-		      	return 0;  /* has metamethod? must call it */
-		      } else {
-		         aux = luaO_nilobject;
-		         return 1;  /* else, final result is nil */
-		      }
-			}
+			slot = luaH_getstr(hvalue(t), k);  /* else, do raw access */
+			return (!ttisnil(slot))?1:0;  /* result not nil? */
 		  }
 		}
-		public static int luaV_fastget_luaH_getint(lua_State L, TValue t, int k, ref TValue aux) {
+		public static int luaV_fastget_luaH_getint(lua_State L, TValue t, int k, ref TValue slot) {
 		  if (!ttistable(t)) {
-		    aux = null;
-		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+		    slot = null;
+		    return 0;  /* not a table; 'slot' is NULL and result is 0 */
 		  } else {
-			aux = luaH_getint(hvalue(t), k);  /* else, do raw access */
-			if (!ttisnil(aux)) {
-			  return 1;  /* result not nil? 'aux' has it */
-			} else {
-		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
-		      if (aux != null) {
-		      	return 0;  /* has metamethod? must call it */
-		      } else {
-		         aux = luaO_nilobject;
-		         return 1;  /* else, final result is nil */
-		      }
-			}
+			slot = luaH_getint(hvalue(t), k);  /* else, do raw access */
+			return (!ttisnil(slot))?1:0;  /* result not nil? */
 		  }
 		}
-		public static int luaV_fastget_luaH_get(lua_State L, TValue t, TValue k, ref TValue aux) {
+		public static int luaV_fastget_luaH_get(lua_State L, TValue t, TValue k, ref TValue slot) {
 		  if (!ttistable(t)) {
-		    aux = null;
-		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+		    slot = null;
+		    return 0;  /* not a table; 'slot' is NULL and result is 0 */
 		  } else {
-			aux = luaH_get(hvalue(t), k);  /* else, do raw access */
-			if (!ttisnil(aux)) {
-			  return 1;  /* result not nil? 'aux' has it */
-			} else {
-		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
-		      if (aux != null) {
-		      	return 0;  /* has metamethod? must call it */
-		      } else {
-		         aux = luaO_nilobject;
-		         return 1;  /* else, final result is nil */
-		      }
-			}
+			slot = luaH_get(hvalue(t), k);  /* else, do raw access */
+			return (!ttisnil(slot))?1:0;  /* result not nil? */
 		  }
 		}
-		
 		
 		/*
 		** standard implementation for 'gettable'
 		*/
-		public static void luaV_gettable(lua_State L, TValue t, TValue k, StkId v) { TValue aux = null;
-		  if (0!=luaV_fastget_luaH_get(L,t,k,ref aux)) { setobj2s(L, v, aux); }
-		  else luaV_finishget(L,t,k,v,aux); }
+		public static void luaV_gettable(lua_State L, TValue t, TValue k, StkId v) { TValue slot = null;
+		  if (0!=luaV_fastget_luaH_get(L,t,k,ref slot)) { setobj2s(L, v, slot); }
+		  else luaV_finishget(L,t,k,v,slot); }
 
 
 		/*

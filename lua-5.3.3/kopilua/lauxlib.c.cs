@@ -1,5 +1,5 @@
 /*
-** $Id: lauxlib.c,v 1.284 2015/11/19 19:16:22 roberto Exp $
+** $Id: lauxlib.c,v 1.286 2016/01/08 15:33:09 roberto Exp $
 ** Auxiliary functions for building Lua libraries
 ** See Copyright Notice in lua.h
 */
@@ -24,7 +24,8 @@ namespace KopiLua
 
 	public partial class Lua
 	{
-		/* This file uses only the official API of Lua.
+		/*
+		** This file uses only the official API of Lua.
 		** Any function declared here could be written as an application function.
 		*/
 		
@@ -199,6 +200,10 @@ namespace KopiLua
 		}
 
 
+		/*
+		** The use of 'lua_pushfstring' ensures this function does not
+		** need reserved stack space when called.
+		*/
 		public static void luaL_where (lua_State L, int level) {
 		  lua_Debug ar = new lua_Debug();
 		  if (lua_getstack(L, level, ar) != 0) {  /* check function at level */
@@ -208,10 +213,15 @@ namespace KopiLua
 		      return;
 		    }
 		  }
-		  lua_pushliteral(L, "");  /* else, no information available... */
+		  lua_pushfstring(L, "");  /* else, no information available... */
 		}
 
 
+		/*
+		** Again, the use of 'lua_pushvfstring' ensures this function does
+		** not need reserved stack space when called. (At worst, it generates
+		** an error with "stack overflow" instead of the given message.)
+		*/
 		public static int luaL_error (lua_State L, CharPtr fmt, params object[] argp) {
 		  //va_list argp;
 		  //va_start(argp, fmt);
@@ -353,10 +363,15 @@ namespace KopiLua
 		}
 
 
+		/*
+		** Ensures the stack has at least 'space' extra slots, raising an error
+		** if it cannot fulfill the request. (The error handling needs a few
+		** extra slots to format the error message. In case of an error without
+		** this extra space, Lua will generate the same 'stack overflow' error,
+		** but without 'msg'.)
+		*/
 		public static void luaL_checkstack (lua_State L, int space, CharPtr msg) {
-		  /* keep some extra space to run error routines, if needed */
-		  /*const */int extra = LUA_MINSTACK;
-		  if (lua_checkstack(L, space + extra)==0) {
+		  if (0==lua_checkstack(L, space)) {
 		    if (msg != null)
 		      luaL_error(L, "stack overflow (%s)", msg);
 		    else
@@ -697,7 +712,7 @@ namespace KopiLua
 		  if (c == '#') {  /* first line is a comment (Unix exec. file)? */
 		    do {  /* skip first line */
 		      c = getc(lf.f);
-		    } while (c != EOF && c != '\n') ;
+		    } while (c != EOF && c != '\n');
 		    cp = getc(lf.f);  /* skip end-of-line, if present */
 		    return 1;  /* there was a comment */
 		  }

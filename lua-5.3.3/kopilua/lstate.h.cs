@@ -1,5 +1,5 @@
 /*
-** $Id: lstate.h,v 2.128 2015/11/13 12:16:51 roberto Exp $
+** $Id: lstate.h,v 2.130 2015/12/16 16:39:38 roberto Exp $
 ** Global State
 ** See Copyright Notice in lua.h
 */
@@ -16,6 +16,7 @@ namespace KopiLua
 	using lua_Number = System.Double;
 	using l_mem = System.Int32;
 	using lua_KContext = System.Int32;
+	using l_signalT = System.Byte;
 	
 	/*
 
@@ -36,6 +37,15 @@ namespace KopiLua
 
 		//struct lua_longjmp;  /* defined in ldo.c */
 
+
+		/*
+		** Atomic type (relative to signals) to better ensure that 'lua_sethook' 
+		** is thread safe
+		*/
+		//#if !defined(l_signalT)
+		//#include <signal.h>
+		//#define l_signalT	sig_atomic_t
+		//#endif
 
 
 		/* extra stack space to handle TM calls and some other extras */
@@ -258,14 +268,14 @@ namespace KopiLua
 		  public lua_State twups;  /* list of threads with open upvalues */
 		  public lua_longjmp errorJmp;  /* current error recover point */
 		  public CallInfo base_ci = new CallInfo();  /* CallInfo for first level (C calling Lua) */
-		  public lua_Hook hook;		  
+		  public /*volatile*/ lua_Hook hook;		  
 		  public ptrdiff_t errfunc;  /* current error handling function (stack index) */
 		  public int stacksize;
 		  public int basehookcount;
 		  public int hookcount;
 		  public ushort nny;  /* number of non-yieldable calls in stack */
 		  public ushort nCcalls;  /* number of nested C calls */
-		  public lu_byte hookmask;
+		  public l_signalT hookmask;
 		  public lu_byte allowhook;
   		  
 		  public LX _parent; //FIXME:added, see offsetof	  

@@ -1,5 +1,5 @@
 /*
-** $Id: lapi.c,v 2.257 2015/11/02 18:48:07 roberto Exp $
+** $Id: lapi.c,v 2.259 2016/02/29 14:27:14 roberto Exp $
 ** Lua API
 ** See Copyright Notice in lua.h
 */
@@ -374,9 +374,10 @@ namespace KopiLua
 		      return null;
 		    }
 		    lua_lock(L);  /* 'luaO_tostring' may create a new string */
+		    luaO_tostring(L, o);
 		    luaC_checkGC(L);
 		    o = index2addr(L, idx);  /* previous call may reallocate the stack */
-		    luaO_tostring(L, o);
+
 		    lua_unlock(L);
 		  }
 		  //if (len != NULL) //FIXME: no if (len != null)
@@ -475,10 +476,10 @@ namespace KopiLua
 		public static CharPtr lua_pushlstring (lua_State L, CharPtr s, uint len) {
 		  TString ts = new TString();
 		  lua_lock(L);
-		  luaC_checkGC(L);
 		  ts = (len == 0) ? luaS_new(L, "") : luaS_newlstr(L, s, len);
 		  setsvalue2s(L, L.top, ts);
 		  api_incr_top(L);
+		  luaC_checkGC(L);
 		  lua_unlock(L);
           return getstr(ts);
 		}
@@ -490,12 +491,12 @@ namespace KopiLua
 			setnilvalue(L.top);
 		  else {
 			TString ts = new TString();
-		    luaC_checkGC(L);
 		    ts = luaS_new(L, s);
 		    setsvalue2s(L, L.top, ts);
 		    s = getstr(ts);  /* internal copy's address */
   		  }
 	      api_incr_top(L);
+		  luaC_checkGC(L);
 	      lua_unlock(L);
 	      return s;
 		}
@@ -505,8 +506,8 @@ namespace KopiLua
 											  object[] argp) {
 		  CharPtr ret;
 		  lua_lock(L);
-		  luaC_checkGC(L);
 		  ret = luaO_pushvfstring(L, fmt, argp);
+		  luaC_checkGC(L);
 		  lua_unlock(L);
 		  return ret;
 		}
@@ -541,7 +542,6 @@ namespace KopiLua
 		    CClosure cl;
 		    api_checknelems(L, n);
 		    api_check(L, n <= MAXUPVAL, "upvalue index too large");
-		    luaC_checkGC(L);
 		    cl = luaF_newCclosure(L, n);
 		    cl.f = fn;
 		    L.top -= n;
@@ -552,6 +552,7 @@ namespace KopiLua
 		    setclCvalue(L, L.top, cl);
 		  }
 		  api_incr_top(L);
+		  luaC_checkGC(L);
 		  lua_unlock(L);
 		}
 
@@ -588,20 +589,20 @@ namespace KopiLua
 
 
 		private static int auxgetstr (lua_State L, TValue t, CharPtr k) {
-		  TValue aux = null;
+		  TValue slot = null;
 		  TString str = luaS_new(L, k);
 //		  if (str.ToString().Equals("print"))
 //		  {
 //		  	Debug.WriteLine("auxgetstr got print");
 //		  }
-		  if (0!=luaV_fastget_luaH_getstr(L, t, str, ref aux)) {
-		    setobj2s(L, L.top, aux);
+		  if (0!=luaV_fastget_luaH_getstr(L, t, str, ref slot)) {
+		    setobj2s(L, L.top, slot);
 		    api_incr_top(L);
 		  }
 		  else {
 		    setsvalue2s(L, L.top, str);
 		    api_incr_top(L);
-		    luaV_finishget(L, t, L.top - 1, L.top - 1, aux);
+		    luaV_finishget(L, t, L.top - 1, L.top - 1, slot);
 		  }
 		  lua_unlock(L);
 		  return ttnov(L.top - 1);
@@ -633,17 +634,17 @@ namespace KopiLua
 
 		public static int lua_geti (lua_State L, int idx, lua_Integer n) {
 		  StkId t;
-		  TValue aux = null;
+		  TValue slot = null;
 		  lua_lock(L);
 		  t = index2addr(L, idx);
-		  if (0!=luaV_fastget_luaH_getint(L, t, n, ref aux)) {
-		    setobj2s(L, L.top, aux);
+		  if (0!=luaV_fastget_luaH_getint(L, t, n, ref slot)) {
+		    setobj2s(L, L.top, slot);
 		    api_incr_top(L);
 		  }
 		  else {
 		    setivalue(L.top, n);
 		    api_incr_top(L);
-		    luaV_finishget(L, t, L.top - 1, L.top - 1, aux);
+		    luaV_finishget(L, t, L.top - 1, L.top - 1, slot);
 		  }
 		  lua_unlock(L);
 		  return ttnov(L.top - 1);
@@ -691,12 +692,12 @@ namespace KopiLua
 		public static void lua_createtable (lua_State L, int narray, int nrec) {
           Table t;
 		  lua_lock(L);
-		  luaC_checkGC(L);
           t = luaH_new(L);
 		  sethvalue(L, L.top, t);
 		  api_incr_top(L);
 		  if (narray > 0 || nrec > 0)
 		  	luaH_resize(L, t, (uint)narray, (uint)nrec);
+		  luaC_checkGC(L);
 		  lua_unlock(L);
 		}
 
@@ -767,15 +768,15 @@ namespace KopiLua
 		** t[k] = value at the top of the stack (where 'k' is a string)
 		*/
 		private static void auxsetstr (lua_State L, TValue t, CharPtr k) {
-		  TValue aux = null;
+		  TValue slot = null;
 		  TString str = luaS_new(L, k);
 		  api_checknelems(L, 1);
-		  if (0!=luaV_fastset_luaH_getstr(L, t, str, ref aux, L.top - 1))
+		  if (0!=luaV_fastset_luaH_getstr(L, t, str, ref slot, L.top - 1))
 		  	lua_TValue.dec(ref L.top);  /* pop value */
 		  else {
 		    setsvalue2s(L, L.top, str);  /* push 'str' (to make it a TValue) */
 		    api_incr_top(L);
-		    luaV_finishset(L, t, L.top - 1, L.top - 2, aux);
+		    luaV_finishset(L, t, L.top - 1, L.top - 2, slot);
 		    L.top -= 2;  /* pop value and key */
 		  }
 		  lua_unlock(L);  /* lock done by caller */
@@ -808,16 +809,16 @@ namespace KopiLua
 
 		public static void lua_seti (lua_State L, int idx, lua_Integer n) {
 		  StkId t;
-		  TValue aux = null;
+		  TValue slot = null;
 		  lua_lock(L);
 		  api_checknelems(L, 1);
 		  t = index2addr(L, idx);
-		  if (0!=luaV_fastset_luaH_getint(L, t, n, ref aux, L.top - 1))
+		  if (0!=luaV_fastset_luaH_getint(L, t, n, ref slot, L.top - 1))
 		  	lua_TValue.dec(ref L.top);  /* pop value */
   		  else {
 		    setivalue(L.top, n);
 		    api_incr_top(L);
-		    luaV_finishset(L, t, L.top - 1, L.top - 2, aux);
+		    luaV_finishset(L, t, L.top - 1, L.top - 2, slot);
 		    L.top -= 2;  /* pop value and key */
 		  }
 		  lua_unlock(L);
@@ -1171,7 +1172,6 @@ namespace KopiLua
 		  lua_lock(L);
 		  api_checknelems(L, n);
 		  if (n >= 2) {
-			luaC_checkGC(L);
 			luaV_concat(L, n);
 		  }
 		  else if (n == 0) {  /* push empty string */
@@ -1179,6 +1179,7 @@ namespace KopiLua
 			api_incr_top(L);
 		  }
 		  /* else n == 1; nothing to do */
+		  luaC_checkGC(L);
 		  lua_unlock(L);
 		}
 
@@ -1214,10 +1215,10 @@ namespace KopiLua
 		public static object lua_newuserdata(lua_State L, uint size) {
 			Udata u;
 			lua_lock(L);
-			luaC_checkGC(L);
 			u = luaS_newudata(L, size);
 			setuvalue(L, L.top, u);
 			api_incr_top(L);
+			luaC_checkGC(L);
 			lua_unlock(L);
 			return getudatamem(u);
 		}

@@ -306,4 +306,50 @@ allocf---->		  object temp = allocf(ud, box.box, box.bsize, newsize);
 		
 -------------------------
 
+print got nil bug: (fixed)
+ttisnil(aux) should be !ttisnil(aux)
+see luaV_fastget_luaH_getstr (mod from luaV_fastget)
+
+
+@@ -74,11 +74,11 @@ namespace KopiLua
+ 		  if (!ttistable(t)) {
+ 		    aux = null;
+ 		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+ 		  } else {
+ 			aux = luaH_getstr(hvalue(t), k);  /* else, do raw access */
+-			if (ttisnil(aux)) {
++			if (!ttisnil(aux)) {
+ 			  return 1;  /* result not nil? 'aux' has it */
+ 			} else {
+ 		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
+ 		      if (aux != null) {
+ 		      	return 0;  /* has metamethod? must call it */
+@@ -93,11 +93,11 @@ namespace KopiLua
+ 		  if (!ttistable(t)) {
+ 		    aux = null;
+ 		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+ 		  } else {
+ 			aux = luaH_getint(hvalue(t), k);  /* else, do raw access */
+-			if (ttisnil(aux)) {
++			if (!ttisnil(aux)) {
+ 			  return 1;  /* result not nil? 'aux' has it */
+ 			} else {
+ 		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
+ 		      if (aux != null) {
+ 		      	return 0;  /* has metamethod? must call it */
+@@ -112,11 +112,11 @@ namespace KopiLua
+ 		  if (!ttistable(t)) {
+ 		    aux = null;
+ 		    return 0;  /* not a table; 'aux' is NULL and result is 0 */
+ 		  } else {
+ 			aux = luaH_get(hvalue(t), k);  /* else, do raw access */
+-			if (ttisnil(aux)) {
++			if (!ttisnil(aux)) {
+ 			  return 1;  /* result not nil? 'aux' has it */
+ 			} else {
+ 		      aux = fasttm(L, hvalue(t).metatable, TMS.TM_INDEX);  /* get metamethod */
+ 		      if (aux != null) {
+ 		      	return 0;  /* has metamethod? must call it */
+
+
 
