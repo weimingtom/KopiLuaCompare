@@ -1,5 +1,5 @@
 ﻿# KopiLuaCompare
-Comparation of kopilua and lua, and porting kopilua to lua 5.2.x  
+Comparation of kopilua and lua, and porting kopilua to lua 5.2.x and 5.3.x  
 
 	兵者，诡道也。  
 	故能而示之不能，用而示之不用，近而示之远，远而示之近。  
@@ -37,7 +37,8 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x
 * lua-5.3.1 (done, since 2019-12-07, not tested)  
 * lua-5.3.2 (done, since 2019-12-13, not tested)  
 * lua-5.3.3 (done, since 2019-12-13, not tested)  
-* lua-5.3.4 (pending)  
+* lua-5.3.4 (done, since 2019-12-14, not tested)  
+* lua-5.3.5 (done, since 2019-12-14, not tested)  
 
 ## About status above    
 * If not mentioned, luac is only compiled successfully but not tested, or removed.  

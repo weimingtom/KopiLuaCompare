@@ -1,5 +1,5 @@
 /*
-** $Id: ltable.c,v 2.117 2015/11/19 19:16:22 roberto Exp $
+** $Id: ltable.c,v 2.118.1.4 2018/06/08 16:22:51 roberto Exp $
 ** Lua tables (hash)
 ** See Copyright Notice in lua.h
 */
@@ -77,8 +77,6 @@ namespace KopiLua
 
 		//#define dummynode		(&dummynode_)
 
-		private static bool isdummy(Node n) {return ((n) == dummynode);}
-		private static bool isdummy(Node[] n) {return ((n[0]) == dummynode);}
 
 
 		//static const Node dummynode_ = {
@@ -234,7 +232,9 @@ namespace KopiLua
 		  uint na = 0;  /* number of elements to go to array part */
 		  uint optimal = 0;  /* optimal size for array part */
 		  /* loop while keys can fill more than half of total size */
-		  for (i = 0, twotoi = 1; pna > twotoi / 2; i++, twotoi *= 2) {
+		  for (i = 0, twotoi = 1;
+		       twotoi > 0 && pna > twotoi / 2;
+		       i++, twotoi *= 2) {
 		    if (nums[i] > 0) {
 		      a += nums[i];
 		      if (a > twotoi/2) {  /* more than half elements present? */
@@ -326,14 +326,14 @@ namespace KopiLua
 
 
 		private static void setnodevector (lua_State L, Table t, uint size) {
-		  int lsize;
 		  if (size == 0) {  /* no elements to hash part? */
 		    t.node = new Node[] { dummynode };  /* use common 'dummynode' */
-			lsize = 0;
+		    t.lsizenode = 0;
+		    t.lastfree = int.MinValue/*NULL*/;  /* signal that it is using dummy node */
 		  }
 		  else {
 			int i;
-			lsize = luaO_ceillog2((uint)size);
+			int lsize = luaO_ceillog2((uint)size);
 			if (lsize > MAXHBITS)
 			  luaG_runerror(L, "table overflow");
 			size = (uint)twoto(lsize);
@@ -345,9 +345,21 @@ namespace KopiLua
 			  setnilvalue(wgkey(n));
 			  setnilvalue(gval(n));
 			}
+		    t.lsizenode = cast_byte(lsize);
+		    t.lastfree = (int)size;  /* all positions are free */
 		  }
-		  t.lsizenode = cast_byte(lsize);
-		  t.lastfree = (int)size;  /* all positions are free */
+		}
+
+
+		private class AuxsetnodeT {
+		  public Table t;
+		  public uint nhsize;
+		};
+
+
+		private static void auxsetnode (lua_State L, object ud) {
+		  AuxsetnodeT asn = (AuxsetnodeT)(ud);
+		  setnodevector(L, asn.t, asn.nhsize);
 		}
 
 
@@ -355,14 +367,19 @@ namespace KopiLua
 		                                                       uint nhsize) {
 		  uint i;
 		  int j;
+		  AuxsetnodeT asn = new AuxsetnodeT();
 		  uint oldasize = t.sizearray;
-		  int oldhsize = t.lsizenode;
+		  int oldhsize = allocsizenode(t);
 		  Node[] nold = t.node;  /* save old hash ... */
 //		  Debug.WriteLine("x001=" + nasize + ",x002=" + nhsize);
 		  if (nasize > oldasize)  /* array part must grow? */
 			setarrayvector(L, t, nasize);
 		  /* create new hash part with appropriate size */
-		  setnodevector(L, t, nhsize);
+		  asn.t = t; asn.nhsize = nhsize;
+		  if (luaD_rawrunprotected(L, auxsetnode, asn) != LUA_OK) {  /* mem. error? */
+		    setarrayvector(L, t, oldasize);  /* array back to its original size */
+		    luaD_throw(L, LUA_ERRMEM);  /* rethrow memory error */
+		  }
 		  if (nasize < oldasize) {  /* array part must shrink? */
 			t.sizearray = nasize;
 			/* re-insert elements from vanishing slice */
@@ -374,7 +391,7 @@ namespace KopiLua
 			luaM_reallocvector<TValue>(L, ref t.array, (int)oldasize, (int)nasize/*, TValue*/);
 		  }
 		  /* re-insert elements from hash part */
-		  for (j = twoto(oldhsize) - 1; j >= 0; j--) {
+		  for (j = oldhsize - 1; j >= 0; j--) {
 			Node old = nold[j];
 			if (!ttisnil(gval(old))) {
 		      /* doesn't need barrier/invalidate cache, as entry was
@@ -382,13 +399,13 @@ namespace KopiLua
 			  setobjt2t(L, luaH_set(L, t, gkey(old)), gval(old));
 			}
 		  }
-		  if (!isdummy(nold))
-			luaM_freearray(L, nold/*, cast(size_t, twoto(oldhsize))*/);  /* free old hash */ //FIXME:???, changed
+		  if (oldhsize > 0)  /* not the dummy node? */
+		    luaM_freearray(L, nold);//luaM_freearray(L, nold, (uint)(oldhsize)); /* free old hash */
 		}
 
 
 		public static void luaH_resizearray (lua_State L, Table t, uint nasize) {
-		  int nsize = isdummy(t.node) ? 0 : sizenode(t);
+		  int nsize = allocsizenode(t);
 		  luaH_resize(L, t, nasize, (uint)nsize);
 		}
 
@@ -434,7 +451,7 @@ namespace KopiLua
 
 
 		public static void luaH_free (lua_State L, Table t) {
-		  if (!isdummy(t.node[0])) //FIXME:[0]
+		  if (!isdummy(t))
 			luaM_freearray(L, t.node/*, cast(size_t, sizenode(t))*/); //FIXME:changed
 		  luaM_freearray(L, t.array/*, t.sizearray*/); //FIXME:changed
 		  luaM_free(L, t);
@@ -442,10 +459,12 @@ namespace KopiLua
 
 
 		private static Node getfreepos (Table t) {
-		  while (t.lastfree > 0) { //FIXME:t.lastfree > t.node, notice lastfree point to t.node[0...]
-            t.lastfree--;
-			if (ttisnil(gkey(t.node[t.lastfree])))
-			  return t.node[t.lastfree];
+		  if (!isdummy(t)) {
+		    while (t.lastfree > 0) { //FIXME:t.lastfree > t.node, notice lastfree point to t.node[0...]
+              t.lastfree--;
+			  if (ttisnil(gkey(t.node[t.lastfree])))
+			    return t.node[t.lastfree];
+		    }
 		  }
 		  return null;  /* could not find a free place */
 		}
@@ -465,7 +484,7 @@ namespace KopiLua
 		  if (ttisnil(key)) luaG_runerror(L, "table index is nil");
 		  else if (ttisfloat(key)) {
 		    lua_Integer k = 0;
-		    if (0!=luaV_tointeger(key, ref k, 0)) {  /* index is int? */
+		    if (0!=luaV_tointeger(key, ref k, 0)) {  /* does index fit in an integer? */
 		      setivalue(aux, k);
 		      key = aux;  /* insert it as an integer */
 		    }
@@ -473,7 +492,7 @@ namespace KopiLua
 		      luaG_runerror(L, "table index is NaN");			
 		  }
 		  mp = mainposition(t, key);
-		  if (!ttisnil(gval(mp)) || isdummy(mp)) {  /* main position is taken? */
+		  if (!ttisnil(gval(mp)) || isdummy(t)) {  /* main position is taken? */
 			Node othern;
 			Node f = getfreepos(t);  /* get a free place */
 			if (f == null) {  /* cannot find a free place? */
@@ -481,7 +500,7 @@ namespace KopiLua
 		      /* whatever called 'newkey' takes care of TM cache */
 		      return luaH_set(L, t, key);  /* insert key into grown table */
 			}
-			lua_assert(!isdummy(f));
+     		lua_assert(!isdummy(t));
 			othern = mainposition(t, gkey(mp));
 			if (othern != mp) {  /* is colliding node out of its main position? */
 				//Debug.WriteLine("othern != mp, " + gnext(othern));
@@ -637,27 +656,27 @@ namespace KopiLua
 
 
 
-		public static int unbound_search (Table t, uint j) {
-		  uint i = j;  /* i is zero or a present index */
+		public static lua_Unsigned unbound_search (Table t, lua_Unsigned j) {
+		  lua_Unsigned i = j;  /* i is zero or a present index */
 		  j++;
 		  /* find 'i' and 'j' such that i is present and j is not */
 		  while (!ttisnil(luaH_getint(t, (int)j))) { //FIXME:(int)
 			i = j;
-			if (j > ((uint)(MAX_INT))/2) {  /* overflow? */
+			if (j > l_castS2U(LUA_MAXINTEGER) / 2) {  /* overflow? */
 			  /* table was built with bad purposes: resort to linear search */
 			  i = 1;
 			  while (!ttisnil(luaH_getint(t, (int)i))) i++; //FIXME:(int)
-			  return (int)(i - 1);
+			  return i - 1;
 			}
 			j *= 2;
 		  }
 		  /* now do a binary search between them */
 		  while (j - i > 1) {
-			uint m = (i+j)/2;
+			lua_Unsigned m = (i+j)/2;
 			if (ttisnil(luaH_getint(t, (int)m))) j = m; //FIXME:(int)
 			else i = m;
 		  }
-		  return (int)i;
+		  return i;
 		}
 
 
@@ -665,7 +684,7 @@ namespace KopiLua
 		** Try to find a boundary in table 't'. A 'boundary' is an integer index
 		** such that t[i] is non-nil and t[i+1] is nil (and 0 if t[1] is nil).
 		*/
-		public static int luaH_getn (Table t) {
+		public static lua_Unsigned luaH_getn (Table t) {
 		  uint j = (uint)t.sizearray;
 		  if (j > 0 && ttisnil(t.array[j - 1])) {
 			/* there is a boundary in the array part: (binary) search for it */
@@ -675,11 +694,11 @@ namespace KopiLua
 			  if (ttisnil(t.array[m - 1])) j = m;
 			  else i = m;
 			}
-			return (int)i;
+			return i;
 		  }
 		  /* else must find a boundary in hash part */
-		  else if (isdummy(t.node))  /* hash part is empty? */ //FIXME:[0]
-			return (int)j;  /* that is easy... */
+		  else if (isdummy(t))  /* hash part is empty? */
+			return j;  /* that is easy... */
 		  else return unbound_search(t, j);
 		}
 
@@ -691,7 +710,7 @@ namespace KopiLua
 		//  return mainposition(t, key);
 		//}
 
-		//int luaH_isdummy (Node *n) { return isdummy(n); }
+		//int luaH_isdummy (const Table *t) { return isdummy(t); }
 
 		//#endif
 

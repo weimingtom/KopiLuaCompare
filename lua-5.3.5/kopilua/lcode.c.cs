@@ -1,5 +1,5 @@
 /*
-** $Id: lcode.c,v 2.109 2016/05/13 19:09:21 roberto Exp $
+** $Id: lcode.c,v 2.112.1.1 2017/04/19 17:20:42 roberto Exp $
 ** Code generator for Lua
 ** See Copyright Notice in lua.h
 */
@@ -77,7 +77,7 @@ namespace KopiLua
 		/*
 		** Gets the destination address of a jump instruction. Used to traverse
 		** a list of jumps.
-		*/ 
+		*/
 		private static int getjump (FuncState fs, int pc) {
 		  int offset = GETARG_sBx(fs.f.code[pc]);
 		  if (offset == NO_JUMP)  /* point to itself represents end of list */
@@ -743,7 +743,7 @@ namespace KopiLua
 		** (that is, it is either in a register or in 'k' with an index
 		** in the range of R/K indices).
 		** Returns R/K index.
-		*/  
+		*/
 		public static int luaK_exp2RK (FuncState fs, expdesc e) {
 		  luaK_exp2val(fs, e);
 		  switch (e.k) {  /* move constants to 'k' */
@@ -966,7 +966,8 @@ namespace KopiLua
 		** Try to "constant-fold" an operation; return 1 iff successful.
 		** (In this case, 'e1' has the final result.)
 		*/
-		private static int constfolding (FuncState fs, int op, expdesc e1, expdesc e2) {
+		private static int constfolding (FuncState fs, int op, expdesc e1, 
+		                                                       expdesc e2) {
 		  TValue v1 = new TValue(), v2 = new TValue(), res = new TValue();
 		  if (0==tonumeral(e1, v1) || 0==tonumeral(e2, v2) || 0==validop(op, v1, v2))
 		    return 0;  /* non-numeric operands or not safe to fold */
@@ -1005,11 +1006,14 @@ namespace KopiLua
 		** (everything but logical operators 'and'/'or' and comparison
 		** operators).
 		** Expression to produce final result will be encoded in 'e1'.
+		** Because 'luaK_exp2RK' can free registers, its calls must be
+		** in "stack order" (that is, first on 'e2', which may have more
+		** recent registers to be released).		
 		*/
 		private static void codebinexpval (FuncState fs, OpCode op,
 		                           expdesc e1, expdesc e2, int line) {
-		  int rk1 = luaK_exp2RK(fs, e1);  /* both operands are "RK" */
-		  int rk2 = luaK_exp2RK(fs, e2);
+		  int rk2 = luaK_exp2RK(fs, e2);  /* both operands are "RK" */
+		  int rk1 = luaK_exp2RK(fs, e1);
 		  freeexps(fs, e1, e2);
 		  e1.u.info = luaK_codeABC(fs, op, 0, rk1, rk2);  /* generate opcode */
 		  e1.k = expkind.VRELOCABLE;  /* all those operations are relocatable */
@@ -1047,7 +1051,7 @@ namespace KopiLua
 		}
 
 		
-		private static expdesc luaK_prefix_ef = luaK_prefix_ef_init();  /* fake 2nd operand */
+		private static expdesc luaK_prefix_ef = luaK_prefix_ef_init();
 		private static expdesc luaK_prefix_ef_init() {
 			expdesc result = new expdesc();
 			result.k = expkind.VKINT;
@@ -1060,9 +1064,9 @@ namespace KopiLua
 		** Aplly prefix operation 'op' to expression 'e'.
 		*/
 		public static void luaK_prefix (FuncState fs, UnOpr op, expdesc e, int line) {
-		  //static expdesc ef = {VKINT, {0}, NO_JUMP, NO_JUMP};  /* fake 2nd operand */
+		  //static const expdesc ef = {VKINT, {0}, NO_JUMP, NO_JUMP};
 		  switch (op) {
-		    case UnOpr.OPR_MINUS: case UnOpr.OPR_BNOT:
+		    case UnOpr.OPR_MINUS: case UnOpr.OPR_BNOT:  /* use 'ef' as fake 2nd operand */
 		  	  if (0!=constfolding(fs, (int)op + LUA_OPUNM, e, luaK_prefix_ef))
 		        break;
 		      /* FALLTHROUGH */
