@@ -19,3 +19,23 @@
 检查所有ptr类的值传递
 凡是有inc()操作的形参，都需要重新赋值以保证不会影响实参值，例如CharPtr s = new CharPtr(s)
 不仅仅形参，任何带有inc操作的都需要重新检查是否需要重新new
+---
+15:05 2019/12/17
+fgets有三个参数
+public static CharPtr fgets(CharPtr str, int len, FILEPtr stream)
+...
+if (index >= str.chars.Length || index >= len)
+	break;
+
+---
+15:05 2019/12/17
+重新定义size_t
+using size_t = System.UInt32;
+
+---
+15:07 2019/12/17
+strlen返回uint
+public static uint strlen(CharPtr str)
+{
+	uint index = 0;
+
