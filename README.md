@@ -89,3 +89,8 @@ Lua 5.1.4 performance profile
 ## About SciMark for Lua  
 https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt  
 High score is better  
+
+## Other workspaces  
+* https://github.com/weimingtom/kaleido  
+* https://github.com/weimingtom/kohaku  
+* https://github.com/weimingtom/kirin  
