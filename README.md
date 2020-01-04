@@ -91,9 +91,14 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* (TODO) https://github.com/weimingtom/LuaInterfaceMod  
+Running failed, dll runtime error    
 * https://github.com/weimingtom/kaleido  
+Porting not finished  
 * https://github.com/weimingtom/kohaku  
-* https://github.com/weimingtom/kirin  
+Porting not finished  
+* (TODO) https://github.com/weimingtom/kirin  
+Running failed, runtime error    
 * https://github.com/weimingtom/KuukoBack  
 * https://github.com/weimingtom/Kuuko/blob/master/README2.md  
 * https://github.com/weimingtom/metamorphose  
