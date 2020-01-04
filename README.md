@@ -94,3 +94,7 @@ High score is better
 * https://github.com/weimingtom/kaleido  
 * https://github.com/weimingtom/kohaku  
 * https://github.com/weimingtom/kirin  
+* https://github.com/weimingtom/KuukoBack  
+* https://github.com/weimingtom/Kuuko/blob/master/README2.md  
+* https://github.com/weimingtom/metamorphose  
+* https://github.com/weimingtom/BiljanMod  
