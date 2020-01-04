@@ -98,3 +98,8 @@ High score is better
 * https://github.com/weimingtom/Kuuko/blob/master/README2.md  
 * https://github.com/weimingtom/metamorphose  
 * https://github.com/weimingtom/BiljanMod  
+* https://github.com/weimingtom/sharplua-1  
+* https://github.com/weimingtom/MoonSharpMod  
+* https://github.com/weimingtom/xlua_playground  
+* https://github.com/weimingtom/xlua_mingw  
+* https://github.com/weimingtom/UniLuaMod  
