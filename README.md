@@ -91,6 +91,8 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* https://github.com/weimingtom/mlnandroid  
+Java, Android only, (TODO) migrate to pure java    
 * (TODO) https://github.com/weimingtom/LuaInterfaceMod  
 Running failed, dll runtime error    
 * https://github.com/weimingtom/kaleido  
