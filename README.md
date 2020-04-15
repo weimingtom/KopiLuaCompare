@@ -103,8 +103,6 @@ Porting not finished
 Porting not finished  
 * (TODO) https://github.com/weimingtom/kirin  
 Running failed, runtime error    
-* (TODO) https://github.com/weimingtom/LuaInterfaceMod  
-C# dll  
 * https://github.com/weimingtom/sharpluamod  
 C# dll  
 * https://github.com/weimingtom/KuukoBack  
