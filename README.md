@@ -91,6 +91,8 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* https://github.com/weimingtom/LuaScriptCoreDotnetMod  
+C# dll  
 * https://github.com/weimingtom/luabind_hello  
 c++ (TODO)  
 * https://github.com/weimingtom/xluamod  
