@@ -91,6 +91,8 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* https://github.com/weimingtom/mlnjava  
+Java and VS2013  
 * https://github.com/weimingtom/LuaScriptCoreDotnetMod  
 C# dll  
 * https://github.com/weimingtom/luabind_hello  
@@ -98,7 +100,7 @@ c++ (TODO)
 * https://github.com/weimingtom/xluamod  
 C# dll  
 * https://github.com/weimingtom/mlnandroid  
-Java, Android only, (TODO) migrate to pure java    
+Java, Android only, (TODO) migrate to pure java (done, see mlnjava)      
 * (TODO) https://github.com/weimingtom/LuaInterfaceMod  
 Running failed, dll runtime error    
 * https://github.com/weimingtom/kaleido  
