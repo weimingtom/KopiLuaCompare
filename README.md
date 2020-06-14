@@ -123,4 +123,5 @@ C# dll
 * https://github.com/weimingtom/sena  
 
 ## Other workspaces for Python  
-* see github.com/weimingtom/cecilia  
+* see https://github.com/weimingtom/cecilia  
+
