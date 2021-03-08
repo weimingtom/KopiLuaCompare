@@ -10,6 +10,7 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x and 5.3.x
 ## Status (C -> CSharp)      
 * lua-1.0 (done, since 2017-12-23)  
 * lua-1.1 (done, since 2020-10-17)  
+* lua-2.1 (done, since 2021-03-06)  
 * lua-5.1.4 (done, since 2017-03-04)  
 * lua-5.1.5 (done, since 2017-05-12)  
 * lua-5.2.0-2007 (done, since 2017-05-21)  
