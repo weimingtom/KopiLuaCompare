@@ -141,7 +141,7 @@ namespace KopiLua
 		  	ntemp -= n;
 		}
 	
-		internal static void flush_list(int m, int n)
+		private static void flush_list(int m, int n)
 		{
 		  	if (n == 0)
 				return;
@@ -1119,14 +1119,14 @@ namespace KopiLua
 		//
 		//** static variables used by the parser
 		//
-		internal static YYSTYPE[] yyv; // value stack 
-		internal static int[] yys; // state stack 
+		private static YYSTYPE[] yyv; // value stack 
+		private static int[] yys; // state stack 
 	
-		internal static YYSTYPEPtr yypv; // top of value stack 
-		internal static IntegerPtr yyps; // top of state stack 
+		private static YYSTYPEPtr yypv; // top of value stack 
+		private static IntegerPtr yyps; // top of state stack 
 	
-		internal static int yystate; // current state 
-		internal static int yytmp; // extra var (lasts between blocks) 
+		private static int yystate; // current state 
+		private static int yytmp; // extra var (lasts between blocks) 
 	
 		public static int yynerrs; // number of errors 
 	

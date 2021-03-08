@@ -63,7 +63,7 @@ namespace KopiLua
 	
 		
 		
-		internal static void math_tan ()
+		private static void math_tan ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -76,7 +76,7 @@ namespace KopiLua
 		}
 
 
-		internal static void math_asin ()
+		private static void math_asin ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -89,7 +89,7 @@ namespace KopiLua
 		}
 	
 	
-		internal static void math_acos ()
+		private static void math_acos ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -103,7 +103,7 @@ namespace KopiLua
 
 
 
-		internal static void math_atan ()
+		private static void math_atan ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -116,7 +116,7 @@ namespace KopiLua
 		}
 	
 	
-		internal static void math_ceil ()
+		private static void math_ceil ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -129,7 +129,7 @@ namespace KopiLua
 		}
 	
 	
-		internal static void math_floor ()
+		private static void math_floor ()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam (1);
@@ -141,7 +141,7 @@ namespace KopiLua
 		 	lua_pushnumber ((real)floor(d));
 		}
 	
-		internal static void math_mod()
+		private static void math_mod()
 		{
 		 	int d1, d2;
 		 	lua_Object o1 = lua_getparam(1);
@@ -154,7 +154,7 @@ namespace KopiLua
 		}
 	
 	
-		internal static void math_sqrt()
+		private static void math_sqrt()
 		{
 		 	double d;
 		 	lua_Object o = lua_getparam(1);
@@ -166,7 +166,7 @@ namespace KopiLua
 		 	lua_pushnumber ((real)sqrt(d));
 		}
 	
-		internal static void math_pow()
+		private static void math_pow()
 		{
 		 	double d1, d2;
 		 	lua_Object o1 = lua_getparam(1);
@@ -178,7 +178,7 @@ namespace KopiLua
 		 	lua_pushnumber ((real)pow(d1,d2));
 		}
 	
-		internal static void math_min()
+		private static void math_min()
 		{
 		 	int i=1;
 		 	double d, dmin;
@@ -199,7 +199,7 @@ namespace KopiLua
 		}
 	
 	
-		internal static void math_max()
+		private static void math_max()
 		{
 		 	int i=1;
 		 	double d, dmax;

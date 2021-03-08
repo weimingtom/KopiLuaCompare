@@ -209,7 +209,7 @@ namespace KopiLua
 		** Concatenate two given string, creating a mark space at the beginning.
 		** Return the new string pointer.
 		*/
-		internal static CharPtr lua_strconc(CharPtr l, CharPtr r)
+		private static CharPtr lua_strconc(CharPtr l, CharPtr r)
 		{
 			CharPtr s = (CharPtr)calloc_char (strlen(l)+strlen(r)+2);
 		 	if (s == null)
@@ -241,7 +241,7 @@ namespace KopiLua
 		** Convert, if possible, to a number tag.
 		** Return 0 in success or not 0 on error.
 		*/ 
-		internal static int lua_tonumber(Object_ obj)
+		private static int lua_tonumber(Object_ obj)
 		{
 		 	CharPtr ptr = null;
 		 	if (tag(obj) != Type.T_STRING)
@@ -988,7 +988,7 @@ namespace KopiLua
 		** Given an object handle and a field name, return its field object.
 		** On error, return NULL.
 		*/
-		public static Object lua_getfield(Object_ @object, CharPtr field)
+		public static Object_ lua_getfield(Object_ @object, CharPtr field)
 		{
 		 	if (@object == null) return null;
 		 	if (tag(@object) != Type.T_ARRAY)

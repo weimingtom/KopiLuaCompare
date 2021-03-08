@@ -17,6 +17,10 @@ namespace KopiLua
 	{
 		public static void Main(string[] args)
 		{
+//			if (sizeof(System.UInt16) != 2)
+//			{
+//				Console.WriteLine("WARNING!!! sizeof(WORD) should be 2");
+//			}
 			//Console.WriteLine("Hello World!");
 			
 			// TODO: Implement Functionality Here
