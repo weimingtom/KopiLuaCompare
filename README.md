@@ -130,3 +130,10 @@ C# dll
 ## Other workspaces for Python  
 * see https://github.com/weimingtom/cecilia  
 
+## Other workspaces for Ruby  
+* see https://github.com/weimingtom/eriri  
+
+## Other workspaces for JavaScript and C like  
+* see https://github.com/weimingtom/njs_fork  
+
+
