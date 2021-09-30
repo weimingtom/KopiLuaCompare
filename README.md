@@ -136,4 +136,12 @@ C# dll
 ## Other workspaces for JavaScript and C like  
 * see https://github.com/weimingtom/njs_fork  
 
+## Other workspaces for metamorphose (jill)    
+https://github.com/weimingtom/metamorphose_ts  
+https://github.com/weimingtom/metamorphose  
+https://github.com/weimingtom/metamorphose_csharp  
+https://github.com/weimingtom/metamorphose_js  
+https://github.com/weimingtom/metamorphose_jsweet  
+https://github.com/weimingtom/metamorphose_go  
+
 
