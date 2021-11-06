@@ -144,4 +144,9 @@ https://github.com/weimingtom/metamorphose_js
 https://github.com/weimingtom/metamorphose_jsweet  
 https://github.com/weimingtom/metamorphose_go  
 
+## TODO  
+* https://github.com/TypeScriptToLua/TypeScriptToLua  
+* https://github.com/Roblox/luau  
+target_link_libraries(Luau.Repl.CLI PRIVATE pthread)  
++target_link_libraries(Luau.Repl.CLI PRIVATE atomic)  
 
