@@ -149,7 +149,7 @@ https://github.com/weimingtom/metamorphose_go
 * https://github.com/Roblox/luau  
 target_link_libraries(Luau.Repl.CLI PRIVATE pthread)  
 +target_link_libraries(Luau.Repl.CLI PRIVATE atomic)  
-search baidupan, luau_v1.rar  
+search baidupan, luau_v3_cli.rar  
 * https://github.com/kon9chunkit/GitHub-Chinese-Top-Charts/blob/ac1341847a1d844d682d38fa3645095fd49ec2df/README-Part2.md  
 * https://github.com/oceancx/CXEngine  
 * lua-rs  
