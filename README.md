@@ -64,6 +64,7 @@ Comparation of kopilua and lua, and porting kopilua to lua 5.2.x and 5.3.x
 * https://github.com/lua/lua  
 * https://github.com/gerich-home/kopilua  
 * https://github.com/jintiao/cclua  
+* https://github.com/cogwheel/lua-wow  
 
 ## Related Projects  
 * https://github.com/weimingtom/Kuuko  
