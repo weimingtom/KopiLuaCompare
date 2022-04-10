@@ -131,6 +131,10 @@ C# dll
 * https://github.com/weimingtom/UniLuaMod  
 * https://github.com/weimingtom/sena  
 
+## Other projects for Lua  
+* https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
+* https://github.com/weimingtom/Kuuko/blob/master/README2.md  
+
 ## Other workspaces for Python  
 * see https://github.com/weimingtom/cecilia  
 
