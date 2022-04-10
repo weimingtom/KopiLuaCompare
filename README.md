@@ -97,8 +97,9 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
-* https://github.com/weimingtom/luacheck  
+* luachecker
 yacc, c  
+* https://github.com/weimingtom/luacheck  
 * https://github.com/weimingtom/mlnjava  
 Java and VS2013  
 * https://github.com/weimingtom/LuaScriptCoreDotnetMod  
