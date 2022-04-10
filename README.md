@@ -127,6 +127,7 @@ C# dll
 * https://github.com/weimingtom/xlua_mingw  
 * https://github.com/weimingtom/UniLuaMod  
 * https://github.com/weimingtom/sena  
+* https://github.com/weimingtom/luacheck  
 
 ## Other workspaces for Python  
 * see https://github.com/weimingtom/cecilia  
