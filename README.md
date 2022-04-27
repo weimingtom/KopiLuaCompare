@@ -162,6 +162,9 @@ search baidupan, luau_v3_cli.rar
 ## Other workspaces for yacc  
 * https://github.com/weimingtom/wmt_yacc_study/blob/master/README.md  
 
+## Other workspaces for JVM and other bytecode modern VM  
+* https://github.com/weimingtom/wmt_jvm_study  
+
 ## TODO  
 * https://github.com/TypeScriptToLua/TypeScriptToLua  
 * https://github.com/kon9chunkit/GitHub-Chinese-Top-Charts/blob/ac1341847a1d844d682d38fa3645095fd49ec2df/README-Part2.md  
