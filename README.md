@@ -173,7 +173,7 @@ search baidupan, luau_v3_cli.rar
 https://github.com/lonng/lua-rs  
 * https://github.com/Tencent/LuaHelper  
 
-## Unity console (UConsole port)  
+## Unity console (UConsole port), with old GUI (not uGUI or unity gui)    
 * https://github.com/AustinSmith13/UConsole
 * see vendor/unity/UConsoleTest_v2.7z  
 * see vendor/unity/UConsoleTest_v1.7z  
