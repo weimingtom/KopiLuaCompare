@@ -180,4 +180,4 @@ https://github.com/lonng/lua-rs
 * need define UNITY_5  
 * add ConsoleGui to Camera
 * press KeyCode.BackQuote to show or hide console  
-* testd with unity 2020.1.6 for UConsoleTest_v2.7z  
+* tested with unity 2020.1.6 for UConsoleTest_v2.7z  
