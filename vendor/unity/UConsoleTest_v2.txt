@@ -1,0 +1,4 @@
+1. define: UNITY_5
+2. add ConsoleGui to Camera
+3. press KeyCode.BackQuote
+4. unity 2020.1.6
