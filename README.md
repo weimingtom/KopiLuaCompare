@@ -172,3 +172,12 @@ search baidupan, luau_v3_cli.rar
 * lua-rs  
 https://github.com/lonng/lua-rs  
 * https://github.com/Tencent/LuaHelper  
+
+## Unity console (UConsole port)  
+* https://github.com/AustinSmith13/UConsole
+* see vendor/unity/UConsoleTest_v2.7z  
+* see vendor/unity/UConsoleTest_v1.7z  
+* need define UNITY_5  
+* add ConsoleGui to Camera
+* press KeyCode.BackQuote to show or hide console  
+* testd with unity 2020.1.6 for UConsoleTest_v2.7z  
