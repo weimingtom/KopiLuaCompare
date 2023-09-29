@@ -182,7 +182,7 @@ https://github.com/lonng/lua-rs
 * press KeyCode.BackQuote to show or hide console  
 * tested with unity 2020.1.6 for UConsoleTest_v2.7z  
 
-## ELua  
+## ELua, KopiLuaInterface    
 * https://gitee.com/ximu/ELua  
 * https://github.com/weimingtom/ELua_fork
 * https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
