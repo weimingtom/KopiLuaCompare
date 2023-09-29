@@ -184,4 +184,6 @@ https://github.com/lonng/lua-rs
 
 ## ELua  
 * https://gitee.com/ximu/ELua  
-* https://github.com/weimingtom/ELua_fork  
+* https://github.com/weimingtom/ELua_fork
+* https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
+
