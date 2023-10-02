@@ -187,3 +187,5 @@ https://github.com/lonng/lua-rs
 * https://github.com/weimingtom/ELua_fork
 * https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
 
+## TODO  
+* lua-3.0 mingw version need to port lua.lex file  
