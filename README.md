@@ -188,4 +188,6 @@ https://github.com/lonng/lua-rs
 * https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
 
 ## TODO  
-* lua-3.0 mingw version need to port lua.lex file  
+* lua-3.0 mingw version need to port lua.lex file
+* https://github.com/pangweiwei/slua  
+
