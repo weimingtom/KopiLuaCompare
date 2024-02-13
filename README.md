@@ -191,5 +191,4 @@ https://github.com/lonng/lua-rs
 
 ## TODO  
 * lua-3.0 mingw version need to port lua.lex file
-* https://github.com/pangweiwei/slua  
-
+* (done a little, see sluamod) https://github.com/pangweiwei/slua  
