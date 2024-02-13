@@ -97,6 +97,8 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* https://github.com/weimingtom/sluamod  
+(TODO) C# dll  
 * luachecker
 yacc, c  
 * https://github.com/weimingtom/luacheck  
