@@ -189,6 +189,10 @@ https://github.com/lonng/lua-rs
 * https://github.com/weimingtom/ELua_fork
 * https://github.com/weimingtom/Kuuko/blob/master/lua_hack.md  
 
+## (TODO) BrainDamage-1.2-src  
+* 界面代码（含一个Lua代码编辑器）
+* vc_ui.7z  
+
 ## TODO  
 * lua-3.0 mingw version need to port lua.lex file
 * (done a little, see sluamod) https://github.com/pangweiwei/slua  
