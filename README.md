@@ -97,6 +97,8 @@ https://github.com/weimingtom/KuukoBack/blob/master/SciMark.txt
 High score is better  
 
 ## Other workspaces  
+* https://github.com/weimingtom/konomi  
+(TODO) dart port  
 * https://github.com/weimingtom/LuaDardo_mod  
 (TOOD) dart port  
 * https://github.com/weimingtom/sluamod  
